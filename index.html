@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NIKKE Battle Simulator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Loading overlay -->
+  <div id="loader">
+    <div class="loader-box">
+      <h2>NIKKE Battle Simulator</h2>
+      <p id="loadProgress">Initializing…</p>
+      <div class="loader-bar"><div class="loader-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- Main app -->
+  <div id="app" class="hidden">
+    <header>
+      <h1>NIKKE Battle Simulator</h1>
+      <p class="subtitle">Simulate squad DPS against any enemy configuration</p>
+    </header>
+
+    <main>
+      <div id="squadBuilder"></div>
+      <div id="results"></div>
+    </main>
+
+    <footer>
+      <p>
+        Data sourced from sg-tools-cdn.blablalink.com ·
+        Damage formula from community research ·
+        <a href="ARCHITECTURE.md" target="_blank">Architecture</a>
+      </p>
+    </footer>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

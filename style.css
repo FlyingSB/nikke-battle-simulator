@@ -1,0 +1,175 @@
+/* NIKKE Battle Simulator — Dark theme */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0d0f14;
+  --surface:  #161a23;
+  --border:   #2a2f3d;
+  --accent:   #4fa3e0;
+  --accent2:  #e05c4f;
+  --text:     #d4dbe8;
+  --text-dim: #7a8498;
+  --victory:  #2ecc71;
+  --defeat:   #e74c3c;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── Loader ─────────────────────────────────────────────── */
+#loader {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.loader-box {
+  text-align: center; padding: 2rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; max-width: 400px; width: 90%;
+}
+.loader-box h2 { color: var(--accent); margin-bottom: 1rem; }
+.loader-box p  { color: var(--text-dim); margin-bottom: 1rem; }
+.loader-bar {
+  height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+}
+.loader-fill {
+  height: 100%; width: 60%;
+  background: var(--accent);
+  animation: slide 1.2s ease-in-out infinite alternate;
+}
+@keyframes slide { from { margin-left: -60%; } to { margin-left: 100%; } }
+
+/* ── Layout ─────────────────────────────────────────────── */
+.hidden { display: none !important; }
+
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 1.25rem 2rem;
+}
+header h1 { color: var(--accent); font-size: 1.5rem; }
+header .subtitle { color: var(--text-dim); font-size: 0.85rem; }
+
+main {
+  max-width: 1100px; margin: 0 auto; padding: 1.5rem;
+  display: flex; flex-direction: column; gap: 2rem;
+}
+
+footer {
+  text-align: center; padding: 1rem;
+  color: var(--text-dim); font-size: 0.8rem;
+  border-top: 1px solid var(--border);
+}
+footer a { color: var(--accent); }
+
+/* ── Cards / Sections ──────────────────────────────────── */
+section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; }
+section h2 { font-size: 1rem; color: var(--accent); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+section h3 { font-size: 0.9rem; color: var(--text-dim); margin: 1.25rem 0 0.75rem; }
+
+/* ── Config Grid ─────────────────────────────────────────── */
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+label {
+  display: flex; flex-direction: column; gap: 4px;
+  color: var(--text-dim); font-size: 0.8rem;
+}
+input[type=number], input[type=text], select {
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 8px; font-size: 0.85rem;
+}
+input:focus, select:focus {
+  outline: none; border-color: var(--accent);
+}
+input[type=checkbox] { width: 16px; height: 16px; margin-top: 2px; }
+
+/* ── Squad Slots ─────────────────────────────────────────── */
+.squad-slots { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.slot-card {
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+}
+.slot-header {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,0.03); padding: 0.6rem 1rem;
+}
+.slot-num { font-weight: 600; color: var(--accent); }
+.slot-body { padding: 1rem; }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+button {
+  cursor: pointer; border: none; border-radius: 6px;
+  padding: 6px 14px; font-size: 0.8rem; transition: opacity 0.15s;
+}
+button:hover { opacity: 0.85; }
+
+.btn-toggle-slot { background: var(--border); color: var(--text); }
+.btn-simulate {
+  display: block; width: 100%; margin-top: 1.5rem;
+  padding: 14px; font-size: 1rem; font-weight: 700;
+  background: var(--accent); color: #fff; border-radius: 8px;
+  letter-spacing: 0.05em;
+}
+
+/* ── Results ─────────────────────────────────────────────── */
+.result-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem; margin-bottom: 1rem;
+}
+.stat-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.75rem 1rem;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.stat-card .label { font-size: 0.75rem; color: var(--text-dim); }
+.stat-card .value { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.stat-card.victory { border-color: var(--victory); }
+.stat-card.victory .value { color: var(--victory); }
+.stat-card.defeat  { border-color: var(--defeat); }
+.stat-card.defeat  .value { color: var(--defeat); }
+
+/* ── Unit Table ──────────────────────────────────────────── */
+.unit-table {
+  width: 100%; border-collapse: collapse; font-size: 0.85rem;
+}
+.unit-table th, .unit-table td {
+  padding: 8px 12px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.unit-table th { color: var(--text-dim); font-weight: 600; }
+.unit-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+.share-bar {
+  position: relative; height: 20px; background: var(--border);
+  border-radius: 4px; overflow: hidden; min-width: 80px;
+}
+.share-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--accent); opacity: 0.6;
+  transition: width 0.3s ease;
+}
+.share-bar span {
+  position: relative; z-index: 1; padding-left: 6px;
+  font-size: 0.8rem; line-height: 20px;
+}
+
+/* ── Canvas chart ────────────────────────────────────────── */
+canvas { display: block; max-width: 100%; margin-top: 0.5rem; }
+
+/* ── Misc ────────────────────────────────────────────────── */
+.loading-text { color: var(--text-dim); padding: 2rem; text-align: center; }
+.error { color: var(--defeat); padding: 1rem; }
+
+small { opacity: 0.6; font-size: 0.75em; }
