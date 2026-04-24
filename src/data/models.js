@@ -297,12 +297,16 @@ export function getBaseStats(nikkeData, level) {
  * @property {object|null} burst    原始 ulti_skill_detail CDN 对象
  *
  * 技能值结构（skill1、skill2、burst）：
+ *   group_id                     — 技能组 ID，跨等级稳定；用作 src/data/skill-traits.js 注册表的键
  *   description_localkey         — 带 {description_value_01}、{description_value_02} … 占位符的展示文本
  *   description_value_list[N]    — 第 N 个占位符的数据（0-based；空项表示后续无更多占位符）
  *     .description_value[L]      — 10 元素数组，L = skillLevel - 1（0-based，技能等级 1–10）
  *
  * 使用 getSkillValue(skill, paramIndex, skillLevel) 安全读取值。
  *   例：getSkillValue(nikke.burst, 4, 10) → '2808'，Rapi:RH burst 在技能 lv10 时（2808% ATK）
+ *
+ * 使用 getSkillTraits(skill?.group_id)（src/data/skill-traits.js）查询手写机制属性
+ *   （如 canHitCore、tags），这些属性无法从 CDN 数据推导。
  *
  *   TODO: stat_enhance_detail — grade/core 公式常量（所有 NIKKE 相同；已在 applyGradeCore 中处理）。
  */
