@@ -1,122 +1,241 @@
 /**
- * NIKKE damage formula (community-researched).
+ * NIKKE 伤害公式（已由用户验证）。
  *
- * Sources:
- *   - nikke.gg damage formula guide
- *   - prydwen.gg mechanics breakdown
+ * FinalDamage =
+ *   BaseDamage
+ *   × CommonMultiplier
+ *   × ElementMultiplier        （仅在属性克制时）
+ *   × ChargeDamageMultiplier   （仅 SR / RL / 特殊武器）
+ *   × ExtraMultiplier
+ *   × DamageTakenLikeMultiplier
  *
- * Final Damage =
- *   ATK
- *   × WeaponMultiplier        (base hit % from weapon data)
- *   × SkillMultiplier         (skill scaling %)
- *   × CritMultiplier          (expected or rolled)
- *   × ElementMultiplier       (1.1 if advantage, 0.9 if disadvantage, 1.0 neutral)
- *   × DefenseReduction        (1 - DEF / (DEF + DEF_CONSTANT))
- *   × MiscModifiers           (buffs, debuffs, core damage, etc.)
+ * BaseDamage =
+ *   (ATK × ATK_Multiplier + OtherATKIncrement − EnemyDEF × DEF_Multiplier)
+ *   × (WeaponMultiplier | SkillMultiplier | ProjectileAttachmentDmg | ProjectileExplosionDmg)
+ *
+ * CommonMultiplier = 1
+ *   + (0.50 + critDmgIncrement)   暴击命中
+ *   + (1.00 + coreDmgIncrement)   核心命中
+ *   + 0.30                        距离优势（NEAR：SG/SMG；MID：AR/MG；FAR：SR）
+ *   + 0.50                        Full Burst 生效中
+ *
+ * ElementMultiplier = 0.10 + elementAdvantageDmgIncrement   （仅当攻击方拥有属性克制时）
+ *   Fire > Wind > Iron > Electric > Water > Fire（5 属性循环）
+ *
+ * ChargeDamageMultiplier = (full_charge_damage / 10000) × (1 + favChargeDmgPct) + Σ chargeDmgBonuses
+ *   full_charge_damage 来自 shot_detail（10000 = 基线 ×1.0；SR/RL 数值更高）
+ *   favChargeDmgPct：收藏品 "Charge Damage Multiplier ▲" — 只对 shot_detail.damage 相乘
+ *   chargeDmgBonuses：技能 / 魔方 / 装备的蓄力加成 — 彼此相加
+ *   仅在 SR / RL / 特殊蓄力武器的 isCharged=true 时应用
+ *
+ * ExtraMultiplier = 1 + Σ 生效的加成（见 ExtraFlags）
+ *
+ * DamageTakenLikeMultiplier = 1 + damageTakenMult + distributedDamageMult
+ *
+ * True Damage：将 Enemy DEF 视为 0。
+ *
+ * ── 爆裂能量（通过测试校准） ─────────────────────────────────────────────
+ * 爆裂槽总量                    = 1,000,000
+ * target_burst_energy_pershot  = 每次命中敌人获得的能量
+ * burst_energy_pershot         = 每次命中掩体 / 非主目标获得的能量
+ * 对空射击                      = 0 能量
+ * full_charge_burst_energy     = SR/RL 满蓄力射击的额外爆裂能量（叠加在上述之上）
+ *
+ * ── 射速（通过测试校准） ───────────────────────────────────────────────
+ * rate_of_fire 单位 = 每分钟发射数（RPM）
+ * MG 起速：起始为 rate_of_fire RPM，每发增加 rate_of_fire_change_pershot，
+ *         上限为 end_rate_of_fire RPM
+ * 例如 Rapi Red Hood：60→4200 RPM 需 42 发 ≈ 3.17 秒
  */
 
-// ─── Constants ────────────────────────────────────────────────────────────
+import {
+  ELEMENT_ADVANTAGE_BASE,
+  DISTANCE_ZONES,
+  DISTANCE_ADVANTAGE_BONUS,
+  FULL_BURST_BONUS,
+  BASE_CRIT_DAMAGE,
+  BASE_CORE_DAMAGE,
+  CHARGE_DAMAGE_BASE,
+} from './constants.js';
 
-/**
- * Defense mitigation constant.
- * Community formula: mitigation = DEF / (DEF + 2 * BASE_ATK_AT_LEVEL)
- * Approximated here as a fixed constant tuned to mid-game values.
- * TODO: verify from data mining — likely scales with content level.
- */
-const DEF_CONSTANT = 2000;
+// ─── 属性克制表 ────────────────────────────────────────────────────────────
 
-/** Element advantage/disadvantage multipliers */
-const ELEMENT_MULT = 1.1;
-const ELEMENT_WEAK = 0.9;
-
-/**
- * Element advantage table.
- * Key beats value.
- *   Fire > Wind > Electric > Water > Fire  (cycle)
- *   Iron: neutral against all
- */
+/** key 克制 value。循环：Fire > Wind > Iron > Electric > Water > Fire */
 const ELEMENT_CHART = {
   Fire:     'Wind',
-  Wind:     'Electric',
+  Wind:     'Iron',
+  Iron:     'Electric',
   Electric: 'Water',
   Water:    'Fire',
 };
 
-// Weapon base multipliers (% of ATK per shot, from character data)
-// These are approximate — character detail JSON has exact values.
-const WEAPON_MULTIPLIERS = {
-  AR:  2.88,
-  SMG: 1.12,
-  SR:  10.50,
-  MG:  0.86,
-  SG:  0.63,   // per pellet
-  RL:  12.00,
-};
 
-// ─── Public API ───────────────────────────────────────────────────────────
+// ─── 类型定义 ────────────────────────────────────────────────────────────────
 
 /**
+ * @typedef {'NEAR'|'MID'|'FAR'|null} DistanceZone
+ *
+ * @typedef {Object} ExtraFlags
+ * @property {number} [attackDamageMult]
+ * @property {number} [projectileAttachmentDamageMult]
+ * @property {number} [projectileExplosionDamageMult]
+ * @property {number} [pierceDamageMult]           仅穿透命中适用
+ * @property {number} [damageToPartsMult]          仅命中敌人部件适用
+ * @property {number} [sequentialAttackDamageMult] 仅连续攻击适用
+ * @property {number} [affectsAllEnemiesDamageMult]
+ * @property {number} [affects1EnemyDamageMult]
+ * @property {number} [sustainedDamageMult]        仅持续（DoT）伤害适用
+ * @property {number} [trueDamageMult]             仅真实伤害适用
+ * @property {number} [damageDealtToShieldMult]    仅对护盾适用
+ * @property {number} [damageToProjectilesMult]    仅对子弹适用
+ *
  * @typedef {Object} DamageInput
- * @property {number} atk               attacker's final ATK stat
- * @property {number} def               defender's DEF stat
- * @property {number} critRate          0.0 – 1.0
- * @property {number} critDmg           additive e.g. 0.5 = 150% total
- * @property {string} attackerElement
- * @property {string} defenderElement
- * @property {string} weaponType        AR | SMG | SR | MG | SG | RL
- * @property {number} skillMultiplier   e.g. 5.57 means 557%
- * @property {number} [miscMult]        product of all other multipliers
- * @property {boolean} [rolledCrit]     if true, apply full crit; if false no crit
- *                                      if undefined, use expected crit (for avg DPS)
+ * @property {number}        atk                   施放者的最终基础 ATK
+ * @property {number}        [atkMultiplier=1]      来自 buff 的 ATK% 倍率
+ * @property {number}        [otherAtkIncrement=0]  在 atkMultiplier 之后叠加的固定 ATK。
+ *                                                  调用前需先行计算，例如：
+ *                                                  技能 "ATK +35% of caster's ATK"
+ *                                                  → otherAtkIncrement = buffCaster.atk × 0.35
+ *                                                  （使用施放者的 ATK，不是伤害制造者的）
+ * @property {number}        enemyDef              敌人的基础 DEF
+ * @property {number}        [defMultiplier=1]      DEF% 倍率（debuff 会减少此值）
+ * @property {number}        hitMultiplier         武器命中% 或 技能% 或 子弹伤害值
+ * @property {string}        weaponType            AR | SMG | SR | MG | SG | RL
+ * @property {boolean}       [isCrit=false]
+ * @property {number}        [critDmgIncrement=0]  在基础 50% 暴击伤害之上的附加值
+ * @property {boolean}       [isCore=false]
+ * @property {number}        [coreDmgIncrement=0]  在基础 100% 核心伤害之上的附加值
+ * @property {DistanceZone}  [distanceZone=null]   武器当前的有效射程区间
+ * @property {boolean}       [isFullBurst=false]
+ * @property {string}        [attackerElement]
+ * @property {string}        [defenderElement]
+ * @property {number}        [elementAdvantageDmgIncrement=0]
+ * @property {boolean}       [isCharged=false]       SR / RL / 特殊蓄力射击
+ * @property {number}        [fullChargeDamage=10000] shot_detail.full_charge_damage（10000=×1.0）
+ * @property {number}        [favChargeDmgPct=0]     收藏品 "Charge Damage Multiplier ▲" — 仅对
+ *   shot_detail.damage 相乘：chargeMult = (fullCharge/10000)×(1+fav) + otherBonuses
+ * @property {number}        [chargeDmgStat=1]       装备 / 技能 / 魔方带来的蓄力伤害加成（不含收藏品）。
+ *   以 (1 + stats.chargeDmgPct + sums.chargeDamagePct) 形式传入。
+ * @property {number}        [favNormalAttackDamageMult=1]  收藏品 "Normal Attack Damage Multiplier ▲"
+ *   适用于 SMG/SG — 独立倍率，直接乘在 baseDamage 上（与 ExtraMultiplier 不是加法关系）。
+ * @property {ExtraFlags}    [extra]
+ * @property {number}        [damageTakenMult=0]   来自敌方 debuff
+ * @property {number}        [distributedDamageMult=0]
+ * @property {boolean}       [isTrueDamage=false]  完全忽略 DEF
  */
 
+// ─── 主计算函数 ──────────────────────────────────────────────────────────
+
 /**
- * Calculate damage for one hit.
+ * 计算一次命中的伤害。
  * @param {DamageInput} input
- * @returns {{ damage: number, isCrit: boolean }}
+ * @returns {{ damage: number, breakdown: Object }}
  */
 export function calcDamage(input) {
   const {
     atk,
-    def,
-    critRate,
-    critDmg,
+    atkMultiplier       = 1,
+    otherAtkIncrement   = 0,
+    enemyDef,
+    defMultiplier       = 1,
+    hitMultiplier,
+    weaponType          = 'AR',
+    isCrit              = false,
+    critDmgIncrement    = 0,
+    isCore              = false,
+    coreDmgIncrement    = 0,
+    distanceZone        = null,
+    isFullBurst         = false,
     attackerElement,
     defenderElement,
-    weaponType = 'AR',
-    skillMultiplier = 1.0,
-    miscMult = 1.0,
-    rolledCrit,
+    elementAdvantageDmgIncrement = 0,
+    isCharged           = false,
+    fullChargeDamage    = 10000,
+    favChargeDmgPct     = 0,
+    chargeDmgStat       = 1,
+    favNormalAttackDamageMult = 1,
+    extra               = {},
+    damageTakenMult     = 0,
+    distributedDamageMult = 0,
+    isTrueDamage        = false,
   } = input;
 
-  const weapMult = WEAPON_MULTIPLIERS[weaponType] ?? WEAPON_MULTIPLIERS.AR;
+  // ── BaseDamage ──
+  const effectiveDef = isTrueDamage ? 0 : enemyDef * defMultiplier;
+  const effectiveAtk = atk * atkMultiplier + otherAtkIncrement - effectiveDef;
+  const baseDamage   = Math.max(0, effectiveAtk) * hitMultiplier * favNormalAttackDamageMult;
 
-  // Crit
-  let isCrit = false;
-  let critMult;
-  if (rolledCrit === undefined) {
-    // Expected value mode (no RNG)
-    critMult = 1 + critRate * critDmg;
-  } else {
-    isCrit = rolledCrit;
-    critMult = isCrit ? (1 + critDmg) : 1.0;
-  }
+  // ── CommonMultiplier ──
+  let commonMult = 1;
+  if (isCrit)         commonMult += BASE_CRIT_DAMAGE + critDmgIncrement;
+  if (isCore)         commonMult += BASE_CORE_DAMAGE + coreDmgIncrement;
+  if (distanceZone && hasDistanceAdvantage(weaponType, distanceZone)) commonMult += DISTANCE_ADVANTAGE_BONUS;
+  if (isFullBurst)    commonMult += FULL_BURST_BONUS;
 
-  // Defense reduction
-  const defReduction = 1 - def / (def + DEF_CONSTANT);
+  // ── ElementMultiplier ──
+  const hasElemAdv = attackerElement && ELEMENT_CHART[attackerElement] === defenderElement;
+  const elemMult   = hasElemAdv ? (1 + ELEMENT_ADVANTAGE_BASE + elementAdvantageDmgIncrement) : 1.0;
 
-  // Element
-  const elemMult = getElementMultiplier(attackerElement, defenderElement);
+  // ── ChargeDamageMultiplier ──
+  const canCharge    = ['SR', 'RL'].includes(weaponType);
+  // favChargeDmgPct 只与 shot_detail.damage 相乘；其他蓄力加成均为加法。
+  // chargeDmgStat 传入形式为 (1 + 装备/技能/魔方加成)，因此 (chargeDmgStat - 1) 即为纯加成部分。
+  const chargeMult   = (canCharge && isCharged)
+    ? (fullChargeDamage / CHARGE_DAMAGE_BASE) * (1 + favChargeDmgPct) + (chargeDmgStat - 1)
+    : 1.0;
 
+  // ── ExtraMultiplier ──
+  const extraMult = 1 + sumExtra(extra, input);
+
+  // ── DamageTakenLikeMultiplier ──
+  const damageTakenMult_ = 1 + damageTakenMult + distributedDamageMult;
+
+  // ── Final ──
   const damage = Math.floor(
-    atk * weapMult * skillMultiplier * critMult * elemMult * defReduction * miscMult
+    baseDamage * commonMult * elemMult * chargeMult * extraMult * damageTakenMult_
   );
 
-  return { damage, isCrit };
+  return {
+    damage,
+    breakdown: { baseDamage, commonMult, elemMult, chargeMult, extraMult, damageTakenMult_ },
+  };
+}
+
+// ─── 辅助函数 ──────────────────────────────────────────────────────────────
+
+/** @param {string} weaponType @param {DistanceZone} zone */
+export function hasDistanceAdvantage(weaponType, zone) {
+  return DISTANCE_ZONES[zone]?.includes(weaponType) ?? false;
+}
+
+/** @param {string} attackerElem @param {string} defenderElem */
+export function getElementAdvantage(attackerElem, defenderElem) {
+  return ELEMENT_CHART[attackerElem] === defenderElem ? 'advantage' : 'neutral';
+}
+
+/** 汇总所有适用的 ExtraMultiplier 加成。 */
+function sumExtra(extra, input) {
+  let sum = extra.attackDamageMult ?? 0;
+
+  // 子弹类型（每次命中通常只适用其中一种）
+  sum += extra.projectileAttachmentDamageMult ?? 0;
+  sum += extra.projectileExplosionDamageMult  ?? 0;
+
+  sum += extra.pierceDamageMult              ?? 0;
+  sum += extra.damageToPartsMult             ?? 0;
+  sum += extra.sequentialAttackDamageMult    ?? 0;
+  sum += extra.affectsAllEnemiesDamageMult   ?? 0;
+  sum += extra.affects1EnemyDamageMult       ?? 0;
+  sum += extra.sustainedDamageMult           ?? 0;
+  sum += extra.trueDamageMult                ?? 0;
+  sum += extra.damageDealtToShieldMult       ?? 0;
+  sum += extra.damageToProjectilesMult       ?? 0;
+
+  return sum;
 }
 
 /**
- * Roll a crit result based on crit rate.
+ * 掷一次暴击结果。
  * @param {number} critRate 0.0 – 1.0
  * @returns {boolean}
  */
@@ -125,29 +244,13 @@ export function rollCrit(critRate) {
 }
 
 /**
- * Calculate expected (average) DPS over one magazine.
- * @param {DamageInput} input
- * @param {number} maxAmmo
- * @param {number} attackSpeed   shots per second
- * @returns {{ dps: number, dmgPerMag: number }}
+ * 将暴击视为概率事件，计算期望（平均）伤害。
+ * @param {DamageInput} input  — isCrit 被忽略；改用 critRate
+ * @param {number} critRate    0.0 – 1.0
+ * @returns {number} 每次命中的期望伤害
  */
-export function calcExpectedDPS(input, maxAmmo, attackSpeed) {
-  const { damage } = calcDamage({ ...input, rolledCrit: undefined });
-  const dmgPerMag = damage * maxAmmo;
-  const dps = damage * attackSpeed;
-  return { dps, dmgPerMag };
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-export function getElementMultiplier(attackerElem, defenderElem) {
-  if (ELEMENT_CHART[attackerElem] === defenderElem) return ELEMENT_MULT;
-  if (ELEMENT_CHART[defenderElem] === attackerElem) return ELEMENT_WEAK;
-  return 1.0;
-}
-
-export function getElementAdvantage(attackerElem, defenderElem) {
-  if (ELEMENT_CHART[attackerElem] === defenderElem) return 'advantage';
-  if (ELEMENT_CHART[defenderElem] === attackerElem) return 'disadvantage';
-  return 'neutral';
+export function calcExpectedDamage(input, critRate) {
+  const { damage: noCrit  } = calcDamage({ ...input, isCrit: false });
+  const { damage: yesCrit } = calcDamage({ ...input, isCrit: true  });
+  return Math.floor(noCrit * (1 - critRate) + yesCrit * critRate);
 }
