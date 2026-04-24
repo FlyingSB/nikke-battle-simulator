@@ -3,15 +3,20 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:       #0d0f14;
-  --surface:  #161a23;
-  --border:   #2a2f3d;
-  --accent:   #4fa3e0;
-  --accent2:  #e05c4f;
-  --text:     #d4dbe8;
-  --text-dim: #7a8498;
-  --victory:  #2ecc71;
-  --defeat:   #e74c3c;
+  --bg:        #0d0f14;
+  --surface:   #161a23;
+  --surface2:  #1c2130;
+  --border:    #2a2f3d;
+  --accent:    #4fa3e0;
+  --accent2:   #e05c4f;
+  --accent3:   #f0a500;
+  --text:      #d4dbe8;
+  --text-dim:  #7a8498;
+  --success:   #2ecc71;
+  --error:     #e74c3c;
+  --front-col: #4fa3e0;
+  --back-col:  #9b59b6;
+  --font-data: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
 }
 
 body {
@@ -22,7 +27,7 @@ body {
   line-height: 1.5;
 }
 
-/* ── Loader ─────────────────────────────────────────────── */
+/* ── Loader ───────────────────────────────────────────────── */
 #loader {
   position: fixed; inset: 0;
   background: var(--bg);
@@ -36,9 +41,7 @@ body {
 }
 .loader-box h2 { color: var(--accent); margin-bottom: 1rem; }
 .loader-box p  { color: var(--text-dim); margin-bottom: 1rem; }
-.loader-bar {
-  height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
-}
+.loader-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
 .loader-fill {
   height: 100%; width: 60%;
   background: var(--accent);
@@ -46,7 +49,7 @@ body {
 }
 @keyframes slide { from { margin-left: -60%; } to { margin-left: 100%; } }
 
-/* ── Layout ─────────────────────────────────────────────── */
+/* ── Layout ───────────────────────────────────────────────── */
 .hidden { display: none !important; }
 
 header {
@@ -58,8 +61,8 @@ header h1 { color: var(--accent); font-size: 1.5rem; }
 header .subtitle { color: var(--text-dim); font-size: 0.85rem; }
 
 main {
-  max-width: 1100px; margin: 0 auto; padding: 1.5rem;
-  display: flex; flex-direction: column; gap: 2rem;
+  max-width: 1400px; margin: 0 auto; padding: 1.5rem;
+  display: flex; flex-direction: column; gap: 1.5rem;
 }
 
 footer {
@@ -69,60 +72,172 @@ footer {
 }
 footer a { color: var(--accent); }
 
-/* ── Cards / Sections ──────────────────────────────────── */
-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; }
-section h2 { font-size: 1rem; color: var(--accent); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
-section h3 { font-size: 0.9rem; color: var(--text-dim); margin: 1.25rem 0 0.75rem; }
+/* ── Sections ─────────────────────────────────────────────── */
+section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+section h2 {
+  font-size: 1rem; color: var(--accent);
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+h3 { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.6rem; font-weight: 600; }
+h4 { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.5rem; font-weight: 600; }
 
-/* ── Config Grid ─────────────────────────────────────────── */
-.config-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 0.75rem;
-}
+/* ── Form Controls ────────────────────────────────────────── */
 label {
-  display: flex; flex-direction: column; gap: 4px;
-  color: var(--text-dim); font-size: 0.8rem;
+  display: flex; flex-direction: column; gap: 3px;
+  color: var(--text-dim); font-size: 0.78rem;
 }
+label small { color: var(--text-dim); font-size: 0.72rem; }
+
 input[type=number], input[type=text], select {
   background: var(--bg); color: var(--text);
   border: 1px solid var(--border); border-radius: 6px;
-  padding: 6px 8px; font-size: 0.85rem;
+  padding: 5px 8px; font-size: 0.82rem;
+  width: 100%;
 }
-input:focus, select:focus {
-  outline: none; border-color: var(--accent);
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+
+.row-inputs {
+  display: flex; flex-wrap: wrap; gap: 0.6rem;
 }
-input[type=checkbox] { width: 16px; height: 16px; margin-top: 2px; }
+.row-inputs > label { flex: 1 1 120px; }
+.full-width { width: 100%; }
 
-/* ── Squad Slots ─────────────────────────────────────────── */
-.squad-slots { display: flex; flex-direction: column; gap: 0.75rem; }
+/* ── Global Panel ─────────────────────────────────────────── */
+.global-panel {}
+.global-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+.global-col {}
 
+/* ── Team Panel ───────────────────────────────────────────── */
+.team-panel {}
+.team-slots {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.75rem;
+  overflow-x: auto;
+}
+@media (max-width: 900px) {
+  .team-slots { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+}
+
+/* ── Slot Cards ───────────────────────────────────────────── */
 .slot-card {
-  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 220px;
 }
 .slot-header {
   display: flex; align-items: center; justify-content: space-between;
-  background: rgba(255,255,255,0.03); padding: 0.6rem 1rem;
+  background: var(--surface2);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
 }
-.slot-num { font-weight: 600; color: var(--accent); }
-.slot-body { padding: 1rem; }
+.slot-label { font-weight: 600; font-size: 0.85rem; color: var(--text); }
+.slot-pos {
+  font-size: 0.7rem; font-weight: 700; padding: 1px 6px;
+  border-radius: 4px; margin-left: 6px;
+  letter-spacing: 0.04em;
+}
+.slot-pos.front { background: rgba(79,163,224,0.15); color: var(--front-col); }
+.slot-pos.back  { background: rgba(155,89,182,0.15); color: var(--back-col); }
 
-/* ── Buttons ─────────────────────────────────────────────── */
+.slot-body { padding: 0.75rem; }
+.slot-inner { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* Sub-sections within a slot */
+.sub-section {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+}
+
+/* ── NIKKE Meta Tags ──────────────────────────────────────── */
+.nikke-meta { display: flex; flex-wrap: wrap; gap: 4px; min-height: 20px; }
+.tag {
+  display: inline-block;
+  font-size: 0.7rem; font-weight: 600;
+  padding: 2px 7px; border-radius: 10px;
+  background: rgba(79,163,224,0.12);
+  color: var(--accent);
+  border: 1px solid rgba(79,163,224,0.25);
+}
+.tag.success { background: rgba(46,204,113,0.12); color: var(--success); border-color: rgba(46,204,113,0.3); }
+.tag.error   { background: rgba(231,76,60,0.12);  color: var(--error);   border-color: rgba(231,76,60,0.3);  }
+.tag.dim     { background: rgba(255,255,255,0.05); color: var(--text-dim); border-color: var(--border); }
+
+/* ── Buttons ──────────────────────────────────────────────── */
 button {
   cursor: pointer; border: none; border-radius: 6px;
-  padding: 6px 14px; font-size: 0.8rem; transition: opacity 0.15s;
+  padding: 5px 12px; font-size: 0.78rem; transition: opacity 0.15s;
+  font-family: inherit;
 }
-button:hover { opacity: 0.85; }
+button:hover { opacity: 0.82; }
 
-.btn-toggle-slot { background: var(--border); color: var(--text); }
+.btn-toggle-slot { background: var(--border); color: var(--text); white-space: nowrap; }
+
+/* Grade buttons */
+.grade-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.grade-btn {
+  flex: 1; background: var(--bg); color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 5px;
+  padding: 4px 6px; font-size: 0.72rem;
+}
+.grade-btn.active {
+  background: rgba(79,163,224,0.15);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Simulate button — sticky so it's always reachable without scrolling */
 .btn-simulate {
-  display: block; width: 100%; margin-top: 1.5rem;
-  padding: 14px; font-size: 1rem; font-weight: 700;
+  display: block; width: 100%; margin-top: 1rem;
+  padding: 13px; font-size: 1rem; font-weight: 700;
   background: var(--accent); color: #fff; border-radius: 8px;
   letter-spacing: 0.05em;
+  position: sticky; bottom: 1rem; z-index: 10;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
-/* ── Results ─────────────────────────────────────────────── */
+/* ── Equipment Rows ───────────────────────────────────────── */
+.equip-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  flex-wrap: wrap;
+}
+.equip-row:last-child { border-bottom: none; }
+.equip-label {
+  font-size: 0.72rem; color: var(--text-dim);
+  min-width: 36px; font-weight: 600;
+}
+.equip-row select {
+  flex: 1; min-width: 70px; padding: 3px 6px; font-size: 0.72rem;
+}
+.option-toggles { display: flex; gap: 6px; align-items: center; }
+.opt-toggle {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 0.68rem; color: var(--text-dim);
+  cursor: pointer; flex-direction: row;
+}
+
+/* ── Enemy / Sim Panels ───────────────────────────────────── */
+.enemy-panel .row-inputs > label { flex: 1 1 150px; }
+.sim-panel .row-inputs > label { flex: 1 1 180px; }
+
+/* ── Results ──────────────────────────────────────────────── */
 .result-summary {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -134,20 +249,18 @@ button:hover { opacity: 0.85; }
   display: flex; flex-direction: column; gap: 4px;
 }
 .stat-card .label { font-size: 0.75rem; color: var(--text-dim); }
-.stat-card .value { font-size: 1.1rem; font-weight: 700; color: var(--text); }
-.stat-card.victory { border-color: var(--victory); }
-.stat-card.victory .value { color: var(--victory); }
-.stat-card.defeat  { border-color: var(--defeat); }
-.stat-card.defeat  .value { color: var(--defeat); }
+.stat-card .value { font-size: 1.1rem; font-weight: 700; color: var(--text); font-family: var(--font-data); }
+.stat-card.victory { border-color: var(--success); }
+.stat-card.victory .value { color: var(--success); }
+.stat-card.defeat  { border-color: var(--error); }
+.stat-card.defeat  .value { color: var(--error); }
 
-/* ── Unit Table ──────────────────────────────────────────── */
-.unit-table {
-  width: 100%; border-collapse: collapse; font-size: 0.85rem;
-}
+.unit-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .unit-table th, .unit-table td {
   padding: 8px 12px; text-align: left;
   border-bottom: 1px solid var(--border);
 }
+.unit-table td { font-family: var(--font-data); font-size: 0.82rem; }
 .unit-table th { color: var(--text-dim); font-weight: 600; }
 .unit-table tr:hover td { background: rgba(255,255,255,0.02); }
 
@@ -165,11 +278,46 @@ button:hover { opacity: 0.85; }
   font-size: 0.8rem; line-height: 20px;
 }
 
-/* ── Canvas chart ────────────────────────────────────────── */
+/* ── Enemy panel extras ───────────────────────────────────── */
+.enemy-core-label {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px !important;
+  flex-wrap: wrap;
+}
+.enemy-core-label small { opacity: 0.65; }
+
+/* ── Battle Log ───────────────────────────────────────────── */
+.battle-log {
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem;
+  font-family: var(--font-data);
+  font-size: 0.78rem;
+  margin-top: 0.5rem;
+}
+.log-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3px 4px;
+  border-radius: 3px;
+}
+.log-row:hover { background: rgba(255,255,255,0.03); }
+.log-time  { color: var(--text-dim); min-width: 48px; }
+.log-desc  { color: var(--text); }
+
+.log-burst-i    .log-desc { color: #5dade2; }
+.log-burst-ii   .log-desc { color: #76d7c4; }
+.log-full-burst .log-desc { color: var(--accent3); font-weight: 700; }
+.log-burst-end  .log-desc { color: var(--text-dim); }
+
+/* ── Misc ─────────────────────────────────────────────────── */
 canvas { display: block; max-width: 100%; margin-top: 0.5rem; }
-
-/* ── Misc ────────────────────────────────────────────────── */
 .loading-text { color: var(--text-dim); padding: 2rem; text-align: center; }
-.error { color: var(--defeat); padding: 1rem; }
-
-small { opacity: 0.6; font-size: 0.75em; }
+.error        { color: var(--error); padding: 1rem; }
+small         { opacity: 0.65; font-size: 0.72em; }
+.cube-status  { margin-top: 4px; min-height: 18px; }

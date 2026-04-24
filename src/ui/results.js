@@ -1,6 +1,8 @@
 /**
- * Results view — renders BattleResult from battle engine.
+ * 结果视图 — 渲染战斗引擎返回的 BattleResult。
  */
+
+const TICK_RATE = 60;
 
 /**
  * @param {HTMLElement} container
@@ -12,58 +14,61 @@ export function renderResults(container, result) {
 }
 
 function buildHTML(r) {
-  const isAveraged = r.iterations > 1;
-  const winLabel = isAveraged
-    ? `Win rate: ${(r.winRate * 100).toFixed(1)}%`
-    : (r.victory ? '✓ Victory' : '✗ Defeat');
+  const isAveraged = (r.iterations ?? 1) > 1;
+  const timeStr    = formatDuration(r.timeSeconds);
+  const dpsStr     = formatNumber(r.dps);
+  const dmgStr     = formatNumber(r.totalDamage);
+  const hpPct      = r.enemyMaxHp
+    ? (r.enemyHpLeft / (r.enemyMaxHp ?? (r.enemyHpLeft + r.totalDamage)) * 100).toFixed(1)
+    : '0.0';
 
-  const timeStr = r.timeSeconds.toFixed(2) + 's';
-  const dpsStr  = formatNumber(r.dps);
-  const dmgStr  = formatNumber(r.totalDamage);
-  const hpPct   = ((r.enemyHpLeft / (r.enemyHpLeft + r.totalDamage)) * 100).toFixed(1);
+  const outcomeLabel = isAveraged
+    ? `胜率 ${(r.winRate * 100).toFixed(1)}%`
+    : (r.victory ? '胜利' : `剩余 HP ${hpPct}%`);
+  const outcomeClass = r.victory ? 'victory' : 'defeat';
 
   return `
 <section class="results">
-  <h2>Results ${isAveraged ? `<small>(avg of ${r.iterations} runs)</small>` : ''}</h2>
+  <h2>结果 ${isAveraged ? `<small>（${r.iterations} 次运行平均）</small>` : ''}</h2>
 
   <div class="result-summary">
-    <div class="stat-card ${r.victory ? 'victory' : 'defeat'}">
-      <span class="label">Outcome</span>
-      <span class="value">${winLabel}</span>
+    <div class="stat-card ${outcomeClass}">
+      <span class="label">结果</span>
+      <span class="value">${outcomeLabel}</span>
     </div>
     <div class="stat-card">
-      <span class="label">Time to Kill</span>
+      <span class="label">${r.victory ? '击杀用时' : '战斗时长'}</span>
       <span class="value">${timeStr}</span>
     </div>
     <div class="stat-card">
-      <span class="label">Total DPS</span>
+      <span class="label">队伍 DPS</span>
       <span class="value">${dpsStr}</span>
     </div>
     <div class="stat-card">
-      <span class="label">Total Damage</span>
+      <span class="label">总伤害</span>
       <span class="value">${dmgStr}</span>
     </div>
     <div class="stat-card">
-      <span class="label">Full Bursts</span>
-      <span class="value">${r.burstCount.toFixed(1)}</span>
+      <span class="label">Full Burst 次数</span>
+      <span class="value">${typeof r.burstCount === 'number' ? r.burstCount.toFixed(isAveraged ? 1 : 0) : r.burstCount}</span>
     </div>
-    ${!r.victory ? `
+    ${!r.victory && !isAveraged ? `
     <div class="stat-card defeat">
-      <span class="label">Enemy HP Left</span>
-      <span class="value">${hpPct}%</span>
+      <span class="label">敌人剩余 HP</span>
+      <span class="value">${formatNumber(r.enemyHpLeft)}</span>
     </div>` : ''}
   </div>
 
-  <h3>Unit Breakdown</h3>
+  <h3>每位 NIKKE 造成的伤害</h3>
   <table class="unit-table">
     <thead>
       <tr>
         <th>NIKKE</th>
-        <th>Total Damage</th>
+        <th>伤害</th>
         <th>DPS</th>
-        <th>Share</th>
-        <th>Crit Rate</th>
-        <th>Bursts</th>
+        <th>占比</th>
+        <th>暴击率</th>
+        <th>爆裂次数</th>
       </tr>
     </thead>
     <tbody>
@@ -83,16 +88,54 @@ function buildHTML(r) {
             </div>
           </td>
           <td>${(u.critRate * 100).toFixed(1)}%</td>
-          <td>${u.burstCount.toFixed(1)}</td>
+          <td>${typeof u.burstCount === 'number' ? u.burstCount.toFixed(isAveraged ? 1 : 0) : u.burstCount}</td>
         </tr>`;
       }).join('')}
     </tbody>
   </table>
 
-  <h3>Damage Distribution</h3>
+  <h3>伤害分布</h3>
   <canvas id="dmgChart" width="600" height="220"></canvas>
+
+  ${buildLogHTML(r.log, isAveraged)}
 </section>`;
 }
+
+// ─── 战斗日志 ───────────────────────────────────────────────────────────────
+
+const LOG_LABELS = {
+  burst_i:    { label: 'Burst I',          cls: 'log-burst-i'   },
+  burst_ii:   { label: 'Burst II',         cls: 'log-burst-ii'  },
+  full_burst: { label: '⚡ Full Burst',    cls: 'log-full-burst' },
+  burst_end:  { label: 'Full Burst 结束', cls: 'log-burst-end' },
+};
+
+function buildLogHTML(log, isAveraged) {
+  if (!log || !log.length) {
+    return `
+<h3>战斗日志</h3>
+<p class="loading-text" style="padding:1rem">本次运行未发生爆裂事件。</p>`;
+  }
+
+  const rows = log.map(e => {
+    const meta  = LOG_LABELS[e.type] ?? { label: e.type, cls: '' };
+    const t     = e.tick / TICK_RATE;
+    const mm    = String(Math.floor(t / 60)).padStart(2, '0');
+    const ss    = String(Math.floor(t % 60)).padStart(2, '0');
+    const name  = e.unitName ? ` — ${e.unitName}` : '';
+    return `<div class="log-row ${meta.cls}">
+      <span class="log-time">[${mm}:${ss}]</span>
+      <span class="log-desc">${meta.label}${name}</span>
+    </div>`;
+  }).join('');
+
+  const note = isAveraged ? ' <small>（取自第 1 次运行）</small>' : '';
+  return `
+<h3>战斗日志${note}</h3>
+<div class="battle-log">${rows}</div>`;
+}
+
+// ─── 图表 ────────────────────────────────────────────────────────────────────
 
 function renderDamageChart(container, r) {
   const canvas = container.querySelector('#dmgChart');
@@ -106,21 +149,19 @@ function renderDamageChart(container, r) {
   const units = r.units.filter(u => u.totalDamage > 0);
   if (!units.length) return;
 
-  const maxDmg = Math.max(...units.map(u => u.totalDamage));
-  const barW = (W - padding.left - padding.right) / units.length - 8;
-  const chartH = H - padding.top - padding.bottom;
-
-  const colors = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6'];
+  const maxDmg  = Math.max(...units.map(u => u.totalDamage));
+  const barW    = (W - padding.left - padding.right) / units.length - 8;
+  const chartH  = H - padding.top - padding.bottom;
+  const colors  = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
 
   units.forEach((u, i) => {
     const barH = (u.totalDamage / maxDmg) * chartH;
-    const x = padding.left + i * (barW + 8);
-    const y = padding.top + chartH - barH;
+    const x    = padding.left + i * (barW + 8);
+    const y    = padding.top + chartH - barH;
 
     ctx.fillStyle = colors[i % colors.length];
     ctx.fillRect(x, y, barW, barH);
 
-    // Label
     ctx.fillStyle = '#ccc';
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
@@ -128,7 +169,7 @@ function renderDamageChart(container, r) {
     ctx.fillText(formatNumber(u.totalDamage), x + barW / 2, y - 4);
   });
 
-  // Y axis
+  // Y 轴
   ctx.strokeStyle = '#555';
   ctx.beginPath();
   ctx.moveTo(padding.left, padding.top);
@@ -136,11 +177,17 @@ function renderDamageChart(container, r) {
   ctx.stroke();
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
+// ─── 辅助函数 ──────────────────────────────────────────────────────────────────
 
 function formatNumber(n) {
   if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
   if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
   if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
   return Math.floor(n).toString();
+}
+
+function formatDuration(sec) {
+  const m  = Math.floor(sec / 60);
+  const s  = (sec % 60).toFixed(1);
+  return m > 0 ? `${m}:${s.padStart(4, '0')}` : `${sec.toFixed(1)}s`;
 }

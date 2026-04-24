@@ -1,5 +1,5 @@
 /**
- * NIKKE Battle Simulator — Entry point
+ * NIKKE 战斗模拟器 — 入口
  */
 import { loadAllData } from './data/loader.js';
 import { renderSquadBuilder } from './ui/squad-builder.js';
@@ -14,55 +14,104 @@ const $builder  = document.getElementById('squadBuilder');
 const $results  = document.getElementById('results');
 
 async function init() {
-  showLoader('Loading game data...');
+  showLoader('正在加载游戏数据…');
 
   try {
     await loadAllData((key, done, total) => {
-      $progress.textContent = `Loading ${key}… (${done}/${total})`;
+      $progress.textContent = `正在加载 ${key}…（${done}/${total}）`;
     });
-    $progress.textContent = 'Data loaded ✓';
+    $progress.textContent = '数据加载完成 ✓';
   } catch (err) {
-    $progress.textContent = `⚠ Failed to load some data: ${err.message}. Using fallback.`;
+    $progress.textContent = `⚠ 部分数据加载失败：${err.message}。使用备用数据。`;
   }
 
   hideLoader();
   renderSquadBuilder($builder, onSimulate);
 }
 
-function onSimulate(config) {
-  if (!config.squad.length) {
-    alert('Enable at least one NIKKE slot.');
+function onSimulate(state) {
+  const activeSlots = state.team.filter(s => s.active && s.resourceId);
+  if (!activeSlots.length) {
+    alert('请至少启用一个 NIKKE 槽位并选择一个角色。');
     return;
   }
 
-  // Apply stat overrides if user entered manual values
-  const processedSquad = config.squad.map(cfg => {
-    if (cfg._atkOverride || cfg._hpOverride || cfg._defOverride) {
-      cfg._statOverride = {
-        atk: cfg._atkOverride || undefined,
-        hp:  cfg._hpOverride  || undefined,
-        def: cfg._defOverride || undefined,
-      };
-    }
-    return cfg;
-  });
+  const $btn = document.getElementById('btnSimulate');
+  if ($btn) { $btn.disabled = true; $btn.textContent = '运行中…'; }
 
-  const processedConfig = { ...config, squad: processedSquad };
-
-  $results.innerHTML = '<p class="loading-text">Simulating…</p>';
+  $results.innerHTML = '<p class="loading-text">正在模拟…</p>';
   $results.scrollIntoView({ behavior: 'smooth' });
 
-  // Run simulation async to not block UI
+  const research = {
+    general:   state.generalResearch,
+    attacker:  state.classResearch.attacker,
+    defender:  state.classResearch.defender,
+    supporter: state.classResearch.supporter,
+    ...state.corpResearch,
+  };
+
   setTimeout(() => {
     try {
-      const result = config.useMonteCarlo
-        ? simulateMonteCarlo(processedConfig, config.iterations)
-        : simulate(processedConfig);
+      const squadStats = activeSlots.map(slot =>
+        computeFinalStats(slot, state.synchroLevel, research)
+      );
 
-      renderResults($results, result);
+      // 构建战斗引擎配置
+      const config = {
+        squad: activeSlots.map((slot, idx) => ({
+          characterId:    slot.resourceId,
+          name:           slot.name || `NIKKE ${idx+1}`,
+          classType:      slot.classType,
+          element:        slot.element,
+          weaponType:     slot.weaponType,
+          burstStep:      slot.burstStep ?? 'Step3',
+          level:          state.synchroLevel,
+          _computedStats: squadStats[idx],
+          _nikkeData:     slot._nikkeData ?? null,
+        })),
+        enemy:         { maxHp: 10_000_000, def: 500, element: 'Iron', type: 'Normal', hasCore: false, distance: null },
+        useMonteCarlo: true,
+        iterations:    200,
+      };
+
+      // 从 DOM 读取敌人与模拟参数
+      const q = id => $builder.querySelector(id);
+      const enemyHp   = q('#enemyHp');
+      const enemyDef  = q('#enemyDef');
+      const enemyEl   = q('#enemyElement');
+      const enemyTy   = q('#enemyType');
+      const enemyCore = q('#enemyHasCore');
+      const distNear  = q('#distNear');
+      const distMid   = q('#distMid');
+      const distFar   = q('#distFar');
+      const mcCheck   = q('#useMonteCarlo');
+      const iterInp   = q('#iterations');
+      if (enemyHp)   config.enemy.maxHp    = parseInt(enemyHp.value)   || 10_000_000;
+      if (enemyDef)  config.enemy.def       = parseInt(enemyDef.value)  || 500;
+      if (enemyEl)   config.enemy.element   = enemyEl.value  || 'Iron';
+      if (enemyTy)   config.enemy.type      = enemyTy.value  || 'Normal';
+      if (enemyCore) config.enemy.hasCore   = enemyCore.checked;
+      if (distNear || distMid || distFar) {
+        config.enemy.distancePhases = [
+          { zone: 'NEAR', durationS: parseInt(distNear?.value) || 0 },
+          { zone: 'MID',  durationS: parseInt(distMid?.value)  || 0 },
+          { zone: 'FAR',  durationS: parseInt(distFar?.value)  || 0 },
+        ].filter(p => p.durationS > 0);
+        config.enemy.distance = config.enemy.distancePhases[0]?.zone ?? null;
+      }
+      if (mcCheck)   config.useMonteCarlo   = mcCheck.checked;
+      if (iterInp)   config.iterations      = parseInt(iterInp.value)   || 200;
+
+      const result = config.useMonteCarlo
+        ? simulateMonteCarlo(config, config.iterations)
+        : simulate(config);
+
+      renderResults($results, result, squadStats, activeSlots);
     } catch (err) {
-      $results.innerHTML = `<p class="error">Simulation error: ${err.message}</p>`;
+      $results.innerHTML = `<p class="error">模拟出错：${err.message}</p>`;
       console.error(err);
+    } finally {
+      if ($btn) { $btn.disabled = false; $btn.textContent = '▶ 开始模拟'; }
     }
   }, 10);
 }
