@@ -1,0 +1,68 @@
+{
+  "name": "Classic",
+  "description": "Little Mermaid / Crown / Rapi: Red Hood / Scarlet: Black Shadow / Helm",
+  "enemy": { "def": 102.4, "element": "Iron", "hasCore": true, "distance": "NEAR" },
+  "members": [
+    {
+      "resourceId": 513, "name": "Little Mermaid",
+      "classType": "Supporter", "element": "Wind", "weaponType": "SMG",
+      "burstStep": "Step1", "corporation": "PILGRIM",
+      "grade": 3, "core": 0, "bondLevel": 40,
+      "cubeId": 10003, "cubeLevel": 15,
+      "favItemId": 100502, "favLevel": 15,
+      "equipPct": {
+        "elementDmgPct": 0.3871, "atkPct": 0.09, "ammoPct": 1.8214,
+        "hitRatePct": 0.0688, "critRatePct": 0.0528, "defPct": 0.09
+      }
+    },
+    {
+      "resourceId": 330, "name": "Crown",
+      "classType": "Defender", "element": "Iron", "weaponType": "MG",
+      "burstStep": "Step2", "corporation": "PILGRIM",
+      "grade": 3, "core": 1, "bondLevel": 40,
+      "cubeId": 10004, "cubeLevel": 15,
+      "favItemId": 100202, "favLevel": 15,
+      "equipPct": {
+        "elementDmgPct": 0.1655, "atkPct": 0.2151, "ammoPct": 1.1321,
+        "chargeSpeedPct": 0.0925, "critRatePct": 0.0571, "critDmgPct": 0.27
+      }
+    },
+    {
+      "resourceId": 16, "name": "Rapi: Red Hood",
+      "classType": "Attacker", "element": "Fire", "weaponType": "MG",
+      "burstStep": "Step3", "corporation": "ELYSION",
+      "grade": 3, "core": 3, "bondLevel": 40,
+      "cubeId": 10004, "cubeLevel": 15,
+      "favItemId": 100202, "favLevel": 15,
+      "equipPct": {
+        "elementDmgPct": 0.9842, "atkPct": 0.5289, "ammoPct": 1.8625,
+        "critDmgPct": 0.0664
+      }
+    },
+    {
+      "resourceId": 225, "name": "Scarlet: Black Shadow",
+      "classType": "Attacker", "element": "Wind", "weaponType": "RL",
+      "burstStep": "Step3", "corporation": "PILGRIM",
+      "grade": 3, "core": 0, "bondLevel": 40,
+      "cubeId": 10003, "cubeLevel": 15,
+      "favItemId": 100302, "favLevel": 15,
+      "equipPct": {
+        "elementDmgPct": 0.9281, "atkPct": 0.5501, "ammoPct": 1.2143,
+        "chargeDmgPct": 0.097, "critRatePct": 0.0435
+      }
+    },
+    {
+      "resourceId": 352, "name": "Helm",
+      "classType": "Attacker", "element": "Water", "weaponType": "SR",
+      "burstStep": "Step3", "corporation": "ELYSION",
+      "grade": 3, "core": 6, "bondLevel": 30,
+      "cubeId": 10005, "cubeLevel": 15,
+      "favItemId": 200701, "favLevel": 2,
+      "ssrFavSkillLevel": 10, "canBurst": false,
+      "equipPct": {
+        "elementDmgPct": 0.9562, "atkPct": 0.1659, "ammoPct": 1.8533,
+        "chargeDmgPct": 0.194
+      }
+    }
+  ]
+}

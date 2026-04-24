@@ -1,0 +1,68 @@
+{
+  "name": "Team 3",
+  "description": "Moran / Nayuta / Cinderella / Anis: Sparkling Summer / Maiden: Ice Rose",
+  "enemy": { "def": 100, "element": "Water", "hasCore": true, "distance": "NEAR" },
+  "members": [
+    {
+      "resourceId": 281, "name": "Moran",
+      "classType": "Defender", "element": "Electric", "weaponType": "AR",
+      "burstStep": "Step2", "corporation": "TETRA",
+      "grade": 3, "core": 3, "bondLevel": 40,
+      "cubeId": 10003, "cubeLevel": 15,
+      "favItemId": 100102, "favLevel": 15,
+      "equipPct": {
+        "elementDmgPct": 0.2356, "ammoPct": 0.6893,
+        "chargeSpeedPct": 0.0492, "hitRatePct": 0.1181,
+        "critRatePct": 0.1142, "critDmgPct": 0.1644
+      }
+    },
+    {
+      "resourceId": 223, "name": "Nayuta",
+      "classType": "Supporter", "element": "Wind", "weaponType": "SMG",
+      "burstStep": "Step3", "corporation": "PILGRIM",
+      "grade": 2, "core": 0, "bondLevel": 40,
+      "cubeId": 10003, "cubeLevel": 15,
+      "favItemId": 100502, "favLevel": 5,
+      "equipPct": {
+        "elementDmgPct": 0.8721, "atkPct": 0.3951,
+        "chargeDmgPct": 0.104, "critRatePct": 0.0469
+      }
+    },
+    {
+      "resourceId": 511, "name": "Cinderella",
+      "classType": "Defender", "element": "Electric", "weaponType": "RL",
+      "burstStep": "StepFull", "corporation": "PILGRIM",
+      "grade": 3, "core": 1, "bondLevel": 40,
+      "cubeId": 10004, "cubeLevel": 15,
+      "favItemId": 100302, "favLevel": 15,
+      "equipPct": {
+        "elementDmgPct": 0.9282, "atkPct": 0.4021, "ammoPct": 1.2554,
+        "critDmgPct": 0.0762
+      }
+    },
+    {
+      "resourceId": 15, "name": "Anis: Sparkling Summer",
+      "classType": "Supporter", "element": "Electric", "weaponType": "SG",
+      "burstStep": "StepFull", "corporation": "TETRA",
+      "grade": 0, "core": 0, "bondLevel": 40,
+      "cubeId": 10003, "cubeLevel": 15,
+      "favItemId": 100402, "favLevel": 15,
+      "equipPct": {
+        "elementDmgPct": 0.9421, "atkPct": 0.1587, "hitRatePct": 0.1799,
+        "critRatePct": 0.0537, "critDmgPct": 0.1252
+      }
+    },
+    {
+      "resourceId": 183, "name": "Maiden: Ice Rose",
+      "classType": "Defender", "element": "Electric", "weaponType": "RL",
+      "burstStep": "StepFull", "corporation": "ELYSION",
+      "grade": 0, "core": 0, "bondLevel": 40,
+      "cubeId": 10003, "cubeLevel": 15,
+      "favItemId": 100302, "favLevel": 5,
+      "equipPct": {
+        "elementDmgPct": 0.816, "atkPct": 0.4091,
+        "chargeSpeedPct": 0.0257, "chargeDmgPct": 0.0759, "critRatePct": 0.023
+      }
+    }
+  ]
+}

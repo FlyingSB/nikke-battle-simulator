@@ -1,0 +1,68 @@
+{
+  "name": "Team 2",
+  "description": "Liter / Mast: Romantic Maid / Anchor: Innocent Maid / Scarlet: Black Shadow / Liberalio",
+  "enemy": { "def": 100, "element": "Iron", "hasCore": true, "distance": "NEAR" },
+  "members": [
+    {
+      "resourceId": 82, "name": "Liter",
+      "classType": "Supporter", "element": "Iron", "weaponType": "SMG",
+      "burstStep": "Step1", "corporation": "MISSILIS",
+      "grade": 3, "core": 7, "bondLevel": 40,
+      "cubeId": 10003, "cubeLevel": 15,
+      "favItemId": 100502, "favLevel": 5,
+      "equipPct": {
+        "elementDmgPct": 0.2356, "atkPct": 0.1181, "ammoPct": 0.6893,
+        "chargeSpeedPct": 0.0492, "chargeDmgPct": 0.1181, "critRatePct": 0.1713
+      }
+    },
+    {
+      "resourceId": 354, "name": "Mast: Romantic Maid",
+      "classType": "Supporter", "element": "Water", "weaponType": "MG",
+      "burstStep": "Step2", "corporation": "ELYSION",
+      "grade": 3, "core": 2, "bondLevel": 40,
+      "cubeId": 10004, "cubeLevel": 15,
+      "favItemId": 100202, "favLevel": 15,
+      "equipPct": {
+        "elementDmgPct": 0.2356, "atkPct": 0.1181,
+        "chargeDmgPct": 0.2362, "hitRatePct": 0.2362, "critRatePct": 0.0571
+      }
+    },
+    {
+      "resourceId": 355, "name": "Anchor: Innocent Maid",
+      "classType": "Supporter", "element": "Water", "weaponType": "RL",
+      "burstStep": "Step2", "corporation": "ELYSION",
+      "grade": 3, "core": 1, "bondLevel": 40,
+      "cubeId": 10003, "cubeLevel": 15,
+      "favItemId": 100302, "favLevel": 5,
+      "equipPct": {
+        "ammoPct": 1.3786, "hitRatePct": 0.1181, "critRatePct": 0.1142, "critDmgPct": 0.3288
+      }
+    },
+    {
+      "resourceId": 225, "name": "Scarlet: Black Shadow",
+      "classType": "Attacker", "element": "Wind", "weaponType": "RL",
+      "burstStep": "Step3", "corporation": "PILGRIM",
+      "grade": 3, "core": 0, "bondLevel": 40,
+      "cubeId": 10003, "cubeLevel": 14,
+      "favItemId": 100302, "favLevel": 15,
+      "foreswingTicks": 11, "backswingTicks": 14,
+      "equipPct": {
+        "elementDmgPct": 0.9281, "atkPct": 0.5501, "ammoPct": 1.2143,
+        "chargeDmgPct": 0.097, "critRatePct": 0.0435
+      }
+    },
+    {
+      "resourceId": 262, "name": "Liberalio",
+      "classType": "Attacker", "element": "Wind", "weaponType": "SR",
+      "burstStep": "Step3", "corporation": "PILGRIM",
+      "grade": 3, "core": 0, "bondLevel": 40,
+      "cubeId": 10003, "cubeLevel": 15,
+      "favItemId": 100602, "favLevel": 15,
+      "immuneSkillChargeSpeed": true,
+      "equipPct": {
+        "elementDmgPct": 0.5358, "atkPct": 0.187, "ammoPct": 1.1321,
+        "chargeSpeedPct": 0.0484, "critRatePct": 0.0699
+      }
+    }
+  ]
+}
