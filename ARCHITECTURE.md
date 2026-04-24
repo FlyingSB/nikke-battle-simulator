@@ -1,174 +1,172 @@
-# NIKKE Battle Simulator — Architecture
+# NIKKE 战斗模拟器 — 架构
 
-## Goal
-A fully client-side, zero-backend battle simulator for Goddess of Victory: NIKKE.
-Runs in any browser. Data is fetched from game CDN and cached locally.
+## 目标
+为《胜利女神：NIKKE》提供一个完全前端、零后端的战斗模拟器。
+可在任何浏览器中运行。数据从游戏 CDN 拉取并在本地缓存。
 
 ---
 
-## Tech Stack
-- **Vite** — build tool & dev server
-- **Vanilla JS** (ES modules) — no framework overhead
+## 技术栈
+- **Vite** — 构建工具与开发服务器
+- **Vanilla JS**（ES modules）— 无框架开销
 - **HTML/CSS** — UI
-- **localStorage** — CDN data cache + version tracking
+- **localStorage** — CDN 数据缓存及版本跟踪
 
 ---
 
-## Data Sources
+## 数据源
 
-All game data is loaded from `sg-tools-cdn.blablalink.com`. URLs are hash-based and
-change on game updates. The manifest file (`src/data/manifest.js`) lists all known URLs
-and must be updated when the game patches.
+所有游戏数据从 `sg-tools-cdn.blablalink.com` 加载。URL 基于哈希，在游戏更新时会变化。清单文件
+（`src/data/manifest.js`）列出了所有已知 URL，游戏打补丁时必须更新。
 
-### Known Data Files
+### 已知数据文件
 
-| File | Content | Key Fields |
+| 文件 | 内容 | 关键字段 |
 |------|---------|------------|
-| `c4619ec8...` | Character roster | id, class, element, weapon, faction, costumes |
-| `78500850...` | Character details | stats per level (1-500), skill1, skill2, burst |
-| `e8b9e7f7...` | Level progression | exp/gold cost per level (1-556) |
-| `02d7f979...` | Equipment (modules) | A/B/C/D slots, stats, rarity T1-T10 |
-| `bdeb2eac...` | Harmony Cubes | stats per enhancement level, 2 skills |
-| `cb6bd83f...` | Attractive (ascension) | HP/ATK/DEF rate bonuses per tier (1-40) |
-| `258f8531...` | Recycle Room | research upgrades (ATK/DEF/HP flat bonuses) |
-| `b46c877b...` | Buff effects | effect IDs for ATK/CRIT/DEF/AMMO buffs |
-| `7548a00f...` | Costumes | costume_index per character |
-| `452950b7...` | Character resources | name → resource_id mapping |
+| `c4619ec8...` | 角色花名册 | id, class, element, weapon, faction, costumes |
+| `78500850...` | 角色详情 | 各等级（1-500）属性、skill1、skill2、burst |
+| `e8b9e7f7...` | 等级进阶表 | 每级所需经验 / 金币（1-556） |
+| `02d7f979...` | 装备（模组） | A/B/C/D 槽位、属性、稀有度 T1-T10 |
+| `bdeb2eac...` | 和谐魔方 | 各强化等级属性、2 个技能 |
+| `cb6bd83f...` | Attractive（突破） | HP/ATK/DEF 比率加成（tier 1-40） |
+| `258f8531...` | 回收室 | 研究升级（ATK/DEF/HP 固定值加成） |
+| `b46c877b...` | Buff 效果 | ATK/CRIT/DEF/AMMO buff 的 effect ID |
+| `7548a00f...` | 服装 | 每个角色的 costume_index |
+| `452950b7...` | 角色资源 | 角色名 → resource_id 映射 |
 
-### Auto-Update Strategy
-The JS bundle at `blablalink.com/shiftyspad` uses a versioned asset loader backed by
-IndexedDB (`__ss_indexdb_cache_version_configs__`). Until a proper version manifest
-endpoint is discovered, updates are tracked via:
+### 自动更新策略
+`blablalink.com/shiftyspad` 的 JS bundle 使用带版本号的资源加载器，由 IndexedDB
+（`__ss_indexdb_cache_version_configs__`）支撑。在发现正式的版本 manifest 接口之前，
+更新通过以下方式跟踪：
 
-1. A `scripts/check-update.js` Node script that fetches the tool page, parses the
-   JS bundle URL, and extracts any updated CDN paths.
-2. `manifest.js` is the single source of truth — update it when new hashes appear.
+1. `scripts/check-update.js` — 一个 Node 脚本，抓取工具页面、解析 JS bundle URL，
+   并提取其中变更的 CDN 路径。
+2. `manifest.js` 是唯一事实来源（single source of truth）— 发现新哈希时更新此文件。
 
 ---
 
-## Project Structure
+## 项目结构
 
 ```
 nikke-battle-simulator/
 ├── index.html
 ├── src/
-│   ├── main.js                  # App entry point
+│   ├── main.js                  # 应用入口
 │   ├── data/
-│   │   ├── manifest.js          # CDN URL registry (update on patch)
-│   │   ├── loader.js            # Fetch + localStorage cache
-│   │   └── models.js            # Normalize raw JSON into typed objects
+│   │   ├── manifest.js          # CDN URL 注册表（打补丁时更新）
+│   │   ├── loader.js            # 拉取 + localStorage 缓存
+│   │   └── models.js            # 将原始 JSON 规范化为带类型的对象
 │   ├── engine/
-│   │   ├── stats.js             # Compute final stats (base + level + equip + cube + research)
-│   │   ├── damage.js            # Damage formula
-│   │   ├── skills.js            # Skill effect resolver
-│   │   ├── buffs.js             # Buff/debuff state machine
-│   │   └── battle.js            # Main simulation loop
+│   │   ├── stats.js             # 计算最终属性（基础 + 等级 + 装备 + 魔方 + 研究）
+│   │   ├── damage.js            # 伤害公式
+│   │   ├── skills.js            # 技能效果解析器
+│   │   ├── buffs.js             # Buff / debuff 状态机
+│   │   └── battle.js            # 主模拟循环
 │   └── ui/
-│       ├── squad-builder.js     # Character/equipment selection
-│       ├── battle-view.js       # Real-time battle display
-│       └── results.js           # Summary + charts
+│       ├── squad-builder.js     # 角色 / 装备选择
+│       ├── battle-view.js       # 实时战斗显示
+│       └── results.js           # 汇总 + 图表
 ├── scripts/
-│   └── check-update.js          # Node script to detect CDN URL changes
+│   └── check-update.js          # Node 脚本，检测 CDN URL 变更
 ├── ARCHITECTURE.md
 └── CLAUDE.md
 ```
 
 ---
 
-## Battle Engine
+## 战斗引擎
 
-### Stat Computation Pipeline
+### 属性计算管线
 ```
 BaseStats(character, level)
   + EquipmentStats(module_A + B + C + D)
   + HarmonyCubeStats(cube, enhancement_level)
-  + AttractiveBonus(ascension_tier)        ← % multiplier on base stats
-  + RecycleRoomBonus(research_unlocked)    ← flat bonus
+  + AttractiveBonus(ascension_tier)        ← 在基础属性上的百分比倍率
+  + RecycleRoomBonus(research_unlocked)    ← 固定加成
   + SkillPassiveBuffs(skill1, skill2)
 = FinalStats { atk, hp, def, crit_rate, crit_dmg, max_ammo, ... }
 ```
 
-### Damage Formula (community-verified)
+### 伤害公式（社区已验证）
 ```
 Raw = ATK × WeaponMultiplier
 Skill = Raw × SkillMultiplier
-Element = Skill × (1 + ElementBonus)      ← 10% if element advantage
+Element = Skill × (1 + ElementBonus)      ← 属性克制时 +10%
 Crit = Element × (1 + CritDmg) × CritRate + Element × (1 - CritRate)
 Final = Crit × (1 - DEF / (DEF + Constant)) × MiscModifiers
 ```
 
-**Element advantage table:**
-- Fire > Wind
-- Water > Fire
-- Electric > Water
-- Wind > Electric
-- Iron = neutral (no weakness/strength)
+**属性克制表：**
+- 火 > 风
+- 水 > 火
+- 电 > 水
+- 风 > 铁
+- 铁 > 电
 
-**Defense constant:** TBD from data mining (likely ~2000 based on community research)
+**防御常量：** 待数据挖掘确认（根据社区研究可能约为 32000）
 
-### Battle Loop
+### 战斗循环
 ```
-1. Initialize squads (player 5 NIKKEs vs enemy)
-2. Each tick (frame-based at 30 fps sim):
-   a. Each NIKKE fires weapon (auto-attack with reload cycle)
-   b. Burst gauge fills from hits
-   c. Active buffs tick down
-   d. Check skill triggers (skill1 @ condition, skill2 @ condition)
-3. Burst rotation: Full Burst activates when gauge fills
-4. Track: total damage, kills, time-to-kill, burst count
-5. End condition: enemy HP = 0 or time limit reached
+1. 初始化队伍（玩家 5 位 NIKKE vs 敌人）
+2. 每个 tick（基于帧，模拟 60 fps）：
+   a. 每位 NIKKE 开火（自动攻击 + 换弹周期）
+   b. 爆裂槽通过命中积累
+   c. 生效中的 buff 倒计时递减
+   d. 检查技能触发（skill1 @ 条件，skill2 @ 条件）
+3. 爆裂轮转：爆裂槽满即进入 Burst Step 1
+4. 跟踪：总伤害、爆裂次数
+5. 结束条件：达到时间上限
 ```
 
-### Skill System
-Skills have:
-- **Trigger condition** (e.g., "on hit", "every N seconds", "when burst active")
-- **Effect** (e.g., "ATK +X% for Y seconds", "recover Z HP", "deal N% damage")
-- **Target** (self / all allies / specific class)
+### 技能系统
+技能包含：
+- **触发条件**（例如 "命中时"、"每 N 秒"、"爆裂激活时"）
+- **效果**（例如 "ATK +X% 持续 Y 秒"、"恢复 Z HP"、"造成 N% 伤害"）
+- **目标**（自身 / 全体友军 / 特定职业）
 
 ---
 
-## UI Flow
+## UI 流程
 
 ```
 [Squad Builder]
-  → Select 5 NIKKEs
-  → Configure each: level, core, equipment slots, harmony cube
-  → Set skill levels (1/2/burst)
+  → 选择 5 位 NIKKE
+  → 为每位配置：等级、核心、装备槽、和谐魔方
+  → 设置技能等级（1 / 2 / burst）
 
 [Enemy Config]
-  → HP, DEF, element, type (rapture/boss)
+  → HP、DEF、属性、类型（rapture / boss）
 
 [Simulate]
-  → Run N iterations (Monte Carlo for crit RNG)
-  → Show: avg DPS, burst timing, skill proc rates
+  → 跑 N 次迭代（暴击 RNG 的蒙特卡洛）
+  → 显示：平均 DPS、爆裂时机、技能触发率
 
 [Results]
-  → Damage breakdown per NIKKE
-  → Timeline chart
-  → TTK (time-to-kill) distribution
+  → 每位 NIKKE 的伤害分解
+  → 时间线图表
+  → TTK（击杀用时）分布
 ```
 
 ---
 
-## Caching Strategy
+## 缓存策略
 
 ```js
-// On load:
-1. Check localStorage for cached data + version hash
-2. If cache hit → use cached, then background-check for updates
-3. If cache miss → fetch all CDN files, store with hash
+// 加载时：
+1. 检查 localStorage 里的缓存数据与版本哈希
+2. 命中 → 使用缓存，后台检查更新
+3. 未命中 → 拉取所有 CDN 文件并按哈希存储
 
-// Cache keys:
+// 缓存键：
 "nikke_data_v{hash}_characters"
 "nikke_data_v{hash}_equipment"
-// etc.
+// 等等
 ```
 
 ---
 
-## Known Gaps (to research)
-- [ ] Exact defense mitigation formula constant
-- [ ] Full skill effect parsing (skills are in character detail JSON)
-- [ ] Boss-specific mechanics (damage caps, phases)
-- [ ] Cover/shield HP mechanics
-- [ ] Exact burst gauge fill rate from weapon hits
+## 已知缺口（待研究）
+- [ ] 防御减伤公式中常量的精确值
+- [ ] 完整的技能效果解析（技能位于角色详情 JSON 中）
+- [ ] Boss 专属机制（伤害上限、阶段切换）
+- [ ] 掩体 / 护盾 HP 机制

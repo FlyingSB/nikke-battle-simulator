@@ -3,3 +3,9 @@ dist/
 .env
 .env.local
 .claude/settings.local.json
+.claude/rules/
+
+# CDN cache and trace output (dev-only, regenerated on demand)
+scripts/cache/
+scripts/traces/
+scripts/*.txt
