@@ -2,20 +2,25 @@
  * Skill traits registry tests — pure, no CDN, no file I/O.
  *
  * Covers:
- *   getSkillTraits   — null for unknown ids, correct object for registered ids
- *   hasSkillTrait    — boolean flag lookup
- *   hasSkillTag      — tag membership check
- *   SKILL_TRAITS     — registry shape validation (all values are valid SkillTraits)
+ *   getSkillTraits          — null for unknown ids, correct object for registered ids (SKILL_TRAITS_BY_GROUP)
+ *   hasSkillTrait           — boolean flag lookup
+ *   hasSkillTag             — tag membership check
+ *   SKILL_TRAITS            — declarative registry shape validation (resource_id → {skill1,skill2,burst})
+ *   SKILL_TRAITS_BY_GROUP   — legacy group_id registry (backward-compat functions)
  *
  * Run: node scripts/tests/test-skills.mjs
  */
 
 import {
   SKILL_TRAITS,
+  SKILL_TRAITS_BY_GROUP,
   getSkillTraits,
   hasSkillTrait,
   hasSkillTag,
 } from '../../src/data/skill-traits.js';
+import {
+  pushBuff, getBuffSums, decrementRoundBuffs, parseSkillDuration,
+} from '../../src/engine/battle-utils.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
 
 // ── T1: getSkillTraits — unknown ids ─────────────────────────────────────────
@@ -44,46 +49,30 @@ section('T3: hasSkillTag — unregistered id always false');
   eq('null id',        hasSkillTag(null,  'projectile'), false);
 }
 
-// ── T4: SKILL_TRAITS registry shape validation ────────────────────────────────
+// ── T4: SKILL_TRAITS declarative registry shape validation ───────────────────
 
-section('T4: SKILL_TRAITS — every entry is a valid SkillTraits object');
+section('T4: SKILL_TRAITS — every entry is a valid declarative skill registry (resource_id keyed)');
 {
-  const ALLOWED_KEYS = new Set(['canHitCore', 'tags']);
-
-  const entries = Object.entries(SKILL_TRAITS);
-
-  // Registry intentionally empty at this stage — confirm it's a plain object.
   eq('registry is object', typeof SKILL_TRAITS, 'object');
 
   let allValid = true;
-  for (const [rawId, traits] of entries) {
+  for (const [rawId, charSkills] of Object.entries(SKILL_TRAITS)) {
     const id = Number(rawId);
     if (!Number.isInteger(id) || id <= 0) {
-      console.log(`  [FAIL] key ${rawId}: not a positive integer group_id`);
+      console.log(`  [FAIL] key ${rawId}: not a positive integer resource_id`);
       allValid = false;
       continue;
     }
-    if (typeof traits !== 'object' || traits === null) {
-      console.log(`  [FAIL] group_id ${id}: value is not an object`);
+    if (typeof charSkills !== 'object' || charSkills === null) {
+      console.log(`  [FAIL] resource_id ${id}: value is not an object`);
       allValid = false;
       continue;
     }
-    for (const key of Object.keys(traits)) {
-      if (!ALLOWED_KEYS.has(key)) {
-        console.log(`  [FAIL] group_id ${id}: unknown key '${key}'`);
-        allValid = false;
-      }
-    }
-    if (traits.canHitCore !== undefined && typeof traits.canHitCore !== 'boolean') {
-      console.log(`  [FAIL] group_id ${id}: canHitCore must be boolean`);
-      allValid = false;
-    }
-    if (traits.tags !== undefined) {
-      if (!Array.isArray(traits.tags)) {
-        console.log(`  [FAIL] group_id ${id}: tags must be an array`);
-        allValid = false;
-      } else if (!traits.tags.every(t => typeof t === 'string')) {
-        console.log(`  [FAIL] group_id ${id}: tags must be string[]`);
+    for (const skillKey of ['skill1', 'skill2', 'burst']) {
+      const skill = charSkills[skillKey];
+      if (!skill) continue;
+      if (!Array.isArray(skill.triggers)) {
+        console.log(`  [FAIL] resource_id ${id}.${skillKey}: missing triggers array`);
         allValid = false;
       }
     }
@@ -91,12 +80,12 @@ section('T4: SKILL_TRAITS — every entry is a valid SkillTraits object');
   eq('all registry entries valid', allValid, true);
 }
 
-// ── T5: round-trip with synthetic entry ───────────────────────────────────────
+// ── T5: round-trip with synthetic entry (legacy SKILL_TRAITS_BY_GROUP) ────────
 
 section('T5: round-trip with synthetic entry');
 {
   const SYNTHETIC_ID = 999001;
-  SKILL_TRAITS[SYNTHETIC_ID] = { canHitCore: true, tags: ['projectile', 'attachment'] };
+  SKILL_TRAITS_BY_GROUP[SYNTHETIC_ID] = { canHitCore: true, tags: ['projectile', 'attachment'] };
 
   eq('getSkillTraits returns object', typeof getSkillTraits(SYNTHETIC_ID),        'object');
   eq('canHitCore is true',            getSkillTraits(SYNTHETIC_ID).canHitCore,    true);
@@ -105,9 +94,456 @@ section('T5: round-trip with synthetic entry');
   eq('hasSkillTag attachment',        hasSkillTag(SYNTHETIC_ID, 'attachment'),    true);
   eq('hasSkillTag nonexistent',       hasSkillTag(SYNTHETIC_ID, 'explosion'),     false);
 
-  // cleanup — keep registry pristine for subsequent runs in same process
-  delete SKILL_TRAITS[SYNTHETIC_ID];
+  delete SKILL_TRAITS_BY_GROUP[SYNTHETIC_ID];
   eq('cleaned up synthetic entry', getSkillTraits(SYNTHETIC_ID), null);
+}
+
+// ── T6: parseSkillDuration — CDN 描述文本解析 ────────────────────────────────
+
+section('T6: parseSkillDuration — "X round(s)" and time variants');
+{
+  eq('10 round(s)',           JSON.stringify(parseSkillDuration('10 round(s)')),          '{"type":"rounds","count":10}');
+  eq('for 10 round(s)',       JSON.stringify(parseSkillDuration('for 10 round(s)')),       '{"type":"rounds","count":10}');
+  eq('for 10 round(s) (upper)',JSON.stringify(parseSkillDuration('FOR 10 ROUND(S)')),      '{"type":"rounds","count":10}');
+  eq('3.5 round(s)',          JSON.stringify(parseSkillDuration('3.5 round(s)')),          '{"type":"rounds","count":3.5}');
+  eq('5s time-based',         JSON.stringify(parseSkillDuration('ATK ▲10% 5s')),           '{"type":"time","seconds":5}');
+  eq('10.5s time-based',      JSON.stringify(parseSkillDuration('buff lasts 10.5s')),      '{"type":"time","seconds":10.5}');
+  eq('null on empty string',  parseSkillDuration(''),                                       null);
+  eq('null on non-string',    parseSkillDuration(null),                                     null);
+  eq('null on no match',      parseSkillDuration('ATK ▲10% (permanent)'),                  null);
+  // Helm Aegis Cannon — Charge Damage ▲X% for 10 round(s)
+  const helmDesc = 'Charge Damage ▲50% for 10 round(s)';
+  const helmDur  = parseSkillDuration(helmDesc);
+  eq('helm desc type',  helmDur?.type,  'rounds');
+  eq('helm desc count', helmDur?.count, 10);
+}
+
+// ── T7: round-based buff — pushBuff / getBuffSums / decrementRoundBuffs ───────
+
+section('T7: round-based buff lifecycle');
+{
+  const unitId = 352;  // Helm resource_id used for clarity
+  const state  = { tick: 0, buffs: [], buffLog: null };
+  const mockSquad = { squad: [{ id: unitId, equipAtkPct: 0 }], buffs: state.buffs };
+
+  // Push round-based buff
+  pushBuff(state, { name: 'test_round_buff', unitId, chargeDamagePct: 0.5, endTick: Infinity, endRounds: 3 });
+  eq('buff created',          state.buffs.length,          1);
+  eq('roundsLeft initialized', state.buffs[0].roundsLeft,  3);
+
+  // getBuffSums includes it while roundsLeft > 0
+  eq('buff active (round 3)', getBuffSums(mockSquad, unitId).chargeDamagePct, 0.5);
+
+  decrementRoundBuffs(state, unitId);
+  eq('roundsLeft after 1 shot', state.buffs[0].roundsLeft, 2);
+  eq('buff active (round 2)', getBuffSums(mockSquad, unitId).chargeDamagePct, 0.5);
+
+  decrementRoundBuffs(state, unitId);
+  decrementRoundBuffs(state, unitId);
+  eq('roundsLeft exhausted',  state.buffs[0].roundsLeft,   0);
+  eq('buff expired in sums',  getBuffSums(mockSquad, unitId).chargeDamagePct, 0);
+
+  // decrementRoundBuffs does not go below 0
+  decrementRoundBuffs(state, unitId);
+  eq('roundsLeft not negative', state.buffs[0].roundsLeft, 0);
+
+  // Refresh (re-push same buff name) resets roundsLeft
+  pushBuff(state, { name: 'test_round_buff', unitId, chargeDamagePct: 0.5, endTick: Infinity, endRounds: 3 });
+  eq('roundsLeft refreshed', state.buffs[0].roundsLeft, 3);
+  eq('buff active again',    getBuffSums(mockSquad, unitId).chargeDamagePct, 0.5);
+
+  // decrementRoundBuffs does not touch buffs belonging to other units
+  const otherId = 999;
+  pushBuff(state, { name: 'other_buff', unitId: otherId, chargeDamagePct: 0.2, endTick: Infinity, endRounds: 2 });
+  decrementRoundBuffs(state, unitId);  // only decrements unitId=352 buffs
+  const otherBuff = state.buffs.find(b => b.name === 'other_buff');
+  eq('other unit buff untouched', otherBuff.roundsLeft, 2);
+}
+
+// ── T8: Helm burst — for 10 round(s) charge damage buff ──────────────────────
+
+section('T8: Helm burst uses round-based charge damage buff');
+{
+  const helmTraits   = SKILL_TRAITS[352];
+  const burstTriggers = helmTraits?.burst?.triggers ?? [];
+  const burstUseTrigger = burstTriggers.find(t => t.on === 'BURST_SKILL_USE');
+
+  eq('Helm has burst BURST_SKILL_USE trigger', !!burstUseTrigger, true);
+  eq('Helm burst has handler (not pure declarative)', typeof burstUseTrigger?.handler, 'function');
+
+  // No FULL_CHARGE trigger on Helm burst (removed — decrementRoundBuffs handles it)
+  const fullChargeTrigger = burstTriggers.find(t => t.on === 'FULL_CHARGE');
+  eq('Helm burst has no FULL_CHARGE trigger', fullChargeTrigger, undefined);
+
+  // Simulate burst handler: push round-based buff
+  const unitId = 352;
+  const state  = {
+    tick: 0, buffs: [],
+    squad: [{ id: unitId, equipAtkPct: 0, stats: { atk: 10000 }, totalDamage: 0 }],
+    enemyHp: 1e9, enemyDef: 0, enemyDamageTakenPct: 0,
+    fullBurstActive: false, buffLog: null, hitLog: null,
+  };
+  const mockSquad = { squad: state.squad, buffs: state.buffs };
+  const caster = state.squad[0];
+  caster.ssrFavSkills = {
+    burst: {
+      _activeSkillLevel: 1,
+      description_value_list: [
+        { description_value: ['1237.5'] },   // dmg
+        { description_value: ['54.45'] },    // life steal
+        {},
+        { description_value: ['50'] },       // charge dmg buff 50%
+      ],
+    },
+  };
+  caster.skillState = { helmChargeShots: 0, helmChargeDmgBuff: 0 };
+
+  burstUseTrigger.handler(state, caster, {});
+
+  const chargeBuff = state.buffs.find(b => b.name === 'helm_burst_chargeDmg');
+  eq('helm_burst_chargeDmg buff pushed',     !!chargeBuff,             true);
+  eq('helm_burst_chargeDmg endRounds=10',    chargeBuff?.endRounds,    10);
+  eq('helm_burst_chargeDmg roundsLeft=10',   chargeBuff?.roundsLeft,   10);
+  eq('helm_burst_chargeDmg chargeDamagePct', chargeBuff?.chargeDamagePct, 0.5);
+  eq('helm_burst_chargeDmg endTick=Infinity', chargeBuff?.endTick,     Infinity);
+
+  // After 10 decrements, buff is exhausted
+  for (let i = 0; i < 10; i++) decrementRoundBuffs(state, unitId);
+  eq('after 10 rounds exhausted',  chargeBuff.roundsLeft, 0);
+  eq('no chargeDmg in sums',       getBuffSums(mockSquad, unitId).chargeDamagePct, 0);
+}
+
+// ── T9: Moran SSR burst — handler reads ssrFavSkills (Peony Hairpin skill lv10) ──
+
+section('T9: Moran SSR burst — handler sets weaponSwitch + lifeSteal + ATK buff');
+{
+  const moranTraits    = SKILL_TRAITS[281];
+  const burstTriggers  = moranTraits?.burst?.triggers ?? [];
+  const burstUseTrigger = burstTriggers.find(t => t.on === 'BURST_SKILL_USE');
+
+  eq('Moran has burst BURST_SKILL_USE trigger',     !!burstUseTrigger,               true);
+  eq('Moran burst uses handler (SSR-dynamic)',       typeof burstUseTrigger?.handler, 'function');
+
+  // S1: SHOT_COUNT checks weaponSwitchEndTick; no stale moranBurstEndTick reference
+  const s1Triggers  = moranTraits?.skill1?.triggers ?? [];
+  const shotTrigger = s1Triggers.find(t => t.on === 'SHOT_COUNT');
+  const handlerSrc  = shotTrigger?.handler?.toString() ?? '';
+  eq('S1 does not reference moranBurstEndTick', handlerSrc.includes('moranBurstEndTick'), false);
+  eq('S1 checks weaponSwitchEndTick',           handlerSrc.includes('weaponSwitchEndTick'), true);
+
+  // S1: BATTLE_START sets Fervor
+  eq('S1 has BATTLE_START (Fervor) trigger',
+    !!s1Triggers.find(t => t.on === 'BATTLE_START'), true);
+
+  // S2: ENTER_FULL_BURST Fervor CD reduction
+  const s2Triggers = moranTraits?.skill2?.triggers ?? [];
+  eq('S2 has ENTER_FULL_BURST (Fervor CD) trigger',
+    !!s2Triggers.find(t => t.on === 'ENTER_FULL_BURST'), true);
+
+  // Simulate burst handler — Peony Hairpin skill lv10 (index 9)
+  const unitId = 281;
+  const state  = {
+    tick: 0, buffs: [], buffLog: null,
+    squad: [{ id: unitId, equipAtkPct: 0, stats: { atk: 100000, hp: 500000 } }],
+  };
+  const caster = state.squad[0];
+  caster.skillState                = { weaponSwitchEndTick: 0, moranFervorActive: true };
+  caster.burstSkillCooldownEndTick = 1200;  // simulated CD: 20s × 60 ticks = 1200
+  caster.ssrFavSkills = {
+    burst: {
+      _activeSkillLevel: 10,
+      description_value_list: [
+        { description_value: ['11.46','11.82','12.18','12.54','12.9','13.26','13.62','13.98','14.34','14.7'] },
+        { description_value: ['19.89','21.7','23.51','25.31','27.12','28.92','30.73','32.53','34.34','36.14'] },
+        { description_value: ['10','10','10','10','10','10','10','10','10','10'] },
+        { description_value: ['10','10','10','10','10','10','10','10','10','10'] },
+        { description_value: ['21.78','23.26','24.75','26.23','27.72','29.2','30.69','32.17','33.66','35.14'] },
+        { description_value: ['10','10','10','10','10','10','10','10','10','10'] },
+        { description_value: ['8.16','8.91','9.65','10.39','11.13','11.88','12.62','13.36','14.1','14.85'] },
+        { description_value: ['10','10','10','10','10','10','10','10','10','10'] },
+        { description_value: ['23.41','25.54','27.67','29.79','31.92','34.05','36.18','38.31','40.44','42.57'] },
+        { description_value: ['10','10','10','10','10','10','10','10','10','10'] },
+      ],
+    },
+    skill1: {
+      _activeSkillLevel: 10,
+      description_value_list: [
+        { description_value: ['1.93','2.1','2.28','2.45','2.63','2.81','2.98','3.16','3.33','3.51'] },
+        { description_value: ['25.95','28.31','30.67','33.03','35.38','37.74','40.1','42.46','44.82','47.18'] },
+        { description_value: ['5','5','5','5','5','5','5','5','5','5'] },
+        { description_value: ['20','20','20','20','20','20','20','20','20','20'] },
+      ],
+    },
+  };
+
+  burstUseTrigger.handler(state, caster, {});
+
+  // Weapon switch state written directly (equivalent to WEAPON_SWITCH effect)
+  eq('weaponSwitchHitMult = lv10 value',     caster.skillState.weaponSwitchHitMult,       parseFloat('14.7') / 100);
+  eq('weaponSwitchEndTick = 600 (10s)',       caster.skillState.weaponSwitchEndTick,        600);
+  eq('weaponSwitchUnlimitedAmmo = true',      caster.skillState.weaponSwitchUnlimitedAmmo, true);
+  eq('weaponSwitchRoundsLeft = 0',            caster.skillState.weaponSwitchRoundsLeft,     0);
+
+  // Life steal buff (self only)
+  const lsBuff = state.buffs.find(b => b.name === 'moran_burst_lifeSteal');
+  eq('lifeSteal buff pushed',                 !!lsBuff,               true);
+  eq('lifeStealPct = lv10 value',             lsBuff?.lifeStealPct,   parseFloat('36.14') / 100);
+  eq('lifeSteal unitId = caster (self)',       lsBuff?.unitId,         unitId);
+
+  // ATK flat buff for all allies (SSR)
+  const atkBuff = state.buffs.find(b => b.name === 'moran_burst_atkFlat');
+  eq('ATK flat buff pushed (SSR)',            !!atkBuff,              true);
+  eq('ATK flat unitId = null (global)',        atkBuff?.unitId,        null);
+  eq('ATK flat = round(atk * 42.57%)',         atkBuff?.atkFlat,       Math.round(100000 * parseFloat('42.57') / 100));
+
+  // S1 Fervor: burst CD reduced by 20s (1200 ticks) → max(0, 1200 - 1200) = 0
+  eq('Fervor reduced own burst CD by 20s',    caster.burstSkillCooldownEndTick, 0);
+}
+
+// ── T10: WEAPON_SWITCH round-based expiry ────────────────────────────────────
+
+section('T10: WEAPON_SWITCH endRounds — round-based weapon switch');
+{
+  // Simulate executeSkillTriggers applying WEAPON_SWITCH with endRounds
+  const unitId = 281;
+  const skillState = { weaponSwitchEndTick: 0, weaponSwitchRoundsLeft: 0, weaponSwitchHitMult: 0 };
+
+  // Inline the WEAPON_SWITCH handler logic (as skill-executor would apply it)
+  function applyWeaponSwitch(skillState, tick, eff) {
+    skillState.weaponSwitchHitMult    = eff.hitMult;
+    skillState.weaponSwitchType       = eff.weaponType ?? null;
+    skillState.weaponSwitchEndTick    = eff.endRounds !== undefined ? Infinity : tick + 60 * eff.seconds;
+    skillState.weaponSwitchRoundsLeft = eff.endRounds ?? 0;
+  }
+
+  // Inline the per-shot decrement logic (as onShotFired does)
+  function shotDecrement(skillState) {
+    if ((skillState.weaponSwitchRoundsLeft ?? 0) > 0) {
+      skillState.weaponSwitchRoundsLeft--;
+      if (skillState.weaponSwitchRoundsLeft <= 0)
+        skillState.weaponSwitchEndTick = 0;
+    }
+  }
+
+  // Helper: weaponSwitchActive check (same as battle.js)
+  function isActive(skillState, tick) {
+    return (skillState.weaponSwitchEndTick ?? 0) > 0 && tick <= skillState.weaponSwitchEndTick;
+  }
+
+  // Time-based (seconds) — reference behaviour unchanged
+  applyWeaponSwitch(skillState, 0, { hitMult: 0.147, seconds: 10 });
+  eq('time-based: endTick set',       skillState.weaponSwitchEndTick,    600);
+  eq('time-based: roundsLeft = 0',    skillState.weaponSwitchRoundsLeft, 0);
+  eq('time-based: active at tick 0',  isActive(skillState, 0),           true);
+  eq('time-based: active at tick 599',isActive(skillState, 599),         true);
+  eq('time-based: inactive at 601',   isActive(skillState, 601),         false);
+
+  // Round-based (endRounds)
+  applyWeaponSwitch(skillState, 0, { hitMult: 0.147, endRounds: 5 });
+  eq('round-based: endTick = Infinity',   skillState.weaponSwitchEndTick,    Infinity);
+  eq('round-based: roundsLeft = 5',       skillState.weaponSwitchRoundsLeft, 5);
+  eq('round-based: active initially',     isActive(skillState, 999999),      true);
+
+  shotDecrement(skillState);
+  eq('after 1 shot: roundsLeft = 4',      skillState.weaponSwitchRoundsLeft, 4);
+  eq('after 1 shot: still active',        isActive(skillState, 0),           true);
+
+  shotDecrement(skillState); shotDecrement(skillState);
+  shotDecrement(skillState); shotDecrement(skillState);
+  eq('after 5 shots: roundsLeft = 0',     skillState.weaponSwitchRoundsLeft, 0);
+  eq('after 5 shots: endTick cleared',    skillState.weaponSwitchEndTick,    0);
+  eq('after 5 shots: inactive',           isActive(skillState, 0),           false);
+
+  // Extra shot after exhaustion must not go below 0
+  shotDecrement(skillState);
+  eq('extra shot: roundsLeft stays 0',    skillState.weaponSwitchRoundsLeft, 0);
+
+  // Re-activation (burst fired again) resets rounds
+  applyWeaponSwitch(skillState, 1000, { hitMult: 0.147, endRounds: 3 });
+  eq('reactivated: roundsLeft = 3',       skillState.weaponSwitchRoundsLeft, 3);
+  eq('reactivated: active',               isActive(skillState, 1000),        true);
+}
+
+// ── T11: Nayuta S2 "exceeds N stack(s)" — 阶段触发阈值 ≥N，不是 >N ───────────
+
+section('T11: Nayuta S2 stage thresholds — ≥2, ≥10, ≥30 (not >2, >10, >30)');
+{
+  const nayutaTraits = SKILL_TRAITS[223];
+  const s2Trigger    = nayutaTraits?.skill2?.triggers?.find(t => t.on === 'INTERVAL');
+  eq('Nayuta has S2 INTERVAL trigger', !!s2Trigger, true);
+
+  const unitId = 223;
+  function makeState() {
+    return {
+      tick: 0, buffs: [], buffLog: null, pendingHealReceived: [],
+      squad: [{ id: unitId, equipAtkPct: 0,
+        stats: { atk: 100000, hp: 500000 },
+        unitHp: 500000,
+        skillState: { nayutaMemAbsStacks: 0 } }],
+    };
+  }
+  function callN(state, n) {
+    const caster = state.squad[0];
+    for (let i = 0; i < n; i++) s2Trigger.handler(state, caster);
+  }
+  function hasStage(state, name) { return !!state.buffs.find(b => b.name === name); }
+
+  // s=1: no stage buffs
+  const st1 = makeState();
+  callN(st1, 1);
+  eq('s=1: no stage1 buff', hasStage(st1, 'nayuta_s2_stage1_atkPct'), false);
+
+  // s=2: Stage 1 fires at exactly s=2 (≥2)
+  const st2 = makeState();
+  callN(st2, 2);
+  eq('s=2: stage1 buff pushed', hasStage(st2, 'nayuta_s2_stage1_atkPct'), true);
+  eq('s=2: no stage2 yet',      hasStage(st2, 'nayuta_s2_stage2_attackDmg'), false);
+
+  // s=9: still no stage2
+  const st9 = makeState();
+  callN(st9, 9);
+  eq('s=9: no stage2 buff', hasStage(st9, 'nayuta_s2_stage2_attackDmg'), false);
+
+  // s=10: Stage 2 fires at exactly s=10 (≥10)
+  const st10 = makeState();
+  callN(st10, 10);
+  eq('s=10: stage2 buff pushed', hasStage(st10, 'nayuta_s2_stage2_attackDmg'), true);
+  eq('s=10: no stage3 yet',      hasStage(st10, 'nayuta_s2_stage3_coreDmg'), false);
+
+  // s=29: still no stage3
+  const st29 = makeState();
+  callN(st29, 29);
+  eq('s=29: no stage3 buff', hasStage(st29, 'nayuta_s2_stage3_coreDmg'), false);
+
+  // s=30: Stage 3 fires at exactly s=30
+  const st30 = makeState();
+  callN(st30, 30);
+  eq('s=30: stage3 buff pushed', hasStage(st30, 'nayuta_s2_stage3_coreDmg'), true);
+
+  // s=31+: capped at 30, stage1 buff not pushed twice
+  const st31 = makeState();
+  callN(st31, 31);
+  const stage1Buffs = st31.buffs.filter(b => b.name === 'nayuta_s2_stage1_atkPct');
+  eq('s=31: stage1 not pushed twice', stage1Buffs.length, 1);
+}
+
+// ── T12: Memory Incineration FC count time-based + full magazine on switch ────
+
+section('T12: Memory Incineration — time-based FC count (duration÷chargeTime), full mag');
+{
+  const DURATION_S    = 10;
+  const CHARGE_TIME_S = 1.8;
+  const TICK_RATE_VAL = 60;
+
+  // floor(10 / 1.8) = 5; 6th would fire at t=10.8s (outside the 10s window)
+  const fcCount = Math.floor(DURATION_S / CHARGE_TIME_S);
+  eq('FC count = floor(10 / 1.8) = 5', fcCount, 5);
+
+  // Last valid FC fires at tick 5 × 1.8 × 60 = 540 (≤ window end 600)
+  const lastFcTick    = fcCount * CHARGE_TIME_S * TICK_RATE_VAL;
+  const windowEndTick = DURATION_S * TICK_RATE_VAL;
+  eq('5th FC tick (540) ≤ window end (600)', lastFcTick <= windowEndTick, true);
+
+  // 6th FC tick = 6 × 1.8 × 60 = 648 — past the 10s window
+  const sixthFcTick = (fcCount + 1) * CHARGE_TIME_S * TICK_RATE_VAL;
+  eq('6th FC tick (648) > window end (600)', sixthFcTick > windowEndTick, true);
+
+  // Burst handler must use weapon switch, not pendingSkillHits
+  const nayutaTraits = SKILL_TRAITS[223];
+  const burstTrigger = nayutaTraits?.burst?.triggers?.find(t => t.on === 'BURST_SKILL_USE');
+  const handlerSrc   = burstTrigger?.handler?.toString() ?? '';
+  eq('burst handler writes weaponSwitchEndTick',   handlerSrc.includes('weaponSwitchEndTick'), true);
+  eq('burst handler does not use pendingSkillHits', handlerSrc.includes('pendingSkillHits'), false);
+
+  // Simulate burst handler — verify full magazine: chargeTick = T + chargeTimeTicks
+  const unitId = 223;
+  const T = 1000;
+  const state = {
+    tick: T, buffs: [], buffLog: null, hitLog: null,
+    enemyHp: 1e9, enemyDef: 0, enemyDamageTakenPct: 0,
+    fullBurstActive: true,
+    squad: [{ id: unitId, equipAtkPct: 0,
+      stats: { atk: 100000, critRate: 0.15, critDmg: 0.5 },
+      totalDamage: 0,
+      skillState: {} }],
+  };
+  const caster = state.squad[0];
+  burstTrigger.handler(state, caster, {});
+
+  const expectedChargeTicks = Math.round(CHARGE_TIME_S * TICK_RATE_VAL); // 108
+  eq('weaponSwitchChargeTimeTicks = 108 (1.8s × 60)',
+    caster.skillState.weaponSwitchChargeTimeTicks, expectedChargeTicks);
+  eq('weaponSwitchEndTick = T + 600 (10s window)',
+    caster.skillState.weaponSwitchEndTick, T + windowEndTick);
+  eq('chargeTick = T + 108 (full magazine: first FC ready at t+1.8s)',
+    caster.chargeTick, T + expectedChargeTicks);
+  eq('weaponSwitchFullChargeDamage = 25000 (250% FC)',
+    caster.skillState.weaponSwitchFullChargeDamage, 25000);
+  eq('weaponSwitchUnlimitedAmmo = true',
+    caster.skillState.weaponSwitchUnlimitedAmmo, true);
+}
+
+// ── T13: S1 Part3 — 150% + 380.46% = 530.46% total for boss during FC ────────
+
+section('T13: Nayuta S1 Part3 — FULL_CHARGE during Memory Incineration fires 530.46%');
+{
+  const nayutaTraits = SKILL_TRAITS[223];
+  const s1Triggers   = nayutaTraits?.skill1?.triggers ?? [];
+  const fcTrigger    = s1Triggers.find(t => t.on === 'FULL_CHARGE');
+
+  eq('S1 has FULL_CHARGE trigger', !!fcTrigger, true);
+  eq('S1 FULL_CHARGE uses handler', typeof fcTrigger?.handler, 'function');
+
+  // 150% (all enemies) + 380.46% (stage target / boss) = 530.46% total for boss
+  const allEnemiesMult = 1.50;
+  const additionalMult = 3.8046;
+  const totalBossMult  = allEnemiesMult + additionalMult;
+  eq('150% + 380.46% = 530.46%', Math.round(totalBossMult * 10000) / 10000, 5.3046);
+
+  // Simulate: Memory Incineration active → handler fires hit with mult=5.3046
+  const unitId = 223;
+  const T = 500;
+  const zeroSums = {
+    atkPct: 0, atkFlat: 0, attackDamagePct: 0, critRateBonus: 0,
+    critDmgBonus: 0, chargeDamagePct: 0, lifeStealPct: 0, distributedDamagePct: 0,
+    coreDamagePct: 0,
+  };
+  const state = {
+    tick: T, buffs: [], buffLog: null, hitLog: [],
+    enemyHp: 1e9, enemyDef: 0, enemyDamageTakenPct: 0,
+    fullBurstActive: true,
+    squad: [{ id: unitId, equipAtkPct: 0,
+      stats: { atk: 100000, critRate: 1, critDmg: 0.5 },
+      totalDamage: 0, skillDamage: {}, skillDamageCount: {} }],
+  };
+  const caster = state.squad[0];
+  caster.skillState = { weaponSwitchEndTick: T + 600 }; // switch active
+  fcTrigger.handler(state, caster, { sums: zeroSums });
+
+  const hitEntry = state.hitLog.find(h => h.label === 'memincin_s1p3');
+  eq('hitLog entry for memincin_s1p3 exists', !!hitEntry, true);
+  eq('hitMult = 5.3046', hitEntry?.hitMult, 5.3046);
+
+  // When Memory Incineration is NOT active, handler must not fire
+  const stateOff = {
+    tick: T, buffs: [], buffLog: null, hitLog: [],
+    enemyHp: 1e9, enemyDef: 0, enemyDamageTakenPct: 0, fullBurstActive: false,
+    squad: [{ id: unitId, equipAtkPct: 0,
+      stats: { atk: 100000, critRate: 1, critDmg: 0.5 },
+      totalDamage: 0, skillDamage: {}, skillDamageCount: {} }],
+  };
+  const casterOff = stateOff.squad[0];
+  casterOff.skillState = { weaponSwitchEndTick: 0 };
+  fcTrigger.handler(stateOff, casterOff, { sums: zeroSums });
+  eq('S1 Part3 does NOT fire when Memory Incineration inactive', stateOff.hitLog.length, 0);
+
+  // Verify Indomitability sets 9s end tick at battle start
+  const battleStartTrigger = s1Triggers.find(t => t.on === 'BATTLE_START');
+  eq('S1 has BATTLE_START trigger (Indomitability)', !!battleStartTrigger, true);
+  const bsState  = { tick: 0 };
+  const bsCaster = { skillState: {} };
+  battleStartTrigger.handler(bsState, bsCaster);
+  eq('Indomitability endTick = 9 × 60 = 540', bsCaster.skillState.nayutaIndomitabilityEndTick, 540);
 }
 
 summary('Skill traits tests');

@@ -994,6 +994,47 @@ section('T32: Max ammo capacity formula — grouped ROUND');
   eq('Lib    6 + R(2)+R(4) = 12',                  calcMaxAmmo(6, [0.4017, 0.7304]), 12);
 }
 
+// ── T33: MaxAmmo with pct buffs / debuffs — per-effect round ─────────────────
+//
+// 每个百分比效果单独对 BASE 取整（延续 T32 分组 ROUND 规则）：
+//   ± round(base × |pct|)   正数为增益，负数为减益
+// 平坦加成直接叠加，最终 max(1, result)。
+//
+// 验证数据来源：基础弹匣=5，各效果组合的实测最终弹匣数。
+//
+// 已验证的 pct 取整值（base=5）：
+//   round(5 × 0.4517) = 2   round(5 × 0.5066) = 3   round(5 × 0.7392) = 4
+
+section('T33: MaxAmmo pct debuff/buff — per-effect round');
+{
+  // pcts: 有符号 delta 数组，e.g. [+0.4517, -0.7392]
+  // 同值分组（延续 T32 规则）：round(base × p × count) per group
+  function calcMaxAmmoFull(base, flat, pcts) {
+    const groups = new Map();
+    for (const p of pcts) groups.set(p, (groups.get(p) ?? 0) + 1);
+    let result = base;
+    for (const [p, cnt] of groups) result += Math.round(base * p * cnt);
+    result += flat;
+    return Math.max(1, result);
+  }
+
+  eq('base=5, 无效果 → 5',                               calcMaxAmmoFull(5, 0, []), 5);
+  eq('+1 flat → 6',                                      calcMaxAmmoFull(5, 1, []), 6);
+  eq('+45.17% → 7',                                      calcMaxAmmoFull(5, 0, [+0.4517]), 7);
+  eq('-50.66% → 2',                                      calcMaxAmmoFull(5, 0, [-0.5066]), 2);
+  eq('-73.92% → 1',                                      calcMaxAmmoFull(5, 0, [-0.7392]), 1);
+  eq('+1, +45.17% → 8',                                  calcMaxAmmoFull(5, 1, [+0.4517]), 8);
+  eq('+45.17%, -50.66% → 4',                             calcMaxAmmoFull(5, 0, [+0.4517, -0.5066]), 4);
+  eq('+45.17%, -73.92% → 3',                             calcMaxAmmoFull(5, 0, [+0.4517, -0.7392]), 3);
+  eq('+1, -73.92% → 2',                                  calcMaxAmmoFull(5, 1, [-0.7392]), 2);
+  eq('+1, -50.66% → 3',                                  calcMaxAmmoFull(5, 1, [-0.5066]), 3);
+  eq('-73.92%, -50.66% → 1 (负数 clamp)',                calcMaxAmmoFull(5, 0, [-0.7392, -0.5066]), 1);
+  eq('+45.17%, +1, -73.92% → 4',                         calcMaxAmmoFull(5, 1, [+0.4517, -0.7392]), 4);
+  eq('+45.17%, -73.92%, -50.66% → 1',                    calcMaxAmmoFull(5, 0, [+0.4517, -0.7392, -0.5066]), 1);
+  eq('+1, +45.17%, -73.92%, -50.66% → 1',                calcMaxAmmoFull(5, 1, [+0.4517, -0.7392, -0.5066]), 1);
+  eq('+1, -73.92%, -50.66% → 1 (flat 无法突破负数 clamp)', calcMaxAmmoFull(5, 1, [-0.7392, -0.5066]), 1);
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 summary('Formula tests');
