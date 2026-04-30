@@ -443,36 +443,27 @@ export function getFavItemSkillEffects(favData, itemLevel) {
  * 为装备了 SSR 收藏品的 NIKKE 返回升级后的技能详情对象。
  *
  * SSR 收藏品自带 `favoriteitem_skill_group_data`：三项数组（Skill1、Skill2、Burst），
- * 每项包含一个与 skill_detail 兼容的完整 `info` 对象。根级别的
- * `level1`/`level2`/`level3` 数组决定每个物品等级下的技能等级（与 collection
- * 技能使用相同约定）。在物品最高等级（SSR 为 2）时，全部技能为 level 4。
+ * 每项包含对应角色技能的完整 10 级数值表。`level1`/`level2` 数组归属于
+ * `collection_skill_group_data`（全队基础被动），与此处无关。
+ *
+ * favoriteitem 技能由玩家独立升级（1–10），CDN 不编码当前等级；默认按满级（10）计算。
  *
  * 当收藏品没有 `favoriteitem_skill_group_data`（R/SR 物品）时返回 `null`。
  *
- * @param {object} favData   — 原始 CDN 收藏品 JSON（.data 字段）
- * @param {number} itemLevel — 物品强化等级（0–max_level）
+ * @param {object} favData              原始 CDN 收藏品 JSON（.data 字段）
+ * @param {number} itemLevel            物品强化等级（保留参数，当前未使用）
+ * @param {number} [skillLevelOverride] 指定技能等级（1–10）；省略时默认为 10
  * @returns {{ skill1: object, skill2: object, burst: object } | null}
- */
-/**
- * @param {object} favData        原始 CDN 收藏品 JSON（.data）
- * @param {number} itemLevel      收藏品强化等级（用于从 level1/level2/level3 数组中查表得到技能等级）
- * @param {number} [skillLevelOverride]  若提供，则全部三项技能都使用该等级（1–10），而非物品表里推导的等级。
- *                                       当玩家单独将 SSR 技能槽升级到高于物品升级表反映的等级时使用
- *                                       （例如技能等级 10/10/10）。
  */
 export function getSsrFavSkills(favData, itemLevel, skillLevelOverride) {
   const fskills = favData?.favoriteitem_skill_group_data;
   if (!fskills?.length) return null;
-  // SSR 物品可能只有 level1/level2 数组（无 level3）。对缺失的槽位回退到 level1，
-  // 保证三个技能都能取到有效等级。
-  const lv1 = favData?.level1 ?? [];
-  const lvArrays = [lv1, favData?.level2 ?? lv1, favData?.level3 ?? lv1];
-  const result = {};
-  const labels = ['skill1', 'skill2', 'burst'];
+  const skillLv = skillLevelOverride ?? 10;
+  const result  = {};
+  const labels  = ['skill1', 'skill2', 'burst'];
   for (let si = 0; si < fskills.length; si++) {
-    const info    = fskills[si]?.info;
+    const info = fskills[si]?.info;
     if (!info) continue;
-    const skillLv = skillLevelOverride ?? lvArrays[si]?.[itemLevel] ?? 0;
     result[labels[si]] = { ...info, _activeSkillLevel: skillLv };
   }
   return Object.keys(result).length ? result : null;

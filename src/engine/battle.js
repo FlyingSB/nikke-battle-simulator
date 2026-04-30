@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 战斗模拟引擎。
  *
  * 以离散 tick 模拟基于时间的战斗。
@@ -70,8 +70,9 @@
  *                   (All Helm values read from SSR fav item Antique Compass — vary by item/skill level)
  *
  *   Moran           Skill 1: DEF ▲3.51%/1%HP lost (passive, not modelled); every 5 burst-weapon shots → 47.18% ATK hit
- *                   Skill 2: Taunt + debuffs on last-bullet (not modelled)
- *                   Burst:   Weapon change 10s — shots deal 14.7% ATK (replaces normal AR shots)
+ *                   Skill 2: Taunt + HP threshold MaxHP buffs (not modelled)
+ *                   Burst:   Weapon change 10s (14.7% ATK/shot) + unlimited ammo 10s + lifesteal 36.14% 10s (self)
+ *                            All allies Damage Taken ▼35.14% + DEF ▲14.85% caster DEF 10s (not modelled — defensive)
  *   Nayuta          Skill 1: Indomitability + Memory Incineration weapon change (not modelled)
  *                   Skill 2: Hit Rate self-stack (not modelled)
  *                   Burst:   Attack Damage ▲35.45% 15s (all) + 275.18% + 645.33% ATK burst hits
@@ -94,6 +95,9 @@ import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
 import { computeFinalStats } from './stats.js';
 import { WEAPON_AMMO, WEAPON_HIT_MULT } from './constants.js';
 import { getFavItemSkillEffects, getSsrFavSkills } from '../data/models.js';
+import { getCharacterTraits } from '../data/skill-traits.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, fireSkillHit } from './battle-utils.js';
+import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
 const MAX_TICKS = TICK_RATE * 180; // 战斗上限 3 分钟
@@ -121,10 +125,10 @@ const RELOAD_TICKS_DEFAULT = {
   RL:  180, // 3 秒
 };
 
-// 爆裂槽能量系统 — 每个单位有独立的槽（0..BURST_GAUGE_MAX）。
+// 爆裂槽能量系统 — 全队共享同一个能量计数器（0..BURST_GAUGE_MAX）。
 // 每发的单位能量来自 CDN shot_detail.target_burst_energy_pershot（原值，不缩放）。
 // 满蓄力能量 = burstEnergyPerShot × (fullChargeDamage / 10000)。
-// 所有槽都达到上限后，burst_i 才能触发。
+// 共享槽达到上限后 burst_i 触发；所有写入均通过 addBurstGauge() → state.burstGauge。
 const BURST_GAUGE_MAX = 1_000_000;
 
 // 默认敌人行动阶段表。
@@ -159,170 +163,9 @@ function getPhaseAtTick(phases, tick) {
   return phases[0]?.zone ?? 'NEAR';
 }
 
-// ─── Buff 汇总辅助 ──────────────────────────────────────────────────────
+// ─── Buff/伤害/回复辅助均已从 battle-utils.js 导入 ──────────────────────────
+// getBuffSums, pushBuff, addBurstGauge, applyHeal, fireSkillHit
 
-/**
- * 汇总作用于指定单位的所有生效 buff（unitId=null 的 buff 对全员生效）。
- * @param {object} state
- * @param {number} unitId
- * @returns {{ atkPct, atkFlat, defFlat, attackDamagePct, normalAttackDamagePct, critRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct, reloadSpeedPct, lifeStealPct }}
- */
-function getBuffSums(state, unitId) {
-  // atkPct 初始值为单位的装备 ATK% 永久倍率
-  const unit = state.squad.find(u => u.id === unitId);
-  let atkPct = unit?.equipAtkPct ?? 0;
-  let atkFlat = 0, defFlat = 0, attackDamagePct = 0, normalAttackDamagePct = 0,
-      critRateBonus = 0, critDmgBonus = 0, chargeDamagePct = 0, chargeSpeedPct = 0,
-      reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
-      chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0;
-  for (const b of state.buffs) {
-    if (b.unitId !== null && b.unitId !== unitId) continue;
-    atkPct                   += b.atkPct                   ?? 0;
-    atkFlat                  += b.atkFlat                  ?? 0;
-    defFlat                  += b.defFlat                  ?? 0;
-    attackDamagePct          += b.attackDamagePct          ?? 0;
-    normalAttackDamagePct    += b.normalAttackDamagePct    ?? 0;
-    critRateBonus            += b.critRateBonus            ?? 0;
-    critDmgBonus             += b.critDmgBonus             ?? 0;
-    chargeDamagePct          += b.chargeDamagePct          ?? 0;
-    chargeSpeedPct           += b.chargeSpeedPct           ?? 0;
-    reloadSpeedPct           += b.reloadSpeedPct           ?? 0;
-    lifeStealPct             += b.lifeStealPct             ?? 0;
-    distributedDamagePct     += b.distributedDamagePct     ?? 0;
-    chargeTimeReductionTicks += b.chargeTimeReductionTicks ?? 0;
-    hitRateBonus             += b.hitRateBonus             ?? 0;
-    elementAdvantageBonus    += b.elementAdvantageBonus    ?? 0;
-  }
-  return { atkPct, atkFlat, defFlat, attackDamagePct, normalAttackDamagePct, critRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct, reloadSpeedPct, lifeStealPct, distributedDamagePct, chargeTimeReductionTicks, hitRateBonus, elementAdvantageBonus };
-}
-
-// ─── Buff 添加辅助 ─────────────────────────────────────────────────────────
-
-/**
- * 添加 buff；若已存在相同 (name, unitId) 的 buff，则刷新它。
- * 刷新规则：endTick → max(已有，新值)。效果字段保持不变（不可叠加）。
- * @param {object} state
- * @param {object} buff  — 必须包含 { name, unitId, endTick } 及一个或多个效果字段
- */
-function addBurstGauge(state, unitName, source, energy) {
-  if (state.burstPhase !== 0) return;
-  state.burstGauge = Math.min(BURST_GAUGE_MAX, state.burstGauge + energy);
-  if (state.burstEnergyLog) {
-    state.burstEnergyLog.push({ tick: state.tick, unitName, source, energyAdded: energy, gaugeAfter: state.burstGauge });
-  }
-}
-
-function pushBuff(state, buff) {
-  const existing = state.buffs.find(b => b.name === buff.name && b.unitId === buff.unitId);
-  if (existing) {
-    existing.endTick = Math.max(existing.endTick, buff.endTick);
-    // 不可叠加：数值字段保持不变；只刷新持续时间。不记录日志。
-    return;
-  }
-  state.buffs.push(buff);
-  if (state.buffLog) {
-    state.buffLog.push({ type: 'buff_gain', tick: state.tick, name: buff.name, unitId: buff.unitId, endTick: buff.endTick,
-      atkPct:               buff.atkPct               ?? 0,
-      atkFlat:              buff.atkFlat              ?? 0,
-      attackDamagePct:      buff.attackDamagePct      ?? 0,
-      critRateBonus:        buff.critRateBonus        ?? 0,
-      critDmgBonus:         buff.critDmgBonus         ?? 0,
-      chargeDamagePct:      buff.chargeDamagePct      ?? 0,
-      chargeSpeedPct:       buff.chargeSpeedPct       ?? 0,
-      reloadSpeedPct:            buff.reloadSpeedPct            ?? 0,
-      distributedDamagePct:      buff.distributedDamagePct      ?? 0,
-      maxAmmoPct:                buff.maxAmmoPct                ?? 0,
-      chargeTimeReductionTicks:  buff.chargeTimeReductionTicks  ?? 0,
-      hitRateBonus:              buff.hitRateBonus              ?? 0,
-    });
-  }
-}
-
-// ─── 技能伤害辅助 ──────────────────────────────────────────────────────
-
-/**
- * 让单位执行一次技能命中。会应用 buff、属性克制、Full Burst 加成等。
- * 会减少 state.enemyHp 并累加 unit.totalDamage。
- * 返回造成的伤害（敌人已阵亡返回 0）。
- * @param {object} state
- * @param {object} unit
- * @param {number} hitMult   — 技能倍率（例如 2.5047 表示 250.47% ATK）
- * @param {object} sums      — 来自 getBuffSums 的汇总
- * @param {boolean} [isCharged]  — 覆盖默认值；SR/RL 默认为 true
- * @param {string}  [label]      — 用于 skillDamage 跟踪与 hitLog 的命中标签
- * @param {object}  [opts]       — 单次调用的覆盖项：
- *   opts.isCore            {boolean} — 此次命中是否可能命中核心（默认 false）
- *   opts.coreDmgIncrement  {number}  — 在 BASE_CORE_DAMAGE 之外追加的核心伤害加成（默认 0）
- *   opts.extraAttackDamagePct {number} — 针对这次命中的额外 ExtraMultiplier 加成
- *                              （例如 projectile attachment/explosion 类型加成 — 与 buff xDmg% 叠加）
- */
-function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts = {}) {
-  if (state.enemyHp <= 0) return 0;
-  const charged          = isCharged !== undefined ? isCharged : ['SR', 'RL'].includes(unit.weaponType);
-  const isCrit           = rollCrit(Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRateBonus));
-  const isCore           = opts.isCore           ?? false;
-  const coreDmgIncrement = opts.coreDmgIncrement ?? 0;
-  const extraAtkDmgPct   = opts.extraAttackDamagePct ?? 0;
-  const isDistributed    = opts.isDistributed    ?? false;
-  const distributedBonus = isDistributed ? (sums.distributedDamagePct ?? 0) : 0;
-  const extraAtkFlat     = opts.extraAtkFlat ?? 0;
-  const { damage, breakdown: bd } = calcDamage({
-    atk:               unit.stats.atk,
-    atkMultiplier:     1 + sums.atkPct,
-    otherAtkIncrement: sums.atkFlat + extraAtkFlat,
-    enemyDef:          state.enemyDef,
-    hitMultiplier:     hitMult,
-    weaponType:        unit.weaponType,
-    isCrit,
-    critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDmgBonus,
-    isCore,
-    coreDmgIncrement,
-    isFullBurst:       state.fullBurstActive,
-    attackerElement:   unit.element,
-    defenderElement:   state.enemyElement,
-    elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantageBonus ?? 0),
-    isCharged:         charged,
-    fullChargeDamage:  unit.fullChargeDamage ?? 10000,
-    chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
-    extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct },
-    damageTakenMult:   state.enemyDamageTakenPct + distributedBonus,
-  });
-  unit.totalDamage += damage;
-  state.enemyHp    -= damage;
-  if (sums.lifeStealPct > 0) {
-    unit.unitHp = Math.min(unit.stats.hp, unit.unitHp + damage * sums.lifeStealPct);
-  }
-  if (label) {
-    unit.skillDamage        ??= {};
-    unit.skillDamageCount   ??= {};
-    unit.skillDamage[label]  = (unit.skillDamage[label]  ?? 0) + damage;
-    unit.skillDamageCount[label] = (unit.skillDamageCount[label] ?? 0) + 1;
-  }
-  if (state.hitLog) {
-    state.hitLog.push({
-      tick: state.tick, unitId: unit.id, label: label ?? 'skill',
-      atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
-      hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50,
-      // attackDamagePct 同时包含 buff 的 xDmg% 与本次命中独有的 extraAttackDamagePct
-      attackDamagePct: sums.attackDamagePct + extraAtkDmgPct,
-      extraAttackDamagePct: extraAtkDmgPct,
-      isFullBurst: state.fullBurstActive,
-      // damageTakenPct = 敌人基础值 + distributed 加成（isDistributed 时）
-      damageTakenPct: state.enemyDamageTakenPct + distributedBonus, enemyDef: state.enemyDef,
-      isDistributed, distributedBonus,
-      isCore, coreDmgIncrement, damage,
-      elementDmgPct: unit.stats.elementDmgPct ?? 0,
-      elemMult: bd.elemMult,
-      chargeMult: bd.chargeMult,
-      distanceAdv: false,
-      buffBreakdown: state.buffs
-        .filter(b => b.unitId === null || b.unitId === unit.id)
-        .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: b.attackDamagePct ?? 0 }))
-        .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct),
-    });
-  }
-  return damage;
-}
 
 // ─── 技能事件处理器 ─────────────────────────────────────────────────────
 
@@ -335,18 +178,27 @@ function selectBurstUnit(state, burstStep) {
 }
 
 /**
- * Liter Skill 1 Part 2 helper — fires once per Full Burst entry.
- * "Previous effects trigger repeatedly" — each effect applies from its Full Burst rotation onward:
- *   Rot 1 (≥1 FB):  Max Ammo ▲45.17% 5s — modelled separately in applyFullBurstSkills
- *   Rot 2 (≥2 FBs): Crit Damage ▲12.46% 5s (all)
- *   Rot 3 (≥3 FBs): ATK ▲14.42% 5s (all)
- * Called once per Full Burst from applyFullBurstSkills.
+ * 分派 HEAL_RECEIVED 触发：消费 state.pendingHealReceived 队列（由 applyHeal 填充），
+ * 去重后逐单位调用 executeSkillTriggers。
+ * 调用时机：每次可能触发 applyHeal 的操作（onShotFired、executeSkillTriggers）之后。
  */
-function applyLiterS1PartTwo(state, liter) {
-  const cnt = ++liter.skillState.lmS1BurstUseCount;
-  const end5 = state.tick + TICK_RATE * 5;
-  if (cnt >= 2) pushBuff(state, { name: 'liter_s1_critDmg', unitId: null, critDmgBonus: 0.1246, endTick: end5 });
-  if (cnt >= 3) pushBuff(state, { name: 'liter_s1_atkPct',  unitId: null, atkPct:       0.1442, endTick: end5 });
+function flushHealReceived(state) {
+  if (!state.pendingHealReceived?.length) return;
+  const seen   = new Set();
+  const healed = state.pendingHealReceived.splice(0);
+  for (const u of healed) {
+    if (seen.has(u.id)) continue;
+    seen.add(u.id);
+    executeSkillTriggers(state, 'HEAL_RECEIVED', { unit: u });
+  }
+}
+
+/**
+ * 进入 Burst 1 阶段时触发的被动效果（槽填满那一 tick 立即触发，不依赖 B1 单位是否 cast）。
+ * 触发时机：burstPhase 从 0 变为 1（共享槽填满）。
+ */
+function applyEnterBurst1Passives(state) {
+  executeSkillTriggers(state, 'ENTER_BURST_I');
 }
 
 /** Step1 burst：若冷却结束则释放。返回释放的单位，或 null。 */
@@ -362,39 +214,9 @@ function applyBurstISkills(state) {
   }
 
   b1.burstSkillCooldownEndTick = state.tick + b1.burstSkillCooltime;
-
-  if (b1.name === 'Little Mermaid') {
-    // LM Burst (Siren's Song)
-    // All allies: Attack Damage ▲ 10.13% for 10s
-    pushBuff(state, { name: 'lm_burst_attackDmg', unitId: null, attackDamagePct: 0.1013, endTick: state.tick + TICK_RATE * 10 });
-    // All allies: reload 33.26% of maxAmmo (cancel pending reload only if mag is now full)
-    for (const u of state.squad) {
-      const ammoBefore = u.ammoLeft;
-      u.ammoLeft = Math.min(u.maxAmmo, u.ammoLeft + Math.floor(u.maxAmmo * 0.3326));
-      if (u.ammoLeft >= u.maxAmmo && u.reloadTick > 0) u.reloadTick = 0;
-      if (state.ammoLog && u.ammoLeft !== ammoBefore)
-        state.ammoLog.push({ tick: state.tick, unitId: u.id, unitName: u.name, delta: u.ammoLeft - ammoBefore, ammoAfter: u.ammoLeft, maxAmmo: u.maxAmmo, source: 'lm_burst_reload' });
-    }
-    // LM self: ATK flat ▲ 17.28% of LM's ATK for 10s
-    pushBuff(state, { name: 'lm_burst_atkFlat', unitId: b1.id, atkFlat: Math.round(b1.stats.atk * 0.1728), endTick: state.tick + TICK_RATE * 10 });
-
-  } else if (b1.name === 'Liter') {
-    // Liter Burst (Double Boost): ATK ▲66% for 5s (all)
-    pushBuff(state, { name: 'liter_burst_atkPct', unitId: null, atkPct: 0.66, endTick: state.tick + TICK_RATE * 5 });
-  }
-
-  // Mast S1 (A Pirate's Heart): on B1 entry → gain 1 Drunken stack (max 3)
-  // On first stack: apply S1 passives (CritRate▲20.05% + ATK flat ▲35.02% Mast ATK, all, permanent while Drunken)
-  const mast = state.squad.find(u => u.name === 'Mast: Romantic Maid');
-  if (mast && mast.skillState.mastDrunkenStacks < 3) {
-    mast.skillState.mastDrunkenStacks++;
-    if (mast.skillState.mastDrunkenStacks === 1) {
-      // Push with effectively-infinite duration; explicitly removed when Hangover clears stacks
-      pushBuff(state, { name: 'mast_s1_critRate', unitId: null, critRateBonus: 0.2005, endTick: state.tick + TICK_RATE * 99999 });
-      pushBuff(state, { name: 'mast_s1_atkFlat',  unitId: null, atkFlat: Math.round(mast.stats.atk * 0.3502), endTick: state.tick + TICK_RATE * 99999 });
-    }
-  }
-
+  state.burstCastersThisRotation?.add(b1.id);
+  executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: b1 });
+  flushHealReceived(state);
   return b1;
 }
 
@@ -404,235 +226,23 @@ function applyBurstIISkills(state) {
   if (!b2) return null;
 
   b2.burstSkillCooldownEndTick = state.tick + b2.burstSkillCooltime;
-
-  if (b2.name === 'Moran') {
-    // Moran Burst (Fair and Square!): weapon change for 10s — shots deal 14.7% ATK.
-    // S1 "Bring It On!": every 5 shots during weapon change → 47.18% ATK additional damage.
-    // Both are tracked via skillState; the actual shots fire inside tick() while weapon is active.
-    b2.skillState.moranBurstEndTick  = state.tick + TICK_RATE * 10;
-    b2.skillState.moranBurstS1Count  = 0;
-
-  } else if (b2.name === 'Crown') {
-    // Crown Burst (Last Kingdom): Attack Damage ▲ 36.24% for 15s (all allies)
-    pushBuff(state, { name: 'crown_burst_attackDmg', unitId: null, attackDamagePct: 0.3624, endTick: state.tick + TICK_RATE * 15 });
-    // Crown Burst: Shield 10.45% Crown max HP for 15s (all allies)
-    // Shield absorbs incoming damage before unit HP. Refreshes to max(old, new) on re-cast.
-    const shieldAmt = Math.round(b2.stats.hp * 0.1045);
-    const shieldEnd = state.tick + TICK_RATE * 15;
-    for (const u of state.squad) {
-      if (u.shieldHp > 0) {
-        u.shieldHp      = Math.max(u.shieldHp, shieldAmt);
-        u.shieldEndTick = Math.max(u.shieldEndTick, shieldEnd);
-      } else {
-        u.shieldHp      = shieldAmt;
-        u.shieldEndTick = shieldEnd;
-      }
-    }
-  } else if (b2.name === 'Anchor: Innocent Maid') {
-    // Anchor Burst (Seaside Stroll): ATK flat ▲30.09% Anchor ATK (all, 10s)
-    // HP storage / recovery effects are not modelled (no incoming damage simulation).
-    pushBuff(state, { name: 'anchor_burst_atkFlat', unitId: null, atkFlat: Math.round(b2.stats.atk * 0.3009), endTick: state.tick + TICK_RATE * 10 });
-
-  } else if (b2.name === 'Mast: Romantic Maid') {
-    // Mast Burst (A Pirate's Romance):
-    // CritDmg ▲40.04% + AttackDmg ▲15.04% for 10s (all, unconditional)
-    const end10 = state.tick + TICK_RATE * 10;
-    pushBuff(state, { name: 'mast_burst_critDmg',    unitId: null, critDmgBonus:    0.4004, endTick: end10 });
-    pushBuff(state, { name: 'mast_burst_attackDmg',  unitId: null, attackDamagePct: 0.1504, endTick: end10 });
-    // Conditional: if Drunken stacks > 0 → ATK ▲20.06%×stacks of Mast's ATK (all, 10s)
-    if (b2.skillState.mastDrunkenStacks > 0) {
-      const atkFlat = Math.round(b2.stats.atk * 0.2006 * b2.skillState.mastDrunkenStacks);
-      pushBuff(state, { name: 'mast_burst_atkFlat', unitId: null, atkFlat, endTick: end10 });
-    }
-  }
-
+  state.burstCastersThisRotation?.add(b2.id);
+  executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: b2 });
+  flushHealReceived(state);
   return b2;
 }
 
 /**
  * 所有"进入 Full Burst"时的效果。
- *
- * 被动技能（每次 Full Burst 必触发，不检查冷却）：
- *   LM Skill 1、Crown Skill 1、Rapi Skill 1、Helm Skill 2、SBS Skill 2。
- *
- * Burst 技能（受冷却限制，按队伍顺序优先）：
- *   Step3 槽位 — 取 [Rapi、SBS、Helm] 中首个冷却已结束者。
+ * 被动技能（ENTER_FULL_BURST）和 Step3 burst 技能（BURST_SKILL_USE）均由
+ * executeSkillTriggers 分派。
  */
 function applyFullBurstSkills(state) {
-  const lm          = state.squad.find(u => u.name === 'Little Mermaid');
-  const liter       = state.squad.find(u => u.name === 'Liter');
-  const mast        = state.squad.find(u => u.name === 'Mast: Romantic Maid');
-  const anchor      = state.squad.find(u => u.name === 'Anchor: Innocent Maid');
-  const crown       = state.squad.find(u => u.name === 'Crown');
-  const rapi        = state.squad.find(u => u.name === 'Rapi: Red Hood');
-  const sbs         = state.squad.find(u => u.name === 'Scarlet: Black Shadow');
-  const helm        = state.squad.find(u => u.name === 'Helm');
-  const lib         = state.squad.find(u => u.name === 'Liberalio');
-  const nayuta      = state.squad.find(u => u.name === 'Nayuta');
-  const cinderella  = state.squad.find(u => u.name === 'Cinderella');
-  const anisss      = state.squad.find(u => u.name === 'Anis: Sparkling Summer');
-  const maidenir    = state.squad.find(u => u.name === 'Maiden: Ice Rose');
+  // 1. 进入爆裂阶段 3（B3 施放前）— 如 Mast S2 在此阶段触发
+  executeSkillTriggers(state, 'ENTER_BURST_III');
+  flushHealReceived(state);
 
-  // ── "进入 Full Burst"的被动触发（总是触发） ────────────────────────────
-
-  // Liter Skill 1 Part 1 (Liter Boost): on Full Burst entry → Burst Skill CD ▼ (all, cumulative)
-  // "Previous effects trigger repeatedly":
-  //   1st FB: ▼2.34s; 2nd: +▼2.70s; 3rd+: +▼3.17s → total ▼8.21s/rotation from rotation 3
-  if (liter) {
-    liter.skillState.lmS1FbCount++;
-    const cnt = liter.skillState.lmS1FbCount;
-    let reductionSec = 0;
-    if (cnt >= 1) reductionSec += 2.34;
-    if (cnt >= 2) reductionSec += 2.70;
-    if (cnt >= 3) reductionSec += 3.17;
-    const reductionTicks = Math.round(TICK_RATE * reductionSec);
-    for (const u of state.squad) {
-      u.burstSkillCooldownEndTick = Math.max(state.tick, u.burstSkillCooldownEndTick - reductionTicks);
-    }
-    if (state.buffLog && reductionTicks > 0)
-      state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'liter_s1_cdReduction', unitId: null, reductionTicks });
-    // S1 T1: Max Ammunition Capacity ▲45.17% for 5s — capacity only, current ammo unchanged.
-    // On each FB the boost window refreshes; the next reload during the window fills to maxAmmo+boostExtra.
-    const literBoostExtra = Math.floor(liter.baseAmmo * 0.4517);
-    const literBoostEndTick = state.tick + TICK_RATE * 5;
-    liter.skillState.literAmmoBoostEndTick = literBoostEndTick;
-    liter.skillState.literAmmoBoostExtra   = literBoostExtra;
-    // Push as a real buff so it appears in buffLog with auto-expire at endTick
-    pushBuff(state, { name: 'liter_s1_t1_maxAmmo', unitId: liter.id, maxAmmoPct: 0.4517, endTick: literBoostEndTick });
-    if (state.ammoLog)
-      state.ammoLog.push({ tick: state.tick, unitId: liter.id, unitName: liter.name,
-        delta: 0, ammoAfter: liter.ammoLeft, maxAmmo: liter.maxAmmo + literBoostExtra,
-        maxAmmoDelta: literBoostExtra, source: 'liter_s1_t1_maxAmmo(+45.17%)' });
-  }
-
-  // Liter S1 Part 2: fires once per Full Burst entry
-  if (liter) applyLiterS1PartTwo(state, liter);
-
-  // LM Skill 1 (Bubble Order): Attack Damage ▲ 4% for 10s (all)
-  if (lm) {
-    pushBuff(state, { name: 'lm_skill1_attackDmg', unitId: null, attackDamagePct: 0.04, endTick: state.tick + TICK_RATE * 10 });
-    // Set timer back one period so the first wave fires immediately on this tick
-    lm.skillState.lmLastBubbleShotTick = state.tick - TICK_RATE;
-  }
-
-  // Crown Skill 1 (One for All): split by burst-caster status (15s)
-  //   Burst-casters (fired their burst skill this rotation):
-  //     ATK flat ▲ 64.51% Crown ATK + Reload Speed ▲ 44.35%
-  //   Non-casters:
-  //     DEF flat ▲ 37.44% Crown DEF + Reload Speed ▲ 44.35%
-  if (crown) {
-    const step3Candidate = selectBurstUnit(state, 'Step3');
-    const burstCasterIds = new Set(
-      [lm?.id, crown.id, step3Candidate?.id].filter(x => x != null)
-    );
-    const endTick = state.tick + TICK_RATE * 15;
-    for (const u of state.squad) {
-      if (burstCasterIds.has(u.id)) {
-        pushBuff(state, { name: 'crown_skill1_atkFlat',    unitId: u.id, atkFlat:       Math.round(crown.stats.atk * 0.6451), endTick });
-      } else {
-        pushBuff(state, { name: 'crown_skill1_defFlat',    unitId: u.id, defFlat:       Math.round(crown.stats.def * 0.3744), endTick });
-      }
-      pushBuff(state,   { name: 'crown_skill1_reloadSpd',  unitId: u.id, reloadSpeedPct: 0.4435, endTick });
-    }
-  }
-
-  // Rapi Skill 1 Stage 3: ATK ▲ 95.04% (self, 10s) — always triggers on Full Burst
-  if (rapi) {
-    pushBuff(state, { name: 'rapi_skill1_atkPct', unitId: rapi.id, atkPct: 0.9504, endTick: state.tick + TICK_RATE * 10 });
-  }
-
-  // Helm Skill 2 (Fire Away): Attack Damage for 10s (all)
-  // SSR fav item upgrades this value (placeholder 2 = attackDmgPct; lv10 base = 11.85%)
-  if (helm) {
-    const helmS2     = helm.ssrFavSkills?.skill2;
-    const s2Lv       = helmS2?._activeSkillLevel ?? 0;
-    const s2AtkVals  = helmS2?.description_value_list?.[1]?.description_value ?? [];
-    const attackDmgPct = s2Lv > 0 ? parseFloat(s2AtkVals[s2Lv - 1] ?? '11.85') / 100 : 0.1185;
-    pushBuff(state, { name: 'helm_skill2_attackDmg', unitId: null, attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
-  }
-
-  // Mast S2 (A Pirate's Spirit): on B3 entry while Drunken →
-  //   Distributed Damage ▲15.03%×stacks + Reload Speed ▲15.04%×stacks (all, 10s)
-  //   "Distributed Damage" sits in the same slot as enemy Damage Taken — only applies to
-  //   Distributed Damage hit types (e.g. SBS S1 6th/9th shots, ti≥1).
-  if (mast && mast.skillState.mastDrunkenStacks > 0) {
-    const stacks = mast.skillState.mastDrunkenStacks;
-    const end10  = state.tick + TICK_RATE * 10;
-    pushBuff(state, { name: 'mast_s2_distributedDmg', unitId: null, distributedDamagePct: 0.1503 * stacks, endTick: end10 });
-    pushBuff(state, { name: 'mast_s2_reloadSpd',      unitId: null, reloadSpeedPct:  0.1504 * stacks, endTick: end10 });
-  }
-
-  // SBS Skill 2 (Fleetly Fading: Asura): Max Ammo ▲60% for 10s + reload 100%
-  // Note: ×1.6 applies to BASE ammo only; OL bonus is added flat.
-  // Skill 1 burst charge mode is NOT triggered here — only when SBS fires her own burst skill.
-  if (sbs) {
-    const sbsAmmoBefore    = sbs.ammoLeft;
-    sbs.tempMaxAmmoMult    = 1.6;
-    sbs.tempMaxAmmoEndTick = state.tick + TICK_RATE * 10;
-    const sbsExpandedMax   = Math.ceil(sbs.baseAmmo * 1.6) + (sbs.stats.bonusAmmo ?? 0) + sbs.favAmmoBonus;
-    sbs.ammoLeft           = sbsExpandedMax; // immediate full reload at expanded cap
-    sbs.reloadTick         = 0; // cancel any pending reload
-    if (state.ammoLog)
-      state.ammoLog.push({ tick: state.tick, unitId: sbs.id, unitName: sbs.name, delta: sbs.ammoLeft - sbsAmmoBefore, ammoAfter: sbs.ammoLeft, maxAmmo: sbsExpandedMax, source: 'sbs_burst_maxAmmo(+60%)' });
-  }
-
-  // Anchor Skill 1 (Starfish Omurice): progressive buffs on Full Burst entry.
-  // "Previous effects trigger repeatedly" — each effect activates from its rotation onward.
-  //   Once  (rot 1+): Distributed Damage ▲30.96% for 5s (all) [same-squad ally; Mast=Aegis=Anchor always met]
-  //   Twice (rot 2+): Distributed Damage ▲30.40% for 10s (all)
-  //   Three times (rot 3+): remove 1 Drunken stack from Mast (prevents Hangover; stacks reset to 0 removes S1 passives)
-  if (anchor) {
-    anchor.skillState.anchorFbCount++;
-    const cnt = anchor.skillState.anchorFbCount;
-    // TODO (low priority): S1 T1 'Potency of HP ▲30.96% for 5s (all)' — HP recovery potency, not a damage buff.
-    // Model when healing/recovery systems are added.
-    // T2: "Distributed Damage ▲30.40% for 10s" — same slot as enemy Damage Taken (like Mast S2)
-    if (cnt >= 2) pushBuff(state, { name: 'anchor_s1_t2_distributedDmg', unitId: null, distributedDamagePct: 0.3040, endTick: state.tick + TICK_RATE * 10 });
-    if (cnt >= 3 && mast && mast.skillState.mastDrunkenStacks > 0) {
-      mast.skillState.mastDrunkenStacks--;
-      if (mast.skillState.mastDrunkenStacks === 0) {
-        // No longer Drunken — remove S1 passive buffs; they reapply on next B1 stack gain
-        state.buffs = state.buffs.filter(b => b.name !== 'mast_s1_critRate' && b.name !== 'mast_s1_atkFlat');
-      }
-    }
-  }
-
-  // Liberalio Skill 1 T1 (Calm Depths): On Full Burst → ATK ▲160% for 3s (self)
-  // T4: Charge Speed ▲12.74% for 10s to the B3 ally with the lowest ATK.
-  //     Implemented as a flat tick reduction = 12.74% × CASTER (Lib) base chargeTimeTicks.
-  //     (Liberalio is immune to skill-based Charge Speed buffs)
-  if (lib) {
-    pushBuff(state, { name: 'lib_s1_t1_atkPct', unitId: lib.id, atkPct: 1.60, endTick: state.tick + TICK_RATE * 3 });
-    // T4: find lowest-ATK B3 unit; skip Liberalio herself (immune) and non-B3 units
-    const b3Units = state.squad.filter(u => u.burstStep === 'Step3' && !u.immuneSkillChargeSpeed);
-    if (b3Units.length > 0) {
-      const target = b3Units.reduce((a, b) => a.stats.atk < b.stats.atk ? a : b);
-      // Flat reduction: 12.74% × CASTER (Liberalio) base charge time in ticks
-      const flatReductionTicks = Math.round(lib.chargeTimeTicks * 0.1274);
-      pushBuff(state, { name: 'lib_s1_t4_chargeSpd', unitId: target.id, chargeTimeReductionTicks: flatReductionTicks, endTick: state.tick + TICK_RATE * 10 });
-    }
-  }
-
-  // ── Cinderella Skill 1（Beautiful）：进入 Burst Stage 3 / Full Burst 时触发 ─────
-  // ATK ▲ 2.71% of caster's final Max HP (flat bonus) for 10s (self).
-  if (cinderella) {
-    const hpBasedAtk = Math.round(cinderella.stats.hp * 0.0271);
-    pushBuff(state, { name: 'cinderella_s1_atkFlat', unitId: cinderella.id, atkFlat: hpBasedAtk, endTick: state.tick + TICK_RATE * 10 });
-  }
-
-  // ── Anis:SS Skill 1（Summer Wave）：进入 Full Burst 时对 Electric Code 友军触发 ─
-  // ATK ▲ 55.31% of Anis ATK (flat) + Reload Speed ▲ 49.28% for 10s.
-  if (anisss) {
-    const atkBonus = Math.round(anisss.stats.atk * 0.5531);
-    const end10    = state.tick + TICK_RATE * 10;
-    for (const u of state.squad) {
-      if (u.element !== 'Electric') continue;
-      pushBuff(state, { name: 'anisss_s1_atkFlat',   unitId: u.id, atkFlat:        atkBonus, endTick: end10 });
-      pushBuff(state, { name: 'anisss_s1_reloadSpd', unitId: u.id, reloadSpeedPct: 0.4928,   endTick: end10 });
-    }
-  }
-
-  // ── Step3 / StepFull burst 技能（受冷却限制，所有符合条件的单位按队伍顺序触发） ─
+  // 2. B3 单位依次施放爆裂技能
   const burstFireOrder = state.squad.filter(u =>
     (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
     u.canBurst !== false &&
@@ -642,145 +252,32 @@ function applyFullBurstSkills(state) {
   let firstFired = null;
   for (const step3 of burstFireOrder) {
     step3.burstSkillCooldownEndTick = state.tick + step3.burstSkillCooltime;
+    state.burstCastersThisRotation?.add(step3.id);
     if (!firstFired) firstFired = step3;
-
-    if (step3 === rapi) {
-      // Rapi Burst Stage 3: 2808% ATK damage
-      const sums = getBuffSums(state, rapi.id); // includes the just-applied atkPct buff
-      fireSkillHit(state, rapi, 28.08, sums, false, 'burst');
-      // Enhanced Skill 2 projectile during Full Burst
-      rapi.skillState.rapiProjectileThreshold    = 60;
-      rapi.skillState.rapiProjectileAttachMult   = 6.7192; // passive 1.5072 + burst 4.212 + base 1
-      // explosion mult unchanged by burst (passive 2.006 remains)
-    } else if (step3 === sbs) {
-      // SBS Burst: ATK ▲ 115.12% + Charge Damage ▲ 150.12% (self, 10s)
-      pushBuff(state, { name: 'sbs_burst_atkPct',    unitId: sbs.id, atkPct:          1.1512, endTick: state.tick + TICK_RATE * 10 });
-      pushBuff(state, { name: 'sbs_burst_chargeDmg', unitId: sbs.id, chargeDamagePct: 1.5012, endTick: state.tick + TICK_RATE * 10 });
-      // Skill 1 burst charge mode: 1/2/3 cycle active for 10s after SBS fires her OWN burst
-      sbs.skillState.sbsBurstChargeModeEndTick = state.tick + TICK_RATE * 10;
-      sbs.skillState.sbsChargeCount            = 0;
-    } else if (step3 === lib) {
-      // Liberalio Burst (Submerged World): Attack Damage ▲50% for 10s (self) + 925% ATK direct hit
-      // "Attack Damage" = attackDamagePct (ExtraMultiplier slot), NOT atkPct
-      pushBuff(state, { name: 'lib_burst_attackDmg', unitId: lib.id, attackDamagePct: 0.50, endTick: state.tick + TICK_RATE * 10 });
-      const sums = getBuffSums(state, lib.id);
-      fireSkillHit(state, lib, 9.25, sums, false, 'burst');
-    } else if (step3 === helm) {
-      // Helm Burst (Aegis Cannon): SSR burst damage + lifesteal + self charge damage buff
-      // placeholder 1 = burst damage %; placeholder 2 = lifesteal %; placeholder 4 = charge dmg %
-      const helmBurst  = helm.ssrFavSkills?.burst;
-      const bLv        = helmBurst?._activeSkillLevel ?? 0;
-      const bDmgVals   = helmBurst?.description_value_list?.[0]?.description_value ?? [];
-      const lsVals     = helmBurst?.description_value_list?.[1]?.description_value ?? [];
-      const cdVals     = helmBurst?.description_value_list?.[3]?.description_value ?? [];
-      const burstMult  = bLv > 0 ? parseFloat(bDmgVals[bLv - 1] ?? '1237.5') / 100 : 12.375;
-      const lsPct      = bLv > 0 ? parseFloat(lsVals[bLv - 1]   ?? '54.45')  / 100 : 0.5445;
-      const cdPct      = bLv > 0 ? parseFloat(cdVals[bLv - 1]   ?? '0')      / 100 : 0;
-      const sums = getBuffSums(state, helm.id);
-      fireSkillHit(state, helm, burstMult, sums, false);
-      // All allies recover lifesteal% of their own attack damage as HP for 10s
-      pushBuff(state, { name: 'helm_burst_heal', unitId: null, lifeStealPct: lsPct, endTick: state.tick + TICK_RATE * 10 });
-      // Self: Charge Damage Multiplier ▲cdPct for 10 charge rounds (count-based)
-      if (cdPct > 0) {
-        helm.skillState.helmChargeShots   = 10;
-        helm.skillState.helmChargeDmgBuff = cdPct;
-      }
-
-    } else if (step3 === nayuta) {
-      // Nayuta Burst (Asceticism): Attack Damage ▲35.45% (all, 15s) + two burst hits
-      // Note: buff applied first so Nayuta's own hits benefit from it.
-      pushBuff(state, { name: 'nayuta_burst_attackDmg', unitId: null, attackDamagePct: 0.3545, endTick: state.tick + TICK_RATE * 15 });
-      const sums = getBuffSums(state, nayuta.id);
-      fireSkillHit(state, nayuta, 2.7518, sums, false, 'burst_hit1');
-      if (state.enemyHp > 0) fireSkillHit(state, nayuta, 6.4533, sums, false, 'burst_hit2');
-
-    } else if (step3 === cinderella) {
-      // Cinderella Burst (Glass Slippers. Full Contact.): 10 × 1365.92% ATK sequential hits.
-      const sums = getBuffSums(state, cinderella.id);
-      for (let h = 0; h < 10 && state.enemyHp > 0; h++) {
-        fireSkillHit(state, cinderella, 13.6592, sums, false, 'burst_seq');
-      }
-
-    } else if (step3 === anisss) {
-      // Anis:SS Burst (Sparkling Wave): self buffs for 10s + ammo capacity change (skipped).
-      // Reload Speed ▲27.72% (self, 10s)
-      // Elemental Advantage Attack Damage ▲42.24% (self, 10s)
-      const end10 = state.tick + TICK_RATE * 10;
-      pushBuff(state, { name: 'anisss_burst_reloadSpd',  unitId: anisss.id, reloadSpeedPct:       0.2772, endTick: end10 });
-      pushBuff(state, { name: 'anisss_burst_elemAdvDmg', unitId: anisss.id, elementAdvantageBonus: 0.4224, endTick: end10 });
-
-    } else if (step3 === maidenir) {
-      // Maiden: Ice Rose Burst (Diamond Dust): 1372.8% × (10% Max HP + ATK) to 1 enemy.
-      const hpComponent = Math.round(maidenir.stats.hp * 0.10);
-      const sums = getBuffSums(state, maidenir.id);
-      fireSkillHit(state, maidenir, 13.728, sums, false, 'burst', { extraAtkFlat: hpComponent });
-    }
-
+    executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: step3 });
+    flushHealReceived(state);
     if (state.enemyHp <= 0) break;
   }
 
-  // ── Rapi Skill 2：待定的 projectile 在进入 Full Burst 时爆炸 ──────────
-  // S2_attach 在 projectile 放置时已触发；此处只触发 S2_explode。
-  //（无论 Rapi 的 burst 技能是否已使用都触发）
-  if (rapi && rapi.skillState.rapiPendingProjectile) {
-    const sums = getBuffSums(state, rapi.id);
-    const em = rapi.skillState.rapiProjectileExplosionMult;
-    fireSkillHit(state, rapi, 0.8811, sums, false, 'S2_explode', {
-      isCore:               false,
-      extraAttackDamagePct: em - 1,
-    });
-    rapi.skillState.rapiPendingProjectile = false;
-  }
+  // 3. 全爆裂阶段生效（B3 施放完毕后）— 绝大多数技能的 ENTER_FULL_BURST 在此触发
+  executeSkillTriggers(state, 'ENTER_FULL_BURST');
+  flushHealReceived(state);
 
-  return firstFired; // null if no Step3/StepFull unit had their CD ready
+  // 4. Flush FIRE_IN_FULL_BURST hits enqueued during BURST_SKILL_USE / ENTER_FULL_BURST handlers.
+  for (const h of state.pendingFireInBurstHits) {
+    const sums = h.sums ?? getBuffSums(state, h.caster.id);
+    fireSkillHit(state, h.caster, h.mult, sums, h.isCharged, h.label, h.opts);
+  }
+  state.pendingFireInBurstHits.length = 0;
+
+  return firstFired;
 }
+
 
 /** 爆裂结束后的冷却效果与清理。 */
 function applyBurstEndSkills(state) {
-  // LM Skill 1 (Bubble Order): on Full Burst END → all allies Burst Skill Cooldown ▼ 7.48s
-  if (state.squad.some(u => u.name === 'Little Mermaid')) {
-    const reduction = Math.round(TICK_RATE * 7.48);
-    for (const u of state.squad) {
-      u.burstSkillCooldownEndTick = Math.max(state.tick, u.burstSkillCooldownEndTick - reduction);
-    }
-    if (state.buffLog)
-      state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'lm_s1_cdReduction', unitId: null, reductionTicks: reduction });
-  }
-
-  // Rapi: reset burst projectile state to non-burst defaults (passive bonuses remain)
-  const rapi = state.squad.find(u => u.name === 'Rapi: Red Hood');
-  if (rapi) {
-    rapi.skillState.rapiProjectileThreshold  = 120;
-    rapi.skillState.rapiProjectileAttachMult = 2.5072; // passive +150.72% only
-    // explosion mult never changes (burst doesn't touch it)
-  }
-
-  // SBS: burst charge mode uses sbsBurstChargeModeEndTick; no explicit reset needed here.
-
-  // Anchor Skill 2 (Sea Anemone Pasta): progressive buffs after Full Burst ends.
-  // "Previous effects trigger repeatedly" — each effect applies from its rotation onward.
-  //   Once  (rot 1+): Attack Damage ▲10.13% for 10s (all)
-  //   Twice (rot 2+): ATK flat ▲35.02% Anchor ATK for 10s (all)
-  //   Three times (rot 3+): Reload Speed ▲40.04% for 15s (all)
-  // Uses anchorFbCount which was incremented on FB entry this rotation.
-  const anchor = state.squad.find(u => u.name === 'Anchor: Innocent Maid');
-  if (anchor) {
-    const cnt = anchor.skillState.anchorFbCount;
-    const end10 = state.tick + TICK_RATE * 10;
-    const end15 = state.tick + TICK_RATE * 15;
-    if (cnt >= 1) pushBuff(state, { name: 'anchor_s2_t1_hitRate', unitId: null, hitRateBonus: 0.1013, endTick: end10 });
-    if (cnt >= 2) pushBuff(state, { name: 'anchor_s2_t2_atkFlat',   unitId: null, atkFlat: Math.round(anchor.stats.atk * 0.3502), endTick: end10 });
-    if (cnt >= 3) pushBuff(state, { name: 'anchor_s2_t3_reloadSpd', unitId: null, reloadSpeedPct: 0.4004, endTick: end15 });
-  }
-
-  // Mast S2 Hangover: at max 3 Drunken stacks on Full Burst end → self stun 10s + stacks reset
-  const mast = state.squad.find(u => u.name === 'Mast: Romantic Maid');
-  if (mast && mast.skillState.mastDrunkenStacks >= 3) {
-    mast.skillState.mastHangoverEndTick = state.tick + TICK_RATE * 10;
-    mast.skillState.mastDrunkenStacks   = 0;
-    // Remove S1 passive buffs — Drunken cleared; they reapply when stacks regain on next B1
-    state.buffs = state.buffs.filter(b => b.name !== 'mast_s1_critRate' && b.name !== 'mast_s1_atkFlat');
-  }
+  executeSkillTriggers(state, 'FULL_BURST_END');
+  flushHealReceived(state);
 }
 
 // ─── 公开 API ───────────────────────────────────────────────────────────────
@@ -793,7 +290,8 @@ function applyBurstEndSkills(state) {
 export function initBattle(config) {
   const squad = config.squad.map(cfg => {
     const stats   = cfg._computedStats ?? computeFinalStats(cfg, cfg.level ?? 200, {});
-    const wt      = cfg.weaponType ?? 'AR';
+    // CHARACTER_TRAITS.weaponType overrides CDN-derived cfg.weaponType when the CDN data is known to be wrong.
+    const wt      = getCharacterTraits(cfg.characterId)?.weaponType ?? cfg.weaponType ?? 'AR';
     // Collection skill ammo bonus (MG items: Max Ammo ▲X%) applied at unit creation.
     // Other collection skill effects are applied as permanent buffs after state is built.
     const collFx  = (cfg._favItemData && (cfg.favoriteItem?.level ?? 0) > 0)
@@ -818,6 +316,9 @@ export function initBattle(config) {
       element:          cfg.element ?? 'Iron',
       weaponType:       wt,
       burstStep:        cfg.burstStep ?? 'Step3',
+      // CDN native burst step (use_burst_skill). Used by skills like Rapi S1 to identify
+      // "native B1/B2/B3 allies" (characters whose CDN burst step matches a given step).
+      nativeBurstStep:  cfg.nativeBurstStep ?? cfg.burstStep ?? 'Step3',
       stats,
       baseAmmo,         // CDN base ammo (no OL, no fav%); used for skill ammo scaling
       favAmmoBonus,     // Math.round(baseAmmo × favAmmoPct); stored for burst-expanded reload
@@ -869,6 +370,11 @@ export function initBattle(config) {
       // Equipment chargeSpeedPct from stats always applies regardless.
       // Used for Liberalio whose S1 grants immunity to skill-based CS effects.
       immuneSkillChargeSpeed:   cfg.immuneSkillChargeSpeed ?? false,
+      // true → unit is in Combat Assist status (filling a burst step that is not its native step).
+      // Set explicitly via cfg.combatAssist; re-evaluated at BATTLE_START and FULL_BURST_END
+      // by SKILL_TRAITS triggers (see skill-traits.js entry for this character).
+      configuredCombatAssist: cfg.combatAssist ?? false,
+      combatAssistStatus: cfg.combatAssist ?? false,
       // Burst skill cooldown: endTick=0 means ready from the start.
       burstSkillCooldownEndTick: 0,
       // Burst skill cooltime in ticks (from CDN ulti_skill_detail.skill_cooltime / 100 * 60).
@@ -893,8 +399,8 @@ export function initBattle(config) {
       shotAccumulator:  0,
       skillState: {
         // Liter Skill 1 Part 1 (FB entry CD reduction) and Part 2 (per-burst-use buffs)
-        lmS1FbCount:                0,     // how many Full Bursts have been entered (Liter)
-        lmS1BurstUseCount:          0,     // cumulative count of burst skills used with Liter in squad
+        literFbCount:               0,     // how many Full Bursts have been entered (Liter S1 Part 1)
+        literBurstUseCount:         0,     // cumulative count of burst skills used (Liter S1 Part 2)
         // Mast: Romantic Maid Skill 1 Drunken stacks and Hangover
         mastDrunkenStacks:          0,     // 0–3; S1 passive active while ≥1; S2 scales with stacks
         mastHangoverEndTick:        0,     // tick at which Hangover stun expires (0 = not stunned)
@@ -908,34 +414,42 @@ export function initBattle(config) {
         rapiProjectileThreshold:    120,   // shots per projectile cycle (60 during Full Burst)
         rapiProjectileAttachMult:   2.5072, // passive +150.72% baked in; 6.7192 during Full Burst
         rapiProjectileExplosionMult:2.006, // passive +100.6% baked in; unchanged by burst
+        rapiProjectileBuffEndTick:  0,     // tick when burst projectile buffs expire (0 = not active)
         // SBS Skill 1
         sbsChargeCount:             0,     // current position in charge cycle (1–9 or 1–3)
         sbsBurstChargeModeEndTick:  0,     // tick until SBS own-burst charge mode expires (0 = not active)
-        // MG ramp model: currentRof starts at rate_of_fire, climbs by rateOfFireChange per shot.
-        // Null for non-MG units and MGs without a ramp (rateOfFireChange == 0).
-        // MG ramp model: currentRof starts at startRof, climbs by rofChangePerShot per shot.
-        // Null for non-MG units and MGs without a ramp (rateOfFireChange == 0).
-        crownCurrentRof:       cfg._nikkeData?.shot_detail?.rate_of_fire_change_pershot > 0
+        // MG ramp: mgCurrentRof starts at mgStartRof, climbs by mgRofChangePerShot per shot,
+        // capped at mgMaxRof. Decays toward mgStartRof when not firing (rate_of_fire_reset_time).
+        // All null for non-MG units or MGs without a ramp (rateOfFireChange == 0).
+        mgCurrentRof:       cfg._nikkeData?.shot_detail?.rate_of_fire_change_pershot > 0
                                  ? (cfg._nikkeData.shot_detail.rate_of_fire ?? 60) : null,
-        crownMaxRof:           cfg._nikkeData?.shot_detail?.rate_of_fire_change_pershot > 0
+        mgMaxRof:           cfg._nikkeData?.shot_detail?.rate_of_fire_change_pershot > 0
                                  ? (cfg._nikkeData.shot_detail.end_rate_of_fire ?? 4200) : null,
-        crownRofChangePerShot: cfg._nikkeData?.shot_detail?.rate_of_fire_change_pershot > 0
+        mgRofChangePerShot: cfg._nikkeData?.shot_detail?.rate_of_fire_change_pershot > 0
                                  ? cfg._nikkeData.shot_detail.rate_of_fire_change_pershot : null,
-        mgStartRof:            cfg._nikkeData?.shot_detail?.rate_of_fire ?? null,
+        mgStartRof:         cfg._nikkeData?.shot_detail?.rate_of_fire ?? null,
+        mgRofDecayPerTick:  (() => {
+          const sd = cfg._nikkeData?.shot_detail;
+          if (!sd?.rate_of_fire_change_pershot || !sd?.rate_of_fire_reset_time) return 0;
+          const resetSecs = sd.rate_of_fire_reset_time / 100;
+          if (resetSecs <= 0) return 0;
+          return ((sd.end_rate_of_fire ?? 4200) - (sd.rate_of_fire ?? 60)) / (resetSecs * TICK_RATE);
+        })(),
         // Crown Skill 2 (Guardian / Relax stacks)
         crownShotCount:             0,   // shots mod 43 (resets after each stack gained)
         crownRelaxStacks:           0,   // current stack count (0–19; triggers on reaching 20)
-        // Helm SSR fav charge-shot count for Skill 2 extra damage and Burst charge buff
-        helmChargeShots:            0,   // shots remaining in Burst charge buff (max 10 rounds)
-        helmChargeDmgBuff:          0,   // current charge damage bonus from Burst (0 when no charges left)
         // Anchor: Innocent Maid — S1/S2 progressive buff counter (incremented on each FB entry)
         anchorFbCount:              0,
+        // Nayuta — S2 Memory Absorption stack counter (0–30)
+        nayutaMemAbsStacks:         0,
+        // Cinderella — S2 Beautiful stacks (0–12) + decoy active flag
+        cinderellaBeautyStacks:     0,
+        cinderellaDecoyActive:      false,
         // Liter S1 T1: Max Ammo ▲45.17% for 5s — window and extra round count
         literAmmoBoostEndTick:      0,
         literAmmoBoostExtra:        0,
-        // Moran burst weapon change (Fair and Square!)
-        moranBurstEndTick:          0,   // tick when burst weapon expires (0 = not active)
-        moranBurstS1Count:          0,   // shots since last S1 burst-weapon hit (resets every 5)
+        // Maiden: Ice Rose — S1/S2/Burst MP 系统（0–12，Burst 全数消耗）
+        iceroseMP:                  0,
         // Liberalio — S2 Raging Current: applied permanently on first FC shot
         libRagingCurrentActive:     false,
         // Bastion Cube Skill 1 (Reload Up HC): every N shots → add M ammo to current mag.
@@ -1010,15 +524,26 @@ export function initBattle(config) {
     // Shared burst gauge (0..BURST_GAUGE_MAX). All units contribute via their shots/skills.
     // Rotation triggers when >= BURST_GAUGE_MAX; resets to 0 after Full Burst ends.
     burstGauge:         0,
+    // Set of unit IDs that successfully fired their burst skill in the current rotation.
+    // Populated during applyBurstISkills / applyBurstIISkills / applyFullBurstSkills.
+    // Cleared when a new rotation begins (gauge fills → burstPhase 0→1).
+    burstCastersThisRotation: new Set(),
+    // Deferred skill hits: [{ fireTick, caster, mult, sums, isCharged, label, opts }]
+    // Processed at the start of each tick before unit loops.
+    pendingSkillHits: [],
+    // Queue of units that received heals this tick. Populated by applyHeal (battle-utils).
+    // Consumed by flushHealReceived() which dispatches HEAL_RECEIVED triggers.
+    pendingHealReceived: [],
+    // Scheduled periodic heals: [{ fireTick, targetId, amount }]
+    // Processed each tick before unit loops; each entry calls applyHeal + flushHealReceived.
+    pendingHoTs: [],
+    // Zero-delay FIRE_IN_FULL_BURST hits that must execute after ENTER_FULL_BURST effects have applied.
+    // [{ caster, mult, sums, isCharged, label, opts }]
+    pendingFireInBurstHits: [],
   };
 
-  // LM Skill 2 (Bubble Wave): passive Bubble applied at battle start
-  // Enemy Damage Taken ▲ 5.05% continuously.
-  // Only one of [Bubble, Explosive Bubble] can exist on the enemy at a time.
-  // Explosive Bubble (after 50 LM shots) replaces Bubble — same value, tracked by lmExplosiveBubble flag.
-  if (state.squad.some(u => u.name === 'Little Mermaid')) {
-    state.enemyDamageTakenPct += 0.0505;
-  }
+  // BATTLE_START: dispatch all declarative battle-start triggers (e.g. LM Bubble debuff).
+  executeSkillTriggers(state, 'BATTLE_START');
 
   // Note: fav item collection skill effects are applied at unit creation (favNormalAttackDamageMult,
   // favChargeDmgPct, maxAmmo via ammoPct). coreDmgPct is not modeled. DEF▲ etc. are ignored.
@@ -1081,21 +606,53 @@ export function tick(state) {
     if (b.endTick <= state.tick) {
       if (state.buffLog)
         state.buffLog.push({ type: 'buff_expire', tick: state.tick, name: b.name, unitId: b.unitId });
-      // 仅改容量的弹药 buff：到期时将当前弹药截到基础 maxAmmo
+      // 仅改容量的弹药 buff：到期时将当前弹药截到基础 maxAmmo（支持全员 buff unitId=null）
       if (b.maxAmmoPct > 0) {
-        const u = b.unitId != null ? state.squad.find(u => u.id === b.unitId) : null;
-        if (u && u.ammoLeft > u.maxAmmo) {
-          const before = u.ammoLeft;
-          u.ammoLeft = u.maxAmmo;
-          if (state.ammoLog)
-            state.ammoLog.push({ tick: state.tick, unitId: u.id, unitName: u.name,
-              delta: u.ammoLeft - before, ammoAfter: u.ammoLeft, maxAmmo: u.maxAmmo,
-              source: `${b.name}(expired)` });
+        const targets = b.unitId != null
+          ? [state.squad.find(u => u.id === b.unitId)].filter(Boolean)
+          : state.squad;
+        for (const u of targets) {
+          // 清除技能状态中的 literBoost，使截弹逻辑生效
+          u.skillState.literAmmoBoostExtra   = 0;
+          u.skillState.literAmmoBoostEndTick = 0;
+          if (u.ammoLeft > u.maxAmmo) {
+            const before = u.ammoLeft;
+            u.ammoLeft = u.maxAmmo;
+            if (state.ammoLog)
+              state.ammoLog.push({ tick: state.tick, unitId: u.id, unitName: u.name,
+                delta: u.ammoLeft - before, ammoAfter: u.ammoLeft, maxAmmo: u.maxAmmo,
+                source: `${b.name}(expired)` });
+          }
         }
       }
     }
   }
   state.buffs = state.buffs.filter(b => b.endTick > state.tick);
+
+  // ── 持续治疗（HoT）队列 ────────────────────────────────────────────────────
+  if (state.pendingHoTs?.length > 0) {
+    const dueHeals = state.pendingHoTs.filter(h => h.fireTick <= state.tick);
+    state.pendingHoTs = state.pendingHoTs.filter(h => h.fireTick > state.tick);
+    for (const h of dueHeals) {
+      const target = state.squad.find(u => u.id === h.targetId);
+      if (target) applyHeal(state, target, h.amount);
+    }
+    if (dueHeals.length > 0) flushHealReceived(state);
+  }
+
+  // ── 延迟技能命中队列 ──────────────────────────────────────────────────────
+  if (state.pendingSkillHits?.length > 0) {
+    const due = state.pendingSkillHits.filter(h => h.fireTick <= state.tick);
+    state.pendingSkillHits = state.pendingSkillHits.filter(h => h.fireTick > state.tick);
+    for (const h of due) {
+      const sums = getBuffSums(state, h.caster.id);
+      fireSkillHit(state, h.caster, h.mult, sums, h.isCharged, h.label, h.opts ?? {});
+      if (state.enemyHp <= 0) {
+        events.push({ type: 'kill', tick: state.tick });
+        return { over: true, events };
+      }
+    }
+  }
 
   // 清理过期的护盾
   for (const u of state.squad) {
@@ -1129,6 +686,7 @@ export function tick(state) {
     if (fired) {
       state.burstPhaseTick = state.tick + BURST_STEP_TICKS;
       events.push({ type: 'burst_i', tick: state.tick, unitName: fired.name });
+      if (fired.name === 'Liter') events.push({ type: 'heal_cover', tick: state.tick });
     }
   }
 
@@ -1169,27 +727,27 @@ export function tick(state) {
     state.burstPhase          = 1;
     state.burstPhaseTick      = Infinity;
     state.burstPhaseTimeoutTick = state.tick + TICK_RATE * 10;
+    state.burstCastersThisRotation = new Set();
+    // 进入 Burst 1 阶段时立即触发被动（不依赖 B1 是否 cast）
+    applyEnterBurst1Passives(state);
     const fired = applyBurstISkills(state);
     if (fired) {
       state.burstPhaseTick = state.tick + BURST_STEP_TICKS;
       events.push({ type: 'burst_i', tick: state.tick, unitName: fired.name });
+      if (fired.name === 'Liter') events.push({ type: 'heal_cover', tick: state.tick });
     }
   }
 
-  // ── LM Skill 2（Bubble Wave）：Full Burst 期间每 1 秒打出 4 次 ×63.36% ATK ─
-  // HIDDEN 期间也会触发 — Bubble Wave 不需瞄准。
+  // ── 全程定时技能（INTERVAL）：如 Nayuta S2 Memory Absorption ──────────
+  onInterval(state);
+
+  // ── 全爆裂期间定时技能（INTERVAL_IN_BURST）：如 LM Bubble Wave ─────────
   if (state.fullBurstActive) {
-    const lm = state.squad.find(u => u.name === 'Little Mermaid');
-    if (lm && state.tick - lm.skillState.lmLastBubbleShotTick >= TICK_RATE) {
-      lm.skillState.lmLastBubbleShotTick += TICK_RATE;
-      const sums = getBuffSums(state, lm.id);
-      for (let h = 0; h < 4 && state.enemyHp > 0; h++) {
-        fireSkillHit(state, lm, 0.6336, sums, false, 'S2_bubble_wave');
-      }
-      if (state.enemyHp <= 0) {
-        events.push({ type: 'kill', tick: state.tick });
-        return { over: true, events };
-      }
+    onIntervalInBurst(state);
+    flushHealReceived(state);
+    if (state.enemyHp <= 0) {
+      events.push({ type: 'kill', tick: state.tick });
+      return { over: true, events };
     }
   }
 
@@ -1211,23 +769,23 @@ export function tick(state) {
       }
       if (state.tick < unit.reloadTick) continue;
       const ammoMult       = (state.tick < unit.tempMaxAmmoEndTick) ? unit.tempMaxAmmoMult : 1;
-      // Liter S1 T1：临时弹药加成 — 在 5 秒窗口内，装填后弹药 = maxAmmo + boostExtra。
-      const literBoost = (unit.name === 'Liter'
-        && unit.skillState.literAmmoBoostExtra > 0
+      // Liter S1 T1：临时弹药加成（全员）— 在 5 秒窗口内，装填后弹药 = maxAmmo + boostExtra。
+      const literBoost = (unit.skillState.literAmmoBoostExtra > 0
         && state.tick < unit.skillState.literAmmoBoostEndTick)
         ? unit.skillState.literAmmoBoostExtra : 0;
-      // 某些技能（如 SBS S2）只缩放基础弹匣；OL 加成按固定值叠加。
+      // 技能缩放弹匣：每个 pct 效果单独对 baseAmmo 取整（T33 per-effect round 公式）。
+      // OL/fav 平坦加成在取整后叠加，整体结果 max(1, ...)。
       unit.ammoLeft = literBoost > 0
         ? unit.maxAmmo + literBoost
-        : (ammoMult > 1
-          ? Math.ceil(unit.baseAmmo * ammoMult) + (unit.stats.bonusAmmo ?? 0) + unit.favAmmoBonus
+        : (ammoMult !== 1
+          ? Math.max(1, unit.baseAmmo + Math.round(unit.baseAmmo * (ammoMult - 1)))
+            + (unit.stats.bonusAmmo ?? 0) + unit.favAmmoBonus
           : unit.maxAmmo);
       unit.reloadCount++;
       unit.reloadTick      = 0;
       events.push({ type: 'reload', tick: state.tick, unitId: unit.id, unitName: unit.name, ammoRefilled: unit.ammoLeft, maxAmmo: unit.maxAmmo });
       unit.shotAccumulator = 0; // 装填后射击周期重新开始
-      if (unit.skillState.crownCurrentRof != null)
-        unit.skillState.crownCurrentRof = unit.skillState.mgStartRof ?? 60;
+      onReloadEnd(state, unit);
     }
 
     // HIDDEN 阶段跳过射击（上方装填仍然允许）。
@@ -1236,14 +794,22 @@ export function tick(state) {
     // 决定本 tick 的射击数。
     // SR/RL（蓄力武器）：确定性 — chargeTick 到达时恰好打出 1 发。
     // 带有 CDN rateOfFire 的单位：累加器模型（发数/分钟 ÷ 3600 = 发数/tick）。
-    //   MG Crown 的起速通过 crownCurrentRof 覆盖 rateOfFire。
+    //   MG 起速通过 mgCurrentRof 覆盖 rateOfFire。
     // 回退：使用 ATTACK_SPEED 表的 0/1 概率门。
+    // 武器切换（WEAPON_SWITCH 效果）：覆盖 hitMult / isCharged，以及蓄力模式（hoisted）
+    const weaponSwitchActive = (unit.skillState?.weaponSwitchEndTick ?? 0) > 0
+      && state.tick <= unit.skillState.weaponSwitchEndTick;
     let shotsThisTick;
-    if (unit.chargeTimeTicks > 0) {
+    // 武器切换时允许非蓄力武器（如 SMG）临时以蓄力模式开火。
+    const weaponSwitchChargeTimeTicks = weaponSwitchActive
+      ? (unit.skillState.weaponSwitchChargeTimeTicks ?? 0) : 0;
+    const effectiveChargeTimeTicks = weaponSwitchChargeTimeTicks > 0
+      ? weaponSwitchChargeTimeTicks : unit.chargeTimeTicks;
+    if (effectiveChargeTimeTicks > 0) {
       // 蓄力武器：蓄力完成时打出 1 发，然后重置计时器。
       shotsThisTick = state.tick >= unit.chargeTick ? 1 : 0;
     } else if (unit.rateOfFire > 0) {
-      const rof = unit.skillState.crownCurrentRof ?? unit.rateOfFire;
+      const rof = unit.skillState.mgCurrentRof ?? unit.rateOfFire;
       const spt = rof / 60 / TICK_RATE; // RPM → 每 tick 发数
       unit.shotAccumulator += spt;
       shotsThisTick         = Math.floor(unit.shotAccumulator);
@@ -1251,27 +817,32 @@ export function tick(state) {
     } else {
       shotsThisTick = Math.random() < (ATTACK_SPEED[unit.weaponType] ?? 0.20) ? 1 : 0;
     }
-    if (shotsThisTick === 0) continue;
+    // MG ramp decay: when not firing this tick, ROF decays toward start ROF.
+    if (shotsThisTick === 0) {
+      if (unit.skillState.mgCurrentRof != null && unit.skillState.mgRofDecayPerTick > 0) {
+        unit.skillState.mgCurrentRof = Math.max(
+          unit.skillState.mgStartRof,
+          unit.skillState.mgCurrentRof - unit.skillState.mgRofDecayPerTick
+        );
+      }
+      continue;
+    }
 
     for (let _s = 0; _s < shotsThisTick; _s++) {
       if (unit.ammoLeft <= 0) break; // 本 tick 中途弹尽；下一 tick 开始装填
 
-      // 计算 buff 汇总
+      // 计算 buff 汇总（round-based buff 由 getBuffSums 自动根据 roundsLeft 过滤）
       const sums = getBuffSums(state, unit.id);
-      // Helm Burst：基于计数的 Charge Damage 加成（10 发蓄力额度，每发消耗 1）
-      if (unit.name === 'Helm' && unit.skillState.helmChargeShots > 0) {
-        sums.chargeDamagePct += unit.skillState.helmChargeDmgBuff;
-      }
       const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRateBonus);
       const isCrit    = rollCrit(effectiveCritRate);
-      // Moran burst 武器替换：期间将 shotDamageMult 覆盖为 0.147。
-      const moranBurstActive = unit.name === 'Moran'
-        && (unit.skillState?.moranBurstEndTick ?? 0) > 0
-        && state.tick <= unit.skillState.moranBurstEndTick;
-      const hitMult = moranBurstActive
-        ? 0.147
+      // 武器切换（WEAPON_SWITCH 效果）：期间覆盖 hitMult 和 isCharged
+      const effectiveWeaponType = weaponSwitchActive
+        ? (unit.skillState.weaponSwitchType ?? unit.weaponType)
+        : unit.weaponType;
+      const hitMult = weaponSwitchActive
+        ? (unit.skillState.weaponSwitchHitMult ?? WEAPON_HIT_MULT[effectiveWeaponType] ?? 0.03)
         : (unit.shotDamageMult ?? WEAPON_HIT_MULT[unit.weaponType] ?? 0.03);
-      const isCharged = ['SR', 'RL'].includes(unit.weaponType);
+      const isCharged = ['SR', 'RL'].includes(effectiveWeaponType);
       // 普通射击的核心命中概率。
       // MG/SR/RL 必定命中核心（coreHitRateMult=1，默认）。SMG：默认 0.033。
       // TODO: SG/AR — 标定核心命中率；在测定前默认 1
@@ -1285,27 +856,31 @@ export function tick(state) {
         otherAtkIncrement: sums.atkFlat,
         enemyDef:          state.enemyDef,
         hitMultiplier:     hitMult,
-        weaponType:        unit.weaponType,
+        weaponType:        effectiveWeaponType,
         isCrit,
         critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDmgBonus,
         isCore,
-        coreDmgIncrement:  unit.coreDmgIncrement ?? 0,
+        coreDmgIncrement:  (unit.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0),
         distanceZone:      state.distanceZone,
         isFullBurst:       state.fullBurstActive,
         attackerElement:   unit.element,
         defenderElement:   state.enemyElement,
         elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantageBonus ?? 0),
         isCharged,
-        fullChargeDamage:  unit.fullChargeDamage ?? 10000,
+        fullChargeDamage:  weaponSwitchActive && unit.skillState.weaponSwitchFullChargeDamage != null
+          ? unit.skillState.weaponSwitchFullChargeDamage
+          : (unit.fullChargeDamage ?? 10000),
         favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
         chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
         favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
-        extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct },
+        extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct
+                             + (effectiveWeaponType === 'RL' ? sums.projectileExplosionDamagePct : 0) },
         damageTakenMult:   state.enemyDamageTakenPct,
       });
 
       const ammoBeforeShot = unit.ammoLeft;
-      unit.ammoLeft--;
+      // 武器替换期间无限弹药：弹药不消耗（如 Moran burst）
+      if (!(weaponSwitchActive && unit.skillState.weaponSwitchUnlimitedAmmo)) unit.ammoLeft--;
       unit.hitCount++;
       if (isCrit) unit.critCount++;
       unit.totalDamage += damage;
@@ -1328,7 +903,7 @@ export function tick(state) {
           elementDmgPct: unit.stats.elementDmgPct ?? 0,
           elemMult: bd.elemMult,
           chargeMult: bd.chargeMult,
-          distanceAdv: hasDistanceAdvantage(unit.weaponType, state.distanceZone),
+          distanceAdv: hasDistanceAdvantage(effectiveWeaponType, state.distanceZone),
           ammoLeft: unit.ammoLeft,
           // 射击时刻的有效最大弹匣 — 包含当前生效的容量加成（如 Liter S1T1）
           maxAmmo: unit.maxAmmo + (
@@ -1350,12 +925,17 @@ export function tick(state) {
       // 为下一发设置蓄力冷却（SR/RL）：backswing + foreswing + 蓄力时长。
       // chargeSpeedPct 只缩短蓄力（瞄准）阶段，不影响 fore/backswing。
       // 对拥有 immuneSkillChargeSpeed 的单位（如 Liberalio），基于 buff 的 chargeSpeedPct 被屏蔽。
-      if (unit.chargeTimeTicks > 0) {
-        const csFromBuff    = unit.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
-        const flatReduction = unit.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
-        const afterPct      = Math.round(unit.chargeTimeTicks * (1 - Math.min(0.99, (unit.stats.chargeSpeedPct ?? 0) + csFromBuff)));
-        const effectiveCharge = Math.max(0, afterPct - flatReduction);
-        unit.chargeTick = state.tick + unit.backswingTicks + unit.foreswingTicks + effectiveCharge;
+      if (effectiveChargeTimeTicks > 0) {
+        if (weaponSwitchChargeTimeTicks > 0) {
+          // 武器切换期间：直接使用切换武器的蓄力时长，不应用 fore/backswing
+          unit.chargeTick = state.tick + weaponSwitchChargeTimeTicks;
+        } else {
+          const csFromBuff    = unit.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
+          const flatReduction = unit.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
+          const afterPct      = Math.round(unit.chargeTimeTicks * (1 - Math.min(0.99, (unit.stats.chargeSpeedPct ?? 0) + csFromBuff)));
+          const effectiveCharge = Math.max(0, afterPct - flatReduction);
+          unit.chargeTick = state.tick + unit.backswingTicks + unit.foreswingTicks + effectiveCharge;
+        }
       }
       state.totalAmmoFired++;
       state.enemyHp    -= damage;
@@ -1369,9 +949,24 @@ export function tick(state) {
         return { over: true, events };
       }
 
-      // ── 每发射击后的单位技能触发 ─────────────────────────────
+      // ── 每发射击后的单位技能触发（声明式执行器） ────────────────
+      onShotFired(state, unit, { sums, isCharged, isCore, ammoAfterShot: unit.ammoLeft });
+      flushHealReceived(state);
+      if (state.enemyHp <= 0) {
+        events.push({ type: 'kill', tick: state.tick });
+        return { over: true, events };
+      }
 
-      // Bastion Cube Skill 1 (Reload Up HC): every N shots → add M ammo instantly to current mag.
+      // MG ramp：ROF per-shot ramp up（内联保留，非声明式）
+      if (unit.skillState.mgCurrentRof != null) {
+        unit.skillState.mgCurrentRof = Math.min(
+          unit.skillState.mgMaxRof,
+          unit.skillState.mgCurrentRof + unit.skillState.mgRofChangePerShot
+        );
+      }
+
+      // Bastion Cube Skill 1 (Reload Up HC): every N shots → add M ammo instantly.
+      // Placed after onShotFired so last-bullet effects fire first.
       if (unit.skillState.bastionTriggerRounds > 0) {
         unit.skillState.bastionShotCount++;
         if (unit.skillState.bastionShotCount >= unit.skillState.bastionTriggerRounds) {
@@ -1383,222 +978,18 @@ export function tick(state) {
         }
       }
 
-      // Helm Skill 1 (Frontline Command): last bullet → Crit Rate for 5s (all)
-      // SSR fav upgrades crit rate value (placeholder 1; lv10 base = 14.64%)
-      if (unit.ammoLeft === 0 && unit.name === 'Helm') {
-        const helmS1    = unit.ssrFavSkills?.skill1;
-        const s1Lv      = helmS1?._activeSkillLevel ?? 0;
-        const crVals    = helmS1?.description_value_list?.[0]?.description_value ?? [];
-        const critBonus = s1Lv > 0 ? parseFloat(crVals[s1Lv - 1] ?? '14.64') / 100 : 0.1464;
-        pushBuff(state, { name: 'helm_skill1_critRate', unitId: null, critRateBonus: critBonus, endTick: state.tick + TICK_RATE * 5 });
-      }
-
-      // Helm Skill 1 (SSR): Full Charge shot → recover HP (all) + fill Burst Gauge (all)
-      // Helm uses SR weapon — every shot is a full-charge shot.
-      if (unit.name === 'Helm' && isCharged && unit.ssrFavSkills?.skill1) {
-        const helmS1 = unit.ssrFavSkills.skill1;
-        const s1Lv   = helmS1._activeSkillLevel ?? 0;
-        if (s1Lv > 0) {
-          const hpVals = helmS1.description_value_list?.[2]?.description_value ?? [];
-          const bgVals = helmS1.description_value_list?.[3]?.description_value ?? [];
-          const hpPct  = parseFloat(hpVals[s1Lv - 1] ?? '0') / 100;
-          const bgPct  = parseFloat(bgVals[s1Lv - 1] ?? '0') / 100;
-          if (hpPct > 0) {
-            const hpGain = Math.round(unit.stats.hp * hpPct);
-            for (const u of state.squad) {
-              u.unitHp = Math.min(u.stats.hp, u.unitHp + hpGain);
-            }
-            // HP recovery to allies triggers Crown Skill 2 Attack Damage buff (7s, all)
-            const crown_ = state.squad.find(u => u.name === 'Crown');
-            if (crown_) {
-              pushBuff(state, { name: 'crown_skill2_attackDmg', unitId: null, attackDamagePct: 0.2099, endTick: state.tick + TICK_RATE * 7 });
-            }
-          }
-          if (bgPct > 0) {
-            const gaugeGain = Math.round(bgPct * BURST_GAUGE_MAX);
-            addBurstGauge(state, unit.name, 'helm_s1_gaugeBoost', gaugeGain);
-          }
-        }
-      }
-
-      // Helm Skill 2 (SSR): Full Charge hit → extra ATK damage to target (dvl3)
-      // The skill hit also generates burstEnergyPerShot gauge for Helm (same mechanic as Lib S1 T3).
-      if (unit.name === 'Helm' && isCharged && unit.ssrFavSkills?.skill2) {
-        const helmS2  = unit.ssrFavSkills.skill2;
-        const s2Lv    = helmS2._activeSkillLevel ?? 0;
-        if (s2Lv > 0) {
-          const exVals  = helmS2.description_value_list?.[3]?.description_value ?? [];
-          const exMult  = parseFloat(exVals[s2Lv - 1] ?? '0') / 100;
-          if (exMult > 0) {
-            fireSkillHit(state, unit, exMult, sums, false);
-            addBurstGauge(state, unit.name, 'helm_s2_skill', unit.burstEnergyPerShot);
-            if (state.enemyHp <= 0) {
-              events.push({ type: 'kill', tick: state.tick });
-              return { over: true, events };
-            }
-          }
-        }
-      }
-
-      // Helm Burst count-based charge buff: consume one charge round per full-charge shot
-      if (unit.name === 'Helm' && isCharged && unit.skillState.helmChargeShots > 0) {
-        unit.skillState.helmChargeShots--;
-        if (unit.skillState.helmChargeShots === 0) unit.skillState.helmChargeDmgBuff = 0;
-      }
-
-      // LM Skill 2 (Bubble Wave): after 50 LM shots → Explosive Bubble replaces Bubble.
-      // Damage Taken stays at 5.05% (same value). Bubble is removed, Explosive Bubble applied.
-      if (unit.name === 'Little Mermaid') {
-        unit.skillState.lmShotCount++;
-        if (!unit.skillState.lmExplosiveBubble && unit.skillState.lmShotCount >= 50) {
-          unit.skillState.lmExplosiveBubble = true;
-          // enemyDamageTakenPct unchanged — Explosive Bubble replaces Bubble at the same 5.05%
-        }
-      }
-
-      // Rapi Skill 2 (Attachable Projectiles): every 120 shots (60 during her burst rotation),
-      // fire attachment damage immediately and leave a projectile on the enemy.
-      // The projectile explodes immediately if Full Burst is active, otherwise at next Full Burst entry.
-      if (unit.name === 'Rapi: Red Hood') {
-        unit.skillState.rapiShotCount++;
-        if (unit.skillState.rapiShotCount >= unit.skillState.rapiProjectileThreshold) {
-          unit.skillState.rapiShotCount = 0;
-          const am = unit.skillState.rapiProjectileAttachMult;
-          const em = unit.skillState.rapiProjectileExplosionMult;
-          // S2_attach fires immediately when the projectile is placed.
-          fireSkillHit(state, unit, 0.8811, sums, false, 'S2_attach', {
-            isCore:               state.enemyHasCore,
-            coreDmgIncrement:     unit.coreDmgIncrement ?? 0,
-            extraAttackDamagePct: am - 1,
-          });
-          if (state.fullBurstActive) {
-            // Explode immediately during Full Burst.
-            fireSkillHit(state, unit, 0.8811, sums, false, 'S2_explode', {
-              isCore:               false,
-              extraAttackDamagePct: em - 1,
-            });
-          } else {
-            // Leave projectile — will explode when next Full Burst begins.
-            unit.skillState.rapiPendingProjectile = true;
-          }
-        }
-      }
-
-      // SBS Skill 1 (Fleetly Fading: Breakthrough): charge cycle procs
-      // Burst mode (1/2/3 cycle) only active when SBS fired her OWN burst skill within 10s.
-      if (unit.name === 'Scarlet: Black Shadow') {
-        const inBurstMode = state.tick < unit.skillState.sbsBurstChargeModeEndTick;
-        const cycleLen   = inBurstMode ? 3 : 9;
-        unit.skillState.sbsChargeCount = (unit.skillState.sbsChargeCount % cycleLen) + 1;
-        const cnt        = unit.skillState.sbsChargeCount;
-        // Normal:  3rd → 250.47%, 6th → 500%, 9th → 750.47%
-        // Burst:   1st → 250.47%, 2nd → 500%, 3rd → 750.47%
-        const thresholds = inBurstMode ? [1, 2, 3] : [3, 6, 9];
-        const dmgMults   = [2.5047, 5.0, 7.5047];
-        const ti         = thresholds.indexOf(cnt);
-        if (ti >= 0) {
-          // Skill proc values (250/500/750% ATK) are absolute — no charge multiplier
-          // 6th/9th shots (ti≥1) are "Distributed Damage" type — applies damageTaken slot bonus
-          const s1Label = inBurstMode ? `S1_burst_${ti+1}` : `S1_normal_${ti+1}`;
-          fireSkillHit(state, unit, dmgMults[ti], sums, false, s1Label, { isDistributed: ti >= 1 });
-          if (state.enemyHp <= 0) {
-            events.push({ type: 'kill', tick: state.tick });
-            return { over: true, events };
-          }
-        }
-      }
-
-      // Liberalio per-shot triggers (SR weapon; every shot is a full-charge shot).
-      if (unit.name === 'Liberalio' && isCharged) {
-        // S2 (Strange Currents): Raging Current — Attack Damage ▲231% permanently on first FC hit.
-        // "Stage target" = always the single enemy in this sim → activates on shot 1.
-        if (!unit.skillState.libRagingCurrentActive) {
-          unit.skillState.libRagingCurrentActive = true;
-          pushBuff(state, { name: 'lib_s2_ragingCurrent', unitId: unit.id, attackDamagePct: 2.31, endTick: Infinity });
-        }
-        // S1 T2 (Calm Depths): On FC shot → Attack Damage ▲20.83% for 60s (self), refreshing.
-        // Implemented as a non-stacking buff; endTick refresh via pushBuff.
-        pushBuff(state, { name: 'lib_s1_t2_attackDmg', unitId: unit.id, attackDamagePct: 0.2083, endTick: state.tick + TICK_RATE * 60 });
-        // S1 T3 (Calm Depths): On FC shot → 5 × 40.5% ATK additional skill damage hits.
-        // These are skill damage (not normal shots): cannot hit core, no distance advantage effect
-        // (fireSkillHit with isCharged=false never gets distance advantage — only distanceZone in normal shots).
-        // Element advantage (Wind vs Iron ×1.10) still applies as it is element-based, not distance-based.
-        // Each hit also generates burst gauge = burstEnergyPerShot (same as an uncharged shot, no charge bonus).
-        const libSums = getBuffSums(state, unit.id);
-        for (let h = 0; h < 5 && state.enemyHp > 0; h++) {
-          fireSkillHit(state, unit, 0.405, libSums, false, 'S1_t3_skill', { isCore: false });
-          addBurstGauge(state, unit.name, 'lib_s1_t3_skill', unit.burstEnergyPerShot);
-        }
+      // ── 弹药里程碑（声明式） ──────────────────────────────────────────
+      const cur400 = Math.floor(state.totalAmmoFired / 400);
+      const cur500 = Math.floor(state.totalAmmoFired / 500);
+      const milestone400 = cur400 > state.lastMilestone400;
+      const milestone500 = cur500 > state.lastMilestone500;
+      if (milestone400) state.lastMilestone400 = cur400;
+      if (milestone500) state.lastMilestone500 = cur500;
+      if (milestone400 || milestone500) {
+        executeSkillTriggers(state, 'AMMO_MILESTONE', { milestone400, milestone500 });
         if (state.enemyHp <= 0) {
           events.push({ type: 'kill', tick: state.tick });
           return { over: true, events };
-        }
-      }
-
-      // MG ramp: ROF increases by crownRofChangePerShot per shot, capped at crownMaxRof.
-      if (unit.skillState.crownCurrentRof != null) {
-        unit.skillState.crownCurrentRof = Math.min(
-          unit.skillState.crownMaxRof,
-          unit.skillState.crownCurrentRof + unit.skillState.crownRofChangePerShot
-        );
-      }
-
-      // Crown-specific: Relax stacks (Skill 2 / Guardian).
-      if (unit.name === 'Crown') {
-
-        // Skill 2 (Guardian / Relax): every 43 shots → +1 stack (max 20).
-        // At 20 stacks: recover 5.23% Crown max HP (all allies), Attack Damage ▲ 20.99% for 7s.
-        unit.skillState.crownShotCount++;
-        if (unit.skillState.crownShotCount >= 43) {
-          unit.skillState.crownShotCount -= 43;
-          unit.skillState.crownRelaxStacks++;
-          if (unit.skillState.crownRelaxStacks >= 20) {
-            unit.skillState.crownRelaxStacks = 0;
-            const recovery = Math.round(unit.stats.hp * 0.0523);
-            unit.unitHp = Math.min(unit.stats.hp, unit.unitHp + recovery);
-            pushBuff(state, { name: 'crown_skill2_attackDmg', unitId: null, attackDamagePct: 0.2099, endTick: state.tick + TICK_RATE * 7 });
-          }
-        }
-      }
-
-      // Moran Skill 1 (Bring It On!): during burst weapon change, every 5 shots → 47.18% ATK hit.
-      if (moranBurstActive) {
-        unit.skillState.moranBurstS1Count++;
-        if (unit.skillState.moranBurstS1Count >= 5) {
-          unit.skillState.moranBurstS1Count = 0;
-          const mSums = getBuffSums(state, unit.id);
-          fireSkillHit(state, unit, 0.4718, mSums, false, 'S1_burst_weapon_hit');
-          if (state.enemyHp <= 0) {
-            events.push({ type: 'kill', tick: state.tick });
-            return { over: true, events };
-          }
-        }
-      }
-
-      // ── 弹药里程碑 ─────────────────────────────────────────────────────
-
-      // LM Skill 1 (Bubble Order): every 400 total ammo → shared burst gauge ▲ 37%
-      const cur400 = Math.floor(state.totalAmmoFired / 400);
-      if (cur400 > state.lastMilestone400) {
-        state.lastMilestone400 = cur400;
-        const gaugeBoost = Math.round(0.37 * BURST_GAUGE_MAX); // 370,000
-        addBurstGauge(state, 'Little Mermaid', 'lm_s1_gaugeBoost', gaugeBoost);
-      }
-
-      // LM Skill 2 (Bubble Wave): every 500 total ammo → Bubble Barrage 10×85% ATK
-      const cur500 = Math.floor(state.totalAmmoFired / 500);
-      if (cur500 > state.lastMilestone500) {
-        state.lastMilestone500 = cur500;
-        const lm = state.squad.find(u => u.name === 'Little Mermaid');
-        if (lm) {
-          const lmSums = getBuffSums(state, lm.id);
-          for (let h = 0; h < 10 && state.enemyHp > 0; h++) {
-            fireSkillHit(state, lm, 0.85, lmSums, false, 'S2_barrage');
-          }
-          if (state.enemyHp <= 0) {
-            events.push({ type: 'kill', tick: state.tick });
-            return { over: true, events };
-          }
         }
       }
     } // 内层射击循环结束
