@@ -7,8 +7,8 @@
 ---
 
 ## 技术栈
-- **Vite** — 构建工具与开发服务器
-- **Vanilla JS**（ES modules）— 无框架开销
+- **原生 ES modules** — 无构建步骤，直接通过 HTTP 服务器运行
+- **Vanilla JS** — 无框架开销
 - **HTML/CSS** — UI
 - **localStorage** — CDN 数据缓存及版本跟踪
 
@@ -55,19 +55,20 @@ nikke-battle-simulator/
 │   ├── data/
 │   │   ├── manifest.js          # CDN URL 注册表（打补丁时更新）
 │   │   ├── loader.js            # 拉取 + localStorage 缓存
-│   │   └── models.js            # 将原始 JSON 规范化为带类型的对象
+│   │   ├── models.js            # 将原始 JSON 规范化为带类型的对象
+│   │   └── skill-traits.js      # 技能属性声明式注册表
 │   ├── engine/
-│   │   ├── stats.js             # 计算最终属性（基础 + 等级 + 装备 + 魔方 + 研究）
+│   │   ├── constants.js         # 游戏常量
 │   │   ├── damage.js            # 伤害公式
-│   │   ├── skills.js            # 技能效果解析器
-│   │   ├── buffs.js             # Buff / debuff 状态机
+│   │   ├── stats.js             # 计算最终属性（基础 + 等级 + 装备 + 魔方 + 研究）
+│   │   ├── skill-executor.js    # 技能触发分派器
+│   │   ├── battle-utils.js      # 战斗辅助函数（fireSkillHit、getBuffSums 等）
 │   │   └── battle.js            # 主模拟循环
 │   └── ui/
 │       ├── squad-builder.js     # 角色 / 装备选择
-│       ├── battle-view.js       # 实时战斗显示
 │       └── results.js           # 汇总 + 图表
 ├── scripts/
-│   └── check-update.js          # Node 脚本，检测 CDN URL 变更
+│   └── tests/                   # 回归测试套件
 ├── ARCHITECTURE.md
 └── CLAUDE.md
 ```
@@ -119,10 +120,11 @@ Final = Crit × (1 - DEF / (DEF + Constant)) × MiscModifiers
 ```
 
 ### 技能系统
-技能包含：
-- **触发条件**（例如 "命中时"、"每 N 秒"、"爆裂激活时"）
-- **效果**（例如 "ATK +X% 持续 Y 秒"、"恢复 Z HP"、"造成 N% 伤害"）
-- **目标**（自身 / 全体友军 / 特定职业）
+技能逻辑通过 `src/data/skill-traits.js` 声明式注册，由 `src/engine/skill-executor.js` 统一分派。主要触发时机：
+- `BATTLE_START` / `ENTER_FULL_BURST` / `FULL_BURST_END`
+- `BURST_SKILL_USE`（各阶段释放爆裂技能时）
+- `SHOT_COUNT` / `LAST_BULLET` / `FULL_CHARGE` / `CORE_HIT`
+- `INTERVAL_IN_BURST` / `HEAL_RECEIVED` / `AMMO_MILESTONE`
 
 ---
 
