@@ -42,7 +42,7 @@ export function hasSkillTag(groupId, tag) { const t = getSkillTraits(groupId); r
 export const SKILL_TRAITS = {
 
   // ══════════════════════════════════════════════════════════════════════════
-  // 15 · Anis: Sparkling Summer（B3 · SMG）
+  // 15 · Anis: Sparkling Summer（B3 · SG）
   // ══════════════════════════════════════════════════════════════════════════
   15: {
     skill1: {
@@ -443,6 +443,66 @@ export const SKILL_TRAITS = {
                 { extraAtkFlat: hpAdded, burstSkillDamage: true });
             }
             caster.skillState.iceroseMP = 0;
+          },
+        },
+      ],
+    },
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 191 · Alice（B3 · SR · Attacker · TETRA · Fire）
+  // ══════════════════════════════════════════════════════════════════════════
+  191: {
+    skill1: {
+      groupId: 21911,
+      triggers: [
+        // S1（Energizing Carrot）：进入全爆裂 → 全队 ATK 最高 2 名友军：
+        //   Charge Speed ▲11.67% Alice 蓄力时间（flat 减少）10s
+        //   Charge Damage ▲7% 10s
+        {
+          on: 'ENTER_FULL_BURST',
+          handler(state, caster) {
+            const sorted  = [...state.squad].sort((a, b) => b.stats.atk - a.stats.atk);
+            const targets  = sorted.slice(0, 2);
+            const end10    = state.tick + TICK_RATE * 10;
+            const chargeReduction = Math.round(caster.chargeTimeTicks * 0.1167);
+            for (const u of targets) {
+              pushBuff(state, { name: 'alice_s1_chargeSpd', unitId: u.id,
+                chargeTimeReductionTicks: chargeReduction, endTick: end10 });
+              pushBuff(state, { name: 'alice_s1_chargeDmg', unitId: u.id,
+                chargeDamagePct: 0.07, endTick: end10 });
+            }
+          },
+        },
+      ],
+    },
+
+    skill2: {
+      groupId: 21912,
+      // [TODO] S2 Part1（Healthy Carrot）：HP > 80% → 自身持续穿透 Pierce
+      //   穿透机制涉及两个场景（均待敌人设置系统实现后启用）：
+      //   (a) 隐藏核心：敌人有核心但被装甲覆盖，仅穿透攻击可命中核心获得核心伤害加成；
+      //   (b) 零件：敌人有独立 HP 的零件，穿透攻击（含 RL/explosion）可同时命中敌人本体和零件；
+      //       零件被击破后对敌人造成伤害并触发特定效果。
+      // [TODO] S2 Part2：HP < 80% → 攻击时回复 8.12% ATK 量 HP（生命偷取）— HP 受伤追踪未建模
+      triggers: [],
+    },
+
+    burst: {
+      groupId: 11913,
+      triggers: [
+        // Burst（Wonderland）：自身 Charge Speed ▲80.15% + ATK ▲55.12% 10s
+        // 同时记录 aliceWonderlandEndTick：若期间 final 蓄力速度 ≥ 99.52%，
+        // 启用快速攻击模式（40次/min，由 battle.js 判定）
+        {
+          on: 'BURST_SKILL_USE',
+          handler(state, caster) {
+            const end10 = state.tick + TICK_RATE * 10;
+            pushBuff(state, { name: 'alice_burst_chargeSpd', unitId: caster.id,
+              chargeSpeedPct: 0.8015, endTick: end10 });
+            pushBuff(state, { name: 'alice_burst_atkPct', unitId: caster.id,
+              atkPct: 0.5512, endTick: end10 });
+            caster.skillState.aliceWonderlandEndTick = end10;
           },
         },
       ],

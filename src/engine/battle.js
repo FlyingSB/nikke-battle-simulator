@@ -929,6 +929,12 @@ export function tick(state) {
         if (weaponSwitchChargeTimeTicks > 0) {
           // 武器切换期间：直接使用切换武器的蓄力时长，不应用 fore/backswing
           unit.chargeTick = state.tick + weaponSwitchChargeTimeTicks;
+        } else if (
+          (unit.skillState?.aliceWonderlandEndTick ?? 0) >= state.tick &&
+          ((unit.stats.chargeSpeedPct ?? 0) + sums.chargeSpeedPct) >= 0.9952
+        ) {
+          // Alice Wonderland 快速攻击：final 蓄力速度 ≥ 99.52% → 40次/min（90 ticks/shot）
+          unit.chargeTick = state.tick + Math.round(TICK_RATE * 60 / 40);
         } else {
           const csFromBuff    = unit.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
           const flatReduction = unit.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
