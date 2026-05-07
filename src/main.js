@@ -2,6 +2,7 @@
  * NIKKE 战斗模拟器 — 入口
  */
 import { loadAllData } from './data/loader.js';
+import { loadAccountFromDev, getAccountSize } from './data/account-loader.js';
 import { renderSquadBuilder } from './ui/squad-builder.js';
 import { renderResults } from './ui/results.js';
 import { simulate, simulateMonteCarlo } from './engine/battle.js';
@@ -23,6 +24,14 @@ async function init() {
     $progress.textContent = '数据加载完成 ✓';
   } catch (err) {
     $progress.textContent = `⚠ 部分数据加载失败：${err.message}。使用备用数据。`;
+  }
+
+  $progress.textContent = '正在加载账号数据…';
+  const accountLoaded = await loadAccountFromDev();
+  if (accountLoaded) {
+    $progress.textContent = `账号数据加载完成，共 ${getAccountSize()} 个角色 ✓`;
+  } else {
+    $progress.textContent = '未找到账号数据，使用手动模式';
   }
 
   hideLoader();

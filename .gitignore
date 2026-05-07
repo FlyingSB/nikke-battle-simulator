@@ -9,3 +9,6 @@ dist/
 scripts/cache/
 scripts/traces/
 scripts/*.txt
+
+# 开发用账号数据（私密，不入库）
+dev/

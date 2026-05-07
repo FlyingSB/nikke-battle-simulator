@@ -30,6 +30,7 @@ export function getAllCharacters() {
     .map(c => ({
       resourceId:  c.resource_id,
       id:          c.id,
+      nameCode:    c.name_code ?? 0,
       name:        c.name_localkey?.name ?? String(c.resource_id),
       classType:   c.class ?? 'Attacker',
       element:     c.element_details?.[0]?.element ?? null,
@@ -46,6 +47,16 @@ export function getAllCharacters() {
 /** @param {number} resourceId @returns {Character|undefined} */
 export function getCharacterByResourceId(resourceId) {
   return getAllCharacters().find(c => c.resourceId === Number(resourceId));
+}
+
+/** @param {number} nameCode @returns {Character|undefined} */
+export function getCharacterByNameCode(nameCode) {
+  return getAllCharacters().find(c => c.nameCode === Number(nameCode));
+}
+
+/** @param {string} name 显示名（大小写敏感，来自 CDN name_localkey）@returns {Character|undefined} */
+export function getCharacterByName(name) {
+  return getAllCharacters().find(c => c.name === name);
 }
 
 // ─── 装备 ────────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@
 import { getAllCharacters, getCharacterByResourceId } from '../data/models.js';
 import { loadNikke, loadCube } from '../data/loader.js';
 import { CUBE_URLS, CUBE_NAMES, FAVORITE_ITEM_URLS } from '../data/manifest.js';
+import { getRosterEntry } from '../data/account-loader.js';
 
 // ─── 常量 ───────────────────────────────────────────────────────────────
 
@@ -625,6 +626,10 @@ async function _onNikkeSelect(i, value) {
   slot.favoriteItem.resourceId = favId;
   slot.favoriteItem.rare = 'SR';
 
+  // 从账号数据自动填充（覆盖上方默认值）
+  const entry = getRosterEntry(resourceId);
+  if (entry) _applyRosterEntry(i, entry);
+
   _updateMeta(i);
   _updateEquipmentClass(i);
   _updateBondMax(i);
@@ -680,6 +685,79 @@ function _updateEquipmentClass(i) {
     slot.equipment[key].classReq = slot.classType;
     const sel = _container.querySelector(`.equip-class[data-slot="${i}"][data-equip="${key}"]`);
     if (sel) sel.value = slot.classType;
+  });
+}
+
+// ─── 账号数据自动填充 ───────────────────────────────────────────────────────────
+
+/**
+ * 将 RosterEntry 写入 slot 状态，并同步更新对应 DOM 控件。
+ * 须在 _onNikkeSelect 设置好基础字段（classType/corporation 等）之后调用。
+ * @param {number} i       槽位索引
+ * @param {object} entry   getRosterEntry() 返回的 RosterEntry
+ */
+function _applyRosterEntry(i, entry) {
+  const slot = _state.team[i];
+  const c    = _container;
+
+  // 突破 & 核心
+  slot.grade = entry.grade;
+  slot.core  = Math.min(entry.core, 7);
+  c.querySelectorAll(`.grade-btn[data-slot="${i}"]`).forEach(btn => {
+    const active = parseInt(btn.dataset.grade) === slot.grade;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active);
+  });
+  const coreInput = c.querySelector(`.core-input[data-slot="${i}"]`);
+  if (coreInput) {
+    coreInput.disabled = slot.grade < 3;
+    coreInput.value    = slot.core;
+  }
+
+  // 羁绊（clamp 至当前突破上限）
+  const bMax = maxBond(slot.grade, slot.corporation);
+  slot.bondLevel = Math.min(entry.bondLevel, bMax);
+  const bondInput = c.querySelector(`.bond-input[data-slot="${i}"]`);
+  if (bondInput) bondInput.value = slot.bondLevel;
+
+  // 技能
+  slot.skills = entry.skills.slice(0, 3);
+  c.querySelectorAll(`.skill-input[data-slot="${i}"]`).forEach(inp => {
+    const j = parseInt(inp.dataset.skill);
+    inp.value = slot.skills[j] ?? 1;
+  });
+
+  // 魔方
+  slot.cube.resourceId = entry.cube.resourceId;
+  slot.cube.level      = entry.cube.level || 1;
+  const cubeSelect = c.querySelector(`.cube-select[data-slot="${i}"]`);
+  if (cubeSelect) cubeSelect.value = slot.cube.resourceId ?? '';
+  const cubeLevel = c.querySelector(`.cube-level[data-slot="${i}"]`);
+  if (cubeLevel) cubeLevel.value = slot.cube.level;
+  if (slot.cube.resourceId) _loadCube(i, slot.cube.resourceId);
+
+  // 收藏品
+  slot.favoriteItem.resourceId = entry.favoriteItem.resourceId;
+  slot.favoriteItem.level      = entry.favoriteItem.level || 1;
+  const favMeta = FAV_ITEMS.find(f => f.id === slot.favoriteItem.resourceId);
+  if (favMeta) slot.favoriteItem.rare = favMeta.rare;
+  const favLevel = c.querySelector(`.fav-level[data-slot="${i}"]`);
+  if (favLevel) favLevel.value = slot.favoriteItem.level;
+
+  // 装备
+  EQUIP_SLOTS.forEach(({ key }) => {
+    const eq = entry.equipment[key];
+    if (!eq) return;
+    slot.equipment[key].classReq = eq.classReq;
+    slot.equipment[key].tier     = eq.tier;
+    slot.equipment[key].options  = eq.options.slice();
+    const classSel = c.querySelector(`.equip-class[data-slot="${i}"][data-equip="${key}"]`);
+    const tierSel  = c.querySelector(`.equip-tier[data-slot="${i}"][data-equip="${key}"]`);
+    if (classSel) classSel.value = eq.classReq;
+    if (tierSel)  tierSel.value  = eq.tier;
+    c.querySelectorAll(`.equip-option[data-slot="${i}"][data-equip="${key}"]`).forEach(chk => {
+      chk.checked = eq.options[parseInt(chk.dataset.opt)] ?? false;
+    });
   });
 }
 
