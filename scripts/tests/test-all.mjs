@@ -28,6 +28,7 @@ const SUITES = [
   { name: 'URLs',       file: 'test-urls.mjs',       note: 'URL generation algorithm'                },
   { name: 'Data',       file: 'test-data.mjs',       note: 'requires scripts/cache/'                 },
   { name: 'Stats',      file: 'test-stats.mjs',      note: 'may fetch from CDN'                      },
+  { name: 'RedHoodBurst', file: 'test-red-hood-burst.mjs', note: 'Red Hood weapon switch shot count' },
 ];
 
 const LINE = '═'.repeat(62);

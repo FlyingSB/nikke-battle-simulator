@@ -472,10 +472,7 @@ export function initBattle(config) {
           return skillLv > 0 ? parseFloat(sk.description_value_list?.[1]?.description_value?.[skillLv - 1] ?? '0') : 0;
         })(),
         // Red Hood (470) — AllStep SR DPS
-        rhBurstStep:    1,     // AllStep 当前阶段：1=Beast Cage / 2=The Last Howl / 3=Red Wolf
-        rhCsStacks:     0,     // S1 蓄力速度叠层数（0–10）
-        rhCdRedUsed1:   false, // Beast Cage ▼40s CD 减免（每战一次）
-        rhCdRedUsed2:   false, // The Last Howl ▼40s CD 减免（每战一次）
+        rhCsStacks: 0,         // S1 蓄力速度叠层数（0–10）
       },
       // SSR fav item upgraded skill definitions (null for R/SR items)
       // cfg.ssrFavSkillLevel overrides the item-derived skill level (e.g. 10 for fully levelled SSR skills)

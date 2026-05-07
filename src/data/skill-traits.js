@@ -1505,22 +1505,29 @@ export const SKILL_TRAITS = {
   // ══════════════════════════════════════════════════════════════════════════
   // 470 · Red Hood（AllStep · SR · Attacker · PILGRIM · Iron）
   //
-  // 核心机制：AllStep 爆裂，每次 BURST_SKILL_USE 循环 Step1→2→3
+  // 当前建模：将她视为普通 B3（40s CD），始终触发 Red Wolf（Step3）。
+  //   [TODO] AllStep 完整循环（Beast Cage B1 / The Last Howl B2 / Red Wolf B3）：
+  //     游戏中 use_burst_skill=AllStep, change_burst_step=NextStep，
+  //     每次爆裂阶段可配置为 Step1/Step2/Step3 中的任意一个（非循环），
+  //     视具体阵容决定她填哪个爆裂位。
+  //   [TODO] Beast Cage（B1 位）：全员 ATK flat ▲77.55% RH.ATK 10s
+  //                              + 自身 CD ▼40s（每战一次）
+  //                              + S2：全员 DEF ▲50.68% RH.DEF 10s
+  //   [TODO] The Last Howl（B2 位）：自身 Attract 10s + HP Recovery Potency ▲62.4% 10s
+  //                                 + 自身 CD ▼40s（每战一次）
+  //
   //   S1 Glaring Eyes (group 24701)
-  //     每次全蓄力 → 自身 Charge Speed ▲3.81%（最多 10 层，5s，层数归零前计时刷新）
+  //     每次全蓄力 → 自身 Charge Speed ▲3.81%（最多 10 层，5s，层刷新计时）
   //     被动：超出 100% 的蓄力速度 × 240% → Charge Damage（连续，由 updateRhCsConversion 维护）
   //   S2 Wild Tooth (group 24702)
-  //     [TODO] 战斗开始：自身 Pierce 持续（穿透机制待敌人设置系统后实现）
-  //     Beast Cage 期间：全员 DEF ▲50.68% RH.DEF 10s（TODO: DEF 不影响 DPS）
-  //     The Last Howl 期间：自身 HP 回复（TODO: 无 DPS 影响）
-  //     施放 Red Wolf 时：自身 ATK ▲71.42% 10s
+  //     [TODO] 战斗开始：自身持续 Pierce（穿透机制待敌人设置系统后实现）
+  //     [TODO] Beast Cage 期间：全员 DEF ▲50.68% RH.DEF 10s（DEF 不影响 DPS）
+  //     [TODO] The Last Howl 期间：自身攻击伤害→HP 回复 23.04% 10s（无 DPS 影响）
+  //     施放 Red Wolf 时：自身 ATK ▲71.42% 10s（已建模，inline 于 Burst handler）
   //   Burst Red Wolf (group 14703, CD=40s)
-  //     Step1 Beast Cage:     全员 ATK flat ▲77.55% RH.ATK 10s
-  //                           自身 CD ▼40s（每战一次，rhCdRedUsed1）
-  //     Step2 The Last Howl:  自身 Attract 10s（TODO）+ HP 回复增强（TODO）
-  //                           自身 CD ▼40s（每战一次，rhCdRedUsed2）
-  //     Step3 Red Wolf:       S2 ATK ▲71.42% 10s + Charge Speed ▲100.8% 10s
-  //                           武器切换（51.46% ATK · 250% FC · 10s · 无限弹）
+  //     自身 ATK ▲71.42% + Charge Speed ▲100.8% 10s
+  //     武器切换：Damage 51.46% final ATK · FC 250% · 10s · 无限弹
+  //     攻击间隔 hardcode：19 ticks/次（游戏实测 10s 内 32 次，对应 19 ticks/shot）
   // ══════════════════════════════════════════════════════════════════════════
   470: {
     skill1: {
@@ -1553,85 +1560,49 @@ export const SKILL_TRAITS = {
     skill2: {
       groupId: 24702,
       triggers: [],
-      // S2 Part1（Wild Tooth）：战斗开始 → 自身持续 Pierce（TODO: 穿透机制）
-      // S2 Part2（Beast Cage）：全员 DEF ▲50.68% RH.DEF 10s（TODO: DEF 不影响 DPS）
-      // S2 Part3（The Last Howl）：自身攻击伤害→HP 回复 23.04% 10s（TODO: 无 DPS 影响）
-      // S2 Part4（Red Wolf）：自身 ATK ▲71.42% 10s — inline 于 Burst Step3 handler
+      // [TODO] S2 Part1（Wild Tooth）：战斗开始 → 自身持续 Pierce（穿透机制）
+      // [TODO] S2 Part2（Beast Cage）：全员 DEF ▲50.68% RH.DEF 10s
+      // [TODO] S2 Part3（The Last Howl）：自身攻击伤害→HP 回复 23.04% 10s
+      // S2 Part4（Red Wolf）：自身 ATK ▲71.42% 10s — inline 于 Burst handler
     },
 
     burst: {
       groupId: 14703,
       triggers: [
-        // AllStep 爆裂：按 rhBurstStep 分发三阶段效果，每次使用后循环推进。
+        // Red Wolf（当前默认 B3 行为）：
+        //   S2 Part4 ATK ▲71.42% + CS ▲100.8% + 武器切换（51.46%·250%FC·10s·无限弹）
+        //   weaponSwitchChargeTimeTicks=19：跳过 fore/backswing，
+        //   游戏实测 10s 内 32 次攻击 → 600/(32-1) = 19.35 ≈ 19 ticks/shot。
         {
           on: 'BURST_SKILL_USE',
           handler(state, caster) {
-            const step  = caster.skillState.rhBurstStep;
             const end10 = state.tick + TICK_RATE * 10;
-
-            if (step === 1) {
-              // ─── Beast Cage ───────────────────────────────────────────
-              // 全员 ATK flat ▲77.55% RH.ATK 10s
-              pushBuff(state, { name: 'rh_burst_bc_atkFlat', unitId: null,
-                atkFlat: Math.round(caster.stats.atk * 0.7755), endTick: end10 });
-              // 自身 CD ▼40s（每战一次）
-              if (!caster.skillState.rhCdRedUsed1) {
-                caster.skillState.rhCdRedUsed1 = true;
-                caster.burstSkillCooldownEndTick = Math.max(state.tick,
-                  caster.burstSkillCooldownEndTick - TICK_RATE * 40);
-                if (state.buffLog)
-                  state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
-                    name: 'rh_bc_cdReduction', unitId: caster.id, reductionTicks: TICK_RATE * 40 });
-              }
-              // [TODO] S2 Part2：全员 DEF ▲50.68% RH.DEF 10s（DEF 不影响 DPS）
-
-            } else if (step === 2) {
-              // ─── The Last Howl ────────────────────────────────────────
-              // [TODO] 自身 Attract 10s + HP Recovery Potency ▲62.4% 10s
-              // 自身 CD ▼40s（每战一次）
-              if (!caster.skillState.rhCdRedUsed2) {
-                caster.skillState.rhCdRedUsed2 = true;
-                caster.burstSkillCooldownEndTick = Math.max(state.tick,
-                  caster.burstSkillCooldownEndTick - TICK_RATE * 40);
-                if (state.buffLog)
-                  state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
-                    name: 'rh_lh_cdReduction', unitId: caster.id, reductionTicks: TICK_RATE * 40 });
-              }
-
-            } else {
-              // ─── Red Wolf（Step3）────────────────────────────────────
-              // S2 Part4：自身 ATK ▲71.42% 10s
-              pushBuff(state, { name: 'rh_s2_rw_atkPct', unitId: caster.id,
-                atkPct: 0.7142, endTick: end10 });
-              // 自身 Charge Speed ▲100.8% 10s
-              pushBuff(state, { name: 'rh_burst_rw_chargeSpd', unitId: caster.id,
-                chargeSpeedPct: 1.008, endTick: end10 });
-              // 武器切换：Damage 51.46% final ATK · FC 250% · 10s · 无限弹
-              caster.skillState.weaponSwitchHitMult          = 0.5146;
-              caster.skillState.weaponSwitchType             = 'SR';
-              caster.skillState.weaponSwitchEndTick          = end10;
-              caster.skillState.weaponSwitchChargeTimeTicks  = 0;  // 沿用基础 SR 蓄力时长（受 CS buff 缩减）
-              caster.skillState.weaponSwitchFullChargeDamage = 25000; // 250% FC
-              caster.skillState.weaponSwitchUnlimitedAmmo    = true;
-              // 立即开始蓄力（全爆裂期间首发尽快打出）
-              caster.chargeTick = state.tick;
-              // 更新 CS 转化 buff（Red Wolf CS buff 现已生效）
-              updateRhCsConversion(state, caster, end10);
-            }
-
-            // 阶段循环：1→2→3→1
-            caster.skillState.rhBurstStep = (step % 3) + 1;
+            // S2 Part4：自身 ATK ▲71.42% 10s
+            pushBuff(state, { name: 'rh_s2_rw_atkPct', unitId: caster.id,
+              atkPct: 0.7142, endTick: end10 });
+            // Charge Speed ▲100.8% 10s（Red Wolf 追加效果）
+            pushBuff(state, { name: 'rh_burst_rw_chargeSpd', unitId: caster.id,
+              chargeSpeedPct: 1.008, endTick: end10 });
+            // 武器切换：Damage 51.46% final ATK · FC 250% · 10s · 无限弹
+            // weaponSwitchChargeTimeTicks=19：游戏实测 32 次/10s，跳过 fore/backswing
+            caster.skillState.weaponSwitchHitMult          = 0.5146;
+            caster.skillState.weaponSwitchType             = 'SR';
+            caster.skillState.weaponSwitchEndTick          = end10;
+            caster.skillState.weaponSwitchChargeTimeTicks  = 19;
+            caster.skillState.weaponSwitchFullChargeDamage = 25000; // 250% FC
+            caster.skillState.weaponSwitchUnlimitedAmmo    = true;
+            // 立即开始蓄力（全爆裂期间首发尽快打出）
+            caster.chargeTick = state.tick;
+            // 更新 CS 转化 buff（Red Wolf CS buff 现已生效）
+            updateRhCsConversion(state, caster, end10);
           },
         },
-        // Red Wolf 结束后：清理 weaponSwitch 标志 + 重算 CS 转化（Red Wolf CS 已过期）
+        // 全爆裂结束后重算 CS 转化（Red Wolf CS buff 已过期）
         {
           on: 'FULL_BURST_END',
           handler(state, caster) {
-            // 若 weapon switch 仍在超时范围内则不清理（理论上 10s 内爆裂必已结束）
-            if ((caster.skillState.weaponSwitchEndTick ?? 0) <= state.tick) {
+            if ((caster.skillState.weaponSwitchEndTick ?? 0) <= state.tick)
               caster.skillState.weaponSwitchEndTick = 0;
-            }
-            // 重算转化（Red Wolf CS buff 可能已过期）
             updateRhCsConversion(state, caster, state.tick + TICK_RATE * 5);
           },
         },
