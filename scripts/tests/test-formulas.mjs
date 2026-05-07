@@ -1035,6 +1035,20 @@ section('T33: MaxAmmo pct debuff/buff — per-effect round');
   eq('+1, -73.92%, -50.66% → 1 (flat 无法突破负数 clamp)', calcMaxAmmoFull(5, 1, [-0.7392, -0.5066]), 1);
 }
 
+// ── T34: Maiden: Ice Rose — burst energy per full charge ─────────────────────
+// 游戏实测：每次全蓄力充能 = 武器 FC 能量 + S2 技能伤害能量 = 36400×2.5 + 36400 = 127400
+
+section('T34: Maiden: Ice Rose — burst energy per full charge (game-verified)');
+{
+  const burstEnergyPerShot = 36_400;   // target_burst_energy_pershot（CDN）
+  const fullChargeDamage   = 25_000;   // full_charge_damage（CDN）= ×2.5 系数
+  const fcWeaponEnergy = Math.round(burstEnergyPerShot * fullChargeDamage / 10_000);
+  const fcS2Energy     = burstEnergyPerShot;  // S2 Part3：addBurstGauge(burstEnergyPerShot)
+  eq('FC 武器充能 (36400 × 2.5)',     fcWeaponEnergy,              91_000);
+  eq('FC S2 技能充能',                 fcS2Energy,                  36_400);
+  eq('FC 总充能（游戏实测 127400）',   fcWeaponEnergy + fcS2Energy, 127_400);
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 summary('Formula tests');

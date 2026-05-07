@@ -411,6 +411,7 @@ export const SKILL_TRAITS = {
           handler(state, caster, ctx) {
             const sums = ctx.sums ?? getBuffSums(state, caster.id);
             fireSkillHit(state, caster, 5.4762, sums, false, 'icr_s2_fc_dmg');
+            addBurstGauge(state, caster.name, 'icr_s2_fc_dmg', caster.burstEnergyPerShot);
           },
         },
       ],

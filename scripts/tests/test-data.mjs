@@ -342,6 +342,14 @@ section('T6: Nikke shot_detail — CDN field values');
   eq('Arcana reload_time',         sd.reload_time,              233);
   eq('Arcana burst_energy_pershot',sd.target_burst_energy_pershot, 4_000);
 }
+{
+  const sd = readCache('nikke_183.json').shot_detail;  // Maiden: Ice Rose RL
+  eq('MaidenIR damage',               sd.damage,                      6_130);
+  eq('MaidenIR full_charge_damage',   sd.full_charge_damage,          25_000);
+  eq('MaidenIR charge_time',          sd.charge_time,                 100);
+  eq('MaidenIR max_ammo',             sd.max_ammo,                    6);
+  eq('MaidenIR burst_energy_pershot', sd.target_burst_energy_pershot, 36_400);
+}
 
 // ── T7: Favorite items ────────────────────────────────────────────────────────
 
