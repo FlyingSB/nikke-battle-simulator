@@ -39,6 +39,23 @@ export function hasSkillTag(groupId, tag) { const t = getSkillTraits(groupId); r
 
 // ─── 技能注册表（以 resource_id 字符串为键） ────────────────────────────────
 
+// ─── Red Hood (470) S1 辅助：更新蓄力伤害转化 buff ────────────────────────────
+// 超出 100% 的蓄力速度 → Charge Damage ▲240% × 超出量（连续）
+// endTick 由调用方传入，与产生该超量的 CS buff 同生命周期。
+function updateRhCsConversion(state, caster, endTick = Infinity) {
+  const sums    = getBuffSums(state, caster.id);
+  const totalCS = (caster.stats.chargeSpeedPct ?? 0) + sums.chargeSpeedPct;
+  const excess  = Math.max(0, totalCS - 1.0);
+  const cdBonus = excess > 0 ? Math.round(excess * 2.4 * 100000) / 100000 : 0;
+  const conv    = state.buffs.find(b => b.name === 'rh_s1_cd_conv' && b.unitId === caster.id);
+  if (cdBonus > 0) {
+    if (conv) { conv.chargeDamagePct = cdBonus; conv.endTick = endTick; }
+    else state.buffs.push({ name: 'rh_s1_cd_conv', unitId: caster.id, chargeDamagePct: cdBonus, endTick });
+  } else if (conv) {
+    state.buffs.splice(state.buffs.indexOf(conv), 1);
+  }
+}
+
 export const SKILL_TRAITS = {
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -1479,6 +1496,143 @@ export const SKILL_TRAITS = {
             }
             pushBuff(state, { name: 'lm_burst_atkFlat', unitId: caster.id,
               atkFlat: Math.round(caster.stats.atk * 0.1728), endTick: end10 });
+          },
+        },
+      ],
+    },
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 470 · Red Hood（AllStep · SR · Attacker · PILGRIM · Iron）
+  //
+  // 核心机制：AllStep 爆裂，每次 BURST_SKILL_USE 循环 Step1→2→3
+  //   S1 Glaring Eyes (group 24701)
+  //     每次全蓄力 → 自身 Charge Speed ▲3.81%（最多 10 层，5s，层数归零前计时刷新）
+  //     被动：超出 100% 的蓄力速度 × 240% → Charge Damage（连续，由 updateRhCsConversion 维护）
+  //   S2 Wild Tooth (group 24702)
+  //     [TODO] 战斗开始：自身 Pierce 持续（穿透机制待敌人设置系统后实现）
+  //     Beast Cage 期间：全员 DEF ▲50.68% RH.DEF 10s（TODO: DEF 不影响 DPS）
+  //     The Last Howl 期间：自身 HP 回复（TODO: 无 DPS 影响）
+  //     施放 Red Wolf 时：自身 ATK ▲71.42% 10s
+  //   Burst Red Wolf (group 14703, CD=40s)
+  //     Step1 Beast Cage:     全员 ATK flat ▲77.55% RH.ATK 10s
+  //                           自身 CD ▼40s（每战一次，rhCdRedUsed1）
+  //     Step2 The Last Howl:  自身 Attract 10s（TODO）+ HP 回复增强（TODO）
+  //                           自身 CD ▼40s（每战一次，rhCdRedUsed2）
+  //     Step3 Red Wolf:       S2 ATK ▲71.42% 10s + Charge Speed ▲100.8% 10s
+  //                           武器切换（51.46% ATK · 250% FC · 10s · 无限弹）
+  // ══════════════════════════════════════════════════════════════════════════
+  470: {
+    skill1: {
+      groupId: 24701,
+      triggers: [
+        // S1 Part1（Glaring Eyes）：每次全蓄力 → 自身 Charge Speed ▲3.81%（10层 · 5s）
+        // 每新增一层刷新计时；叠层过期后归零重新计数。
+        {
+          on: 'FULL_CHARGE',
+          handler(state, caster) {
+            const existing = state.buffs.find(b => b.name === 'rh_s1_chargeSpd' && b.unitId === caster.id);
+            const prevStacks = existing ? caster.skillState.rhCsStacks : 0;
+            const newStacks  = Math.min(10, prevStacks + 1);
+            caster.skillState.rhCsStacks = newStacks;
+            const end5 = state.tick + TICK_RATE * 5;
+            if (existing) {
+              existing.chargeSpeedPct = newStacks * 0.0381;
+              existing.endTick = end5;
+            } else {
+              state.buffs.push({ name: 'rh_s1_chargeSpd', unitId: caster.id,
+                chargeSpeedPct: newStacks * 0.0381, endTick: end5 });
+            }
+            // S1 Part2：更新超量 CS → Charge Damage 转化（与叠层同生命周期）
+            updateRhCsConversion(state, caster, end5);
+          },
+        },
+      ],
+    },
+
+    skill2: {
+      groupId: 24702,
+      triggers: [],
+      // S2 Part1（Wild Tooth）：战斗开始 → 自身持续 Pierce（TODO: 穿透机制）
+      // S2 Part2（Beast Cage）：全员 DEF ▲50.68% RH.DEF 10s（TODO: DEF 不影响 DPS）
+      // S2 Part3（The Last Howl）：自身攻击伤害→HP 回复 23.04% 10s（TODO: 无 DPS 影响）
+      // S2 Part4（Red Wolf）：自身 ATK ▲71.42% 10s — inline 于 Burst Step3 handler
+    },
+
+    burst: {
+      groupId: 14703,
+      triggers: [
+        // AllStep 爆裂：按 rhBurstStep 分发三阶段效果，每次使用后循环推进。
+        {
+          on: 'BURST_SKILL_USE',
+          handler(state, caster) {
+            const step  = caster.skillState.rhBurstStep;
+            const end10 = state.tick + TICK_RATE * 10;
+
+            if (step === 1) {
+              // ─── Beast Cage ───────────────────────────────────────────
+              // 全员 ATK flat ▲77.55% RH.ATK 10s
+              pushBuff(state, { name: 'rh_burst_bc_atkFlat', unitId: null,
+                atkFlat: Math.round(caster.stats.atk * 0.7755), endTick: end10 });
+              // 自身 CD ▼40s（每战一次）
+              if (!caster.skillState.rhCdRedUsed1) {
+                caster.skillState.rhCdRedUsed1 = true;
+                caster.burstSkillCooldownEndTick = Math.max(state.tick,
+                  caster.burstSkillCooldownEndTick - TICK_RATE * 40);
+                if (state.buffLog)
+                  state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
+                    name: 'rh_bc_cdReduction', unitId: caster.id, reductionTicks: TICK_RATE * 40 });
+              }
+              // [TODO] S2 Part2：全员 DEF ▲50.68% RH.DEF 10s（DEF 不影响 DPS）
+
+            } else if (step === 2) {
+              // ─── The Last Howl ────────────────────────────────────────
+              // [TODO] 自身 Attract 10s + HP Recovery Potency ▲62.4% 10s
+              // 自身 CD ▼40s（每战一次）
+              if (!caster.skillState.rhCdRedUsed2) {
+                caster.skillState.rhCdRedUsed2 = true;
+                caster.burstSkillCooldownEndTick = Math.max(state.tick,
+                  caster.burstSkillCooldownEndTick - TICK_RATE * 40);
+                if (state.buffLog)
+                  state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
+                    name: 'rh_lh_cdReduction', unitId: caster.id, reductionTicks: TICK_RATE * 40 });
+              }
+
+            } else {
+              // ─── Red Wolf（Step3）────────────────────────────────────
+              // S2 Part4：自身 ATK ▲71.42% 10s
+              pushBuff(state, { name: 'rh_s2_rw_atkPct', unitId: caster.id,
+                atkPct: 0.7142, endTick: end10 });
+              // 自身 Charge Speed ▲100.8% 10s
+              pushBuff(state, { name: 'rh_burst_rw_chargeSpd', unitId: caster.id,
+                chargeSpeedPct: 1.008, endTick: end10 });
+              // 武器切换：Damage 51.46% final ATK · FC 250% · 10s · 无限弹
+              caster.skillState.weaponSwitchHitMult          = 0.5146;
+              caster.skillState.weaponSwitchType             = 'SR';
+              caster.skillState.weaponSwitchEndTick          = end10;
+              caster.skillState.weaponSwitchChargeTimeTicks  = 0;  // 沿用基础 SR 蓄力时长（受 CS buff 缩减）
+              caster.skillState.weaponSwitchFullChargeDamage = 25000; // 250% FC
+              caster.skillState.weaponSwitchUnlimitedAmmo    = true;
+              // 立即开始蓄力（全爆裂期间首发尽快打出）
+              caster.chargeTick = state.tick;
+              // 更新 CS 转化 buff（Red Wolf CS buff 现已生效）
+              updateRhCsConversion(state, caster, end10);
+            }
+
+            // 阶段循环：1→2→3→1
+            caster.skillState.rhBurstStep = (step % 3) + 1;
+          },
+        },
+        // Red Wolf 结束后：清理 weaponSwitch 标志 + 重算 CS 转化（Red Wolf CS 已过期）
+        {
+          on: 'FULL_BURST_END',
+          handler(state, caster) {
+            // 若 weapon switch 仍在超时范围内则不清理（理论上 10s 内爆裂必已结束）
+            if ((caster.skillState.weaponSwitchEndTick ?? 0) <= state.tick) {
+              caster.skillState.weaponSwitchEndTick = 0;
+            }
+            // 重算转化（Red Wolf CS buff 可能已过期）
+            updateRhCsConversion(state, caster, state.tick + TICK_RATE * 5);
           },
         },
       ],
