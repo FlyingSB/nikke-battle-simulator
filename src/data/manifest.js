@@ -106,6 +106,7 @@ export const FAVORITE_ITEM_URLS = {
   100602: `${CDN_BASE}/hs-19/ay-22/dfee9fe38f21aead258654194bf7d509.json`, // Napping Commander Doll Ltd. (SR-weapon-SR)
   // SSR 专属收藏品（角色特化；提升全部三个技能等级）
   200701: `${CDN_BASE}/qf-35/xj-78/2cef2b4f5f105b32637e4fa0cb9b2b36.json`, // Antique Compass (Helm SSR)
+  200801: `${CDN_BASE}/mq-17/ov-18/324e104bfcec45d056cbd6ee6f12a6ee.json`, // Villain Figurine (Drake SSR)
 };
 
 /** manifest 变更时递增此版本号，以使 localStorage 缓存失效 */
