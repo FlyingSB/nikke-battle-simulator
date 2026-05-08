@@ -21,8 +21,9 @@ export function hasSkillTrait(groupId, trait) { const t = getSkillTraits(groupId
 export function hasSkillTag(groupId, tag) { const t = getSkillTraits(groupId); return t?.tags?.includes(tag) ?? false; }
 
 import s15  from './skills/15.js';
-import s32  from './skills/32.js';
 import s16  from './skills/16.js';
+import s18  from './skills/18.js';
+import s32  from './skills/32.js';
 import s82  from './skills/82.js';
 import s183 from './skills/183.js';
 import s191 from './skills/191.js';
@@ -42,6 +43,7 @@ import s513 from './skills/513.js';
 export const SKILL_TRAITS = {
    15: s15,
    16: s16,
+   18: s18,
    32: s32,
    82: s82,
   183: s183,

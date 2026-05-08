@@ -85,6 +85,7 @@ SSR 专属收藏品 ID 以 `2` 开头，与角色绑定，提升全部三个技�
 |------|------|
 | [`15.js`](../src/data/skills/15.js) | Anis: Sparkling Summer |
 | [`16.js`](../src/data/skills/16.js) | Rapi: Red Hood |
+| [`18.js`](../src/data/skills/18.js) | Neon: Vision Eye |
 | [`32.js`](../src/data/skills/32.js) | Miranda |
 | [`82.js`](../src/data/skills/82.js) | Liter |
 | [`101.js`](../src/data/skills/101.js) | Drake |
