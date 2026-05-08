@@ -83,21 +83,21 @@ SSR 专属收藏品 ID 以 `2` 开头，与角色绑定，提升全部三个技�
 
 | 文件 | 角色 |
 |------|------|
-| [`15.js`](../src/data/skills/15.js) | Anis |
-| [`16.js`](../src/data/skills/16.js) | Alchemy |
+| [`15.js`](../src/data/skills/15.js) | Anis: Sparkling Summer |
+| [`16.js`](../src/data/skills/16.js) | Rapi: Red Hood |
 | [`32.js`](../src/data/skills/32.js) | Miranda |
 | [`82.js`](../src/data/skills/82.js) | Liter |
 | [`101.js`](../src/data/skills/101.js) | Drake |
-| [`183.js`](../src/data/skills/183.js) | Icerose |
+| [`183.js`](../src/data/skills/183.js) | Maiden: Ice Rose |
 | [`191.js`](../src/data/skills/191.js) | Alice |
-| [`223.js`](../src/data/skills/223.js) | Helm |
-| [`225.js`](../src/data/skills/225.js) | Astra |
-| [`262.js`](../src/data/skills/262.js) | Scarlet |
-| [`281.js`](../src/data/skills/281.js) | Istina |
+| [`223.js`](../src/data/skills/223.js) | Nayuta |
+| [`225.js`](../src/data/skills/225.js) | Scarlet: Black Shadow |
+| [`262.js`](../src/data/skills/262.js) | Liberalio |
+| [`281.js`](../src/data/skills/281.js) | Moran |
 | [`330.js`](../src/data/skills/330.js) | Crown |
-| [`352.js`](../src/data/skills/352.js) | Moran |
-| [`354.js`](../src/data/skills/354.js) | Modernia |
-| [`355.js`](../src/data/skills/355.js) | Maiden |
+| [`352.js`](../src/data/skills/352.js) | Helm |
+| [`354.js`](../src/data/skills/354.js) | Mast: Romantic Maid |
+| [`355.js`](../src/data/skills/355.js) | Anchor: Innocent Maid |
 | [`470.js`](../src/data/skills/470.js) | Red Hood |
-| [`511.js`](../src/data/skills/511.js) | Cocoa |
-| [`513.js`](../src/data/skills/513.js) | Anchor |
+| [`511.js`](../src/data/skills/511.js) | Cinderella |
+| [`513.js`](../src/data/skills/513.js) | Little Mermaid |
