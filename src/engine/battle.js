@@ -94,7 +94,7 @@
 import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
 import { computeFinalStats } from './stats.js';
 import { WEAPON_AMMO, WEAPON_HIT_MULT } from './constants.js';
-import { getFavItemSkillEffects, getSsrFavSkills } from '../data/models.js';
+import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
 import { getBuffSums, pushBuff, addBurstGauge, applyHeal, fireSkillHit } from './battle-utils.js';
 import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd } from './skill-executor.js';
@@ -353,9 +353,15 @@ export function initBattle(config) {
       // Full charge damage value from shot_detail (10000 = ×1.0 baseline).
       fullChargeDamage:         cfg.fullChargeDamage ?? 10000,
       // Per-shot burst energy contribution to the shared state.burstGauge.
-      // Uses target_burst_energy_pershot (raw CDN value).
-      // Full-charge energy = burstEnergyPerShot × (fullChargeDamage / 10000).
+      // burstEnergyPerShot: energy when hitting cover/missing (burst_energy_pershot).
+      // targetBurstEnergyPerShot: energy when hitting the enemy target (target_burst_energy_pershot).
+      // All shots and skill hits in this simulator hit the target → use targetBurstEnergyPerShot
+      // for the main shot loop and all skill-hit addBurstGauge calls.
+      // Full-charge energy = targetBurstEnergyPerShot × (fullChargeDamage / 10000).
       burstEnergyPerShot:       cfg.burstEnergyPerShot ?? 500,
+      targetBurstEnergyPerShot: cfg.targetBurstEnergyPerShot
+                                ?? cfg._nikkeData?.shot_detail?.target_burst_energy_pershot
+                                ?? cfg.burstEnergyPerShot ?? 500,
       // Fav item "Normal Attack Damage Multiplier ▲" (SMG/SG items) — independent multiplier on baseDamage.
       favNormalAttackDamageMult: 1 + (collFx?.attackDmgPct ?? 0),
       // Fav item "Charge Damage Multiplier ▲" (SR/RL items) — multiplies shot_detail.damage specifically.
@@ -402,7 +408,7 @@ export function initBattle(config) {
         literFbCount:               0,     // how many Full Bursts have been entered (Liter S1 Part 1)
         literBurstUseCount:         0,     // cumulative count of burst skills used (Liter S1 Part 2)
         // Mast: Romantic Maid Skill 1 Drunken stacks and Hangover
-        mastDrunkenStacks:          0,     // 0–3; S1 passive active while ≥1; S2 scales with stacks
+        // mastDrunkenStacks removed — use state.buffs.find(b => b.name === 'mast_drunken')?.stackCount
         mastHangoverEndTick:        0,     // tick at which Hangover stun expires (0 = not stunned)
         // LM Skill 2
         lmShotCount:                0,     // shots fired since battle start (for Explosive Bubble)
@@ -410,10 +416,12 @@ export function initBattle(config) {
         lmLastBubbleShotTick:      -999,  // last tick LM fired periodic burst shots
         // Rapi Skill 2
         rapiShotCount:              0,     // shots since last projectile load
-        rapiPendingProjectile:      false, // projectile waiting to explode on Full Burst
+        rapiPendingProjectileCount: 0,     // projectiles waiting to explode on Full Burst
         rapiProjectileThreshold:    120,   // shots per projectile cycle (60 during Full Burst)
-        rapiProjectileAttachMult:   2.5072, // passive +150.72% baked in; 6.7192 during Full Burst
-        rapiProjectileExplosionMult:2.006, // passive +100.6% baked in; unchanged by burst
+        // attach mult = 1 + S2 param[4]/100（passive Projectile Attachment Damage ▲）
+        rapiProjectileAttachMult:    1 + getSkillValue(cfg._nikkeData?.skill2_detail, 4, cfg.skillLevels?.[1] ?? 10) / 100,
+        // explode mult = 1 + S2 param[5]/100（passive Projectile Explosion Damage ▲）
+        rapiProjectileExplosionMult: 1 + getSkillValue(cfg._nikkeData?.skill2_detail, 5, cfg.skillLevels?.[1] ?? 10) / 100,
         rapiProjectileBuffEndTick:  0,     // tick when burst projectile buffs expire (0 = not active)
         // SBS Skill 1
         sbsChargeCount:             0,     // current position in charge cycle (1–9 or 1–3)
@@ -479,6 +487,12 @@ export function initBattle(config) {
       ssrFavSkills: (cfg._favItemData && (cfg.favoriteItem?.level ?? 0) > 0)
         ? getSsrFavSkills(cfg._favItemData, cfg.favoriteItem.level, cfg.ssrFavSkillLevel)
         : null,
+      // 技能等级（skill1/skill2/burst），默认均为 Lv.10
+      skillLevels:  cfg.skillLevels ?? [10, 10, 10],
+      // 原始 CDN 技能详情，用于按实际技能等级动态读取数值
+      rawSkill1:    cfg._nikkeData?.skill1_detail    ?? null,
+      rawSkill2:    cfg._nikkeData?.skill2_detail    ?? null,
+      rawBurst:     cfg._nikkeData?.ulti_skill_detail ?? null,
     };
   });
 
@@ -931,18 +945,22 @@ export function tick(state) {
         if (weaponSwitchChargeTimeTicks > 0) {
           // 武器切换期间：直接使用切换武器的蓄力时长，不应用 fore/backswing
           unit.chargeTick = state.tick + weaponSwitchChargeTimeTicks;
-        } else if (
-          (unit.skillState?.aliceWonderlandEndTick ?? 0) >= state.tick &&
-          ((unit.stats.chargeSpeedPct ?? 0) + sums.chargeSpeedPct) >= 0.9952
-        ) {
-          // Alice Wonderland 快速攻击：final 蓄力速度 ≥ 99.52% → 40次/min（90 ticks/shot）
-          unit.chargeTick = state.tick + Math.round(TICK_RATE * 60 / 40);
         } else {
-          const csFromBuff    = unit.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
-          const flatReduction = unit.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
-          const afterPct      = Math.round(unit.chargeTimeTicks * (1 - Math.min(0.99, (unit.stats.chargeSpeedPct ?? 0) + csFromBuff)));
-          const effectiveCharge = Math.max(0, afterPct - flatReduction);
-          unit.chargeTick = state.tick + unit.backswingTicks + unit.foreswingTicks + effectiveCharge;
+          const csFromBuff           = unit.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
+          const flatReduction        = unit.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
+          const afterPct             = Math.round(unit.chargeTimeTicks * (1 - Math.min(0.99, (unit.stats.chargeSpeedPct ?? 0) + csFromBuff)));
+          const effectiveCharge      = Math.max(0, afterPct - flatReduction);
+          const aliceFastAttackTicks     = Math.round(TICK_RATE * 10 / 40);
+          const aliceFastAttackThreshold = Math.round(unit.chargeTimeTicks * (1 - 0.9952));
+          if (
+            (unit.skillState?.aliceWonderlandEndTick ?? 0) >= state.tick &&
+            effectiveCharge <= aliceFastAttackThreshold
+          ) {
+            // Alice Wonderland 快速攻击：蓄力段（% + flat 减少后）≤ 99.52% 蓄速等价 ticks → 40次/10s（fore/backswing 被规避）
+            unit.chargeTick = state.tick + aliceFastAttackTicks;
+          } else {
+            unit.chargeTick = state.tick + unit.backswingTicks + unit.foreswingTicks + effectiveCharge;
+          }
         }
       }
       state.totalAmmoFired++;

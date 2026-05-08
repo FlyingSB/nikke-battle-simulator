@@ -390,7 +390,11 @@ export function parseNikkeDetail(raw) {
  */
 export function getSkillValue(skillDetail, paramIndex, skillLevel) {
   const raw = skillDetail?.description_value_list?.[paramIndex]?.description_value?.[skillLevel - 1];
-  return parseFloat(raw ?? '0');
+  if (raw == null) {
+    console.error(`[getSkillValue] 取值失败: id=${skillDetail?.id ?? 'null'}, paramIndex=${paramIndex}, skillLevel=${skillLevel}`);
+    return 0;
+  }
+  return parseFloat(raw);
 }
 
 /**

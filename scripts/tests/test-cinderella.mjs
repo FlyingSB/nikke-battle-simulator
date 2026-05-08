@@ -37,6 +37,24 @@ function makeState(overrides = {}) {
   };
 }
 
+// 构造最小化 skill detail，使 getSkillValue(detail, paramIndex, 10) 能正确返回 lv10 值
+// description_value 为 10 元素数组，index 9（lv10，1-based level 10 → index 9）填入目标值
+function makeSkillDetail(lv10Values) {
+  return {
+    description_value_list: lv10Values.map(v => ({
+      description_value: Array.from({ length: 10 }, (_, i) => i === 9 ? String(v) : '0'),
+    })),
+  };
+}
+
+// Cinderella CDN lv10 值（来自 src/data/static/nikke/511.json）
+// skill1: param[0]=2.71, param[3]=136.6
+// skill2: param[1]=1.6
+// burst:  param[0]=1365.92, param[2]=28.9
+const CINDERELLA_RAW_SKILL1 = makeSkillDetail([2.71, 0, 0, 136.6]);
+const CINDERELLA_RAW_SKILL2 = makeSkillDetail([0, 1.6]);
+const CINDERELLA_RAW_BURST  = makeSkillDetail([1365.92, 0, 28.9]);
+
 function makeCaster(stats = {}) {
   const caster = {
     id: 511,
@@ -47,6 +65,10 @@ function makeCaster(stats = {}) {
     totalDamage: 0,
     unitHp: 1_000_000,
     burstEnergyPerShot: 16667,
+    rawSkill1: CINDERELLA_RAW_SKILL1,
+    rawSkill2: CINDERELLA_RAW_SKILL2,
+    rawBurst:  CINDERELLA_RAW_BURST,
+    skillLevels: [10, 10, 10],
     stats: { atk: 100_000, hp: 1_000_000, critRate: 0.15, critDmg: 0.50, ...stats },
     skillState: { cinderellaBeautyStacks: 0, cinderellaDecoyActive: false },
   };
