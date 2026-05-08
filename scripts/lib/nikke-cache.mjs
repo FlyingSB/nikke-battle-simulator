@@ -1,19 +1,15 @@
 /**
- * Node.js file cache for per-nikke CDN data.
+ * Node.js file cache for CDN data.
  *
- * Cache file  : scripts/cache/nikke_{resourceId}.json
- * Cache format: { manifest_version, data }   (data = full CDN JSON)
- *
- * Validation on read:
- *   - manifest_version === current MANIFEST_VERSION
- *   - data.resource_id === resourceId
- *   - data.name_localkey === expectedName  (if provided)
- * On any mismatch: re-fetch from CDN and overwrite cache.
+ * 读取优先级（从高到低）：
+ *   1. src/data/static/  — 由 download-all-static.mjs 生成的永久项目快照
+ *   2. scripts/cache/    — 开发时按需生成的缓存（gitignore，按 manifest_version 校验）
+ *   3. CDN               — 最终 fallback，结果写入 scripts/cache/
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { join, dirname }                          from 'path';
-import { fileURLToPath }                          from 'url';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { join, dirname }                                      from 'path';
+import { fileURLToPath }                                      from 'url';
 
 import {
   DATA_URLS,
@@ -23,26 +19,36 @@ import {
 } from '../../src/data/manifest.js';
 import { getRoleDataUrl } from '../../src/data/blablalink-url.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const CACHE_DIR = join(__dirname, '..', 'cache');
+const __dirname  = dirname(fileURLToPath(import.meta.url));
+const CACHE_DIR  = join(__dirname, '..', 'cache');
+const STATIC_DIR = join(__dirname, '..', '..', 'src', 'data', 'static');
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * Load a static CDN data file by key (e.g. 'attractive', 'recycleRoom', 'equipment').
- * Caches to scripts/cache/static_{key}.json.
+ * 优先 src/data/static/，其次 scripts/cache/，最终 CDN。
  * @param {string} key  key from DATA_URLS
  * @returns {Promise<any>}
  */
 export async function loadStaticData(key) {
-  const url = DATA_URLS[key];
-  if (!url) throw new Error(`[nikke-cache] No DATA_URL for key "${key}"`);
+  // 1. 项目静态快照
+  const staticPath = join(STATIC_DIR, `${key}.json`);
+  if (existsSync(staticPath)) {
+    return JSON.parse(readFileSync(staticPath, 'utf8'));
+  }
+
+  // 2. 开发缓存
   const cachePath = join(CACHE_DIR, `static_${key}.json`);
   try {
     const raw    = readFileSync(cachePath, 'utf8');
     const cached = JSON.parse(raw);
     if (cached.manifest_version === MANIFEST_VERSION) return cached.data;
   } catch { /* cache miss */ }
+
+  // 3. CDN fallback
+  const url = DATA_URLS[key];
+  if (!url) throw new Error(`[nikke-cache] No DATA_URL for key "${key}"`);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`[nikke-cache] fetch failed for key "${key}": ${res.status}`);
   const json = await res.json();
@@ -58,19 +64,30 @@ export async function loadStaticData(key) {
 
 /**
  * Load a harmony cube JSON by resource_id.
+ * 优先 src/data/static/cubes/，其次 scripts/cache/，最终 CDN。
  * @param {number} resourceId
  * @returns {Promise<object>}
  */
 export async function loadCubeData(resourceId) {
-  const id  = Number(resourceId);
-  const url = CUBE_URLS[id];
-  if (!url) throw new Error(`[nikke-cache] No CUBE_URL for resource_id ${id}`);
+  const id = Number(resourceId);
+
+  // 1. 项目静态快照
+  const staticPath = join(STATIC_DIR, 'cubes', `${id}.json`);
+  if (existsSync(staticPath)) {
+    return JSON.parse(readFileSync(staticPath, 'utf8'));
+  }
+
+  // 2. 开发缓存
   const cachePath = join(CACHE_DIR, `cube_${id}.json`);
   try {
     const raw    = readFileSync(cachePath, 'utf8');
     const cached = JSON.parse(raw);
     if (cached.manifest_version === MANIFEST_VERSION) return cached.data;
   } catch { /* cache miss */ }
+
+  // 3. CDN fallback
+  const url = CUBE_URLS[id];
+  if (!url) throw new Error(`[nikke-cache] No CUBE_URL for resource_id ${id}`);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`[nikke-cache] CDN fetch failed for cube ${id}: ${res.status}`);
   const data = await res.json();
@@ -85,19 +102,30 @@ export async function loadCubeData(resourceId) {
 
 /**
  * Load a favorite item JSON by resource_id.
+ * 优先 src/data/static/favorites/，其次 scripts/cache/，最终 CDN。
  * @param {number} resourceId
  * @returns {Promise<object>}
  */
 export async function loadFavItemData(resourceId) {
-  const id  = Number(resourceId);
-  const url = FAVORITE_ITEM_URLS[id];
-  if (!url) throw new Error(`[nikke-cache] No FAVORITE_ITEM_URL for resource_id ${id}`);
+  const id = Number(resourceId);
+
+  // 1. 项目静态快照
+  const staticPath = join(STATIC_DIR, 'favorites', `${id}.json`);
+  if (existsSync(staticPath)) {
+    return JSON.parse(readFileSync(staticPath, 'utf8'));
+  }
+
+  // 2. 开发缓存
   const cachePath = join(CACHE_DIR, `fav_${id}.json`);
   try {
     const raw    = readFileSync(cachePath, 'utf8');
     const cached = JSON.parse(raw);
     if (cached.manifest_version === MANIFEST_VERSION) return cached.data;
   } catch { /* cache miss */ }
+
+  // 3. CDN fallback
+  const url = FAVORITE_ITEM_URLS[id];
+  if (!url) throw new Error(`[nikke-cache] No FAVORITE_ITEM_URL for resource_id ${id}`);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`[nikke-cache] CDN fetch failed for fav item ${id}: ${res.status}`);
   const data = await res.json();
@@ -111,17 +139,28 @@ export async function loadFavItemData(resourceId) {
 }
 
 /**
- * Load nikke CDN data by resource_id, served from a local file cache.
+ * Load nikke CDN data by resource_id.
+ * 优先 src/data/static/nikke/，其次 scripts/cache/，最终 CDN。
  *
- * @param {number}  resourceId    stable new-roster resource_id
+ * @param {number}  resourceId     stable new-roster resource_id
  * @param {string}  [expectedName] name_localkey to verify identity (recommended)
- * @returns {Promise<object>}     full CDN JSON for the nikke
+ * @returns {Promise<object>}      full CDN JSON for the nikke
  */
 export async function loadNikkeData(resourceId, expectedName) {
-  const id        = Number(resourceId);
-  const cachePath = join(CACHE_DIR, `nikke_${id}.json`);
+  const id = Number(resourceId);
 
-  // ── Try reading from cache ──
+  // 1. 项目静态快照
+  const staticPath = join(STATIC_DIR, 'nikke', `${id}.json`);
+  if (existsSync(staticPath)) {
+    const data = JSON.parse(readFileSync(staticPath, 'utf8'));
+    if (data?.resource_id === id && (!expectedName || data?.name_localkey === expectedName)) {
+      return data;
+    }
+    // 文件存在但身份不匹配（极少见），继续向下
+  }
+
+  // 2. 开发缓存
+  const cachePath = join(CACHE_DIR, `nikke_${id}.json`);
   try {
     const raw    = readFileSync(cachePath, 'utf8');
     const cached = JSON.parse(raw);
@@ -133,17 +172,14 @@ export async function loadNikkeData(resourceId, expectedName) {
 
     if (versionOk && idOk && nameOk) return data;
 
-    // Validation failed — explain why
     const reasons = [];
     if (!versionOk) reasons.push(`manifest_version: cache="${cached.manifest_version}" vs current="${MANIFEST_VERSION}"`);
     if (!idOk)      reasons.push(`resource_id: cache=${data?.resource_id} vs expected=${id}`);
     if (!nameOk)    reasons.push(`name_localkey: cache="${data?.name_localkey}" vs expected="${expectedName}"`);
     console.warn(`[nikke-cache] Stale cache for resource_id ${id}: ${reasons.join('; ')} — re-fetching…`);
-  } catch {
-    // Cache miss or parse error — fetch fresh
-  }
+  } catch { /* cache miss */ }
 
-  // ── Fetch from CDN ──
+  // 3. CDN fallback
   return _fetchAndCache(id, cachePath);
 }
 

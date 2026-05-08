@@ -1,0 +1,219 @@
+{
+  "id": 100202,
+  "atk": [
+    3029,
+    3370,
+    3712,
+    4053,
+    4395,
+    4821,
+    5248,
+    5675,
+    6102,
+    6529,
+    7041,
+    7554,
+    8066,
+    8578,
+    9090,
+    9688
+  ],
+  "grade": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3
+  ],
+  "hp": [
+    94000,
+    104650,
+    115300,
+    125950,
+    136600,
+    149950,
+    163250,
+    176600,
+    189900,
+    203200,
+    219200,
+    235200,
+    251150,
+    267150,
+    283150,
+    301800
+  ],
+  "def": [
+    638,
+    711,
+    783,
+    856,
+    929,
+    1020,
+    1111,
+    1202,
+    1293,
+    1384,
+    1494,
+    1603,
+    1712,
+    1821,
+    1931,
+    2058
+  ],
+  "level1": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4
+  ],
+  "level2": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4
+  ],
+  "powers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "name_localkey": "購物指揮官娃娃（限量版）",
+  "description_localkey": "指揮官好像已經買完東西了。\n也許其中會有為你準備的禮物哦？\n期待一下吧。",
+  "icon_resource_id": "si_favoriteitem_mg_00",
+  "img_resource_id": "favoriteitem_mg_00",
+  "prop_resource_id": "favoriteitem_common_prop_01",
+  "favorite_rare": "SR",
+  "favorite_type": "Collection",
+  "weapon_type": "MG",
+  "name_code": 0,
+  "max_level": 15,
+  "level_enhance_id": 100202,
+  "collection_skill_group_data": [
+    {
+      "id": 71240101,
+      "group_id": 712401,
+      "skill_level": 1,
+      "next_level_id": 71240102,
+      "level_up_cost_id": 0,
+      "icon": "icn_skill_atkup_01",
+      "name_localkey": "給予勇氣的視線",
+      "description_localkey": "■戰鬥開始時\n<color=#00AEFF>【最大裝彈數{description_value_01}%▲】</color>\n<color=#00AEFF>【防禦力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能",
+      "description_value_list": [
+        {
+          "description_value": [
+            "4.74",
+            "6.32",
+            "7.91",
+            "9.5"
+          ]
+        },
+        {
+          "description_value": [
+            "30",
+            "32",
+            "35",
+            "37"
+          ]
+        },
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ]
+    },
+    {
+      "id": 71200201,
+      "group_id": 712002,
+      "skill_level": 1,
+      "next_level_id": 71200202,
+      "level_up_cost_id": 0,
+      "icon": "icn_skill_stathp_01",
+      "name_localkey": "心靈的支柱",
+      "description_localkey": "■戰鬥開始時\n<color=#00AEFF>【所受傷害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩體最大體力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能",
+      "description_value_list": [
+        {
+          "description_value": [
+            "10",
+            "12",
+            "14",
+            "17"
+          ]
+        },
+        {
+          "description_value": [
+            "12",
+            "18",
+            "24",
+            "30"
+          ]
+        },
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ]
+    }
+  ],
+  "favoriteitem_skill_group_data": []
+}

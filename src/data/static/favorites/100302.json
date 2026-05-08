@@ -1,0 +1,219 @@
+{
+  "id": 100302,
+  "atk": [
+    3029,
+    3370,
+    3712,
+    4053,
+    4395,
+    4821,
+    5248,
+    5675,
+    6102,
+    6529,
+    7041,
+    7554,
+    8066,
+    8578,
+    9090,
+    9688
+  ],
+  "grade": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3
+  ],
+  "hp": [
+    94000,
+    104650,
+    115300,
+    125950,
+    136600,
+    149950,
+    163250,
+    176600,
+    189900,
+    203200,
+    219200,
+    235200,
+    251150,
+    267150,
+    283150,
+    301800
+  ],
+  "def": [
+    638,
+    711,
+    783,
+    856,
+    929,
+    1020,
+    1111,
+    1202,
+    1293,
+    1384,
+    1494,
+    1603,
+    1712,
+    1821,
+    1931,
+    2058
+  ],
+  "level1": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4
+  ],
+  "level2": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4
+  ],
+  "powers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "name_localkey": "Exercising Commander Doll Ltd.",
+  "description_localkey": "Exercising is the best way to achieve a healthy body and mind. Take the towel and wipe off Commander's sweat for him.",
+  "icon_resource_id": "si_favoriteitem_rl_00",
+  "img_resource_id": "favoriteitem_rl_00",
+  "prop_resource_id": "favoriteitem_common_prop_01",
+  "favorite_rare": "SR",
+  "favorite_type": "Collection",
+  "weapon_type": "RL",
+  "name_code": 0,
+  "max_level": 15,
+  "level_enhance_id": 100302,
+  "collection_skill_group_data": [
+    {
+      "id": 71230101,
+      "group_id": 712301,
+      "skill_level": 1,
+      "next_level_id": 71230102,
+      "level_up_cost_id": 0,
+      "icon": "icn_skill_atkup_01",
+      "name_localkey": "Gaze of Courage",
+      "description_localkey": "■ Activates at the start of the battle. \n<color=#00AEFF>Charge Damage <word_group=10029>Multiplier</word_group> ▲ {description_value_01}%.</color>\n<color=#00AEFF>DEF ▲ {description_value_02}%.</color>",
+      "info_description_localkey": "Burst Skill",
+      "description_value_list": [
+        {
+          "description_value": [
+            "4.74",
+            "6.31",
+            "7.89",
+            "9.47"
+          ]
+        },
+        {
+          "description_value": [
+            "30",
+            "32",
+            "35",
+            "37"
+          ]
+        },
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ]
+    },
+    {
+      "id": 71200201,
+      "group_id": 712002,
+      "skill_level": 1,
+      "next_level_id": 71200202,
+      "level_up_cost_id": 0,
+      "icon": "icn_skill_stathp_01",
+      "name_localkey": "Grounding Pillar",
+      "description_localkey": "■ Activates at the start of the battle. \n<color=#00AEFF>Damage Taken ▼ {description_value_01}%.</color>\n<color=#00AEFF><word_group=10033>Max HP of Cover</word_group> ▲ {description_value_02}%.</color>",
+      "info_description_localkey": "Burst Skill",
+      "description_value_list": [
+        {
+          "description_value": [
+            "10",
+            "12",
+            "14",
+            "17"
+          ]
+        },
+        {
+          "description_value": [
+            "12",
+            "18",
+            "24",
+            "30"
+          ]
+        },
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ]
+    }
+  ],
+  "favoriteitem_skill_group_data": []
+}
