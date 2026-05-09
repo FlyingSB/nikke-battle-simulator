@@ -774,6 +774,9 @@ export function tick(state) {
   for (const unit of state.squad) {
     // Mast Hangover 眩晕：眩晕期间跳过所有处理
     if (unit.skillState.mastHangoverEndTick > 0 && state.tick < unit.skillState.mastHangoverEndTick) continue;
+    // 武器切换结束后 backswing 封锁（如 Snow White burst 击发后 90 ticks）
+    if ((unit.skillState.weaponSwitchPostBackswingEndTick ?? 0) > 0
+        && state.tick < unit.skillState.weaponSwitchPostBackswingEndTick) continue;
 
     // 装填处理（HIDDEN 期间也会运行，让进行中的装填能够完成）
     if (unit.ammoLeft <= 0) {
@@ -929,7 +932,8 @@ export function tick(state) {
           elementDmgPct: unit.stats.elementDmgPct ?? 0,
           elemMult: bd.elemMult,
           chargeMult: bd.chargeMult,
-          distanceAdv: hasDistanceAdvantage(effectiveWeaponType, state.distanceZone),
+          // 武器切换期间距离加成仍按原始武器判定（游戏实测规则）
+          distanceAdv: hasDistanceAdvantage(unit.weaponType, state.distanceZone),
           ammoLeft: unit.ammoLeft,
           // 射击时刻的有效最大弹匣 — 包含当前生效的容量加成（如 Liter S1T1）
           maxAmmo: unit.maxAmmo + (

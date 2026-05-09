@@ -349,8 +349,13 @@ export function onShotFired(state, unit, shotCtx) {
   // Weapon switch round-based expiry: decrement per shot, deactivate on exhaustion
   if ((unit.skillState?.weaponSwitchRoundsLeft ?? 0) > 0) {
     unit.skillState.weaponSwitchRoundsLeft--;
-    if (unit.skillState.weaponSwitchRoundsLeft <= 0)
+    if (unit.skillState.weaponSwitchRoundsLeft <= 0) {
       unit.skillState.weaponSwitchEndTick = 0;
+      // 武器切换结束后的 backswing 封锁（如 Snow White burst 90 ticks）
+      const bsTicks = unit.skillState.weaponSwitchBackswingTicks ?? 0;
+      if (bsTicks > 0)
+        unit.skillState.weaponSwitchPostBackswingEndTick = state.tick + bsTicks;
+    }
   }
 }
 
