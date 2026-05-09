@@ -475,11 +475,13 @@ export function getSsrFavSkills(favData, itemLevel, skillLevelOverride) {
   if (!fskills?.length) return null;
   const skillLv = skillLevelOverride ?? 10;
   const result  = {};
-  const labels  = ['skill1', 'skill2', 'burst'];
-  for (let si = 0; si < fskills.length; si++) {
-    const info = fskills[si]?.info;
-    if (!info) continue;
-    result[labels[si]] = { ...info, _activeSkillLevel: skillLv };
+  const slotLabels = { 1: 'skill1', 2: 'skill2', 3: 'burst' };
+  // CDN 数组顺序可能不固定（部分角色为逆序），按 skill_change_slot 显式映射
+  for (const entry of fskills) {
+    const info  = entry?.info;
+    const label = slotLabels[entry?.skill_change_slot];
+    if (!info || !label) continue;
+    result[label] = { ...info, _activeSkillLevel: skillLv };
   }
   return Object.keys(result).length ? result : null;
 }

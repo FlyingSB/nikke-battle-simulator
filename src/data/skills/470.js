@@ -116,15 +116,18 @@ export default {
   burst: {
     groupId: 14703,
     triggers: [
-      // Red Wolf（当前默认 B3 行为）：
-      //   S2 Part4 ATK ▲71.42% + CS ▲100.8% + 武器切换（51.46%·250%FC·10s·无限弹）
+      // Red Wolf（仅 Step3/StepFull）：
+      //   S2 Part4 ATK ▲71.42% + CS ▲100.8% + 武器切换（51.46%·250%FC·10s·弹匣99）
+      //   Beast Cage（Step1）/ The Last Howl（Step2）使用 burst 时此 handler 直接返回。
       //   weaponSwitchChargeTimeTicks=19：跳过 fore/backswing，
       //   游戏实测 10s 内 32 次攻击 → 600/(32-1) = 19.35 ≈ 19 ticks/shot。
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
+          const isRedWolf = caster.burstStep === 'Step3' || caster.burstStep === 'StepFull';
+          if (!isRedWolf) return;
           const end10            = state.tick + TICK_RATE * 10;
-          // S2 Part4：自身 ATK ▲[S2 param4]% 10s
+          // S2 Part4：自身 ATK ▲[S2 param4]% 10s（仅 Red Wolf）
           const s2AtkPct         = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           pushBuff(state, { name: 'rh_s2_rw_atkPct', unitId: caster.id,
             atkPct: s2AtkPct, endTick: end10 });
@@ -132,27 +135,34 @@ export default {
           const chargeSpeedPct   = getSkillValue(caster.rawBurst, 9, caster.skillLevels[2]) / 100;
           pushBuff(state, { name: 'rh_burst_rw_chargeSpd', unitId: caster.id,
             chargeSpeedPct, endTick: end10 });
-          // 武器切换：Damage [Burst param6]% final ATK · FC 250% · 10s · 无限弹
-          // weaponSwitchChargeTimeTicks=19：游戏实测 32 次/10s，跳过 fore/backswing
+          // 武器切换：Damage [Burst param6]% final ATK · FC 250% · 10s · 弹匣容量 99
+          // Red Wolf 弹匣 99 发，10s 实测约 32 发，不会触发装弹
           const weaponSwitchHitMult = getSkillValue(caster.rawBurst, 6, caster.skillLevels[2]) / 100;
-          caster.skillState.weaponSwitchHitMult          = weaponSwitchHitMult;
-          caster.skillState.weaponSwitchType             = 'SR';
-          caster.skillState.weaponSwitchEndTick          = end10;
-          caster.skillState.weaponSwitchChargeTimeTicks  = 19;
-          caster.skillState.weaponSwitchFullChargeDamage = 25000; // 250% FC
-          caster.skillState.weaponSwitchUnlimitedAmmo    = true;
+          caster.skillState.rhNormalAmmoSaved             = caster.ammoLeft;
+          caster.ammoLeft                                 = 99;
+          caster.skillState.weaponSwitchHitMult           = weaponSwitchHitMult;
+          caster.skillState.weaponSwitchType              = 'SR';
+          caster.skillState.weaponSwitchEndTick           = end10;
+          caster.skillState.weaponSwitchChargeTimeTicks   = 19;
+          caster.skillState.weaponSwitchFullChargeDamage  = 25000; // 250% FC
+          caster.skillState.weaponSwitchUnlimitedAmmo     = false;
           // 立即开始蓄力（全爆裂期间首发尽快打出）
           caster.chargeTick = state.tick;
           // 更新 CS 转化 buff（Red Wolf CS buff 现已生效）
           updateRhCsConversion(state, caster, end10);
         },
       },
-      // 全爆裂结束后重算 CS 转化（Red Wolf CS buff 已过期）
+      // 全爆裂结束：恢复普通武器弹药 + 重算 CS 转化
       {
         on: 'FULL_BURST_END',
         handler(state, caster) {
           if ((caster.skillState.weaponSwitchEndTick ?? 0) <= state.tick)
             caster.skillState.weaponSwitchEndTick = 0;
+          // 恢复切换前的普通弹匣余量
+          if (caster.skillState.rhNormalAmmoSaved != null) {
+            caster.ammoLeft = caster.skillState.rhNormalAmmoSaved;
+            caster.skillState.rhNormalAmmoSaved = null;
+          }
           updateRhCsConversion(state, caster, state.tick + TICK_RATE * 5);
         },
       },
