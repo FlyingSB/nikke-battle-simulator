@@ -50,13 +50,18 @@ export default {
   // p03: [2.45, 3.08, 3.71, 4.34, 4.97, 5.6, 6.23, 6.86, 7.49, 8.12]
   skill2: {
     groupId: 21912,
-    // [TODO] S2 Part1（Healthy Carrot）：HP > 80% → 自身持续穿透 Pierce
-    //   穿透机制涉及两个场景（均待敌人设置系统实现后启用）：
-    //   (a) 隐藏核心：敌人有核心但被装甲覆盖，仅穿透攻击可命中核心获得核心伤害加成；
-    //   (b) 零件：敌人有独立 HP 的零件，穿透攻击（含 RL/explosion）可同时命中敌人本体和零件；
-    //       零件被击破后对敌人造成伤害并触发特定效果。
-    // [TODO] S2 Part2：HP < 80% → 攻击时回复 8.12% ATK 量 HP（生命偷取）— HP 受伤追踪未建模
-    triggers: [],
+    triggers: [
+      // S2 Part1（Healthy Carrot）：HP > 80% → 自身持续 Pierce
+      // 模拟中队员 HP 始终为 100%，故战斗开始即激活。
+      // [TODO] 实现 HP 实时检测：HP > 80% 时 pierceActive=true，≤ 80% 时关闭
+      // [TODO] S2 Part2：HP < 80% → 攻击时回复 8.12% ATK 量 HP（生命偷取）
+      {
+        on: 'BATTLE_START',
+        handler(state, caster) {
+          caster.skillState.pierceActive = true;
+        },
+      },
+    ],
   },
 
   // ── Wonderland
