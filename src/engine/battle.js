@@ -893,7 +893,10 @@ export function tick(state) {
         chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
         favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
         extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct
-                             + (effectiveWeaponType === 'RL' ? sums.projectileExplosionDamagePct : 0) },
+                             + (effectiveWeaponType === 'RL' ? sums.projectileExplosionDamagePct : 0),
+                             ...((weaponSwitchActive && unit.skillState.weaponSwitchPierce)
+                                 || unit.skillState.pierceActive
+                               ? { pierceDamageMult: sums.pierceDamagePct } : {}) },
         damageTakenMult:   state.enemyDamageTakenPct,
       });
 

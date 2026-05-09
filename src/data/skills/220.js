@@ -80,7 +80,8 @@ export default {
   //   Damage: {p01}% of final ATK
   //   Full Charge Damage: 1000% of damage
   //   Max Ammunition Capacity: {p02} round(s)
-  //   Additional Effect: Pierce
+  //   Additional Effect: Pierce（武器切换期间射击注入 pierceDamagePct 加成）
+  //   [TODO] Pierce：能命中隐藏（装甲保护）核心；同时对重叠零件与敌人本体造成伤害
   //
   // group_id: 12203
   // p01 (lv10=499.5%) p02: [1,...] p03: [1,...]
@@ -111,6 +112,7 @@ export default {
           caster.skillState.weaponSwitchUnlimitedAmmo    = false;
           // 击发后 backswing（约 90 ticks），在 skill-executor.js 的 endRounds 归零时生效
           caster.skillState.weaponSwitchBackswingTicks   = 90;
+          caster.skillState.weaponSwitchPierce           = true;  // pierce 伤害类型，受 pierceDamagePct buff 加成
           // 立即开始蓄力，5s 后首次击发
           caster.chargeTick = state.tick + chargeTimeTicks;
         },

@@ -76,8 +76,15 @@ export default {
   // p06: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
   skill2: {
     groupId: 24702,
-    triggers: [],
-    // [TODO] S2 Part1（Wild Tooth）：战斗开始 → 自身持续 Pierce（穿透机制）
+    triggers: [
+      // S2 Part1（Wild Tooth）：战斗开始 → 自身持续 Pierce
+      {
+        on: 'BATTLE_START',
+        handler(state, caster) {
+          caster.skillState.pierceActive = true;
+        },
+      },
+    ],
     // [TODO] S2 Part2（Beast Cage）：全员 DEF ▲50.68% RH.DEF 10s
     // [TODO] S2 Part3（The Last Howl）：自身攻击伤害→HP 回复 23.04% 10s
     // S2 Part4（Red Wolf）：自身 ATK ▲71.42% 10s — inline 于 Burst handler
