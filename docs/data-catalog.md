@@ -76,29 +76,29 @@ SSR 专属收藏品 ID 以 `2` 开头，与角色绑定，提升全部三个技�
 
 ---
 
-## 已建模角色技能
+## 角色表
 
-存储路径：[`src/data/skills/`](../src/data/skills/)  
-文件名为角色 `resource_id`，导出默认对象，包含 `skill1` / `skill2` / `burstSkill` 三个技能处理器。
+数据文件存储路径：[`src/data/static/nikke/`](../src/data/static/nikke/)（角色 CDN roledata，文件名为 `resource_id.json`）  
+技能文件存储路径：[`src/data/skills/`](../src/data/skills/)（导出默认对象，包含 `skill1` / `skill2` / `burstSkill` 三个技能处理器）
 
-| 文件 | 角色 |
-|------|------|
-| [`15.js`](../src/data/skills/15.js) | Anis: Sparkling Summer |
-| [`16.js`](../src/data/skills/16.js) | Rapi: Red Hood |
-| [`18.js`](../src/data/skills/18.js) | Neon: Vision Eye |
-| [`32.js`](../src/data/skills/32.js) | Miranda |
-| [`82.js`](../src/data/skills/82.js) | Liter |
-| [`101.js`](../src/data/skills/101.js) | Drake |
-| [`183.js`](../src/data/skills/183.js) | Maiden: Ice Rose |
-| [`191.js`](../src/data/skills/191.js) | Alice |
-| [`223.js`](../src/data/skills/223.js) | Nayuta |
-| [`225.js`](../src/data/skills/225.js) | Scarlet: Black Shadow |
-| [`262.js`](../src/data/skills/262.js) | Liberalio |
-| [`281.js`](../src/data/skills/281.js) | Moran |
-| [`330.js`](../src/data/skills/330.js) | Crown |
-| [`352.js`](../src/data/skills/352.js) | Helm |
-| [`354.js`](../src/data/skills/354.js) | Mast: Romantic Maid |
-| [`355.js`](../src/data/skills/355.js) | Anchor: Innocent Maid |
-| [`470.js`](../src/data/skills/470.js) | Red Hood |
-| [`511.js`](../src/data/skills/511.js) | Cinderella |
-| [`513.js`](../src/data/skills/513.js) | Little Mermaid |
+| 角色 | 数据（文件） | 技能（文件） |
+|------|------------|------------|
+| Anis: Sparkling Summer | [`15.json`](../src/data/static/nikke/15.json) | [`15.js`](../src/data/skills/15.js) |
+| Rapi: Red Hood | [`16.json`](../src/data/static/nikke/16.json) | [`16.js`](../src/data/skills/16.js) |
+| Neon: Vision Eye | [`18.json`](../src/data/static/nikke/18.json) | [`18.js`](../src/data/skills/18.js) |
+| Miranda | [`32.json`](../src/data/static/nikke/32.json) | [`32.js`](../src/data/skills/32.js) |
+| Liter | [`82.json`](../src/data/static/nikke/82.json) | [`82.js`](../src/data/skills/82.js) |
+| Drake | [`101.json`](../src/data/static/nikke/101.json) | [`101.js`](../src/data/skills/101.js) |
+| Maiden: Ice Rose | [`183.json`](../src/data/static/nikke/183.json) | [`183.js`](../src/data/skills/183.js) |
+| Alice | [`191.json`](../src/data/static/nikke/191.json) | [`191.js`](../src/data/skills/191.js) |
+| Nayuta | [`223.json`](../src/data/static/nikke/223.json) | [`223.js`](../src/data/skills/223.js) |
+| Scarlet: Black Shadow | [`225.json`](../src/data/static/nikke/225.json) | [`225.js`](../src/data/skills/225.js) |
+| Liberalio | [`262.json`](../src/data/static/nikke/262.json) | [`262.js`](../src/data/skills/262.js) |
+| Moran | [`281.json`](../src/data/static/nikke/281.json) | [`281.js`](../src/data/skills/281.js) |
+| Crown | [`330.json`](../src/data/static/nikke/330.json) | [`330.js`](../src/data/skills/330.js) |
+| Helm | [`352.json`](../src/data/static/nikke/352.json) | [`352.js`](../src/data/skills/352.js) |
+| Mast: Romantic Maid | [`354.json`](../src/data/static/nikke/354.json) | [`354.js`](../src/data/skills/354.js) |
+| Anchor: Innocent Maid | [`355.json`](../src/data/static/nikke/355.json) | [`355.js`](../src/data/skills/355.js) |
+| Red Hood | [`470.json`](../src/data/static/nikke/470.json) | [`470.js`](../src/data/skills/470.js) |
+| Cinderella | [`511.json`](../src/data/static/nikke/511.json) | [`511.js`](../src/data/skills/511.js) |
+| Little Mermaid | [`513.json`](../src/data/static/nikke/513.json) | [`513.js`](../src/data/skills/513.js) |
