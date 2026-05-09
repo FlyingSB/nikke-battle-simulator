@@ -550,4 +550,102 @@ section('T13: Nayuta S1 Part3 — FULL_CHARGE during Memory Incineration fires 5
   eq('Indomitability endTick = 9 × 60 = 540', bsCaster.skillState.nayutaIndomitabilityEndTick, 540);
 }
 
+// ── T14: FC 追加技能伤害充能 — Helm · Maiden: Ice Rose · Liberalio · Neon: Vision Eye ──
+
+section('T14: FC 追加技能伤害充能 — Helm · Maiden · Liberalio · Neon: Vision Eye');
+{
+  const ENERGY = 15000;
+
+  function makeState(unitId) {
+    return {
+      tick: 500, burstPhase: 0, burstGauge: 0, burstEnergyLog: null,
+      buffs: [], buffLog: null, hitLog: [],
+      enemyHp: 1e9, enemyDef: 0, enemyDamageTakenPct: 0, enemyElement: null,
+      fullBurstActive: false,
+      squad: [{
+        id: unitId, name: String(unitId), equipAtkPct: 0,
+        stats: { atk: 100000, critRate: 0, critDmg: 0.5 },
+        element: null, weaponType: 'SR',
+        totalDamage: 0, skillDamage: {}, skillDamageCount: {},
+        targetBurstEnergyPerShot: ENERGY,
+        skillState: {},
+        skillLevels: [1, 1, 1],
+        rawSkill1: null, rawSkill2: null, rawBurst: null,
+      }],
+    };
+  }
+
+  // rawSkill 辅助：vals[paramIndex] 对应 description_value[0]（skillLevel=1）
+  function mockRawSkill(vals) {
+    return { description_value_list: vals.map(v => ({ description_value: [String(v)] })) };
+  }
+
+  // ── Helm (352): S2 SSR FULL_CHARGE → 1 hit → +1×ENERGY ──
+  {
+    const helmTraits = SKILL_TRAITS[352];
+    const fcTrigger  = helmTraits.skill2.triggers.find(t => t.on === 'FULL_CHARGE');
+    const state  = makeState(352);
+    const caster = state.squad[0];
+    caster.ssrFavSkills = {
+      skill2: {
+        _activeSkillLevel: 1,
+        description_value_list: [{}, {}, {}, { description_value: ['100'] }],
+      },
+    };
+    fcTrigger.handler(state, caster, {});
+    eq('Helm S2 FC: burstGauge += 1×ENERGY', state.burstGauge, ENERGY);
+  }
+
+  // ── Maiden: Ice Rose (183): S2 FULL_CHARGE → 1 hit → +1×ENERGY ──
+  {
+    const icrTraits = SKILL_TRAITS[183];
+    const fcTrigger = icrTraits.skill2.triggers.find(t => t.on === 'FULL_CHARGE');
+    const state  = makeState(183);
+    const caster = state.squad[0];
+    caster.rawSkill2 = mockRawSkill([0, 0, 0, 0, 0, 0, 0, 0, 0, 100]);  // param9 = 100%
+    fcTrigger.handler(state, caster, {});
+    eq('Maiden S2 FC: burstGauge += 1×ENERGY', state.burstGauge, ENERGY);
+  }
+
+  // ── Liberalio (262): S1 T3 FULL_CHARGE → 5 hits → +5×ENERGY ──
+  {
+    const libTraits = SKILL_TRAITS[262];
+    const fcTrigger = libTraits.skill1.triggers
+      .filter(t => t.on === 'FULL_CHARGE')
+      .find(t => t.handler?.toString().includes('addBurstGauge'));
+    const state  = makeState(262);
+    const caster = state.squad[0];
+    caster.rawSkill1 = mockRawSkill([0, 0, 0, 0, 100, 0]);  // param4 = 100%
+    fcTrigger.handler(state, caster, {});
+    eq('Liberalio S1 T3 FC: burstGauge += 5×ENERGY', state.burstGauge, 5 * ENERGY);
+  }
+
+  // ── Neon: Vision Eye (18): S1 FULL_CHARGE ──
+  {
+    const nveTraits = SKILL_TRAITS[18];
+    const fcTrigger = nveTraits.skill1.triggers.find(t => t.on === 'FULL_CHARGE');
+    // rawSkill1: param6 = baseMult (100%), param7 = sfMult (100%)
+    const rawS1 = mockRawSkill([0, 0, 0, 0, 0, 0, 100, 100]);
+
+    // 无 Super Firepower → 1 hit → +1×ENERGY
+    {
+      const state  = makeState(18);
+      const caster = state.squad[0];
+      caster.rawSkill1 = rawS1;
+      fcTrigger.handler(state, caster, {});
+      eq('Neon S1 FC (no SF): burstGauge += 1×ENERGY', state.burstGauge, ENERGY);
+    }
+
+    // Super Firepower 激活 → 2 hits → +2×ENERGY
+    {
+      const state  = makeState(18);
+      const caster = state.squad[0];
+      caster.rawSkill1 = rawS1;
+      caster.skillState.nveSuperFirepowerEndTick = state.tick + 600;  // 10s 有效
+      fcTrigger.handler(state, caster, {});
+      eq('Neon S1 FC (SF active): burstGauge += 2×ENERGY', state.burstGauge, 2 * ENERGY);
+    }
+  }
+}
+
 summary('Skill traits tests');
