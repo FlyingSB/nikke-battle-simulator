@@ -1,9 +1,9 @@
 import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
-// ─── Asuka: WILLE (835) Anti A.T. Field 叠层管理 ──────────────────────────
+// ─── Anti A.T. Field 叠层管理 ──────────────────────────────────────────────
 // 叠层全批同时计时（每次新增叠层刷新到期时间）。
-// 采用 enemyDamageTakenPct 直接累加，移除时整批减去。
+// 直接累加 enemyDamageTakenPct，移除时整批减去。
 function applyAtfStack(state, caster, p07Pct) {
   const now = state.tick;
   // 若已过期，清零旧叠层对应的承伤加成
@@ -11,7 +11,6 @@ function applyAtfStack(state, caster, p07Pct) {
     state.enemyDamageTakenPct -= caster.skillState.atfStacks * p07Pct;
     caster.skillState.atfStacks = 0;
   }
-  // 最多 30 层
   if ((caster.skillState.atfStacks ?? 0) < 30) {
     caster.skillState.atfStacks = (caster.skillState.atfStacks ?? 0) + 1;
     state.enemyDamageTakenPct += p07Pct;
@@ -20,15 +19,58 @@ function applyAtfStack(state, caster, p07Pct) {
   caster.skillState.atfStackEndTick = now + TICK_RATE * 30;
 }
 
-// Annihilation 发动：消耗全部 Anti A.T. Field 叠层，返回消耗前的层数
 function consumeAtfStacks(state, caster, p07Pct) {
   const stacks = caster.skillState.atfStacks ?? 0;
   if (stacks > 0) {
-    state.enemyDamageTakenPct -= stacks * p07Pct;
-    caster.skillState.atfStacks    = 0;
+    state.enemyDamageTakenPct    -= stacks * p07Pct;
+    caster.skillState.atfStacks   = 0;
     caster.skillState.atfStackEndTick = 0;
   }
   return stacks;
+}
+
+// ─── Annihilation 发动（Annihilation State 结束时触发）────────────────────
+// ■ 对 Anti A.T. Field 目标造成叠层伤害并移除叠层
+// ■ S2 Part2 同时激活：MG 过热速度↓100% 3s、清空弹药、HP 回复、装填速度↑60%
+function fireAnnihilation(state, caster) {
+  caster.skillState.annihilationFired = true;
+
+  // ATF 叠层伤害
+  const p07    = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
+  const stacks = consumeAtfStacks(state, caster, p07);
+  if (stacks > 0) {
+    const annMult = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]) / 100;
+    const sums    = getBuffSums(state, caster.id);
+    fireSkillHit(state, caster, annMult * stacks, sums, false, 'asuka_w_burst_annihilation');
+  }
+
+  // ── S2 Part2 ──
+  const s2Lv = caster.skillLevels[1];
+
+  // MG 过热速度 ▼100% for 3s：将逐发增速归零
+  // current_rate_of_fire_change_pershot = base × (1 + increment - decrement) = 0（decrement=1）
+  if (caster.skillState.mgRofChangePerShot != null) {
+    caster.skillState.asukaW_mgHeatOrig    = caster.skillState.mgRofChangePerShot;
+    caster.skillState.mgRofChangePerShot   = 0;
+    caster.skillState.asukaW_mgHeatEndTick = state.tick + TICK_RATE * 3;
+  }
+
+  // 清空弹药（100%）→ 触发装填
+  caster.ammoLeft  = 0;
+  caster.reloadTick = 0;
+
+  // 装填速度 ↑p08%（5s，覆盖装填周期；游戏内为"1 round"即本次装填）
+  const reloadSpeedPct = getSkillValue(caster.rawSkill2, 7, s2Lv) / 100;
+  pushBuff(state, { name: 'asuka_w_s2_reloadSpd', unitId: caster.id,
+    reloadSpeedPct, endTick: state.tick + TICK_RATE * 5 });
+
+  // HP 回复 p06% MaxHP/s × p07 秒（HoT）
+  const hotPct    = getSkillValue(caster.rawSkill2, 5, s2Lv) / 100;
+  const hotSecs   = getSkillValue(caster.rawSkill2, 6, s2Lv);  // p07 = 3
+  const hotAmount = Math.round(caster.stats.hp * hotPct);
+  for (let i = 1; i <= hotSecs; i++) {
+    state.pendingHoTs.push({ fireTick: state.tick + i * TICK_RATE, targetId: caster.id, amount: hotAmount });
+  }
 }
 
 export default {
@@ -77,15 +119,17 @@ export default {
   // ── Emergency Repair
   // ■ Activates when entering Full Burst while in Annihilation State status. Affects self.
   //   Attack Damage ▲ {p01}% for {p02} sec.
-  // ■ Activates when using Annihilation. Affects self.
-  //   Effect 1: MG heating up speed ▼ {p03}% for {p04} sec. [TODO: 引擎无 MG 过热建模]
+  // ■ Activates when using Annihilation (i.e. when Annihilation State ends). Affects self.
+  //   Effect 1: MG heating up speed ▼ {p03}% for {p04} sec.
   //   Effect 2: Clears {p05}% of ammo.
-  //   Effect 3: Constantly recovers {p06}% of final Max HP every 1 sec over {p07} sec. [TODO]
+  //   Effect 3: Constantly recovers {p06}% of final Max HP every 1 sec over {p07} sec.
   //   Effect 4: Reloading Speed is fixed at a {p08}% increase for {p09} round(s).
   //
   // group_id: 28352
   // p01 (lv10=30.97%)  p02: [10, ...]  p03: [100, ...]  p04: [3, ...]  p05: [100, ...]
   // p06 (lv10=3.77%)  p07: [3, ...]  p08: [60, ...]  p09: [1, ...]
+  //
+  // 注：S2 Part2 由 burst 的 INTERVAL handler 内 fireAnnihilation() 统一调用
   skill2: {
     groupId: 28352,
     triggers: [
@@ -99,18 +143,17 @@ export default {
             attackDamagePct: atkDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
-      // S2 Part2 inline 于 burst.BURST_SKILL_USE handler（与 Annihilation State 同时激活）
     ],
   },
 
   // ── Annihilation State
-  // ■ Affects self. Annihilation State:
+  // ■ Affects self. Annihilation State（获得时立即生效，持续 9s）:
   //   Effect 1: Normal Attack Damage Multiplier ▼ {p07}% for {p08} sec.
   //   Effect 2: Reloads {p01}% magazine(s).
   //   Effect 3: ATK ▲ {p02}% of caster's ATK for {p03} sec.
   //   Effect 4: Attack Damage ▲ {p04}% for {p05} sec.
-  // ■ Affects targets afflicted with Anti A.T. Field. Annihilation:
-  //   Deals {p06}% of final ATK as additional damage. Mirrors Anti A.T. Field stack count. Removes Anti A.T. Field.
+  // ■ Affects targets afflicted with Anti A.T. Field. Annihilation（9s 结束时发动）:
+  //   Deals {p06}% of final ATK × stack count as damage. Removes Anti A.T. Field.
   //
   // group_id: 18353
   // p01 (lv10=21.0%)  p02 (lv10=46.8%)  p03: [9, ...]  p04 (lv10=36.0%)  p05: [9, ...]
@@ -118,15 +161,20 @@ export default {
   burst: {
     groupId: 18353,
     triggers: [
+      // Annihilation State 激活（爆裂技能使用时）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
           const bLv  = caster.skillLevels[2];
-          const s2Lv = caster.skillLevels[1];
           const end9 = state.tick + TICK_RATE * 9;
 
-          // Annihilation State 标记（S1 Part2 / S2 Part1 检查此值）
+          // S1 Part2 / S2 Part1 凭此判断 Annihilation State 是否有效
           caster.skillState.annihilationStateEndTick = end9;
+          caster.skillState.annihilationFired        = false;
+
+          // Effect 1: Normal Attack Damage Multiplier ▼40%（9s，负 buff）
+          pushBuff(state, { name: 'asuka_w_burst_naDebuff', unitId: caster.id,
+            normalAttackDamagePct: -0.40, endTick: end9 });
 
           // Effect 3: ATK ▲p02%（9s）
           const atkPct = getSkillValue(caster.rawBurst, 1, bLv) / 100;
@@ -138,35 +186,31 @@ export default {
           pushBuff(state, { name: 'asuka_w_burst_atkDmg', unitId: caster.id,
             attackDamagePct: atkDmgPct, endTick: end9 });
 
-          // Effect 1: Normal Attack Damage Multiplier ▼40%（9s，负 buff）
-          pushBuff(state, { name: 'asuka_w_burst_naDebuff', unitId: caster.id,
-            normalAttackDamagePct: -0.40, endTick: end9 });
-
-          // Effect 2: 装填 p01% 弹匣（随后被 S2 清空，净效果为 0；保留以符合游戏逻辑）
+          // Effect 2: 装填 p01% 弹匣（Annihilation 发动时 S2 会清空弹药；净补弹量由时序决定）
           const reloadPct = getSkillValue(caster.rawBurst, 0, bLv) / 100;
           caster.ammoLeft = Math.min(caster.maxAmmo,
             caster.ammoLeft + Math.floor(caster.maxAmmo * reloadPct));
+        },
+      },
 
-          // ── S2 Part2（使用 Annihilation 时同时激活）──
-          // Effect 2（S2）: 清空弹药 → 触发装填
-          caster.ammoLeft  = 0;
-          caster.reloadTick = 0;
-
-          // Effect 4（S2）: 装填速度 ↑p08%（约 5s，覆盖本次装填周期）
-          const reloadSpeedPct = getSkillValue(caster.rawSkill2, 7, s2Lv) / 100;
-          pushBuff(state, { name: 'asuka_w_s2_reloadSpd', unitId: caster.id,
-            reloadSpeedPct, endTick: state.tick + TICK_RATE * 5 });
-
-          // [TODO] Effect 3（S2）: HP 回复 p06% MaxHP/s × 3s（引擎暂不支持技能触发 HoT）
-
-          // ── Annihilation（消耗 Anti A.T. Field 叠层）──
-          const p07    = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
-          const stacks = consumeAtfStacks(state, caster, p07);
-          if (stacks > 0) {
-            const annMult = getSkillValue(caster.rawBurst, 5, bLv) / 100;
-            const sums    = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, annMult * stacks, sums, false,
-              'asuka_w_burst_annihilation', { burstSkillDamage: true });
+      // Annihilation 到期检查 + MG 过热恢复检查（每 1s 轮询）
+      {
+        on: 'INTERVAL',
+        opts: { seconds: 1 },
+        handler(state, caster) {
+          // Annihilation State 结束 → 发动 Annihilation（含 S2 Part2）
+          const asEnd = caster.skillState.annihilationStateEndTick ?? 0;
+          if (asEnd > 0 && state.tick >= asEnd && !caster.skillState.annihilationFired) {
+            fireAnnihilation(state, caster);
+          }
+          // MG 过热速度恢复（3s 后还原 mgRofChangePerShot）
+          const mgHeatEnd = caster.skillState.asukaW_mgHeatEndTick ?? 0;
+          if (mgHeatEnd > 0 && state.tick >= mgHeatEnd) {
+            if (caster.skillState.asukaW_mgHeatOrig != null) {
+              caster.skillState.mgRofChangePerShot = caster.skillState.asukaW_mgHeatOrig;
+              caster.skillState.asukaW_mgHeatOrig  = null;
+            }
+            caster.skillState.asukaW_mgHeatEndTick = 0;
           }
         },
       },
