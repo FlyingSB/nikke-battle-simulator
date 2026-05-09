@@ -98,8 +98,21 @@ export default {
         },
       },
 
-      // S2 Part4：全爆裂结束且火力槽 > 0 → Burst Gauge 填充速度 ▲[S2 p02]% × 槽量（5s）
-      // [TODO] 引擎未实现 Burst Gauge 填充速度倍率 buff
+      // S2 Part4：全爆裂结束且火力槽 > 0 → 每发充能 +flat 5s
+      //   flat_increment = burstEnergyPerShot × [S2 p02]% × 槽量
+      //   flat 加法，与基础充能叠加后整体乘 FC 倍率（不是百分比乘法）
+      {
+        on: 'FULL_BURST_END',
+        handler(state, caster) {
+          const gauge = caster.skillState.nveGauge ?? 0;
+          if (gauge <= 0) return;
+          const rate          = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
+          const duration      = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]);
+          const flatIncrement = Math.round(caster.burstEnergyPerShot * rate * gauge);
+          pushBuff(state, { name: 'nve_s2_burstGaugeFlat', unitId: caster.id,
+            burstGaugeFlat: flatIncrement, endTick: state.tick + TICK_RATE * duration });
+        },
+      },
 
       // S2 Part5（Maximum Firepower）：进入全爆裂 → ATK ▲80.04% 10s
       //   Super Firepower 加成：ATK ▲35.05% 10s

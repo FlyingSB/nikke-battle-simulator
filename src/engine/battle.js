@@ -896,7 +896,17 @@ export function tick(state) {
 
       const ammoBeforeShot = unit.ammoLeft;
       // 武器替换期间无限弹药：弹药不消耗（如 Moran burst）
-      if (!(weaponSwitchActive && unit.skillState.weaponSwitchUnlimitedAmmo)) unit.ammoLeft--;
+      const isUnlimitedAmmoShot = weaponSwitchActive && unit.skillState.weaponSwitchUnlimitedAmmo;
+      if (!isUnlimitedAmmoShot) {
+        unit.ammoLeft--;
+        // round-based buff（roundsLeft）：实弹命中时消耗 1 回合；无限弹期间不消耗
+        let bi = state.buffs.length;
+        while (bi--) {
+          const b = state.buffs[bi];
+          if (b.unitId !== unit.id || b.roundsLeft == null) continue;
+          if (--b.roundsLeft <= 0) state.buffs.splice(bi, 1);
+        }
+      }
       unit.hitCount++;
       if (isCrit) unit.critCount++;
       unit.totalDamage += damage;
@@ -932,11 +942,14 @@ export function tick(state) {
             .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct),
         });
       }
-      // 满蓄力能量 = burstEnergyPerShot × (fullChargeDamage / 10000)。
-      // 非蓄力武器 fullChargeDamage=10000，因此系数为 ×1（无加成）。
+      // 满蓄力能量 = (burstEnergyPerShot + burstGaugeFlat) × (fullChargeDamage / 10000)。
+      // burstGaugeFlat：来自 buff 的 flat 加成（如 Neon: Vision Eye S2 Part4），
+      // 与基础充能叠加后整体乘以 FC 倍率（flat 加法，不得改为百分比乘法）。
+      // 非蓄力武器 fullChargeDamage=10000，系数为 ×1（无加成）。
+      const baseEnergy  = unit.burstEnergyPerShot + (sums.burstGaugeFlat ?? 0);
       const burstEnergy = isCharged && unit.fullChargeDamage > 10000
-        ? Math.round(unit.burstEnergyPerShot * unit.fullChargeDamage / 10000)
-        : unit.burstEnergyPerShot;
+        ? Math.round(baseEnergy * unit.fullChargeDamage / 10000)
+        : baseEnergy;
       addBurstGauge(state, unit.name, isCharged ? 'fc_shot' : 'shot', burstEnergy);
       // 为下一发设置蓄力冷却（SR/RL）：backswing + foreswing + 蓄力时长。
       // chargeSpeedPct 只缩短蓄力（瞄准）阶段，不影响 fore/backswing。

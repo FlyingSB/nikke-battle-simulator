@@ -17,7 +17,8 @@ export function getBuffSums(state, unitId) {
       critRateBonus = 0, critDmgBonus = 0, chargeDamagePct = 0, chargeSpeedPct = 0,
       reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
       chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0,
-      projectileExplosionDamagePct = 0, coreDamagePct = 0, maxHpPct = 0;
+      projectileExplosionDamagePct = 0, coreDamagePct = 0, maxHpPct = 0,
+      burstGaugeFlat = 0;
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
     if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
@@ -39,12 +40,13 @@ export function getBuffSums(state, unitId) {
     projectileExplosionDamagePct += b.projectileExplosionDamagePct ?? 0;
     coreDamagePct                += b.coreDamagePct                ?? 0;
     maxHpPct                     += b.maxHpPct                     ?? 0;
+    burstGaugeFlat               += b.burstGaugeFlat               ?? 0;
   }
   return { atkPct, atkFlat, defFlat, attackDamagePct, normalAttackDamagePct,
     critRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct,
     reloadSpeedPct, lifeStealPct, distributedDamagePct,
     chargeTimeReductionTicks, hitRateBonus, elementAdvantageBonus,
-    projectileExplosionDamagePct, coreDamagePct, maxHpPct };
+    projectileExplosionDamagePct, coreDamagePct, maxHpPct, burstGaugeFlat };
 }
 
 // ─── Buff 添加 ─────────────────────────────────────────────────────────────
