@@ -782,7 +782,9 @@ export function tick(state) {
     if (unit.ammoLeft <= 0) {
       if (unit.reloadTick === 0) {
         const rSums = getBuffSums(state, unit.id);
-        const dur   = Math.round(unit.reloadTicks / (1 + rSums.reloadSpeedPct));
+        // fixedReloadSpeedPct：固定装填速度加成，屏蔽其他装填速度效果（如 Asuka: WILLE S2）
+        const effectiveReloadSpeed = unit.skillState?.fixedReloadSpeedPct ?? rSums.reloadSpeedPct;
+        const dur   = Math.round(unit.reloadTicks / (1 + effectiveReloadSpeed));
         unit.reloadTick      = state.tick + dur;
         unit.reloadStartTick = state.tick;
       }

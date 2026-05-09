@@ -59,10 +59,8 @@ function fireAnnihilation(state, caster) {
   caster.ammoLeft  = 0;
   caster.reloadTick = 0;
 
-  // 装填速度 ↑p08%（5s，覆盖装填周期；游戏内为"1 round"即本次装填）
-  const reloadSpeedPct = getSkillValue(caster.rawSkill2, 7, s2Lv) / 100;
-  pushBuff(state, { name: 'asuka_w_s2_reloadSpd', unitId: caster.id,
-    reloadSpeedPct, endTick: state.tick + TICK_RATE * 5 });
+  // 装填速度固定 ↑p08%（仅本次装填生效，屏蔽其他装填速度效果；由 skill2 RELOAD_END 清除）
+  caster.skillState.fixedReloadSpeedPct = getSkillValue(caster.rawSkill2, 7, s2Lv) / 100;
 
   // HP 回复 p06% MaxHP/s × p07 秒（HoT）
   const hotPct    = getSkillValue(caster.rawSkill2, 5, s2Lv) / 100;
@@ -141,6 +139,15 @@ export default {
           const atkDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           pushBuff(state, { name: 'asuka_w_s2_p1_atkDmg', unitId: caster.id,
             attackDamagePct: atkDmgPct, endTick: state.tick + TICK_RATE * 10 });
+        },
+      },
+
+      // 固定装填速度清除：本次装填完成后 fixedReloadSpeedPct 失效
+      {
+        on: 'RELOAD_END',
+        handler(state, caster, ctx) {
+          if (ctx.unit.id !== caster.id) return;
+          caster.skillState.fixedReloadSpeedPct = null;
         },
       },
     ],
