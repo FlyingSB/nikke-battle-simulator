@@ -103,3 +103,4 @@ SSR 专属收藏品 ID 以 `2` 开头，与角色绑定，提升全部三个技�
 | Snow White | [`220.json`](../src/data/static/nikke/220.json) | [`220.js`](../src/data/skills/220.js) |
 | Cinderella | [`511.json`](../src/data/static/nikke/511.json) | [`511.js`](../src/data/skills/511.js) |
 | Little Mermaid | [`513.json`](../src/data/static/nikke/513.json) | [`513.js`](../src/data/skills/513.js) |
+| Asuka: WILLE | [`835.json`](../src/data/static/nikke/835.json) | [`835.js`](../src/data/skills/835.js) |
