@@ -40,11 +40,16 @@ export default {
         },
       },
 
-      // Part3+4："specific timing" = BURST_SKILL_USE
+      // Part3+4："specific timing" = ENTER_BURST_III（队伍触发，每轮爆裂均触发）
+      // 双 B3 循环（1,2,3A,1,2,3B）下的设计意图：
+      //   - 在 3A 轮：S1 发射链条 + 施加 Ensnaring Chains；Burst 不触发（Mihara 未使用爆裂）
+      //     → 全爆裂期间 S2 Part1 可叠层
+      //   - 在 3B 轮（Mihara 爆裂）：同 tick 内 ENTER_BURST_III 先于 BURST_SKILL_USE 执行；
+      //     S1 发射链条 → Burst 立即将 Ensnaring Chains 转为 Dragging Chain
       // 链式攻击：以当前 Restraint Chain 层数为次数发射，每次 p01% ATK，消耗后归零
       // Ensnaring Chains DoT：p02% ATK/秒，初始层数 = 消耗的 Restraint Chain 数，最多叠 20 层
       {
-        on: 'BURST_SKILL_USE',
+        on: 'ENTER_BURST_III',
         handler(state, caster) {
           const lv     = caster.skillLevels[0];
           const chains = caster.skillState.mhbcRestraintChains ?? 0;
@@ -104,8 +109,8 @@ export default {
     groupId: 21622,
     triggers: [
       // Part1：全爆裂期间每 40 次普通攻击 → 目标 Ensnaring Chains +1 层（若目标有该 DoT）
-      // 在当前爆裂模型中，Burst 在全爆裂开始前将 Ensnaring Chains 转为 Dragging Chain，
-      // 因此此触发通常不激活（保留以备将来场景扩展）。
+      // 双 B3 循环中，在非 Mihara 的 B3 轮内 Ensnaring Chains 已由 S1 ENTER_BURST_III 施加，
+      // 此时 Burst 尚未触发，因此此触发可在该全爆裂窗口内正常叠层。
       {
         on: 'SHOT_COUNT',
         opts: { every: 40, counterKey: 'mhbc_s2p1' },
