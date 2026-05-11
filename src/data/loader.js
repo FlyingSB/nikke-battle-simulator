@@ -80,8 +80,7 @@ export async function loadCube(resourceId) {
  */
 export async function loadFavoriteItem(resourceId) {
   const id    = Number(resourceId);
-  const url   = FAVORITE_ITEM_URLS[id];
-  if (!url) throw new Error(`No CDN URL for favorite item resource_id ${id}`);
+  const url   = FAVORITE_ITEM_URLS[id] ?? null; // SSR 专属收藏品可能无 CDN URL，本地文件优先
   const local = `${LOCAL_BASE}/favorites/${id}.json`;
   return _loadByUrl('fav', id, url, local);
 }
@@ -128,7 +127,8 @@ async function _loadByUrl(prefix, resourceId, url, localPath) {
     } catch { /* 静态文件不存在，继续 CDN */ }
   }
 
-  // 3. CDN fallback
+  // 3. CDN fallback（url 为 null 时说明仅有本地文件，本地已缺失则报错）
+  if (!url) throw new Error(`No local file or CDN URL for ${prefix} ${resourceId}`);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch ${prefix} ${resourceId}: ${res.status}`);
   const data = await res.json();

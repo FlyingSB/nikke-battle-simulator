@@ -27,33 +27,35 @@ URL 哈希随游戏补丁变化，版本号记录在 [`src/data/manifest.js`](..
 
 ### 魔方详情数据
 
-运行时按 `resource_id` 动态获取，缓存于 `localStorage`。  
-名称与 ID 映射见 [`src/data/manifest.js`](../src/data/manifest.js) → `CUBE_NAMES`。
+存储路径：[`src/data/static/cubes/`](../src/data/static/cubes/)（文件名为 `resource_id.json`）  
+加载器优先读取本地文件，缺失时回退 CDN。名称与 ID 映射见 [`src/data/manifest.js`](../src/data/manifest.js) → `CUBE_NAMES`。
 
-| resource_id | 魔方名称 |
-|-------------|---------|
-| 10001 | Assault Cube |
-| 10002 | Onslaught Cube |
-| 10003 | Resilience Cube |
-| 10004 | Bastion Cube |
-| 10005 | Adjutant Cube |
-| 10006 | Wingman Cube |
-| 10007 | Destruction Cube |
-| 10008 | Piercing Cube |
-| 10009 | Assist Cube |
-| 10010 | Rupture Cube |
-| 11001 | Quantum Cube |
-| 12001 | Endurance Cube |
-| 12002 | Tempering Cube |
-| 13001 | Vigor Cube |
-| 13002 | Healing Cube |
+| 文件 | 魔方名称 |
+|------|---------|
+| [`10001.json`](../src/data/static/cubes/10001.json) | Assault Cube |
+| [`10002.json`](../src/data/static/cubes/10002.json) | Onslaught Cube |
+| [`10003.json`](../src/data/static/cubes/10003.json) | Resilience Cube |
+| [`10004.json`](../src/data/static/cubes/10004.json) | Bastion Cube |
+| [`10005.json`](../src/data/static/cubes/10005.json) | Adjutant Cube |
+| [`10006.json`](../src/data/static/cubes/10006.json) | Wingman Cube |
+| [`10007.json`](../src/data/static/cubes/10007.json) | Destruction Cube |
+| [`10008.json`](../src/data/static/cubes/10008.json) | Piercing Cube |
+| [`10009.json`](../src/data/static/cubes/10009.json) | Assist Cube |
+| [`10010.json`](../src/data/static/cubes/10010.json) | Rupture Cube |
+| [`11001.json`](../src/data/static/cubes/11001.json) | Quantum Cube |
+| [`12001.json`](../src/data/static/cubes/12001.json) | Endurance Cube |
+| [`12002.json`](../src/data/static/cubes/12002.json) | Tempering Cube |
+| [`13001.json`](../src/data/static/cubes/13001.json) | Vigor Cube |
+| [`13002.json`](../src/data/static/cubes/13002.json) | Healing Cube |
 
 ### 收藏品数据
 
-存储路径：[`src/data/static/favorites/`](../src/data/static/favorites/)
+存储路径：[`src/data/static/favorites/`](../src/data/static/favorites/)  
+加载器优先读取本地文件，缺失时回退 CDN（CDN URL 见 `manifest.js` → `FAVORITE_ITEM_URLS`）。  
+SSR 专属收藏品（ID 以 `2` 开头）仅有本地文件，无 CDN URL 记录。
 
 ID 规则：`100XYY`，X = 武器类型（1=AR / 2=MG / 3=RL / 4=SG / 5=SMG / 6=SR），YY = `01`（R）/ `02`（SR）。  
-SSR 专属收藏品 ID 以 `2` 开头，与角色绑定，提升全部三个技能等级。
+SSR 专属收藏品与角色绑定，提升全部三个技能等级。
 
 | 文件 | 收藏品名称 | 类型 |
 |------|-----------|------|
