@@ -59,10 +59,14 @@ export default {
         },
       },
 
-      // Part2：全爆裂结束 → 自身爆裂 CD ▼40.76s
+      // Part2：全爆裂结束且同小队友军存活 → 自身爆裂 CD ▼40.76s
       {
         on: 'FULL_BURST_END',
         handler(state, caster) {
+          const hasSquadAlly = state.squad.some(
+            u => u.id !== caster.id && u.squad === caster.squad && u.unitHp > 0,
+          );
+          if (!hasSquadAlly) return;
           const reductionTicks = Math.round(40.76 * TICK_RATE);
           caster.burstSkillCooldownEndTick = Math.max(state.tick,
             caster.burstSkillCooldownEndTick - reductionTicks);

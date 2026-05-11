@@ -19,7 +19,7 @@ import {
   hasSkillTag,
 } from '../../src/data/skill-traits.js';
 import {
-  pushBuff, getBuffSums, decrementRoundBuffs, parseSkillDuration,
+  pushBuff, getBuffSums, decrementRoundBuffs, parseSkillDuration, TICK_RATE,
 } from '../../src/engine/battle-utils.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
 
@@ -645,6 +645,67 @@ section('T14: FC 追加技能伤害充能 — Helm · Maiden · Liberalio · Neo
       fcTrigger.handler(state, caster, {});
       eq('Neon S1 FC (SF active): burstGauge += 2×ENERGY', state.burstGauge, 2 * ENERGY);
     }
+  }
+}
+
+// ── T15: Blanc S2 Part2 — CD 减少仅在同小队友军存活时触发 ──────────────────────
+
+section('T15: Blanc S2 Part2 — Burst CD ▼40.76s fires only when a same-squad ally is alive');
+{
+  const blancTraits = SKILL_TRAITS[270];
+  const s2Triggers  = blancTraits?.skill2?.triggers ?? [];
+  // 第一个 FULL_BURST_END = Part1（HoT），第二个 = Part2（CD 减少）
+  const fbeTriggers = s2Triggers.filter(t => t.on === 'FULL_BURST_END');
+  const cdTrigger   = fbeTriggers[1];
+
+  eq('Blanc S2 has 2 FULL_BURST_END triggers', fbeTriggers.length, 2);
+  eq('Part2 (CD reduction) trigger exists',    !!cdTrigger,         true);
+
+  const REDUCTION = Math.round(40.76 * TICK_RATE);  // 2446 ticks
+  const INIT_CD   = 5000;
+  const TICK      = 500;
+
+  function makeBlancState(...allies) {
+    const caster = {
+      id: 270, squad: '777', unitHp: 100000,
+      burstSkillCooldownEndTick: INIT_CD,
+      skillState: {}, skillLevels: [1, 1, 1],
+      rawSkill2: { description_value_list: [
+        { description_value: ['1.78'] },   // p01（HoT%，Part2 不读）
+        { description_value: ['5'] },
+        { description_value: ['40.76'] },
+      ]},
+    };
+    return { tick: TICK, buffs: [], pendingHoTs: [], squad: [caster, ...allies], caster };
+  }
+
+  // 场景 A：无友军 → 条件不满足，CD 不变
+  {
+    const st = makeBlancState();
+    cdTrigger.handler(st, st.caster);
+    eq('A: 无友军 → CD 不变', st.caster.burstSkillCooldownEndTick, INIT_CD);
+  }
+
+  // 场景 B：同小队友军但已阵亡（unitHp=0）→ 条件不满足，CD 不变
+  {
+    const st = makeBlancState({ id: 271, squad: '777', unitHp: 0 });
+    cdTrigger.handler(st, st.caster);
+    eq('B: 同队友军阵亡 → CD 不变', st.caster.burstSkillCooldownEndTick, INIT_CD);
+  }
+
+  // 场景 C：同小队友军存活 → 条件满足，CD ▼2446 ticks
+  {
+    const st = makeBlancState({ id: 271, squad: '777', unitHp: 50000 });
+    cdTrigger.handler(st, st.caster);
+    eq('C: 同队友军存活 → CD 减少 2446 ticks',
+      st.caster.burstSkillCooldownEndTick, Math.max(TICK, INIT_CD - REDUCTION));
+  }
+
+  // 场景 D：不同小队友军存活 → 条件不满足，CD 不变
+  {
+    const st = makeBlancState({ id: 300, squad: 'Counters', unitHp: 80000 });
+    cdTrigger.handler(st, st.caster);
+    eq('D: 不同小队友军存活 → CD 不变', st.caster.burstSkillCooldownEndTick, INIT_CD);
   }
 }
 
