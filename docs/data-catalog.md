@@ -107,3 +107,4 @@ SSR 专属收藏品 ID 以 `2` 开头，与角色绑定，提升全部三个技�
 | Snow White: Heavy Arms | [`471.json`](../src/data/static/nikke/471.json) | [`471.js`](../src/data/skills/471.js) |
 | Blanc | [`270.json`](../src/data/static/nikke/270.json) | [`270.js`](../src/data/skills/270.js) |
 | Dorothy: Serendipity | [`234.json`](../src/data/static/nikke/234.json) | [`234.js`](../src/data/skills/234.js) |
+| Maxwell | [`102.json`](../src/data/static/nikke/102.json) | [`102.js`](../src/data/skills/102.js) |
