@@ -341,7 +341,11 @@ export function initBattle(config) {
       chargeTick:       foreswingTicks + chargeTimeTicks,
       // Permanent equipment ATK% multiplier (item "Increase ATK" + option ATK%).
       // Added to atkPct in getBuffSums so it stacks additively with skill ATK% buffs.
-      equipAtkPct:              stats.equipAtkPct ?? 0,
+      equipAtkPct:              stats.equipAtkPct  ?? 0,
+      // Permanent equipment flat ATK from option rolls (OL atkFlat).
+      // Added to atkFlat in getBuffSums; excluded from stats.atk so that skill
+      // calculations referencing "X% of caster's ATK" use base ATK only.
+      equipAtkFlat:             stats.equipAtkFlat ?? 0,
       // Fire rate from CDN shot_detail.rate_of_fire (RPM). 0 = use ATTACK_SPEED fallback.
       rateOfFire:       cfg.rateOfFire
                         ?? (cfg._nikkeData?.shot_detail?.rate_of_fire ?? 0),

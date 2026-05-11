@@ -191,13 +191,13 @@ export function computeFinalStats(slot, nikkeLevel, research) {
       def += cube.def[statIdx] ?? 0;
     }
     // 技能加成 — skill i（0-based）以 levels[i][cubeLevel-1] 作为 1-based 的技能等级。
-    // description_value 的索引 = skillLv - 1（0-based）。未解锁时钳位到 0。
+    // description_value 的索引 = skillLv - 1（0-based）。skillLv=0 表示未解锁，跳过。
     for (let si = 0; si < cube.skills.length; si++) {
       const skill = cube.skills[si];
-      const skillLv     = cube.levels[si]?.[cubeLevel - 1] ?? 0;
-      const skillValIdx = Math.max(0, skillLv - 1);
+      const skillLv = cube.levels[si]?.[cubeLevel - 1] ?? 0;
+      if (skillLv === 0) continue;
       const vals = skill.description_value_list?.[0]?.description_value ?? [];
-      const val  = parseFloat(vals[skillValIdx] ?? '0') / 100;
+      const val  = parseFloat(vals[skillLv - 1] ?? '0') / 100;
       const desc = skill.description_localkey ?? '';
       if (desc.includes('Elemental Advantage'))          cubeElementDmgPct  += val;
       else if (desc.includes('Charge Speed'))            cubeChargeSpeedPct += val;
@@ -225,17 +225,22 @@ export function computeFinalStats(slot, nikkeLevel, research) {
 
   // 7. 装备词条效果（用户传入的四个槽位合计）
   const opts = slot.equipOptions ?? {};
-  atk += opts.atkFlat ?? 0;
+  // atkFlat 词条不并入 atk，单独以 equipAtkFlat 返回；
+  // 战斗引擎在 getBuffSums 的初始值中累入，使其仍参与伤害公式，
+  // 但不影响技能"X% of caster's ATK"中的基础 ATK 参考值。
+  const equipAtkFlat = opts.atkFlat ?? 0;
   def += opts.defFlat ?? 0;
-  // ATK% 词条累计到 equipAtkPct（这里同样不应用）
   equipAtkPct += opts.atkPct ?? 0;
 
   return {
-    atk:          Math.round(atk),   // 基础 ATK — 尚未应用 "Increase ATK" 倍率
+    atk:          Math.round(atk),   // 基础 ATK — 不含装备词条 atkFlat 及 "Increase ATK" 倍率
     hp:           Math.round(hp),
     def:          Math.round(def),
-    // "Increase ATK" 词条的合计值。战斗引擎会与技能 ATK% buff 一起应用。
+    // "Increase ATK" 词条：战斗引擎与技能 ATK% buff 加法组合（乘法项）。
     equipAtkPct,
+    // 装备词条固定 ATK 加成：在 getBuffSums 初始值中累入 atkFlat（加法项），
+    // 不计入 stats.atk，以保证技能"X% of caster's ATK"引用正确的基础 ATK。
+    equipAtkFlat,
     critRate:       BASE_CRIT_RATE + (opts.critRatePct ?? 0),
     critDmg:        BASE_CRIT_DMG  + (opts.critDmgPct  ?? 0),
     // 属性克制伤害：装备词条 + 魔方 Anti Code HC

@@ -490,8 +490,9 @@ section('T10: computeFinalStats — equipOptions non-zero (atkFlat, critRate, cr
     general: 0, attacker: 0, defender: 0, supporter: 0,
     ELYSION: 0, MISSILIS: 0, TETRA: 0, PILGRIM: 0, ABNORMAL: 0,
   });
-  // atk = base(17576) + atkFlat(5000) = 22576
-  near('atk + atkFlat',       stats.atk, 22_576, 1);
+  // atk = base(17576)；atkFlat(5000) 单独以 equipAtkFlat 返回，不并入 stats.atk
+  near('atk (base, no atkFlat)', stats.atk,         17_576, 1);
+  near('equipAtkFlat',           stats.equipAtkFlat,  5_000, 1);
   // def = base(3027) + defFlat(200) = 3227
   near('def + defFlat',       stats.def, 3_227, 1);
   // critRate = 0.15 + 0.10 = 0.25

@@ -73,6 +73,7 @@ SSR 专属收藏品 ID 以 `2` 开头，与角色绑定，提升全部三个技�
 | [`200701.json`](../src/data/static/favorites/200701.json) | Antique Compass（Helm SSR） | SSR |
 | [`200801.json`](../src/data/static/favorites/200801.json) | Villain Figurine（Drake SSR） | SSR |
 | [`201701.json`](../src/data/static/favorites/201701.json) | Moran 专属收藏品 | SSR |
+| [`201101.json`](../src/data/static/favorites/201101.json) | Fire Starter（Tove SSR） | SSR |
 
 ---
 
@@ -109,3 +110,4 @@ SSR 专属收藏品 ID 以 `2` 开头，与角色绑定，提升全部三个技�
 | Dorothy: Serendipity | [`234.json`](../src/data/static/nikke/234.json) | [`234.js`](../src/data/skills/234.js) |
 | Maxwell | [`102.json`](../src/data/static/nikke/102.json) | [`102.js`](../src/data/skills/102.js) |
 | Mihara: Bonding Chain | [`162.json`](../src/data/static/nikke/162.json) | [`162.js`](../src/data/skills/162.js) |
+| Tove（SSR：Fire Starter） | [`192.json`](../src/data/static/nikke/192.json) | [`192.js`](../src/data/skills/192.js) |

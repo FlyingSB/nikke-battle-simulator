@@ -12,8 +12,8 @@ export const BURST_GAUGE_MAX = 1_000_000;  // 共享爆裂槽上限
 
 export function getBuffSums(state, unitId) {
   const unit = state.squad.find(u => u.id === unitId);
-  let atkPct = unit?.equipAtkPct ?? 0;
-  let atkFlat = 0, defFlat = 0, attackDamagePct = 0, normalAttackDamagePct = 0,
+  let atkPct  = unit?.equipAtkPct  ?? 0;
+  let atkFlat = unit?.equipAtkFlat ?? 0, defFlat = 0, attackDamagePct = 0, normalAttackDamagePct = 0,
       critRateBonus = 0, critDmgBonus = 0, chargeDamagePct = 0, chargeSpeedPct = 0,
       reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
       chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0,
