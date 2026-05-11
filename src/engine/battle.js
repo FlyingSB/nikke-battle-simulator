@@ -320,7 +320,8 @@ export function initBattle(config) {
       // "native B1/B2/B3 allies" (characters whose CDN burst step matches a given step).
       nativeBurstStep:  cfg.nativeBurstStep ?? cfg.burstStep ?? 'Step3',
       // 游戏内小队归属（如 "777"），用于"同小队友军存活"条件判断。
-      squad:            cfg.squad ?? cfg._nikkeData?.squad ?? null,
+      // 来源为 CDN _nikkeData.squad；技能条件依赖此字段非 null。
+      squad:            cfg._nikkeData?.squad ?? null,
       stats,
       baseAmmo,         // CDN base ammo (no OL, no fav%); used for skill ammo scaling
       favAmmoBonus,     // Math.round(baseAmmo × favAmmoPct); stored for burst-expanded reload

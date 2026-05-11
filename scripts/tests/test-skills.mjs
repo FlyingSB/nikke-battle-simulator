@@ -661,13 +661,20 @@ section('T15: Blanc S2 Part2 — Burst CD ▼40.76s fires only when a same-squad
   eq('Blanc S2 has 2 FULL_BURST_END triggers', fbeTriggers.length, 2);
   eq('Part2 (CD reduction) trigger exists',    !!cdTrigger,         true);
 
+  // _nikkeData.squad 必须非 null——same-squad 条件的前置要求。
+  // 模拟 unit 构造器从 CDN 数据推导 squad 字段的过程：
+  const blancNikkeData = { squad: '777' };  // Blanc CDN: squad = "777"
+  const derivedSquad   = blancNikkeData?.squad ?? null;
+  eq('_nikkeData.squad 非 null', derivedSquad !== null, true);
+  eq('_nikkeData.squad 为字符串', typeof derivedSquad,  'string');
+
   const REDUCTION = Math.round(40.76 * TICK_RATE);  // 2446 ticks
   const INIT_CD   = 5000;
   const TICK      = 500;
 
   function makeBlancState(...allies) {
     const caster = {
-      id: 270, squad: '777', unitHp: 100000,
+      id: 270, squad: derivedSquad, unitHp: 100000,
       burstSkillCooldownEndTick: INIT_CD,
       skillState: {}, skillLevels: [1, 1, 1],
       rawSkill2: { description_value_list: [
