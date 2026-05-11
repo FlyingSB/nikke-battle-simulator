@@ -622,6 +622,8 @@ export function tick(state) {
     if (b.endTick <= state.tick) {
       if (state.buffLog)
         state.buffLog.push({ type: 'buff_expire', tick: state.tick, name: b.name, unitId: b.unitId });
+      // 敌人承伤 debuff：到期时从全局累加器中减去
+      if (b.enemyDamageTakenPct) state.enemyDamageTakenPct -= b.enemyDamageTakenPct;
       // 仅改容量的弹药 buff：到期时将当前弹药截到基础 maxAmmo（支持全员 buff unitId=null）
       if (b.maxAmmoPct > 0) {
         const targets = b.unitId != null

@@ -1,4 +1,4 @@
-import { TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 export default {
@@ -13,11 +13,21 @@ export default {
   // p02: [6.97, 7.51, 8.04, 8.58, 9.12, 9.65, 10.19, 10.73, 11.26, 11.8] (Shield% of MaxHP)
   // p03: [5, ...] (Shield duration, const)
   //
-  // Shield 为纯防御效果，不影响 DPS，不建模。
-  // [TODO] S1 Lucky Guard — Shield
+  // [TODO] 盾的实际效果覆盖全队伤害承受，此处仅建模 Blanc 本人获盾（数值正确）；
+  //        "protects all allies from damage" 未实现。
   skill1: {
     groupId: 22701,
-    triggers: [],
+    triggers: [
+      {
+        on: 'SHOT_COUNT',
+        opts: { every: 120, counterKey: 'blancS1ShotCount' },
+        handler(state, caster) {
+          const pct = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
+          caster.shieldHp      = Math.round(caster.stats.hp * pct);
+          caster.shieldEndTick = state.tick + TICK_RATE * 5;
+        },
+      },
+    ],
   },
 
   // ── Rabbit Twins W
@@ -31,11 +41,34 @@ export default {
   // p02: [5, ...] (recovery duration, const)
   // p03: [40.76, ...] (CD reduction, const)
   //
-  // HP 回复与 CD 减少为防御 / 轮换辅助效果，不影响单次战斗的 DPS，不建模。
-  // [TODO] S2 Rabbit Twins W — HP recovery + Burst CD reduction
+  // 队员存活条件在模拟器中恒成立，Part2 无条件触发。
   skill2: {
     groupId: 22702,
-    triggers: [],
+    triggers: [
+      // Part1：全爆裂结束 → 全员 HoT（p01% MaxHP/s × 5s）
+      {
+        on: 'FULL_BURST_END',
+        handler(state, caster) {
+          const pct    = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
+          const amount = Math.round(caster.stats.hp * pct);
+          for (const u of state.squad) {
+            for (let i = 1; i <= 5; i++) {
+              state.pendingHoTs.push({ fireTick: state.tick + i * TICK_RATE, targetId: u.id, amount });
+            }
+          }
+        },
+      },
+
+      // Part2：全爆裂结束 → 自身爆裂 CD ▼40.76s
+      {
+        on: 'FULL_BURST_END',
+        handler(state, caster) {
+          const reductionTicks = Math.round(40.76 * TICK_RATE);
+          caster.burstSkillCooldownEndTick = Math.max(state.tick,
+            caster.burstSkillCooldownEndTick - reductionTicks);
+        },
+      },
+    ],
   },
 
   // ── Showtime
@@ -57,44 +90,37 @@ export default {
   // p07: [20.08, 22.21, 24.34, 26.48, 28.61, 30.74, 32.87, 35.0, 37.13, 39.26] (Damage Taken%)
   // p08: [10, ...] (Damage Taken duration, const)
   //
-  // HP 回复 / Indomitability / Max HP ▲ 为防御效果，不建模。
-  // Damage Taken ▲ 直接累加 state.enemyDamageTakenPct；INTERVAL 每秒轮询到期后减去。
+  // Indomitability / Max HP ▲ 为防御效果，不建模。
+  // Damage Taken debuff 通过 buff 的 endTick 机制管理：battle.js 过期循环读取
+  // b.enemyDamageTakenPct 并从 state.enemyDamageTakenPct 中减去，精度至单 tick。
+  // 刷新时（buff 仍活跃）pushBuff 仅延长 endTick，不重复累加 enemyDamageTakenPct。
   burst: {
     groupId: 12703,
     triggers: [
-      // Burst 施放：Damage Taken ▲ p07% for 10 sec
+      // Part1：全员 HoT（p01% MaxHP/s × 8s）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
-          const bLv = caster.skillLevels[2];
-          const pct = getSkillValue(caster.rawBurst, 6, bLv) / 100;
-          const end = state.tick + TICK_RATE * 10;
-
-          // 若上次 debuff 仍有效，先减去旧值再施加新值（刷新处理）
-          const prevPct = caster.skillState.blancDamageTakenPct ?? 0;
-          if (prevPct > 0 && state.tick < (caster.skillState.blancDamageTakenEndTick ?? 0)) {
-            state.enemyDamageTakenPct -= prevPct;
+          const pct    = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
+          const amount = Math.round(caster.stats.hp * pct);
+          for (const u of state.squad) {
+            for (let i = 1; i <= 8; i++) {
+              state.pendingHoTs.push({ fireTick: state.tick + i * TICK_RATE, targetId: u.id, amount });
+            }
           }
-
-          state.enemyDamageTakenPct                 += pct;
-          caster.skillState.blancDamageTakenPct      = pct;
-          caster.skillState.blancDamageTakenEndTick  = end;
         },
       },
 
-      // 每秒轮询：Damage Taken debuff 到期后移除
+      // Part3：Damage Taken ▲ p07% for 10 sec
       {
-        on: 'INTERVAL',
-        opts: { seconds: 1 },
+        on: 'BURST_SKILL_USE',
         handler(state, caster) {
-          const endTick = caster.skillState.blancDamageTakenEndTick ?? 0;
-          if (endTick <= 0 || state.tick < endTick) return;
-          const pct = caster.skillState.blancDamageTakenPct ?? 0;
-          if (pct > 0) {
-            state.enemyDamageTakenPct                 -= pct;
-            caster.skillState.blancDamageTakenPct      = 0;
-            caster.skillState.blancDamageTakenEndTick  = 0;
-          }
+          const pct = getSkillValue(caster.rawBurst, 6, caster.skillLevels[2]) / 100;
+          const end = state.tick + TICK_RATE * 10;
+          const existing = state.buffs.find(b => b.name === 'blanc_burst_damageTaken');
+          if (!existing) state.enemyDamageTakenPct += pct;
+          pushBuff(state, { name: 'blanc_burst_damageTaken', unitId: null,
+            enemyDamageTakenPct: pct, endTick: end });
         },
       },
     ],
