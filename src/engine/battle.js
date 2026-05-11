@@ -370,8 +370,21 @@ export function initBattle(config) {
       // Fav item "Charge Damage Multiplier ▲" (SR/RL items) — multiplies shot_detail.damage specifically.
       favChargeDmgPct:          collFx?.chargeDmgPct ?? 0,
       // Fraction of normal shots that hit the enemy core (0=none, 1=all).
-      // MG/SR/RL default to 1 (always hit core). SMG defaults to 0.033. SG/AR require calibration.
-      coreHitRateMult:          cfg.coreHitRateMult ?? (wt === 'SMG' ? 0.033 : 1),
+      // MG/SR/RL default to 1 (always hit core). SMG defaults to 0.033.
+      // SG: 核心命中率 = 20% + 0.8 × HitRate；HitRate 属性待建模，当前固定 20%。
+      // TODO: HitRate 属性建模后，改为 0.20 + 0.8 * (stats.hitRatePct ?? 0)。
+      coreHitRateMult:          cfg.coreHitRateMult ?? (wt === 'SMG' ? 0.033 : wt === 'SG' ? 0.20 : 1),
+      // SG 武器每次射击发射的弹丸数（shot_detail.shot_count）。
+      // 每发弹丸造成 1/N 的普通攻击伤害（shot_detail.damage 为所有弹丸合计）。
+      // 技能改变弹丸数时，每次射击总伤害不变，仅改变单发弹丸伤害。
+      // 当前模拟器中弹丸数不影响伤害计算（100% 命中假设），仅供技能逻辑查询。
+      shotCount:                cfg.shotCount ?? (cfg._nikkeData?.shot_detail?.shot_count ?? 1),
+      // 分段装填比例（reload_bullet / 10000）。每次装填动作恢复 round(maxAmmo × reloadFraction) 发。
+      // 1.0 = 一次装满（默认）；< 1.0 = 分段装填（如 Drake = 0.33，3 段装满）。
+      reloadFraction:           cfg.reloadFraction
+                                ?? (cfg._nikkeData?.shot_detail?.reload_bullet != null
+                                    ? cfg._nikkeData.shot_detail.reload_bullet / 10000
+                                    : 1),
       // false → unit fills gauge and participates in squad burst trigger, but never fires burst skill.
       // Useful for B3 units that are in the squad but excluded from the active rotation.
       canBurst:                 cfg.canBurst ?? true,
@@ -801,12 +814,17 @@ export function tick(state) {
         ? unit.skillState.literAmmoBoostExtra : 0;
       // 技能缩放弹匣：每个 pct 效果单独对 baseAmmo 取整（T33 per-effect round 公式）。
       // OL/fav 平坦加成在取整后叠加，整体结果 max(1, ...)。
-      unit.ammoLeft = literBoost > 0
+      const effectiveMax = literBoost > 0
         ? unit.maxAmmo + literBoost
         : (ammoMult !== 1
           ? Math.max(1, unit.baseAmmo + Math.round(unit.baseAmmo * (ammoMult - 1)))
             + (unit.stats.bonusAmmo ?? 0) + unit.favAmmoBonus
           : unit.maxAmmo);
+      // 分段装填：每次装填动作仅恢复 round(maxAmmo × reloadFraction) 发，不超过上限。
+      // reloadFraction=1（默认）时等价于一次装满。
+      unit.ammoLeft = unit.reloadFraction < 1
+        ? Math.min(effectiveMax, Math.round(unit.maxAmmo * unit.reloadFraction))
+        : effectiveMax;
       unit.reloadCount++;
       unit.reloadTick      = 0;
       events.push({ type: 'reload', tick: state.tick, unitId: unit.id, unitName: unit.name, ammoRefilled: unit.ammoLeft, maxAmmo: unit.maxAmmo });
@@ -835,7 +853,11 @@ export function tick(state) {
       // 蓄力武器：蓄力完成时打出 1 发，然后重置计时器。
       shotsThisTick = state.tick >= unit.chargeTick ? 1 : 0;
     } else if (unit.rateOfFire > 0) {
-      const rof = unit.skillState.mgCurrentRof ?? unit.rateOfFire;
+      const baseRof = unit.skillState.mgCurrentRof ?? unit.rateOfFire;
+      // Attack speed ▲（如 Dorothy: Serendipity burst）：通过 skillState.tempAtkSpeedPct 传入
+      const atkSpeedMult = (unit.skillState.tempAtkSpeedEndTick ?? 0) > state.tick
+        ? (1 + (unit.skillState.tempAtkSpeedPct ?? 0)) : 1;
+      const rof = baseRof * atkSpeedMult;
       const spt = rof / 60 / TICK_RATE; // RPM → 每 tick 发数
       unit.shotAccumulator += spt;
       shotsThisTick         = Math.floor(unit.shotAccumulator);
