@@ -8,10 +8,15 @@
  *   实现 loadAccountFromFile(file) 替代 loadAccountFromDev()。
  */
 
-import { getCharacterByNameCode, getCharacterByName } from './models.js';
+import { getCharacterByNameCode, getCharacterByName, maxGeneralResearchLevel } from './models.js';
 
 /** 已解析的角色账号数据，按 resourceId 索引。 */
 const _rosterByResourceId = new Map();
+
+/** 已加载的全局账号设置（同步器、研究等级）。 */
+let _settings = null;
+
+const _DEFAULT_SYNCHRO = 400;
 
 /**
  * 开发模式：从 /dev/config.json 读取文件名，再加载对应账号数据。
@@ -36,6 +41,42 @@ export async function loadAccountFromDev() {
   } catch {
     return false;
   }
+}
+
+/**
+ * 开发模式：从 /dev/account-settings.json 加载全局设置（同步器、研究等级）。
+ * 文件缺失或字段缺失时使用缺省值（等级 400）。
+ * @returns {Promise<boolean>} 是否成功加载
+ */
+export async function loadSettingsFromDev() {
+  try {
+    const res = await fetch('/dev/account-settings.json');
+    if (!res.ok) return false;
+    _settings = await res.json();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 返回已加载的全局设置；未加载时返回缺省值（同步器 400，研究均为计算值或 0）。
+ * @returns {{ synchroLevel: number, generalResearch: number, classResearch: object, corpResearch: object }}
+ */
+export function getAccountSettings() {
+  const synchro = _settings?.synchroLevel ?? _DEFAULT_SYNCHRO;
+  return {
+    synchroLevel:    synchro,
+    generalResearch: _settings?.generalResearch ?? maxGeneralResearchLevel(synchro),
+    classResearch: {
+      attacker:  0, defender: 0, supporter: 0,
+      ..._settings?.classResearch,
+    },
+    corpResearch: {
+      ELYSION: 0, MISSILIS: 0, TETRA: 0, PILGRIM: 0, ABNORMAL: 0,
+      ..._settings?.corpResearch,
+    },
+  };
 }
 
 // TODO (prod): 实现文件上传入口

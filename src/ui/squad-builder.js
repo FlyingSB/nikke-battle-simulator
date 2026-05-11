@@ -117,6 +117,17 @@ const _state = {
 /** 返回当前的配置状态（引擎使用的浅拷贝）。 */
 export function getState() { return _state; }
 
+/**
+ * 将账号全局设置写入 _state（在 renderSquadBuilder 之前调用）。
+ * @param {{ synchroLevel: number, generalResearch: number, classResearch: object, corpResearch: object }} settings
+ */
+export function applyGlobalSettings(settings) {
+  _state.synchroLevel    = settings.synchroLevel;
+  _state.generalResearch = settings.generalResearch;
+  Object.assign(_state.classResearch, settings.classResearch);
+  Object.assign(_state.corpResearch,  settings.corpResearch);
+}
+
 // ─── 入口 ──────────────────────────────────────────────────────────────
 
 let _container = null;

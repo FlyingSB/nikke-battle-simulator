@@ -2,8 +2,8 @@
  * NIKKE 战斗模拟器 — 入口
  */
 import { loadAllData } from './data/loader.js';
-import { loadAccountFromDev, getAccountSize } from './data/account-loader.js';
-import { renderSquadBuilder } from './ui/squad-builder.js';
+import { loadAccountFromDev, getAccountSize, loadSettingsFromDev, getAccountSettings } from './data/account-loader.js';
+import { renderSquadBuilder, applyGlobalSettings } from './ui/squad-builder.js';
 import { renderResults } from './ui/results.js';
 import { simulate, simulateMonteCarlo } from './engine/battle.js';
 import { computeFinalStats } from './engine/stats.js';
@@ -33,6 +33,9 @@ async function init() {
   } else {
     $progress.textContent = '未找到账号数据，使用手动模式';
   }
+
+  await loadSettingsFromDev();
+  applyGlobalSettings(getAccountSettings());
 
   hideLoader();
   renderSquadBuilder($builder, onSimulate);
