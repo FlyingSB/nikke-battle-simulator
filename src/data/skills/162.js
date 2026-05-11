@@ -1,6 +1,41 @@
 import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// S1 Part3+4 公共逻辑：消耗 Restraint Chains，发射链式攻击，施加/叠加 Ensnaring Chains DoT
+function fireRestraintChains(state, caster) {
+  const lv     = caster.skillLevels[0];
+  const chains = caster.skillState.mhbcRestraintChains ?? 0;
+  if (chains <= 0) return;
+
+  const chainHitMult = getSkillValue(caster.rawSkill1, 1, lv) / 100;
+  const dotMult      = getSkillValue(caster.rawSkill1, 2, lv) / 100;
+  const sums         = getBuffSums(state, caster.id);
+
+  for (let i = 0; i < chains && state.enemyHp > 0; i++) {
+    fireSkillHit(state, caster, chainHitMult, sums, false, 'mhbc_s1_chain');
+  }
+  caster.skillState.mhbcRestraintChains = 0;
+
+  // 若已有 Ensnaring Chains DoT 则叠层（不超过 20），否则新建
+  const existing = state.dots.find(
+    d => d.dotName === 'mhbc_ensnaring' && d.casterId === caster.id,
+  );
+  if (existing) {
+    existing.stacks = Math.min(20, existing.stacks + chains);
+  } else {
+    state.dots.push({
+      casterId:      caster.id,
+      label:         'mhbc_ensnaring',
+      dotName:       'mhbc_ensnaring',
+      multPerStack:  dotMult,
+      stacks:        chains,
+      endTick:       Infinity,
+      nextFireTick:  state.tick + TICK_RATE,
+      intervalTicks: TICK_RATE,
+    });
+  }
+}
+
 export default {
 
   // ── Body Contact
@@ -8,7 +43,10 @@ export default {
   //   Charges Restraint Chains by {p00=10}, up to 10.
   // ■ Activates when Full Burst ends if this unit has just used her Burst Skill. Affects self.
   //   Charges Restraint Chains by {p00=10}, up to 10.
-  // ■ Affects random enemy units at a specific timing (= BURST_SKILL_USE).
+  // ■ Affects random enemy units at a specific timing:
+  //   ① 战斗开始时（BATTLE_START）
+  //   ② 全爆裂结束时（FULL_BURST_END）
+  //   ③ 进入爆裂阶段 3 时（ENTER_BURST_III，队伍触发）
   //   Deals {p01}% of final ATK as damage. Attacks once for every Restraint Chain.
   //   Restraint Chain ▼ 1 per attack.
   // ■ Affects the same enemy units.
@@ -23,7 +61,7 @@ export default {
   skill1: {
     groupId: 21621,
     triggers: [
-      // Part1：战斗开始 → Restraint Chains 充能至 10
+      // Part1：战斗开始 → Restraint Chains 充能至 10（充能在发射之前）
       {
         on: 'BATTLE_START',
         handler(state, caster) {
@@ -31,7 +69,7 @@ export default {
         },
       },
 
-      // Part2：全爆裂结束后（本轮使用过爆裂技能）→ Restraint Chains 重充至 10
+      // Part2：全爆裂结束后（本轮使用过爆裂技能）→ Restraint Chains 重充至 10（充能在发射之前）
       {
         on: 'FULL_BURST_END',
         handler(state, caster) {
@@ -40,49 +78,29 @@ export default {
         },
       },
 
-      // Part3+4："specific timing" = ENTER_BURST_III（队伍触发，每轮爆裂均触发）
-      // 双 B3 循环（1,2,3A,1,2,3B）下的设计意图：
-      //   - 在 3A 轮：S1 发射链条 + 施加 Ensnaring Chains；Burst 不触发（Mihara 未使用爆裂）
-      //     → 全爆裂期间 S2 Part1 可叠层
-      //   - 在 3B 轮（Mihara 爆裂）：同 tick 内 ENTER_BURST_III 先于 BURST_SKILL_USE 执行；
-      //     S1 发射链条 → Burst 立即将 Ensnaring Chains 转为 Dragging Chain
-      // 链式攻击：以当前 Restraint Chain 层数为次数发射，每次 p01% ATK，消耗后归零
-      // Ensnaring Chains DoT：p02% ATK/秒，初始层数 = 消耗的 Restraint Chain 数，最多叠 20 层
+      // Part3+4：specific timing ① — 战斗开始时发射链条 + 施加 Ensnaring Chains
+      // 此触发在 Part1 充能之后执行，确保初始 chains=10 时立即触发一轮伤害
+      {
+        on: 'BATTLE_START',
+        handler(state, caster) { fireRestraintChains(state, caster); },
+      },
+
+      // Part3+4：specific timing ② — 全爆裂结束时发射链条 + 施加/叠加 Ensnaring Chains
+      // 此触发在 Part2 充能之后执行；若 Mihara 本轮爆裂则 chains=10，否则 chains=0 直接返回
+      // 双 B3 循环（1,2,3A,1,2,3B）在 3B 轮：Burst 将 Ensnaring 转为 Dragging →
+      //   FULL_BURST_END 时充能 → 发射 10 链 → 新建 Ensnaring Chains（下一轮 S2 Part1 可叠层）
+      {
+        on: 'FULL_BURST_END',
+        handler(state, caster) { fireRestraintChains(state, caster); },
+      },
+
+      // Part3+4：specific timing ③ — 进入爆裂阶段 3 时发射链条 + 施加/叠加 Ensnaring Chains
+      // 队伍触发，每轮爆裂均执行；若 chains=0（已被 BATTLE_START/FULL_BURST_END 消耗）则跳过
+      // 双 B3 循环 3A 轮（Mihara 未爆裂）：chains 来自上轮 FULL_BURST_END 充能，施加 Ensnaring →
+      //   全爆裂期间 S2 Part1 可叠层
       {
         on: 'ENTER_BURST_III',
-        handler(state, caster) {
-          const lv     = caster.skillLevels[0];
-          const chains = caster.skillState.mhbcRestraintChains ?? 0;
-          if (chains <= 0) return;
-
-          const chainHitMult = getSkillValue(caster.rawSkill1, 1, lv) / 100;
-          const dotMult      = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-          const sums         = getBuffSums(state, caster.id);
-
-          for (let i = 0; i < chains && state.enemyHp > 0; i++) {
-            fireSkillHit(state, caster, chainHitMult, sums, false, 'mhbc_s1_chain');
-          }
-          caster.skillState.mhbcRestraintChains = 0;
-
-          // 若已有 Ensnaring Chains DoT 则叠层（不超过 20），否则新建
-          const existing = state.dots.find(
-            d => d.dotName === 'mhbc_ensnaring' && d.casterId === caster.id,
-          );
-          if (existing) {
-            existing.stacks = Math.min(20, existing.stacks + chains);
-          } else {
-            state.dots.push({
-              casterId:      caster.id,
-              label:         'mhbc_ensnaring',
-              dotName:       'mhbc_ensnaring',
-              multPerStack:  dotMult,
-              stacks:        chains,
-              endTick:       Infinity,
-              nextFireTick:  state.tick + TICK_RATE,
-              intervalTicks: TICK_RATE,
-            });
-          }
-        },
+        handler(state, caster) { fireRestraintChains(state, caster); },
       },
     ],
   },
