@@ -18,7 +18,7 @@ export function getBuffSums(state, unitId) {
       reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
       chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0,
       projectileExplosionDamagePct = 0, coreDamagePct = 0, maxHpPct = 0,
-      burstGaugeFlat = 0, pierceDamagePct = 0;
+      burstGaugeFlat = 0, pierceDamagePct = 0, sustainedDamageMult = 0;
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
     if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
@@ -42,13 +42,14 @@ export function getBuffSums(state, unitId) {
     maxHpPct                     += b.maxHpPct                     ?? 0;
     burstGaugeFlat               += b.burstGaugeFlat               ?? 0;
     pierceDamagePct              += b.pierceDamagePct              ?? 0;
+    sustainedDamageMult          += b.sustainedDamageMult          ?? 0;
   }
   return { atkPct, atkFlat, defFlat, attackDamagePct, normalAttackDamagePct,
     critRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct,
     reloadSpeedPct, lifeStealPct, distributedDamagePct,
     chargeTimeReductionTicks, hitRateBonus, elementAdvantageBonus,
     projectileExplosionDamagePct, coreDamagePct, maxHpPct, burstGaugeFlat,
-    pierceDamagePct };
+    pierceDamagePct, sustainedDamageMult };
 }
 
 // ─── Buff 添加 ─────────────────────────────────────────────────────────────
@@ -188,7 +189,8 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
     isCharged:         charged,
     fullChargeDamage:  unit.fullChargeDamage ?? 10000,
     chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
-    extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projExplosionBonus },
+    extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projExplosionBonus,
+                         sustainedDamageMult: opts.sustainedDamage ? (sums.sustainedDamageMult ?? 0) : 0 },
     damageTakenMult:   state.enemyDamageTakenPct + distributedBonus,
   });
   unit.totalDamage += damage;
@@ -227,4 +229,31 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
     });
   }
   return damage;
+}
+
+// ─── 持续伤害（DoT）池 ──────────────────────────────────────────────────────
+//
+// state.dots 中每条记录的结构：
+//   casterId     {number}   施放者单位 ID
+//   label        {string}   伤害标签（用于日志）
+//   dotName      {string}   唯一标识符（便于技能查找同名 DoT）
+//   multPerStack {number}   每层每 tick 的命中倍率（如 0.2508 = 25.08% ATK）
+//   stacks       {number}   当前层数
+//   endTick      {number}   过期 tick（Infinity = 永久，直到手动移除）
+//   nextFireTick {number}   下一次触发伤害的 tick
+//   intervalTicks{number}   每次触发间隔的 tick 数（60 = 每秒）
+//
+export function fireDotPool(state) {
+  for (const dot of state.dots) {
+    if (state.enemyHp <= 0) break;
+    if (dot.nextFireTick > state.tick) continue;
+    if (dot.nextFireTick > dot.endTick) continue;
+    dot.nextFireTick += dot.intervalTicks;
+    const caster = state.squad.find(u => u.id === dot.casterId);
+    if (!caster) continue;
+    const sums = getBuffSums(state, caster.id);
+    fireSkillHit(state, caster, dot.multPerStack * dot.stacks, sums, false, dot.label,
+      { sustainedDamage: true });
+  }
+  state.dots = state.dots.filter(d => d.endTick >= state.tick);
 }

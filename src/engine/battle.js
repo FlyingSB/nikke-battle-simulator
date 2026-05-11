@@ -96,7 +96,7 @@ import { computeFinalStats } from './stats.js';
 import { WEAPON_AMMO, WEAPON_HIT_MULT } from './constants.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, fireSkillHit } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, fireSkillHit, fireDotPool } from './battle-utils.js';
 import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -572,6 +572,8 @@ export function initBattle(config) {
     // Zero-delay FIRE_IN_FULL_BURST hits that must execute after ENTER_FULL_BURST effects have applied.
     // [{ caster, mult, sums, isCharged, label, opts }]
     pendingFireInBurstHits: [],
+    // 持续伤害（DoT）池：见 battle-utils.js fireDotPool 注释中的字段说明。
+    dots: [],
   };
 
   // BATTLE_START: dispatch all declarative battle-start triggers (e.g. LM Bubble debuff).
@@ -662,6 +664,15 @@ export function tick(state) {
     }
   }
   state.buffs = state.buffs.filter(b => b.endTick > state.tick);
+
+  // ── 持续伤害（DoT）池 ────────────────────────────────────────────────────────
+  if (state.dots?.length > 0) {
+    fireDotPool(state);
+    if (state.enemyHp <= 0) {
+      events.push({ type: 'kill', tick: state.tick });
+      return { over: true, events };
+    }
+  }
 
   // ── 持续治疗（HoT）队列 ────────────────────────────────────────────────────
   if (state.pendingHoTs?.length > 0) {
