@@ -107,6 +107,7 @@ export const FAVORITE_ITEM_URLS = {
   // SSR 专属收藏品（角色特化；提升全部三个技能等级）
   200701: `${CDN_BASE}/qf-35/xj-78/2cef2b4f5f105b32637e4fa0cb9b2b36.json`, // Antique Compass (Helm SSR)
   200801: `${CDN_BASE}/mq-17/ov-18/324e104bfcec45d056cbd6ee6f12a6ee.json`, // Villain Figurine (Drake SSR)
+  201401: `${CDN_BASE}/ym-06/wl-16/2a2ddcb790f7df98815ab1dfc36a20b9.json`, // Central Government Special Medal (Privaty SSR)
 };
 
 /** manifest 变更时递增此版本号，以使 localStorage 缓存失效 */

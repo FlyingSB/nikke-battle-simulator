@@ -124,6 +124,7 @@ export default {
       //   S1 Fervor 效果：使用后自身爆裂冷却 ▼20s（param[3] 常量）
       // 全员（SSR）：ATK flat ▲ X% Moran ATK 10s（lv10=42.57%）
       // 全员（未建模）：承伤 ▼X% 10s；DEF ▲X% Moran DEF 10s（防御性，对 DPS 无影响）
+      // [TODO 基础技能] 爆裂技能基础版（group_id 12813）武器替换/无限弹/生命偷取/承伤/DEF 加成数值未建模
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {

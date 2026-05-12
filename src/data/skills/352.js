@@ -20,6 +20,7 @@ export default {
       // S1（Frontline Command）：末弹 → 全员 Crit Rate ▲X% 5s（SSR fav 数值）
       {
         on: 'LAST_BULLET',
+        // [TODO 基础技能] 末弹 → 全员 Crit Rate ▲p01% p02s（基础技能 group_id 23521 未建模）
         handler(state, caster) {
           const helmS1 = caster.ssrFavSkills?.skill1;
           const s1Lv   = helmS1?._activeSkillLevel ?? 0;
@@ -67,6 +68,7 @@ export default {
     groupId: 23522,
     triggers: [
       // S2（Fire Away）：进入全爆裂 → 全员 Attack Damage ▲X% 10s（SSR fav 数值）
+      // [TODO 基础技能] 进入全爆裂 → 全员 Attack Damage ▲p02% p03s（基础技能 group_id 23522 未建模）
       {
         on: 'ENTER_FULL_BURST',
         handler(state, caster) {
@@ -112,6 +114,7 @@ export default {
     groupId: 13523,
     triggers: [
       // Burst（Aegis Cannon）：SSR 伤害 + 生命偷取 10s + 蓄力伤害 buff for 10 round(s)
+      // [TODO 基础技能] 爆裂技能 → 最高ATK敌人 p01% ATK 伤害；全员 HP 回复 p02% 10s；自身蓄力伤害倍率 ▲p04% p05 round(s)（基础技能 group_id 13523 未建模）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {

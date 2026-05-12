@@ -4,70 +4,66 @@ import { getSkillValue } from '../../data/models.js';
 export default {
 
   // ── Overcharge
-  // ■ Activates at the beginning of Full Burst. Affects all allies.
-  // Hit Rate ▲ {p01}% for {p02} sec. ATK ▲ {p03}% for {p04} sec.
-  // [SSR] Hit Rate 升至 {SSR p01}%；SG 友军额外 ATK ▲ {SSR p05}% + Max Ammo ▲ {SSR p07}%
+  // base group_id: 21011 / SSR group_id: 121011 (skill_change_slot=1, Villain Figurine 200801)
+  // ■ [SSR] Activates at the beginning of Full Burst. Affects all allies.
+  //   Hit Rate ▲ {p01}% for {p02=10} sec. ATK ▲ {p03}% for {p04=10} sec.
+  // ■ [SSR] Affects all allies with a Shotgun.
+  //   ATK ▲ {p05}% for {p06=10} sec. Max Ammunition Capacity ▲ {p07}% for {p08=10} sec.
   //
-  // 基础 group_id: 21011
-  // SSR   group_id: 121011 (skill_change_slot=1, Villain Figurine 200801)
-  //
-  // 基础 p01/p03 (lv10=11.85%) · p02/p04: [10,...]
-  // SSR p01 (lv10=20.09%) · p03 (lv10=11.85%) · p05 (lv10=63.88%) · p07 (lv10=50.14%)
+  // SSR p01 HR all (lv10=20.09%): [11.85, 12.77, 13.68, 14.60, 15.51, 16.43, 17.34, 18.26, 19.17, 20.09]
+  // SSR p03 ATK all (lv10=11.85%): [7.00, 7.54, 8.08, 8.61, 9.15, 9.69, 10.22, 10.76, 11.30, 11.85]
+  // SSR p05 ATK SG (lv10=63.88%): [37.67, 40.56, 43.45, 46.35, 49.24, 52.13, 55.03, 57.92, 60.81, 63.88]
+  // SSR p07 MaxAmmo SG (lv10=50.14%): [29.60, 31.88, 34.16, 36.44, 38.72, 41.00, 43.28, 45.57, 47.85, 50.14]
   skill1: {
     groupId: 21011,
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
         handler(state, caster) {
-          const end10 = state.tick + TICK_RATE * 10;
+          // [TODO 基础技能] 进入全爆裂 → 全员HitRate▲p01% + ATK▲p03% 10s（base group_id 21011）
           const favS1 = caster.ssrFavSkills?.skill1;
-          const favLv = favS1?._activeSkillLevel ?? 0;
+          if (!favS1) return;
+          const favLv = favS1._activeSkillLevel ?? 10;
+          const end10 = state.tick + TICK_RATE * 10;
 
-          if (favS1 && favLv > 0) {
-            // SSR：Hit Rate ▲[p01]% 全队（Hit Rate 不影响 DPS，仅记录）
-            const hrPct     = getSkillValue(favS1, 0, favLv) / 100;
-            pushBuff(state, { name: 'drake_s1_hitRate',  unitId: null, hitRatePct: hrPct, endTick: end10 });
-            // SSR：ATK ▲[p03]% 全队
-            const atkAllPct = getSkillValue(favS1, 2, favLv) / 100;
-            pushBuff(state, { name: 'drake_s1_atk_all',  unitId: null, atkPct: atkAllPct, endTick: end10 });
-            // SSR：SG 友军 ATK ▲[p05]% + Max Ammo ▲[p07]%
-            const atkSgPct  = getSkillValue(favS1, 4, favLv) / 100;
-            const ammoPct   = getSkillValue(favS1, 6, favLv) / 100;
-            pushBuff(state, { name: 'drake_s1_atk_sg',  unitId: null, atkPct: atkSgPct,   weaponFilter: 'SG', endTick: end10 });
-            pushBuff(state, { name: 'drake_s1_ammo_sg', unitId: null, maxAmmoPct: ammoPct, weaponFilter: 'SG', endTick: end10 });
-          } else {
-            const s1Lv   = caster.skillLevels[0];
-            const hrPct  = getSkillValue(caster.rawSkill1, 0, s1Lv) / 100;
-            const atkPct = getSkillValue(caster.rawSkill1, 2, s1Lv) / 100;
-            pushBuff(state, { name: 'drake_s1_hitRate',  unitId: null, hitRatePct: hrPct, endTick: end10 });
-            pushBuff(state, { name: 'drake_s1_atk_all',  unitId: null, atkPct, endTick: end10 });
-          }
+          // 全队 Hit Rate ▲[p01]%（Hit Rate 不影响 DPS，仅记录）
+          const hrPct     = getSkillValue(favS1, 0, favLv) / 100;
+          pushBuff(state, { name: 'drake_s1_hitRate',  unitId: null, hitRatePct: hrPct, endTick: end10 });
+          // 全队 ATK ▲[p03]%
+          const atkAllPct = getSkillValue(favS1, 2, favLv) / 100;
+          pushBuff(state, { name: 'drake_s1_atk_all',  unitId: null, atkPct: atkAllPct, endTick: end10 });
+          // SG 友军 ATK ▲[p05]% + Max Ammo ▲[p07]%
+          const atkSgPct  = getSkillValue(favS1, 4, favLv) / 100;
+          const ammoPct   = getSkillValue(favS1, 6, favLv) / 100;
+          pushBuff(state, { name: 'drake_s1_atk_sg',  unitId: null, atkPct: atkSgPct,   weaponFilter: 'SG', endTick: end10 });
+          pushBuff(state, { name: 'drake_s1_ammo_sg', unitId: null, maxAmmoPct: ammoPct, weaponFilter: 'SG', endTick: end10 });
         },
       },
     ],
   },
 
   // ── Thunderbolt
-  // ■ Activates after {p01} attack(s). Affects {p02} enemy unit(s) with the lowest remaining HP.
-  // Deals {p03}% of final ATK as damage.
-  // [SSR] + ■ Activates after {p04} attack(s). Affects {p05} enemy unit(s) with lowest HP.
-  //           Deals {p06}% of final ATK as damage.
+  // base group_id: 21012 / SSR group_id: 121012 (skill_change_slot=2)
+  // ■ [SSR] Activates after {p01=10} attack(s). Affects {p02=3} enemy unit(s) with the lowest remaining HP.
+  //   Deals {p03}% of final ATK as damage.
+  // ■ [SSR] Activates after {p04=5} attack(s). Affects {p05=1} enemy unit(s) with lowest HP.
+  //   Deals {p06}% of final ATK as damage.
   //
-  // 基础 group_id: 21012 — p01=10, p02=3, p03 (lv10=98.55%)
-  // SSR   group_id: 121012 — 同基础 + p04=5, p05=1, p06 (lv10=201.6%)
+  // SSR p03 dmg 10-shot (lv10=98.55%): [58.15, 62.62, 67.09, 71.57, 76.04, 80.51, 84.98, 89.46, 93.93, 98.55]
+  // SSR p06 dmg 5-shot (lv10=201.6%): [119.00, 128.13, 137.26, 146.39, 155.52, 164.65, 173.78, 182.91, 192.04, 201.60]
   skill2: {
     groupId: 21012,
     triggers: [
-      // 每 10 发 → 最低 HP 3 敌方各受 [p03]% ATK 技能伤害
+      // [SSR] 每 10 发 → 最低 HP 3 敌方各受 [p03]% ATK 技能伤害
       {
         on: 'SHOT_COUNT',
         opts: { every: 10, counterKey: 'drakeS2_10' },
         handler(state, caster) {
-          const favS2  = caster.ssrFavSkills?.skill2;
-          const favLv  = favS2?._activeSkillLevel ?? 0;
-          const raw    = (favS2 && favLv > 0) ? favS2 : caster.rawSkill2;
-          const lv     = (favS2 && favLv > 0) ? favLv : caster.skillLevels[1];
-          const dmgPct = getSkillValue(raw, 2, lv) / 100;
+          // [TODO 基础技能] 每10发 → 最低HP 3敌方各受p03% ATK伤害（base group_id 21012）
+          const favS2 = caster.ssrFavSkills?.skill2;
+          const favLv = favS2?._activeSkillLevel ?? 0;
+          if (!favS2 || favLv <= 0) return;
+          const dmgPct = getSkillValue(favS2, 2, favLv) / 100;
           // 游戏打 3 个不同目标，模拟器只有单敌，只计 1 次命中
           const sums   = getBuffSums(state, caster.id);
           fireSkillHit(state, caster, dmgPct, sums, false, 'drake_s2_10shot');
@@ -90,43 +86,38 @@ export default {
   },
 
   // ── Drake Special
-  // ■ Affects enemies within attack range. Deals {p01}% of final ATK as damage.
-  // ■ Affects self. Max Ammunition Capacity ▲ {p02}% for {p03} sec.
-  // [SSR] 伤害升至 {SSR p01}% + 自身 Attack Damage ▲ {SSR p04}% for 10 sec.
+  // base group_id: 11013 / SSR group_id: 111013 (skill_change_slot=3)
+  // ■ [SSR] Affects enemies within attack range.
+  //   Deals {p01}% of final ATK as damage.
+  // ■ [SSR] Affects self.
+  //   Max Ammunition Capacity ▲ {p02}% for {p03=10} sec.
+  //   Attack Damage ▲ {p04}% for {p05=10} sec.
   //
-  // 基础 group_id: 11013 — p01 (lv10=1254%) · p02 (lv10=72.18%) · p03: [10,...]
-  // SSR   group_id: 111013 — p01 (lv10=3009.6%) · p02 (lv10=72.18%) · p04 (lv10=31.68%)
+  // SSR p01 Burst dmg (lv10=3009.6%): [1775.00, 1911.97, 2048.95, 2185.92, 2322.89, 2459.86, 2596.84, 2733.81, 2870.78, 3009.60]
+  // SSR p02 MaxAmmo self (lv10=72.18%): [42.60, 45.88, 49.16, 52.45, 55.73, 59.01, 62.29, 65.57, 68.86, 72.18]
+  // SSR p04 AttackDmg self (lv10=31.68%): [18.69, 20.12, 21.55, 22.98, 24.42, 25.85, 27.28, 28.71, 30.14, 31.68]
   burst: {
     groupId: 11013,
     triggers: [
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
+          // [TODO 基础技能] 范围伤害 p01%(1254%@lv10) + 自身MaxAmmo▲p02%(72.18%) 10s（base group_id 11013）
           const favBurst = caster.ssrFavSkills?.burst;
           const favLv    = favBurst?._activeSkillLevel ?? 0;
-          const useSSR   = favBurst && favLv > 0;
-          const end10    = state.tick + TICK_RATE * 10;
-          const sums     = getBuffSums(state, caster.id);
+          if (!favBurst || favLv <= 0) return;
+          const end10 = state.tick + TICK_RATE * 10;
+          const sums  = getBuffSums(state, caster.id);
 
-          if (useSSR) {
-            // SSR：范围伤害 [SSR p01]%（lv10=3009.6%）
-            const dmgPct    = getSkillValue(favBurst, 0, favLv) / 100;
-            fireSkillHit(state, caster, dmgPct, sums, false, 'drake_burst', { burstSkillDamage: true });
-            // 自身 Max Ammo ▲[SSR p02]%（lv10=72.18%）
-            const ammoPct   = getSkillValue(favBurst, 1, favLv) / 100;
-            pushBuff(state, { name: 'drake_burst_ammo',   unitId: caster.id, maxAmmoPct: ammoPct, endTick: end10 });
-            // 自身 Attack Damage ▲[SSR p04]%（lv10=31.68%）
-            const atkDmgPct = getSkillValue(favBurst, 3, favLv) / 100;
-            pushBuff(state, { name: 'drake_burst_atkDmg', unitId: caster.id, attackDamagePct: atkDmgPct, endTick: end10 });
-          } else {
-            const bLv    = caster.skillLevels[2];
-            // 基础：范围伤害 [p01]%（lv10=1254%）
-            const dmgPct  = getSkillValue(caster.rawBurst, 0, bLv) / 100;
-            fireSkillHit(state, caster, dmgPct, sums, false, 'drake_burst', { burstSkillDamage: true });
-            // 自身 Max Ammo ▲[p02]%（lv10=72.18%）
-            const ammoPct = getSkillValue(caster.rawBurst, 1, bLv) / 100;
-            pushBuff(state, { name: 'drake_burst_ammo', unitId: caster.id, maxAmmoPct: ammoPct, endTick: end10 });
-          }
+          // SSR：范围伤害 [p01]%（lv10=3009.6%）
+          const dmgPct    = getSkillValue(favBurst, 0, favLv) / 100;
+          fireSkillHit(state, caster, dmgPct, sums, false, 'drake_burst', { burstSkillDamage: true });
+          // 自身 Max Ammo ▲[p02]%（lv10=72.18%）
+          const ammoPct   = getSkillValue(favBurst, 1, favLv) / 100;
+          pushBuff(state, { name: 'drake_burst_ammo',   unitId: caster.id, maxAmmoPct: ammoPct, endTick: end10 });
+          // 自身 Attack Damage ▲[p04]%（lv10=31.68%）
+          const atkDmgPct = getSkillValue(favBurst, 3, favLv) / 100;
+          pushBuff(state, { name: 'drake_burst_atkDmg', unitId: caster.id, attackDamagePct: atkDmgPct, endTick: end10 });
         },
       },
     ],
