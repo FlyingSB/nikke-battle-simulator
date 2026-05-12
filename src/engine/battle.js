@@ -476,6 +476,9 @@ export function initBattle(config) {
         // Liter S1 T1: Max Ammo ▲45.17% for 5s — window and extra round count
         literAmmoBoostEndTick:      0,
         literAmmoBoostExtra:        0,
+        // Noir S2: flat MaxAmmo bonus (+3/+4/+5 rounds) for 10s on entering Full Burst
+        noirAmmoBoostExtra:         0,
+        noirAmmoBoostEndTick:       0,
         // Maiden: Ice Rose — S1/S2/Burst MP 系统（0–12，Burst 全数消耗）
         iceroseMP:                  0,
         // Liberalio — S2 Raging Current: applied permanently on first FC shot
@@ -827,10 +830,15 @@ export function tick(state) {
       const literBoost = (unit.skillState.literAmmoBoostExtra > 0
         && state.tick < unit.skillState.literAmmoBoostEndTick)
         ? unit.skillState.literAmmoBoostExtra : 0;
+      // Noir S2：进入全爆裂时扩充弹匣 flat 发数（+3/+4/+5），持续 10s。
+      const noirBoost = (unit.skillState.noirAmmoBoostExtra > 0
+        && state.tick < unit.skillState.noirAmmoBoostEndTick)
+        ? unit.skillState.noirAmmoBoostExtra : 0;
+      const flatBoost = literBoost + noirBoost;
       // 技能缩放弹匣：每个 pct 效果单独对 baseAmmo 取整（T33 per-effect round 公式）。
       // OL/fav 平坦加成在取整后叠加，整体结果 max(1, ...)。
-      const effectiveMax = literBoost > 0
-        ? unit.maxAmmo + literBoost
+      const effectiveMax = flatBoost > 0
+        ? unit.maxAmmo + flatBoost
         : (ammoMult !== 1
           ? Math.max(1, unit.baseAmmo + Math.round(unit.baseAmmo * (ammoMult - 1)))
             + (unit.stats.bonusAmmo ?? 0) + unit.favAmmoBonus
