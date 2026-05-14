@@ -13,11 +13,11 @@ export const BURST_GAUGE_MAX = 1_000_000;  // 共享爆裂槽上限
 export function getBuffSums(state, unitId) {
   const unit = state.squad.find(u => u.id === unitId);
   let atkPct  = unit?.equipAtkPct  ?? 0;
-  let atkFlat = unit?.equipAtkFlat ?? 0, defFlat = 0, attackDamagePct = 0, normalAttackDamagePct = 0,
-      critRateBonus = 0, critDmgBonus = 0, chargeDamagePct = 0, chargeSpeedPct = 0,
-      reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
+  let atkFlat = unit?.equipAtkFlat ?? 0, defFlat = 0, defPct = 0, attackDamagePct = 0,
+      normalAttackDamagePct = 0, critRateBonus = 0, critDmgBonus = 0, chargeDamagePct = 0,
+      chargeSpeedPct = 0, reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
       chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0,
-      projectileExplosionDamagePct = 0, coreDamagePct = 0, maxHpPct = 0,
+      projectileExplosionDamagePct = 0, coreDamagePct = 0, maxHpPct = 0, maxHpFlat = 0,
       burstGaugeFlat = 0, pierceDamagePct = 0, sustainedDamageMult = 0;
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
@@ -25,6 +25,7 @@ export function getBuffSums(state, unitId) {
     atkPct                       += b.atkPct                       ?? 0;
     atkFlat                      += b.atkFlat                      ?? 0;
     defFlat                      += b.defFlat                      ?? 0;
+    defPct                       += b.defPct                       ?? 0;
     attackDamagePct              += b.attackDamagePct              ?? 0;
     normalAttackDamagePct        += b.normalAttackDamagePct        ?? 0;
     critRateBonus                += b.critRateBonus                ?? 0;
@@ -40,15 +41,16 @@ export function getBuffSums(state, unitId) {
     projectileExplosionDamagePct += b.projectileExplosionDamagePct ?? 0;
     coreDamagePct                += b.coreDamagePct                ?? 0;
     maxHpPct                     += b.maxHpPct                     ?? 0;
+    maxHpFlat                    += b.maxHpFlat                    ?? 0;
     burstGaugeFlat               += b.burstGaugeFlat               ?? 0;
     pierceDamagePct              += b.pierceDamagePct              ?? 0;
     sustainedDamageMult          += b.sustainedDamageMult          ?? 0;
   }
-  return { atkPct, atkFlat, defFlat, attackDamagePct, normalAttackDamagePct,
+  return { atkPct, atkFlat, defFlat, defPct, attackDamagePct, normalAttackDamagePct,
     critRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct,
     reloadSpeedPct, lifeStealPct, distributedDamagePct,
     chargeTimeReductionTicks, hitRateBonus, elementAdvantageBonus,
-    projectileExplosionDamagePct, coreDamagePct, maxHpPct, burstGaugeFlat,
+    projectileExplosionDamagePct, coreDamagePct, maxHpPct, maxHpFlat, burstGaugeFlat,
     pierceDamagePct, sustainedDamageMult };
 }
 
@@ -234,14 +236,15 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
 // ─── 持续伤害（DoT）池 ──────────────────────────────────────────────────────
 //
 // state.dots 中每条记录的结构：
-//   casterId     {number}   施放者单位 ID
-//   label        {string}   伤害标签（用于日志）
-//   dotName      {string}   唯一标识符（便于技能查找同名 DoT）
-//   multPerStack {number}   每层每 tick 的命中倍率（如 0.2508 = 25.08% ATK）
-//   stacks       {number}   当前层数
-//   endTick      {number}   过期 tick（Infinity = 永久，直到手动移除）
-//   nextFireTick {number}   下一次触发伤害的 tick
-//   intervalTicks{number}   每次触发间隔的 tick 数（60 = 每秒）
+//   casterId      {number}   施放者单位 ID
+//   label         {string}   伤害标签（用于日志）
+//   dotName       {string}   唯一标识符（便于技能查找同名 DoT）
+//   multPerStack  {number}   每层每 tick 的命中倍率（如 0.2508 = 25.08% ATK）
+//   stacks        {number}   当前层数
+//   endTick       {number}   过期 tick（Infinity = 永久，直到手动移除）
+//   nextFireTick  {number}   下一次触发伤害的 tick
+//   intervalTicks {number}   每次触发间隔的 tick 数（60 = 每秒）
+//   sustainedDamage {boolean} 默认 true；false → 普通技能伤害（不受 sustainedDamageMult 加成）
 //
 export function fireDotPool(state) {
   for (const dot of state.dots) {
@@ -253,7 +256,7 @@ export function fireDotPool(state) {
     if (!caster) continue;
     const sums = getBuffSums(state, caster.id);
     fireSkillHit(state, caster, dot.multPerStack * dot.stacks, sums, false, dot.label,
-      { sustainedDamage: true });
+      { sustainedDamage: dot.sustainedDamage !== false });
   }
   state.dots = state.dots.filter(d => d.endTick >= state.tick);
 }

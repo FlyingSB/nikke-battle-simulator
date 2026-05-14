@@ -24,7 +24,7 @@ export default {
         on: 'ENTER_BURST_III',
         handler(state, caster) {
           const sums       = getBuffSums(state, caster.id);
-          const finalHp    = caster.stats.hp * (1 + sums.maxHpPct);
+          const finalHp    = caster.stats.hp * (1 + sums.maxHpPct) + (sums.maxHpFlat ?? 0);
           const atkFlatPct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
           const atkFlat    = Math.round(finalHp * atkFlatPct);
           const endTick    = state.tick + TICK_RATE * 10;

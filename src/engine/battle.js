@@ -319,6 +319,13 @@ export function initBattle(config) {
       // CDN native burst step (use_burst_skill). Used by skills like Rapi S1 to identify
       // "native B1/B2/B3 allies" (characters whose CDN burst step matches a given step).
       nativeBurstStep:  cfg.nativeBurstStep ?? cfg.burstStep ?? 'Step3',
+      // CDN native "change burst step" (change_burst_step): the burst step the engine advances to
+      // after this unit fires its burst skill (e.g., Step2 for most B1 units).
+      nativeChangeBurstStep: cfg.nativeChangeBurstStep ?? cfg._nikkeData?.change_burst_step ?? null,
+      // Current "change burst step" — can be overridden by skills at runtime.
+      // Example: Anis: Star in Everyone's Star mode sets this to 'Step1' (re-enters Stage 1).
+      changeBurstStep:  cfg.changeBurstStep ?? cfg.nativeChangeBurstStep
+                        ?? cfg._nikkeData?.change_burst_step ?? null,
       // 游戏内小队归属（如 "777"），用于"同小队友军存活"条件判断。
       // 来源为 CDN _nikkeData.squad；技能条件依赖此字段非 null。
       squad:            cfg._nikkeData?.squad ?? null,
@@ -1021,7 +1028,14 @@ export function tick(state) {
           const csFromBuff           = unit.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
           const flatReduction        = unit.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
           const afterPct             = Math.round(unit.chargeTimeTicks * (1 - Math.min(0.99, (unit.stats.chargeSpeedPct ?? 0) + csFromBuff)));
-          const effectiveCharge      = Math.max(0, afterPct - flatReduction);
+          let effectiveCharge         = Math.max(0, afterPct - flatReduction);
+          // 固定蓄力时间覆盖（如 Anis: Star 爆裂期间）：忽略技能类蓄力速度 buff，仅保留装备/魔方加成
+          if ((unit.skillState?.fixedChargeEndTick ?? 0) >= state.tick &&
+              unit.skillState.fixedChargeTimeTicks != null) {
+            effectiveCharge = Math.max(0, Math.round(
+              unit.skillState.fixedChargeTimeTicks * (1 - Math.min(0.99, unit.stats.chargeSpeedPct ?? 0)),
+            ));
+          }
           const aliceFastAttackTicks     = Math.round(TICK_RATE * 10 / 40);
           const aliceFastAttackThreshold = Math.round(unit.chargeTimeTicks * (1 - 0.9952));
           if (
