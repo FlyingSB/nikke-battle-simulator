@@ -1,4 +1,4 @@
-import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, applyShield, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 export default {
@@ -23,8 +23,7 @@ export default {
         opts: { every: 120, counterKey: 'blancS1ShotCount' },
         handler(state, caster) {
           const pct = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
-          caster.shieldHp      = Math.round(caster.stats.hp * pct);
-          caster.shieldEndTick = state.tick + TICK_RATE * 5;
+          applyShield(state, caster, Math.round(caster.stats.hp * pct), state.tick + TICK_RATE * 5);
         },
       },
     ],

@@ -1,4 +1,4 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, applyShield,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
@@ -120,12 +120,7 @@ export default {
           const shieldAmt = Math.round(caster.stats.hp * shieldPct);
           const shieldEnd = state.tick + TICK_RATE * 15;
           for (const u of state.squad) {
-            if (u.shieldHp > 0) {
-              u.shieldHp      = Math.max(u.shieldHp, shieldAmt);
-              u.shieldEndTick = Math.max(u.shieldEndTick, shieldEnd);
-            } else {
-              u.shieldHp = shieldAmt; u.shieldEndTick = shieldEnd;
-            }
+            applyShield(state, u, shieldAmt, shieldEnd);
           }
         },
       },

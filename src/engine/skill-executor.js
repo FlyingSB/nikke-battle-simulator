@@ -63,7 +63,7 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
 // 团队触发：ctx.unit 无意义，所有持有该技能的在队单位均触发
 const TEAM_TRIGGERS = new Set([
   'BATTLE_START', 'ENTER_BURST_I', 'ENTER_BURST_III', 'ENTER_FULL_BURST', 'FULL_BURST_END',
-  'AMMO_MILESTONE', 'HEAL_RECEIVED',
+  'AMMO_MILESTONE', 'HEAL_RECEIVED', 'APPLY_SHIELD',
 ]);
 
 // ─── 条件判断 ──────────────────────────────────────────────────────────────

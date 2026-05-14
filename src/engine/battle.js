@@ -96,7 +96,7 @@ import { computeFinalStats } from './stats.js';
 import { WEAPON_AMMO, WEAPON_HIT_MULT } from './constants.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, fireSkillHit, fireDotPool } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool } from './battle-utils.js';
 import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -194,6 +194,16 @@ function flushHealReceived(state) {
 }
 
 /**
+ * 分派 APPLY_SHIELD 触发：消费 state.pendingShieldApplied 标记（由 applyShield 填充）。
+ * 调用时机：每次可能触发 applyShield 的操作（BURST_SKILL_USE、SHOT_COUNT）之后。
+ */
+function flushShieldApplied(state) {
+  if (!state.pendingShieldApplied) return;
+  state.pendingShieldApplied = false;
+  executeSkillTriggers(state, 'APPLY_SHIELD');
+}
+
+/**
  * 进入 Burst 1 阶段时触发的被动效果（槽填满那一 tick 立即触发，不依赖 B1 单位是否 cast）。
  * 触发时机：burstPhase 从 0 变为 1（共享槽填满）。
  */
@@ -217,6 +227,7 @@ function applyBurstISkills(state) {
   state.burstCastersThisRotation?.add(b1.id);
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: b1 });
   flushHealReceived(state);
+  flushShieldApplied(state);
   return b1;
 }
 
@@ -229,6 +240,7 @@ function applyBurstIISkills(state) {
   state.burstCastersThisRotation?.add(b2.id);
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: b2 });
   flushHealReceived(state);
+  flushShieldApplied(state);
   return b2;
 }
 
@@ -256,6 +268,7 @@ function applyFullBurstSkills(state) {
     if (!firstFired) firstFired = step3;
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: step3 });
     flushHealReceived(state);
+    flushShieldApplied(state);
     if (state.enemyHp <= 0) break;
   }
 
@@ -580,6 +593,9 @@ export function initBattle(config) {
     // Queue of units that received heals this tick. Populated by applyHeal (battle-utils).
     // Consumed by flushHealReceived() which dispatches HEAL_RECEIVED triggers.
     pendingHealReceived: [],
+    // Flag set when applyShield() is called (battle-utils). Consumed by flushShieldApplied()
+    // which dispatches APPLY_SHIELD triggers (e.g. Naga S1/Burst).
+    pendingShieldApplied: false,
     // Scheduled periodic heals: [{ fireTick, targetId, amount }]
     // Processed each tick before unit loops; each entry calls applyHeal + flushHealReceived.
     pendingHoTs: [],
@@ -955,6 +971,7 @@ export function tick(state) {
                              + (effectiveWeaponType === 'RL' ? sums.projectileExplosionDamagePct : 0),
                              ...((weaponSwitchActive && unit.skillState.weaponSwitchPierce)
                                  || unit.skillState.pierceActive
+                                 || (unit.skillState.pierceEndTick ?? 0) > state.tick
                                ? { pierceDamageMult: sums.pierceDamagePct } : {}) },
         damageTakenMult:   state.enemyDamageTakenPct,
       });
@@ -1064,6 +1081,7 @@ export function tick(state) {
       // ── 每发射击后的单位技能触发（声明式执行器） ────────────────
       onShotFired(state, unit, { sums, isCharged, isCore, ammoAfterShot: unit.ammoLeft });
       flushHealReceived(state);
+      flushShieldApplied(state);
       if (state.enemyHp <= 0) {
         events.push({ type: 'kill', tick: state.tick });
         return { over: true, events };

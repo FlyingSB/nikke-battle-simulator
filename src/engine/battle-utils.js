@@ -145,6 +145,26 @@ export function applyHeal(state, targetUnit, amount) {
   if (Array.isArray(state.pendingHealReceived)) state.pendingHealReceived.push(targetUnit);
 }
 
+// ─── 护盾 ──────────────────────────────────────────────────────────────────
+
+/**
+ * 对目标单位施加护盾，并将 state.pendingShieldApplied 置为 true。
+ * battle.js 在每次可能触发护盾的操作后调用 flushShieldApplied，
+ * 从而分派 APPLY_SHIELD 触发（Naga S1/Burst 等通过此触发响应）。
+ * 刷新语义：已有护盾时取两者较大值（量与到期 tick 均取 max）。
+ */
+export function applyShield(state, unit, shieldAmt, shieldEndTick) {
+  if (shieldAmt <= 0) return;
+  if (unit.shieldHp > 0) {
+    unit.shieldHp      = Math.max(unit.shieldHp, shieldAmt);
+    unit.shieldEndTick = Math.max(unit.shieldEndTick, shieldEndTick);
+  } else {
+    unit.shieldHp      = shieldAmt;
+    unit.shieldEndTick = shieldEndTick;
+  }
+  state.pendingShieldApplied = true;
+}
+
 // ─── 技能伤害 ───────────────────────────────────────────────────────────────
 
 /**
