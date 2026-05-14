@@ -148,9 +148,10 @@ export function applyHeal(state, targetUnit, amount) {
 // ─── 护盾 ──────────────────────────────────────────────────────────────────
 
 /**
- * 对目标单位施加护盾，并将 state.pendingShieldApplied 置为 true。
- * battle.js 在每次可能触发护盾的操作后调用 flushShieldApplied，
- * 从而分派 APPLY_SHIELD 触发（Naga S1/Burst 等通过此触发响应）。
+ * 对目标单位施加护盾，并将该单位推入 state.pendingShieldReceived 队列。
+ * battle.js 在每次可能触发护盾的操作后调用 flushShieldReceived，
+ * 逐单位分派 APPLY_SHIELD 触发（技能触发条件为"自身护盾生效时"，
+ * 与 HEAL_RECEIVED 语义一致：谁收到护盾，谁的单位 id 作为 ctx.unit）。
  * 刷新语义：已有护盾时取两者较大值（量与到期 tick 均取 max）。
  */
 export function applyShield(state, unit, shieldAmt, shieldEndTick) {
@@ -162,7 +163,18 @@ export function applyShield(state, unit, shieldAmt, shieldEndTick) {
     unit.shieldHp      = shieldAmt;
     unit.shieldEndTick = shieldEndTick;
   }
-  state.pendingShieldApplied = true;
+  if (Array.isArray(state.pendingShieldReceived)) state.pendingShieldReceived.push(unit);
+}
+
+// ─── 掩体治疗 ─────────────────────────────────────────────────────────────
+
+/**
+ * 标记掩体受到治疗（设置 state.pendingCoverHeal = true）。
+ * battle.js 的 flushCoverHeal 会分派 COVER_HEAL 团队触发。
+ * 调用方负责传入实际治疗量（模拟器仅建模事件，不追踪掩体 HP 数值）。
+ */
+export function applyCoverHeal(state) {
+  state.pendingCoverHeal = true;
 }
 
 // ─── 技能伤害 ───────────────────────────────────────────────────────────────

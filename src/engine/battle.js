@@ -194,13 +194,29 @@ function flushHealReceived(state) {
 }
 
 /**
- * 分派 APPLY_SHIELD 触发：消费 state.pendingShieldApplied 标记（由 applyShield 填充）。
- * 调用时机：每次可能触发 applyShield 的操作（BURST_SKILL_USE、SHOT_COUNT）之后。
+ * 分派 APPLY_SHIELD 触发：消费 state.pendingShieldReceived 队列（由 applyShield 填充）。
+ * 每个获盾单位独立分派一次 APPLY_SHIELD，ctx.unit = 受盾单位；
+ * 技能处理器通过 caster.id === ctx.unit.id 判断是否为自身获盾。
  */
-function flushShieldApplied(state) {
-  if (!state.pendingShieldApplied) return;
-  state.pendingShieldApplied = false;
-  executeSkillTriggers(state, 'APPLY_SHIELD');
+function flushShieldReceived(state) {
+  if (!state.pendingShieldReceived.length) return;
+  const units = state.pendingShieldReceived.splice(0);
+  const seen  = new Set();
+  for (const u of units) {
+    if (seen.has(u.id)) continue;
+    seen.add(u.id);
+    executeSkillTriggers(state, 'APPLY_SHIELD', { unit: u });
+  }
+}
+
+/**
+ * 分派 COVER_HEAL 触发：消费 state.pendingCoverHeal 标记（由 applyCoverHeal 填充）。
+ * COVER_HEAL 为团队触发，所有持有该技能的单位均触发，ctx.unit 无意义。
+ */
+function flushCoverHeal(state) {
+  if (!state.pendingCoverHeal) return;
+  state.pendingCoverHeal = false;
+  executeSkillTriggers(state, 'COVER_HEAL');
 }
 
 /**
@@ -227,7 +243,7 @@ function applyBurstISkills(state) {
   state.burstCastersThisRotation?.add(b1.id);
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: b1 });
   flushHealReceived(state);
-  flushShieldApplied(state);
+  flushShieldReceived(state);
   return b1;
 }
 
@@ -240,7 +256,7 @@ function applyBurstIISkills(state) {
   state.burstCastersThisRotation?.add(b2.id);
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: b2 });
   flushHealReceived(state);
-  flushShieldApplied(state);
+  flushShieldReceived(state);
   return b2;
 }
 
@@ -268,7 +284,7 @@ function applyFullBurstSkills(state) {
     if (!firstFired) firstFired = step3;
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: step3 });
     flushHealReceived(state);
-    flushShieldApplied(state);
+    flushShieldReceived(state);
     if (state.enemyHp <= 0) break;
   }
 
@@ -593,9 +609,12 @@ export function initBattle(config) {
     // Queue of units that received heals this tick. Populated by applyHeal (battle-utils).
     // Consumed by flushHealReceived() which dispatches HEAL_RECEIVED triggers.
     pendingHealReceived: [],
-    // Flag set when applyShield() is called (battle-utils). Consumed by flushShieldApplied()
-    // which dispatches APPLY_SHIELD triggers (e.g. Naga S1/Burst).
-    pendingShieldApplied: false,
+    // Queue of units that received shields this tick. Populated by applyShield (battle-utils).
+    // Consumed by flushShieldReceived() which dispatches APPLY_SHIELD triggers per unit.
+    pendingShieldReceived: [],
+    // Flag set when applyCoverHeal() is called (battle-utils). Consumed by flushCoverHeal()
+    // which dispatches COVER_HEAL team trigger (e.g. Naga S1 Part1).
+    pendingCoverHeal: false,
     // Scheduled periodic heals: [{ fireTick, targetId, amount }]
     // Processed each tick before unit loops; each entry calls applyHeal + flushHealReceived.
     pendingHoTs: [],
@@ -1081,7 +1100,8 @@ export function tick(state) {
       // ── 每发射击后的单位技能触发（声明式执行器） ────────────────
       onShotFired(state, unit, { sums, isCharged, isCore, ammoAfterShot: unit.ammoLeft });
       flushHealReceived(state);
-      flushShieldApplied(state);
+      flushShieldReceived(state);
+      flushCoverHeal(state);
       if (state.enemyHp <= 0) {
         events.push({ type: 'kill', tick: state.tick });
         return { over: true, events };

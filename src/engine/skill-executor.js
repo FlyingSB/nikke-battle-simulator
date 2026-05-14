@@ -15,6 +15,8 @@
  *   INTERVAL            全程每 X 秒触发，不限于爆裂期间（通过 onInterval 驱动；首次于 t+Xs 触发）
  *   INTERVAL_IN_BURST   全爆裂期间每 X 秒生效 1 次（通过 onIntervalInBurst 驱动）
  *   HEAL_RECEIVED       任意友军受到治疗时（ctx.unit = 受治疗单位）
+ *   APPLY_SHIELD        任意友军获盾时（ctx.unit = 获盾单位；非团队触发，仅 caster === ctx.unit 的单位响应）
+ *   COVER_HEAL          掩体受到治疗时（团队触发；ctx.unit 无意义；每 12 发由 Naga S1 驱动）
  *   CORE_HIT            命中敌人核心时（ctx.unit = 射击单位，ctx.isCore = true）
  *   RELOAD_END          自然装填完成（ammoLeft 恢复至 maxAmmo）时（ctx.unit = 装填单位）
  *                       不包含技能/道具补弹将弹匣填满的情况
@@ -63,7 +65,7 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
 // 团队触发：ctx.unit 无意义，所有持有该技能的在队单位均触发
 const TEAM_TRIGGERS = new Set([
   'BATTLE_START', 'ENTER_BURST_I', 'ENTER_BURST_III', 'ENTER_FULL_BURST', 'FULL_BURST_END',
-  'AMMO_MILESTONE', 'HEAL_RECEIVED', 'APPLY_SHIELD',
+  'AMMO_MILESTONE', 'HEAL_RECEIVED', 'COVER_HEAL',
 ]);
 
 // ─── 条件判断 ──────────────────────────────────────────────────────────────

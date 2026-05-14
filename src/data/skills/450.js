@@ -1,12 +1,12 @@
-import { pushBuff, applyHeal, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, applyCoverHeal, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 export default {
 
   // ── Guardian of Friendship
   // ■ Activates after {p00=12} normal attack(s). Affects all allies.
-  //   Restores {p01}% of Cover HP.  [TODO: 模拟器无掩体 HP 系统，不建模]
-  // ■ Activates when applying Shield. Affects all allies.
+  //   Restores {p01}% of Cover HP.  （触发 COVER_HEAL 团队事件；掩体 HP 数值不建模）
+  // ■ Activates when applying Shield（自身获盾时）. Affects all allies.
   //   Damage dealt when attacking core ▲ {p02}% for {p03=10} sec.
   //
   // group_id: 24501
@@ -17,9 +17,13 @@ export default {
   skill1: {
     groupId: 24501,
     triggers: [
-      // Part1：每 12 发 → 修复全员掩体 HP p01%（模拟器无掩体系统，不建模）[TODO]
-      //
-      // Part2：施加护盾时 → 全员 Core Damage ▲ p02% 持续 10s
+      // Part1：每 12 发 → 修复全员掩体 HP p01%（触发 COVER_HEAL 团队事件）
+      {
+        on: 'SHOT_COUNT',
+        opts: { every: 12, counterKey: 'naga_s1p1' },
+        handler(state) { applyCoverHeal(state); },
+      },
+      // Part2：自身获盾时 → 全员 Core Damage ▲ p02% 持续 10s
       {
         on: 'APPLY_SHIELD',
         handler(state, caster) {
@@ -88,14 +92,14 @@ export default {
   //   Gain Pierce for {p00=10} sec.
   // ■ Affects all allies.
   //   ATK ▲ {p01}% of caster's ATK for {p02=10} sec.
-  // ■ Activates when applying Shield. Affects all allies.
+  // ■ Activates when using Burst Skill while self has an active Shield. Affects all allies.
   //   ATK ▲ {p03}% of caster's ATK for {p04=10} sec.
   //
   // group_id: 14503
   // p00 (Pierce duration, const): [10, ...]
   // p01 (ATK% of caster ATK): [9.56, 10.29, 11.03, 11.76, 12.5, 13.24, 13.97, 14.71, 15.44, 16.18]
   // p02 (duration, const): [10, ...]
-  // p03 (ATK% of caster ATK, Shield 条件): [17.16, 18.7, 20.24, 21.78, 23.32, 24.86, 26.4, 27.94, 29.48, 31.02]
+  // p03 (ATK% of caster ATK, 持有护盾条件): [17.16, 18.7, 20.24, 21.78, 23.32, 24.86, 26.4, 27.94, 29.48, 31.02]
   // p04 (duration, const): [10, ...]
   burst: {
     groupId: 14503,
@@ -112,10 +116,11 @@ export default {
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick });
         },
       },
-      // Part3：施加护盾时 → 全员 ATK flat ▲（p03% Naga ATK）10s
+      // Part3：施放爆裂技能时自身有生效护盾 → 全员 ATK flat ▲（p03% Naga ATK）10s
       {
-        on: 'APPLY_SHIELD',
+        on: 'BURST_SKILL_USE',
         handler(state, caster) {
+          if (!(caster.shieldHp > 0 && caster.shieldEndTick > state.tick)) return;
           const lv     = caster.skillLevels[2];
           const atkPct = getSkillValue(caster.rawBurst, 3, lv) / 100;
           pushBuff(state, { name: 'naga_burst_shield_atk', unitId: null,
