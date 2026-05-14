@@ -1031,7 +1031,9 @@ export function tick(state) {
           elemMult: bd.elemMult,
           chargeMult: bd.chargeMult,
           // 武器切换期间距离加成仍按原始武器判定（游戏实测规则）
-          distanceAdv: hasDistanceAdvantage(unit.weaponType, state.distanceZone),
+          // extraDistZones：角色技能扩展的额外优势射程区间（如 Ade 的 Minimum Effective Range）
+          distanceAdv: hasDistanceAdvantage(unit.weaponType, state.distanceZone)
+                       || (unit.skillState.extraDistZones?.includes(state.distanceZone) ?? false),
           ammoLeft: unit.ammoLeft,
           // 射击时刻的有效最大弹匣 — 包含当前生效的容量加成（如 Liter S1T1）
           maxAmmo: unit.maxAmmo + (
