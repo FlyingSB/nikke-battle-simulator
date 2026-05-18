@@ -5,7 +5,7 @@
   "resource_id": 851,
   "additional_skins": [],
   "name_code": 5143,
-  "order": 10168,
+  "order": 10170,
   "original_rare": "SSR",
   "grade_core_id": 1,
   "grow_grade": 585102,
@@ -1904,7 +1904,7 @@
       "additional_skins": [],
       "costume_grade_id": "Special",
       "costume_name_locale": "Planet Diving Suit (6th) V2",
-      "costume_description_locale": "Raven costume.\nObtained from MEMORIES TELLER event missions.",
+      "costume_description_locale": "Raven costume.\nObtained from MEMORIES TELLER event missions or by unlocking it in the Archives.",
       "costume_shop_type": "None",
       "is_hidden": false
     },
@@ -1917,7 +1917,8 @@
       "costume_grade_id": "Special",
       "costume_name_locale": "Midsummer Alice",
       "costume_description_locale": "Raven costume.\nObtained from an Event Pass.",
-      "costume_shop_type": "None",
+      "costume_shop_type": "PassCostume",
+      "costume_shop_price_id": 130041,
       "is_hidden": false
     }
   ],
