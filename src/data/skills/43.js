@@ -6,17 +6,32 @@ export default {
   // ── Calm Sniping
   // ■ Activates when attacking with Full Charge for {p00=3} time(s). Affects self.
   //   Gain Pierce for 1 shot.
-  //   [TODO] 穿透（Pierce）在单 Boss 场景中无多目标意义，跳过。
   // ■ Activates when entering Full Burst. Affects all allies with a Sniper Rifle.
   //   Pierce Damage ▲ {p01}% for {p02=10} sec.
   //
   // group_id: 20431
-  // p00 trigger count (const): [3, ...]  — 不建模
+  // p00 trigger count (const): [3, ...]
   // p01 Pierce Damage▲%: [8, 8.62, 9.24, 9.85, 10.47, 11.08, 11.7, 12.32, 12.93, 13.55]
   // p02 duration (const): [10, ...]
   skill1: {
     groupId: 20431,
     triggers: [
+      // S1 Part 1: 每 3 次满蓄力 → 自身下一发获得穿透（Pierce）。
+      //   伤害计算在 onShotFired 之前，FULL_CHARGE handler 在射击后触发：
+      //   因此"消耗"逻辑放在 handler 开头（清除上一发穿透状态），再按计数重新激活。
+      {
+        on: 'FULL_CHARGE',
+        handler(state, caster) {
+          // 上一发是穿透发 → 消耗穿透标志
+          if (caster.skillState.pierceActive) {
+            caster.skillState.pierceActive = false;
+          }
+          caster.skillState.dkw_s1_fcCount = (caster.skillState.dkw_s1_fcCount ?? 0) + 1;
+          if (caster.skillState.dkw_s1_fcCount % 3 === 0) {
+            caster.skillState.pierceActive = true;
+          }
+        },
+      },
       // S1 Part 2: 进入全爆裂 → 队内所有 SR 友军 Pierce Damage ▲ p01% 10s
       {
         on: 'ENTER_FULL_BURST',
@@ -86,7 +101,7 @@ export default {
   //   Inflicts Wipe Out on the target for {p02=10} sec.
   // ■ Activates when allies' normal attack hits a certain area of the target afflicted with Wipe Out.
   //   Allies that hit parts: Damage dealt when attacking core ▲ {p01}% for {p02=10} sec.
-  //   [TODO] 部件命中（hit parts）事件未建模，核心伤害加成跳过。
+  //   [TODO] Wipe Out 部件命中（hit parts）→ 核心伤害加成：引擎缺少 hit-parts 事件，待引擎支持后建模。
   //   Allies that hit the body: ATK ▲ {p03}% of caster's ATK for {p04=10} sec.
   //   [简化] 单 Boss 场景中友军必然命中 Body；全爆裂使用时直接对全员施加 ATK Flat 加成。
   //
