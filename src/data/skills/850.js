@@ -10,7 +10,6 @@ export default {
   //   Unstable Energy: Deals {p01}% of final ATK as damage. Attacks sequentially {p02=3} time(s).
   // ■ Activates when Unstable Energy hits an Electric Code target. Affects the target.
   //   Damage Taken ▲ {p03}% for {p04=10} sec.
-  //   [简化] 单 Boss 场景中敌人元素不区分，承伤 debuff 无条件应用。
   //
   // group_id: 28501
   // p00 Crit Rate▲%: [35.45, 38.18, 40.91, 43.63, 46.36, 49.09, 51.82, 54.54, 57.27, 60]
@@ -32,8 +31,9 @@ export default {
         },
       },
       // S1 Part2+3：每次普通攻击检测暴击；累计 44 次暴击 → Unstable Energy（3× 技能伤害）
-      //   + 敌人 Damage Taken ▲ p03% 10s
-      //   通过比较 caster.critCount 与上一次记录值判断本次是否暴击。
+      //   通过比较 caster.critCount 与上一次记录值判断本次是否暴击（critCount 在 onShotFired 前已更新）。
+      //   Part3：仅当敌人为电击属性时施加承伤 debuff；敌人非电击则跳过。
+      //   [TODO] Impact-Type Exospine Mk2：Mk2 期间 Unstable Energy 伤害倍率可能 ×(1+100%)，待确认后建模。
       {
         on: 'SHOT_COUNT',
         opts: { every: 1, counterKey: 'eve_s1_shotDummy' },
@@ -57,7 +57,8 @@ export default {
             fireSkillHit(state, caster, hitPct, sums, false, 'eve_s1_unstableEnergy');
           }
 
-          // 敌人 Damage Taken ▲ p03% 10s（若 buff 已存在则仅刷新时长）
+          // Part3：敌人为电击属性时施加 Damage Taken ▲ p03% 10s
+          if (state.enemyElement !== 'Electric') return;
           const dtPct     = getSkillValue(caster.rawSkill1, 3, lv) / 100;
           const alreadyOn = state.buffs.some(b => b.name === 'eve_s1_damageTaken');
           if (!alreadyOn) state.enemyDamageTakenPct += dtPct;
@@ -71,31 +72,30 @@ export default {
   // ── Eagle Eye-Type Exospine
   // ■ Activates at the start of battle. Affects self.
   //   Eagle Eye-Type Exospine. Previous effects trigger repeatedly.
-  //   ATK ▲ {p00}% of caster's ATK continuously.
+  //   ATK ▲ {p00}% continuously.
   //   Max Ammunition Capacity ▲ {p01}% continuously.
   // ■ Activates when landing {p02=10} normal attack(s) on an Electric Code target. Affects self.
   //   Reloads {p03=3} round(s).
   //   [简化] 单 Boss 场景中每 10 发射击触发（不区分敌人元素）。
   //
   // group_id: 28502
-  // p00 ATK flat▲% of caster's ATK: [29.55, 31.82, 34.09, 36.36, 38.64, 40.91, 43.18, 45.46, 47.73, 50]
+  // p00 ATK▲%: [29.55, 31.82, 34.09, 36.36, 38.64, 40.91, 43.18, 45.46, 47.73, 50]
   // p01 Max Ammo▲%: [14.77, 15.91, 17.04, 18.18, 19.32, 20.45, 21.59, 22.73, 23.86, 25]
   // p02 hit trigger count (const): [10, ...]
   // p03 rounds to reload (const): [3, ...]
   skill2: {
     groupId: 28502,
     triggers: [
-      // S2 Part1：战斗开始 → 自身永久 ATK flat ▲ p00%（of base ATK）+ Max Ammo ▲ p01%（flat 值）
+      // S2 Part1：战斗开始 → 自身永久 ATK ▲ p00% + Max Ammo ▲ p01%（flat 值，取整）
       {
         on: 'BATTLE_START',
         handler(state, caster) {
           const lv       = caster.skillLevels[1];
           const atkPct   = getSkillValue(caster.rawSkill2, 0, lv) / 100;
-          const atkFlat  = Math.round(caster.stats.atk * atkPct);
           const ammoPct  = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const ammoFlat = Math.round(caster.maxAmmo * ammoPct);
-          pushBuff(state, { name: 'eve_s2_atkFlat', unitId: caster.id,
-            atkFlat, endTick: Infinity });
+          pushBuff(state, { name: 'eve_s2_atkPct', unitId: caster.id,
+            atkPct, endTick: Infinity });
           pushBuff(state, { name: 'eve_s2_maxAmmo', unitId: caster.id,
             maxAmmoFlat: ammoFlat, endTick: Infinity });
         },
@@ -119,13 +119,13 @@ export default {
   // ── Counter Chain
   // ■ Affects random enemy units.
   //   Deals {p00}% of final ATK as damage. Attacks sequentially for {p01=6} time(s).
-  // ■ Affects self.
-  //   Exospine Mk2: Enhances Exospine for {p02} sec.
-  //   Triggers Impact-Type Exospine Mk2: Damage multiplier of Unstable Energy sequential attacks
-  //     is scaled by 100%.
-  //   Triggers Eagle Eye-Type Exospine Mk2: Damage multiplier of Eagle Eye-Type Exospine
-  //     is scaled by 100%.
-  //   [注] "scaled by 100%" = 原始效果完整生效，Mk2 窗口内技能行为不变，仅记录状态标记。
+  // ■ Affects self. Exospine Mk2 for {p02} sec.
+  //   Triggers Impact-Type Exospine Mk2:
+  //     Damage multiplier of Unstable Energy sequential attacks is scaled by 100%.
+  //     [TODO] Impact-Type Exospine Mk2 待建模：Mk2 期间 Unstable Energy 伤害倍率 ×(1+100%)。
+  //   Triggers Eagle Eye-Type Exospine Mk2:
+  //     Damage multiplier of Eagle Eye-Type Exospine is scaled by 100%.
+  //     → Mk2 期间追加与 S2 Part1 等量的额外 ATK▲ 和 MaxAmmo▲（总效果翻倍）。
   //
   // group_id: 18503
   // p00 Burst hit%: [270.13, 290.91, 311.69, 332.47, 353.25, 374.03, 394.8, 415.58, 436.36, 457.14]
@@ -147,13 +147,22 @@ export default {
           },
         ],
       },
-      // Burst Mk2：记录 Exospine Mk2 状态标记（p02 秒）供未来扩展
+      // Eagle Eye-Type Exospine Mk2：爆裂后 p02s 内，追加与 S2 Part1 等量的 ATK▲ 和 MaxAmmo▲
+      //   S2 Part1 永久 buff 不变；Mk2 buff 到期后总效果恢复到 S2 Part1 基准。
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
-          const lv  = caster.skillLevels[2];
-          const sec = getSkillValue(caster.rawBurst, 2, lv);
-          caster.skillState.eve_mk2EndTick = state.tick + TICK_RATE * sec;
+          const burstLv    = caster.skillLevels[2];
+          const mk2Sec     = getSkillValue(caster.rawBurst, 2, burstLv);
+          const mk2End     = state.tick + TICK_RATE * mk2Sec;
+          const s2Lv       = caster.skillLevels[1];
+          const mk2AtkPct  = getSkillValue(caster.rawSkill2, 0, s2Lv) / 100;
+          const mk2AmmoPct = getSkillValue(caster.rawSkill2, 1, s2Lv) / 100;
+          const mk2AmmoFlat = Math.round(caster.maxAmmo * mk2AmmoPct);
+          pushBuff(state, { name: 'eve_burst_mk2_atkPct', unitId: caster.id,
+            atkPct: mk2AtkPct, endTick: mk2End });
+          pushBuff(state, { name: 'eve_burst_mk2_maxAmmo', unitId: caster.id,
+            maxAmmoFlat: mk2AmmoFlat, endTick: mk2End });
         },
       },
     ],
