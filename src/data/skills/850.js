@@ -33,7 +33,7 @@ export default {
       // S1 Part2+3：每次普通攻击检测暴击；累计 44 次暴击 → Unstable Energy（3× 技能伤害）
       //   通过比较 caster.critCount 与上一次记录值判断本次是否暴击（critCount 在 onShotFired 前已更新）。
       //   Part3：仅当敌人为电击属性时施加承伤 debuff；敌人非电击则跳过。
-      //   [TODO] Impact-Type Exospine Mk2：Mk2 期间 Unstable Energy 伤害倍率可能 ×(1+100%)，待确认后建模。
+      //   Impact-Type Exospine Mk2：Mk2 期间 Unstable Energy 伤害系数 +100%（basePct × 2）。
       {
         on: 'SHOT_COUNT',
         opts: { every: 1, counterKey: 'eve_s1_shotDummy' },
@@ -50,9 +50,12 @@ export default {
           caster.skillState.eve_critHits -= 44;
 
           if (state.enemyHp <= 0) return;
-          const lv     = caster.skillLevels[0];
-          const hitPct = getSkillValue(caster.rawSkill1, 1, lv) / 100;
-          const sums   = getBuffSums(state, caster.id);
+          const lv      = caster.skillLevels[0];
+          const basePct = getSkillValue(caster.rawSkill1, 1, lv) / 100;
+          // Impact-Type Exospine Mk2：Mk2 期间伤害系数 +100%（翻倍）
+          const inMk2   = state.buffs.some(b => b.name === 'eve_burst_mk2_atkPct' && b.unitId === caster.id);
+          const hitPct  = inMk2 ? basePct * 2 : basePct;
+          const sums    = getBuffSums(state, caster.id);
           for (let h = 0; h < 3 && state.enemyHp > 0; h++) {
             fireSkillHit(state, caster, hitPct, sums, false, 'eve_s1_unstableEnergy');
           }
@@ -122,7 +125,7 @@ export default {
   // ■ Affects self. Exospine Mk2 for {p02} sec.
   //   Triggers Impact-Type Exospine Mk2:
   //     Damage multiplier of Unstable Energy sequential attacks is scaled by 100%.
-  //     [TODO] Impact-Type Exospine Mk2 待建模：Mk2 期间 Unstable Energy 伤害倍率 ×(1+100%)。
+  //     → Mk2 期间 Unstable Energy 伤害系数 +100%（basePct × 2）。通过检测 eve_burst_mk2_atkPct buff 判断窗口。
   //   Triggers Eagle Eye-Type Exospine Mk2:
   //     Damage multiplier of Eagle Eye-Type Exospine is scaled by 100%.
   //     → Mk2 期间追加与 S2 Part1 等量的额外 ATK▲ 和 MaxAmmo▲（总效果翻倍）。
