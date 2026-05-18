@@ -5,7 +5,7 @@
   "resource_id": 850,
   "additional_skins": [],
   "name_code": 5142,
-  "order": 10167,
+  "order": 10169,
   "original_rare": "SSR",
   "grade_core_id": 1,
   "grow_grade": 585002,
@@ -1905,7 +1905,7 @@
       "additional_skins": [],
       "costume_grade_id": "Special",
       "costume_name_locale": "Keyhole Dress",
-      "costume_description_locale": "EVE costume.\nObtained from MEMORIES TELLER event missions.",
+      "costume_description_locale": "EVE costume.\nObtained from MEMORIES TELLER event missions or by unlocking it in the Archives.",
       "costume_shop_type": "None",
       "is_hidden": false
     },
@@ -1918,7 +1918,8 @@
       "costume_grade_id": "Special",
       "costume_name_locale": "Neurolink Suit",
       "costume_description_locale": "EVE costume.\nObtained from an Event Pass.",
-      "costume_shop_type": "None",
+      "costume_shop_type": "PassCostume",
+      "costume_shop_price_id": 130040,
       "is_hidden": false
     },
     {
