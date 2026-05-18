@@ -14,7 +14,7 @@ export function getBuffSums(state, unitId) {
   const unit = state.squad.find(u => u.id === unitId);
   let atkPct  = unit?.equipAtkPct  ?? 0;
   let atkFlat = unit?.equipAtkFlat ?? 0, defFlat = 0, defPct = 0, attackDamagePct = 0,
-      normalAttackDamagePct = 0, critRateBonus = 0, critDmgBonus = 0, chargeDamagePct = 0,
+      normalAttackDamagePct = 0, critRateBonus = 0, normalAttackCritRateBonus = 0, critDmgBonus = 0, chargeDamagePct = 0,
       chargeSpeedPct = 0, reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
       chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0,
       projectileExplosionDamagePct = 0, coreDamagePct = 0, maxHpPct = 0, maxHpFlat = 0,
@@ -29,6 +29,7 @@ export function getBuffSums(state, unitId) {
     attackDamagePct              += b.attackDamagePct              ?? 0;
     normalAttackDamagePct        += b.normalAttackDamagePct        ?? 0;
     critRateBonus                += b.critRateBonus                ?? 0;
+    normalAttackCritRateBonus    += b.normalAttackCritRateBonus    ?? 0;
     critDmgBonus                 += b.critDmgBonus                 ?? 0;
     chargeDamagePct              += b.chargeDamagePct              ?? 0;
     chargeSpeedPct               += b.chargeSpeedPct               ?? 0;
@@ -47,7 +48,7 @@ export function getBuffSums(state, unitId) {
     sustainedDamageMult          += b.sustainedDamageMult          ?? 0;
   }
   return { atkPct, atkFlat, defFlat, defPct, attackDamagePct, normalAttackDamagePct,
-    critRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct,
+    critRateBonus, normalAttackCritRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct,
     reloadSpeedPct, lifeStealPct, distributedDamagePct,
     chargeTimeReductionTicks, hitRateBonus, elementAdvantageBonus,
     projectileExplosionDamagePct, coreDamagePct, maxHpPct, maxHpFlat, burstGaugeFlat,
@@ -196,7 +197,9 @@ export function applyCoverHeal(state) {
 export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts = {}) {
   if (state.enemyHp <= 0) return 0;
   const charged          = isCharged !== undefined ? isCharged : ['SR', 'RL'].includes(unit.weaponType);
-  const isCrit           = rollCrit(Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRateBonus));
+  const effectiveCritRate = (unit.stats.critRate ?? 0.15) + sums.critRateBonus
+    + (charged ? 0 : (sums.normalAttackCritRateBonus ?? 0));
+  const isCrit           = rollCrit(Math.min(1, effectiveCritRate));
   const isCore           = opts.isCore           ?? false;
   const coreDmgIncrement = (opts.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0);
   const extraAtkDmgPct   = opts.extraAttackDamagePct ?? 0;

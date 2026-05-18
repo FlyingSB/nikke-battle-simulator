@@ -946,8 +946,6 @@ export function tick(state) {
 
       // 计算 buff 汇总（round-based buff 由 getBuffSums 自动根据 roundsLeft 过滤）
       const sums = getBuffSums(state, unit.id);
-      const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRateBonus);
-      const isCrit    = rollCrit(effectiveCritRate);
       // 武器切换（WEAPON_SWITCH 效果）：期间覆盖 hitMult 和 isCharged
       const effectiveWeaponType = weaponSwitchActive
         ? (unit.skillState.weaponSwitchType ?? unit.weaponType)
@@ -956,6 +954,9 @@ export function tick(state) {
         ? (unit.skillState.weaponSwitchHitMult ?? WEAPON_HIT_MULT[effectiveWeaponType] ?? 0.03)
         : (unit.shotDamageMult ?? WEAPON_HIT_MULT[unit.weaponType] ?? 0.03);
       const isCharged = ['SR', 'RL'].includes(effectiveWeaponType);
+      const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRateBonus
+        + (isCharged ? 0 : (sums.normalAttackCritRateBonus ?? 0)));
+      const isCrit    = rollCrit(effectiveCritRate);
       // 普通射击的核心命中概率。
       // MG/SR/RL 必定命中核心（coreHitRateMult=1，默认）。SMG：默认 0.033。
       // TODO: SG/AR — 标定核心命中率；在测定前默认 1

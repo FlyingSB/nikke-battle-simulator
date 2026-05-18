@@ -27,7 +27,7 @@ export default {
           if (!helmS1 || s1Lv <= 0) return;
           const critBonus = getSkillValue(helmS1, 0, s1Lv) / 100;
           pushBuff(state, { name: 'helm_skill1_critRate', unitId: null,
-            critRateBonus: critBonus, endTick: state.tick + TICK_RATE * 5 });
+            normalAttackCritRateBonus: critBonus, endTick: state.tick + TICK_RATE * 5 });
         },
       },
       // S1 SSR：全蓄力命中 → 全员 HP 回复（dvl[2]） + 全队共享爆裂槽增加（dvl[3]）
