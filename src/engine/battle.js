@@ -560,6 +560,9 @@ export function initBattle(config) {
         })(),
         // Red Hood (470) — AllStep SR DPS
         rhCsStacks: 0,         // S1 蓄力速度叠层数（0–10）
+        // Volume (431) — S2 Drop the Beat 累计计数
+        volumeFbCount:          0,   // 进入全爆裂次数（S2 Part 1 冷却减少）
+        volumeBurstUseCount:    0,   // 爆裂技能使用次数（S2 Part 2 CritDmg buff）
       },
       // SSR fav item upgraded skill definitions (null for R/SR items)
       // cfg.ssrFavSkillLevel overrides the item-derived skill level (e.g. 10 for fully levelled SSR skills)
