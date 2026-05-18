@@ -18,7 +18,7 @@ export function getBuffSums(state, unitId) {
       chargeSpeedPct = 0, reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
       chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0,
       projectileExplosionDamagePct = 0, coreDamagePct = 0, maxHpPct = 0, maxHpFlat = 0,
-      burstGaugeFlat = 0, pierceDamagePct = 0, sustainedDamageMult = 0;
+      burstGaugeFlat = 0, pierceDamagePct = 0, sustainedDamageMult = 0, maxAmmoFlat = 0;
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
     if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
@@ -46,13 +46,14 @@ export function getBuffSums(state, unitId) {
     burstGaugeFlat               += b.burstGaugeFlat               ?? 0;
     pierceDamagePct              += b.pierceDamagePct              ?? 0;
     sustainedDamageMult          += b.sustainedDamageMult          ?? 0;
+    maxAmmoFlat                  += b.maxAmmoFlat                  ?? 0;
   }
   return { atkPct, atkFlat, defFlat, defPct, attackDamagePct, normalAttackDamagePct,
     critRateBonus, normalAttackCritRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct,
     reloadSpeedPct, lifeStealPct, distributedDamagePct,
     chargeTimeReductionTicks, hitRateBonus, elementAdvantageBonus,
     projectileExplosionDamagePct, coreDamagePct, maxHpPct, maxHpFlat, burstGaugeFlat,
-    pierceDamagePct, sustainedDamageMult };
+    pierceDamagePct, sustainedDamageMult, maxAmmoFlat };
 }
 
 // ─── Buff 添加 ─────────────────────────────────────────────────────────────

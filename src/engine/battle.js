@@ -711,15 +711,17 @@ export function tick(state) {
         state.buffLog.push({ type: 'buff_expire', tick: state.tick, name: b.name, unitId: b.unitId });
       // 敌人承伤 debuff：到期时从全局累加器中减去
       if (b.enemyDamageTakenPct) state.enemyDamageTakenPct -= b.enemyDamageTakenPct;
-      // 仅改容量的弹药 buff：到期时将当前弹药截到基础 maxAmmo（支持全员 buff unitId=null）
-      if (b.maxAmmoPct > 0) {
+      // 仅改容量的弹药 buff（maxAmmoPct 或 maxAmmoFlat > 0）：到期时将当前弹药截到基础 maxAmmo
+      if (b.maxAmmoPct > 0 || b.maxAmmoFlat > 0) {
         const targets = b.unitId != null
           ? [state.squad.find(u => u.id === b.unitId)].filter(Boolean)
           : state.squad;
         for (const u of targets) {
-          // 清除技能状态中的 literBoost，使截弹逻辑生效
-          u.skillState.literAmmoBoostExtra   = 0;
-          u.skillState.literAmmoBoostEndTick = 0;
+          if (b.maxAmmoPct > 0) {
+            // 清除技能状态中的 literBoost，使截弹逻辑生效
+            u.skillState.literAmmoBoostExtra   = 0;
+            u.skillState.literAmmoBoostEndTick = 0;
+          }
           if (u.ammoLeft > u.maxAmmo) {
             const before = u.ammoLeft;
             u.ammoLeft = u.maxAmmo;
@@ -877,7 +879,8 @@ export function tick(state) {
         && state.tick < unit.skillState.weaponSwitchPostBackswingEndTick) continue;
 
     // 装填处理（HIDDEN 期间也会运行，让进行中的装填能够完成）
-    if (unit.ammoLeft <= 0) {
+    // unlimitedAmmoEndTick 激活期间弹药不消耗，永远不会达到 0，跳过装填逻辑
+    if (unit.ammoLeft <= 0 && !((unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick)) {
       if (unit.reloadTick === 0) {
         const rSums = getBuffSums(state, unit.id);
         // fixedReloadSpeedPct：固定装填速度加成，屏蔽其他装填速度效果（如 Asuka: WILLE S2）
@@ -896,7 +899,9 @@ export function tick(state) {
       const noirBoost = (unit.skillState.noirAmmoBoostExtra > 0
         && state.tick < unit.skillState.noirAmmoBoostEndTick)
         ? unit.skillState.noirAmmoBoostExtra : 0;
-      const flatBoost = literBoost + noirBoost;
+      // 通用 maxAmmoFlat buff（如 Grave 爆裂 +3 发）
+      const maxAmmoFlatBoost = rSums.maxAmmoFlat ?? 0;
+      const flatBoost = literBoost + noirBoost + maxAmmoFlatBoost;
       // 技能缩放弹匣：每个 pct 效果单独对 baseAmmo 取整（T33 per-effect round 公式）。
       // OL/fav 平坦加成在取整后叠加，整体结果 max(1, ...)。
       const effectiveMax = flatBoost > 0
@@ -1017,8 +1022,9 @@ export function tick(state) {
       });
 
       const ammoBeforeShot = unit.ammoLeft;
-      // 武器替换期间无限弹药：弹药不消耗（如 Moran burst）
-      const isUnlimitedAmmoShot = weaponSwitchActive && unit.skillState.weaponSwitchUnlimitedAmmo;
+      // 武器替换期间无限弹药（如 Moran burst），或 skillState.unlimitedAmmoEndTick 激活期间（如 Grave Prediction）
+      const isUnlimitedAmmoShot = (weaponSwitchActive && unit.skillState.weaponSwitchUnlimitedAmmo)
+        || (unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick;
       if (!isUnlimitedAmmoShot) {
         unit.ammoLeft--;
         // round-based buff（roundsLeft）：实弹命中时消耗 1 回合；无限弹期间不消耗
