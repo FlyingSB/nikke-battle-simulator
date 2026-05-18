@@ -119,9 +119,10 @@ export default {
 
   // ── Diamond Dust
   // ■ Affects {description_value_01} enemy unit(s) nearest to the crosshair.
-  // Deals damage equal to {description_value_03}% of the sum of {description_value_02}% of the caster's final Max HP and the caster's ATK. Attacks continuously based on the current MP.
+  // Deals damage equal to {description_value_03}% of the sum of {description_value_02}% of the caster's final Max HP and the caster's final ATK. Attacks continuously based on the current MP.
+  // 实际公式：(buffedMaxHP + buffedATK) × param3%，技能描述 "10% Max HP" 系原文错误，应为 100%
   // p01: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-  // p02: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+  // p02: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]  ← 描述有误，实际使用 100%（即全部 buffedMaxHP）
   // p03: [811.2, 873.6, 936, 998.4, 1060.8, 1123.2, 1185.6, 1248, 1310.4, 1372.8]
   burst: {
     groupId: 11833,
@@ -135,19 +136,10 @@ export default {
         handler(state, caster) {
           const preSums       = getBuffSums(state, caster.id);
           const buffedMaxHp   = Math.round(caster.stats.hp * (1 + preSums.maxHpPct));
-          const end10         = state.tick + TICK_RATE * 10;
-          // S2 Part2：自身 ElemAdv ATK Dmg ▲[S2 param4]% + ATK ▲[S2 param6]% buffed MaxHP flat
-          const selfElemAdv   = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
-          const selfHpAtkPct  = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'icr_s2_self_elemAdv', unitId: caster.id,
-            elementAdvantageBonus: selfElemAdv, endTick: end10 });
-          pushBuff(state, { name: 'icr_s2_self_atkFlat', unitId: caster.id,
-            atkFlat: Math.round(buffedMaxHp * selfHpAtkPct), endTick: end10 });
-
-          const hpAdded   = Math.round(buffedMaxHp * 0.1);
+          // 公式：(buffedMaxHP + buffedATK) × Burst_param2；不受全爆裂加成
           const burstMult = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const mp        = caster.skillState.iceroseMP ?? 0;
-          // 首击延迟 0.73s（44 tick），后续每击间隔 0.1s（6 tick）；预捕获 sums，屏蔽 ENTER_FULL_BURST buff
+          // 首击延迟 0.73s（44 tick），后续每击间隔 0.1s（6 tick）；预捕获 sums，屏蔽 S2 Part2 及 ENTER_FULL_BURST buff
           const firstHitDelay = Math.round(0.73 * TICK_RATE);
           const intervalTicks = Math.round(0.1 * TICK_RATE);
           for (let i = 0; i < mp; i++) {
@@ -155,10 +147,18 @@ export default {
               fireTick: state.tick + firstHitDelay + i * intervalTicks, caster, mult: burstMult,
               sums: preSums,
               isCharged: false, label: 'burst_hit',
-              opts: { extraAtkFlat: hpAdded, burstSkillDamage: true },
+              opts: { extraAtkFlat: buffedMaxHp, burstSkillDamage: true },
             });
           }
+          // 先调度命中，再消耗 MP 并触发 S2 Part2（爆裂技能不受 S2 Part2 效果影响）
           caster.skillState.iceroseMP = 0;
+          const end10        = state.tick + TICK_RATE * 10;
+          const selfElemAdv  = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
+          const selfHpAtkPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
+          pushBuff(state, { name: 'icr_s2_self_elemAdv', unitId: caster.id,
+            elementAdvantageBonus: selfElemAdv, endTick: end10 });
+          pushBuff(state, { name: 'icr_s2_self_atkFlat', unitId: caster.id,
+            atkFlat: Math.round(buffedMaxHp * selfHpAtkPct), endTick: end10 });
         },
       },
     ],
