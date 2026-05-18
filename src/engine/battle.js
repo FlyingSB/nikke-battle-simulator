@@ -88,7 +88,27 @@
  *
  * ── 尚未建模 ─────────────────────────────────────────────────────────────
  *   Rapi Skill 2 对 Electric 的属性克制（当前敌人为 Iron）
- *   Helm Skill 2 Interruption Part Damage（部件系统未建模）
+ *
+ *   [TODO] 部件系统（Parts / Interruption Parts）
+ *   Boss 拥有独立 HP 的可摧毁部件；当前引擎完全未建模，影响以下内容：
+ *
+ *   引擎层面：
+ *   · Boss 部件 HP 池（独立于主体 HP 的多 HP 目标）
+ *   · PART_DESTROYED 触发事件（部件 HP 归零时分派）
+ *   · "Damage to Parts" buff 字段：damage.js 已有 damageToPartsMult 占位但
+ *     getBuffSums / fireSkillHit 均未接入，须补全管线
+ *   · "Interruption Parts Damage" buff 字段：interruptionPartsDamagePct 已被
+ *     skills/15.js 和 16.js 推入 state.buffs，但 getBuffSums 未读取，实际无效
+ *   · Snow White: Heavy Arms (471) S2 "Damage to Parts ▲" 暂以 attackDamagePct 近似，
+ *     建模部件系统后应替换为正式 partsDamagePct 字段
+ *
+ *   技能层面（建模部件系统后需补全）：
+ *   · Helm (352) S2：Damage to Interruption Parts ▲（持续）
+ *   · Rapi: Red Hood (16) S1：Damage to Interruption Parts ▲ 48%（全爆裂时 10s，已存字段未接入）
+ *   · Anis: Sparkling Summer (15) S2：Damage to Interruption Parts ▲（全爆裂时 10s，已存字段未接入）
+ *   · Raven (851) S2 Blue Blade Part1/2：Vital Attack — Damage to Parts ▲（战斗开始 / 全爆裂，5s）
+ *   · Raven (851) S2 Blue Blade Part3：Single Point Attack — Sustained damage ▲（PART_DESTROYED 触发，15s）
+ *   · Raven (851) 爆裂 Tempest Effect1：A.N. Mode 移除 Single Point Attack
  */
 
 import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
