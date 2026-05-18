@@ -1,4 +1,4 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // S2 Part2 激活条件：HP < 60%（首次低于阈值时永久生效，不重复叠加）
@@ -103,11 +103,19 @@ export default {
               critRateBonus: crPct, endTick: state.tick + TICK_RATE * 10 });
           }
 
-          // Part2：爆裂技能伤害（在 ENTER_FULL_BURST buff 生效后触发，享受全爆裂加成）
+          // Part2：延迟 1.38s 后触发爆裂伤害。
+          // 命中时 sums 使用 BURST_SKILL_USE 时刻的快照（不含 ENTER_FULL_BURST buff），
+          // 且以 burstSkillDamage=true 屏蔽全爆裂 50% 加成。
           const burstMult = getSkillValue(caster.rawBurst, 3, lv) / 100;
-          state.pendingFireInBurstHits.push({
-            caster, mult: burstMult, isCharged: false, label: 'sc_burst',
-            opts: { fireInFullBurst: true },
+          const sumsSnap  = getBuffSums(state, caster.id);
+          state.pendingSkillHits.push({
+            fireTick:  state.tick + Math.round(1.38 * TICK_RATE),
+            caster,
+            mult:      burstMult,
+            sums:      sumsSnap,
+            isCharged: false,
+            label:     'sc_burst',
+            opts:      { burstSkillDamage: true },
           });
         },
       },

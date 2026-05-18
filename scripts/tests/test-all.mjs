@@ -29,6 +29,7 @@ const SUITES = [
   { name: 'Data',       file: 'test-data.mjs',       note: 'requires scripts/cache/'                 },
   { name: 'Stats',      file: 'test-stats.mjs',      note: 'may fetch from CDN'                      },
   { name: 'RedHoodBurst', file: 'test-red-hood-burst.mjs', note: 'Red Hood weapon switch shot count' },
+  { name: 'BurstTiming', file: 'test-burst-timing.mjs',   note: 'B3 burst direct damage delay & bonus behavior' },
 ];
 
 const LINE = '═'.repeat(62);

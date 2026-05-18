@@ -147,10 +147,13 @@ export default {
           const hpAdded   = Math.round(buffedMaxHp * 0.1);
           const burstMult = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const mp        = caster.skillState.iceroseMP ?? 0;
-          // 首击延迟 58 tick，后续每击间隔 9 tick（未实测，直接复制 Cinderella 测试结果）
+          // 首击延迟 0.73s（44 tick），后续每击间隔 0.1s（6 tick）；预捕获 sums，屏蔽 ENTER_FULL_BURST buff
+          const firstHitDelay = Math.round(0.73 * TICK_RATE);
+          const intervalTicks = Math.round(0.1 * TICK_RATE);
           for (let i = 0; i < mp; i++) {
             state.pendingSkillHits.push({
-              fireTick: state.tick + 58 + i * 9, caster, mult: burstMult,
+              fireTick: state.tick + firstHitDelay + i * intervalTicks, caster, mult: burstMult,
+              sums: preSums,
               isCharged: false, label: 'burst_hit',
               opts: { extraAtkFlat: hpAdded, burstSkillDamage: true },
             });

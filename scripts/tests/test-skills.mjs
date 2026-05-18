@@ -182,6 +182,7 @@ section('T8: Helm burst uses round-based charge damage buff');
     squad: [{ id: unitId, equipAtkPct: 0, stats: { atk: 10000 }, totalDamage: 0 }],
     enemyHp: 1e9, enemyDef: 0, enemyDamageTakenPct: 0,
     fullBurstActive: false, buffLog: null, hitLog: null,
+    pendingSkillHits: [],
   };
   const mockSquad = { squad: state.squad, buffs: state.buffs };
   const caster = state.squad[0];

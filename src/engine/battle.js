@@ -739,7 +739,7 @@ export function tick(state) {
     const due = state.pendingSkillHits.filter(h => h.fireTick <= state.tick);
     state.pendingSkillHits = state.pendingSkillHits.filter(h => h.fireTick > state.tick);
     for (const h of due) {
-      const sums = getBuffSums(state, h.caster.id);
+      const sums = h.sums ?? getBuffSums(state, h.caster.id);
       fireSkillHit(state, h.caster, h.mult, sums, h.isCharged, h.label, h.opts ?? {});
       if (state.enemyHp <= 0) {
         events.push({ type: 'kill', tick: state.tick });

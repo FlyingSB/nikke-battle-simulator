@@ -205,14 +205,14 @@ export default {
           if (caster.skillState.rapiShotCount >= 60) {
             caster.skillState.rapiShotCount -= 60;
           }
-          const sums = getBuffSums(state, caster.id);
-          // [Burst param4]% 命中（lv10=2808%）— FIRE_IN_FULL_BURST，需在 ENTER_FULL_BURST buff 后执行
-          // 注：使用 rawBurst 动态读取，rawBurst 缺失时回退到 lv10 固定值 28.08
+          // [Burst param4]% 命中（lv10=2808%）— 延迟 0.1s，能受到全爆裂加成（50%）和 ENTER_FULL_BURST buff 影响
+          // sums 不预捕获，在命中时重新计算以获取 ENTER_FULL_BURST buff 加成；无 burstSkillDamage 以获取 50% 加成
           const burstMult = caster.rawBurst
             ? getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100
             : 28.08;
-          state.pendingFireInBurstHits.push({
-            caster, mult: burstMult, sums, isCharged: false, label: 'burst',
+          state.pendingSkillHits.push({
+            fireTick: state.tick + Math.round(0.1 * TICK_RATE),
+            caster, mult: burstMult, isCharged: false, label: 'burst',
             opts: { fireInFullBurst: true },
           });
           const end10 = state.tick + TICK_RATE * 10;
