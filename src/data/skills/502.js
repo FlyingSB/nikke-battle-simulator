@@ -29,8 +29,9 @@ export default {
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          caster.skillState.ebs_ghostCount    = 0;
+          caster.skillState.ebs_ghostCount     = 0;
           caster.skillState.ebs_windowShotBase = 0;
+          caster.skillState.ebs_windowSettled  = false;
         },
       },
       // S1 Part2：全队每次普通攻击后检测命中是否达100次 → 达标立即结算本轮
@@ -42,11 +43,13 @@ export default {
       {
         on: 'SQUAD_SHOT_COUNT',
         handler(state, caster) {
+          if (caster.skillState.ebs_windowSettled) return;
           const shotsThisWindow = (state.squadShotCount ?? 0) - (caster.skillState.ebs_windowShotBase ?? 0);
           if (shotsThisWindow < 100) return;
 
-          // 达标：立即结算，重置窗口基准
+          // 达标：立即结算，重置窗口基准，锁定本轮
           caster.skillState.ebs_windowShotBase = state.squadShotCount ?? 0;
+          caster.skillState.ebs_windowSettled  = true;
 
           const ghosts = caster.skillState.ebs_ghostCount ?? 0;
 
@@ -93,6 +96,7 @@ export default {
         opts: { seconds: 6 },
         handler(state, caster) {
           caster.skillState.ebs_windowShotBase = state.squadShotCount ?? 0;
+          caster.skillState.ebs_windowSettled  = false;
         },
       },
     ],
