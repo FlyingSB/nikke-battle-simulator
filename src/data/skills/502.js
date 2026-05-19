@@ -7,10 +7,12 @@ export default {
   // ■ 进入战斗时激活，影响1个随机敌人。
   //   占领持续 {p02=6} 秒，轮回间隔 {p00=6} 秒。
   //   所需命中次数：{p01=100} 次（全体友军累计）。
-  //   效果：达到100%时捕获1个幽灵，最多 {p03=13} 个。
+  //   效果：达到100%时立即捕获1个幽灵，最多 {p03=13} 个。
+  //   每轮按6s固定节奏重置，与本轮是否达标无关。
   // ■ 影响所有水属性友军（含自身）：效果随幽灵数量变化，前置效果持续触发。
   //   仅当幽灵 ≥1 时：ATK ▲ {p04}% of caster's ATK（持续）。
-  //   仅当幽灵 >{p05=4} 时：属性优势攻击伤害 ▲ {p06}%（持续）。
+  //   仅当幽灵 ≥{p05=4} 时：属性优势攻击伤害 ▲ {p06}%（持续）。
+  //   （游戏内描述为 ">4"，实际判定为 ≥4）
   //
   // group_id: 25021
   // p00 interval (const): [6]
@@ -18,7 +20,7 @@ export default {
   // p02 possession duration (const): [6]
   // p03 max ghosts (const): [13]
   // p04 ATK▲% of caster ATK: [9.57, 10.3, 11.04, 11.78, 12.51, 13.25, 13.99, 14.72, 15.46, 16.2]
-  // p05 ghost threshold (const): [4]
+  // p05 ghost threshold (const): [4]  → 实际 ≥4
   // p06 Elem Adv ATK Dmg▲%: [20.68, 22.27, 23.86, 25.45, 27.04, 28.64, 30.23, 31.82, 33.41, 35]
   skill1: {
     groupId: 25021,
@@ -28,22 +30,24 @@ export default {
         on: 'BATTLE_START',
         handler(state, caster) {
           caster.skillState.ebs_ghostCount    = 0;
-          caster.skillState.ebs_windowShotBase = 0;  // 与 state.squadShotCount 同步
+          caster.skillState.ebs_windowShotBase = 0;
         },
       },
-      // S1 Part2：每 6 秒（p00）占领窗口结算 → 若全队命中 ≥100 次则捕获1个幽灵
-      //   state.squadShotCount 由引擎在每次任意单位普通攻击后自增（skill-executor.js）。
+      // S1 Part2：每次 caster 自身射击时检测全队命中是否达100次 → 达标立即结算本轮
+      //   state.squadShotCount 由引擎在每次任意单位射击后自增（skill-executor.js）。
+      //   捕获后立即重置窗口基准（下一轮由 INTERVAL 在6s标记处再次重置）。
       //   ≥1 幽灵（首次）：给所有水属性友军附加 ATK ▲ p04%（以 caster ATK flat 形式，持续）
-      //   >4 幽灵（首次到达5幽灵）：额外附加 Elem Adv ATK Dmg ▲ p06%（持续）
+      //   ≥4 幽灵（首次）：额外附加 Elem Adv ATK Dmg ▲ p06%（持续）
       //   满载（13幽灵）时溢出捕获：触发 S2 Part2 伤害
       {
-        on: 'INTERVAL',
-        opts: { seconds: 6 },
+        on: 'SHOT_COUNT',
+        opts: { every: 1, counterKey: 'ebs_s1_shotDummy' },
         handler(state, caster) {
           const shotsThisWindow = (state.squadShotCount ?? 0) - (caster.skillState.ebs_windowShotBase ?? 0);
-          caster.skillState.ebs_windowShotBase = state.squadShotCount ?? 0;
-
           if (shotsThisWindow < 100) return;
+
+          // 达标：立即结算，重置窗口基准
+          caster.skillState.ebs_windowShotBase = state.squadShotCount ?? 0;
 
           const ghosts = caster.skillState.ebs_ghostCount ?? 0;
 
@@ -73,8 +77,8 @@ export default {
             }
           }
 
-          // 首次到达 5 幽灵（>4）：额外给水属性友军附加 Elem Adv buff（持续）
-          if (newGhosts === 5) {
+          // 首次到达 4 幽灵（≥4）：额外给水属性友军附加 Elem Adv buff（持续）
+          if (newGhosts === 4) {
             const elemAdvPct = getSkillValue(caster.rawSkill1, 6, lv) / 100;
             for (const u of state.squad) {
               if (u.element !== 'Water') continue;
@@ -84,6 +88,14 @@ export default {
           }
         },
       },
+      // S1 Part3：每 6 秒固定重置窗口基准，与本轮是否达标无关
+      {
+        on: 'INTERVAL',
+        opts: { seconds: 6 },
+        handler(state, caster) {
+          caster.skillState.ebs_windowShotBase = state.squadShotCount ?? 0;
+        },
+      },
     ],
   },
 
@@ -91,7 +103,7 @@ export default {
   // ■ 使用爆裂技能时激活，影响自身。
   //   ATK ▲ {p00}% 持续 {p01=10} 秒。
   // ■ 满载时捕获幽灵时激活，影响所有敌人。
-  //   造成 {p02}% 最终 ATK 的伤害。（由 S1 INTERVAL 溢出逻辑触发）
+  //   造成 {p02}% 最终 ATK 的伤害。（由 S1 SHOT_COUNT 溢出逻辑触发）
   //
   // group_id: 25022
   // p00 ATK▲%: [23.63, 25.45, 27.27, 29.09, 30.91, 32.72, 34.54, 36.36, 38.18, 40]
@@ -165,9 +177,9 @@ export default {
             caster.skillState.ebs_ghostCount = Math.max(1, ghosts - 6);
           }
 
-          // 幽灵减少后，检查 Elem Adv buff 条件（需 >4 幽灵，即 ≥5）
+          // 幽灵减少后，检查 Elem Adv buff 条件（需 ≥4 幽灵）
           const newGhosts = caster.skillState.ebs_ghostCount;
-          if (newGhosts < 5) {
+          if (newGhosts < 4) {
             state.buffs = state.buffs.filter(b => b.name !== 'ebs_s1_elemAdv');
           }
           // ATK buff（ebs_s1_atkFlat）：非13模式至少保留1幽灵，13模式后剩4幽灵，均 ≥1，故不移除
