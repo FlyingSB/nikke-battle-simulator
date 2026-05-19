@@ -9,6 +9,7 @@
  *   ENTER_FULL_BURST    进入全爆裂阶段（B3 施放完毕后）
  *   FULL_BURST_END      全爆裂阶段结束
  *   SHOT_COUNT          普通攻击 X 次（通过 onShotFired 驱动，溢出保留；ctx.unit = 射击单位）
+ *   SQUAD_SHOT_COUNT    全队任意单位普通攻击时广播（onShotFired 驱动；ctx.shootingUnit = 实际射击单位）
  *   LAST_BULLET         末弹射击后（ammoLeft 降至 0；ctx.unit = 射击单位）
  *   FULL_CHARGE         全蓄力攻击时（SR/RL；ctx.unit = 射击单位）
  *   AMMO_MILESTONE      全队消耗弹药累计达到 X 发（溢出保留，由 battle.js 检测后调用）
@@ -297,6 +298,20 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
 export function onShotFired(state, unit, shotCtx) {
   // 全队命中计数（供依赖全队命中数的技能使用，如 Elegg: Boom and Shock S1）
   state.squadShotCount = (state.squadShotCount ?? 0) + 1;
+
+  // SQUAD_SHOT_COUNT：每次任意单位普通攻击后，对所有在队伍中的角色广播
+  for (const [ridStr, charSkills] of Object.entries(SKILL_TRAITS)) {
+    const caster = state.squad?.find(u => String(u.id) === ridStr);
+    if (!caster) continue;
+    for (const skillKey of ['skill1', 'skill2', 'burst']) {
+      const skill = charSkills[skillKey];
+      if (!skill?.triggers) continue;
+      for (const tdef of skill.triggers) {
+        if (tdef.on !== 'SQUAD_SHOT_COUNT') continue;
+        if (tdef.handler) tdef.handler(state, caster, { shootingUnit: unit });
+      }
+    }
+  }
 
   const rid = String(unit.id);
   const charSkills = SKILL_TRAITS[rid];

@@ -33,15 +33,14 @@ export default {
           caster.skillState.ebs_windowShotBase = 0;
         },
       },
-      // S1 Part2：每次 caster 自身射击时检测全队命中是否达100次 → 达标立即结算本轮
+      // S1 Part2：全队每次普通攻击后检测命中是否达100次 → 达标立即结算本轮
       //   state.squadShotCount 由引擎在每次任意单位射击后自增（skill-executor.js）。
       //   捕获后立即重置窗口基准（下一轮由 INTERVAL 在6s标记处再次重置）。
       //   ≥1 幽灵（首次）：给所有水属性友军附加 ATK ▲ p04%（以 caster ATK flat 形式，持续）
       //   ≥4 幽灵（首次）：额外附加 Elem Adv ATK Dmg ▲ p06%（持续）
       //   满载（13幽灵）时溢出捕获：触发 S2 Part2 伤害
       {
-        on: 'SHOT_COUNT',
-        opts: { every: 1, counterKey: 'ebs_s1_shotDummy' },
+        on: 'SQUAD_SHOT_COUNT',
         handler(state, caster) {
           const shotsThisWindow = (state.squadShotCount ?? 0) - (caster.skillState.ebs_windowShotBase ?? 0);
           if (shotsThisWindow < 100) return;
