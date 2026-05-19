@@ -56,7 +56,7 @@ export default {
     ],
   },
 
-  // ── Aegis Cannon Suppression Fire
+  // ── Aegis Cannon Suppression Fire（主动技能，冷却 4s，战斗开始先进入冷却）
   // ■ Affects 1 enemy unit(s) randomly.
   //   Deals {p01}% of final ATK as damage.
   // ■ Activates when attacking an Electric Code target. Affects the target.
@@ -71,10 +71,10 @@ export default {
   skill2: {
     groupId: 13532,
     triggers: [
-      // Part1：全爆裂期间每 2 秒自动向随机敌人开火
+      // Part1：每 4s 自动触发（首次于 t+4s，等效战斗开始进入 4s 冷却）→ 对 1 随机敌人造成伤害
       {
-        on: 'INTERVAL_IN_BURST',
-        opts: { seconds: 2 },
+        on: 'INTERVAL',
+        opts: { seconds: 4 },
         handler(state, caster) {
           if (state.enemyHp <= 0) return;
           const lv   = caster.skillLevels[1];
