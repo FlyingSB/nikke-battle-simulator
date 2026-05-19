@@ -113,7 +113,7 @@ export default {
     groupId: 12623,
     triggers: [
       // Burst（Submerged World）：自身 Attack Damage ▲[Burst param0]% 10s
-      //   + 延迟 0.97s 后 [Burst param2]% ATK 技能伤害
+      //   + 延迟 0.97s 后 [Burst param2]% ATK 技能伤害（【已实测】非默认：sums 在延迟命中时重算，享受全爆裂补正）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {

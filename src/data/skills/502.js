@@ -147,7 +147,7 @@ export default {
     groupId: 15023,
     triggers: [
       // Burst：根据幽灵数量选择模式，调度延迟技能命中，并立即更新幽灵计数
-      //   首击延迟 0.2s（12 tick），后续每击间隔 0.2s；不含 burstSkillDamage，受全爆裂加成
+      //   首击延迟 0.2s（12 tick），后续每击间隔 0.2s；默认：sums 预捕获，burstSkillDamage:true，不受全爆裂+50%补正
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
@@ -164,6 +164,7 @@ export default {
                 fireTick: state.tick + delay * (h + 1),
                 caster, mult: hitPct, sums: preSums,
                 isCharged: false, label: 'ebs_burst_hit',
+                opts: { burstSkillDamage: true },
               });
             }
             caster.skillState.ebs_ghostCount = ghosts - 9;  // 13 - 9 = 4
@@ -175,6 +176,7 @@ export default {
                 fireTick: state.tick + delay * (h + 1),
                 caster, mult: hitPct, sums: preSums,
                 isCharged: false, label: 'ebs_burst_hit',
+                opts: { burstSkillDamage: true },
               });
             }
             caster.skillState.ebs_ghostCount = Math.max(1, ghosts - 6);

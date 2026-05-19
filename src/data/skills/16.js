@@ -205,7 +205,7 @@ export default {
           if (caster.skillState.rapiShotCount >= 60) {
             caster.skillState.rapiShotCount -= 60;
           }
-          // [Burst param4]% 命中（lv10=2808%）— 延迟 0.1s，能受到全爆裂加成（50%）和 ENTER_FULL_BURST buff 影响
+          // [Burst param4]% 命中（lv10=2808%）— 延迟 0.1s，【已实测】非默认：能受到全爆裂加成（50%）和 ENTER_FULL_BURST buff 影响
           // sums 不预捕获，在命中时重新计算以获取 ENTER_FULL_BURST buff 加成；无 burstSkillDamage 以获取 50% 加成
           const burstMult = caster.rawBurst
             ? getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100

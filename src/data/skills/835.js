@@ -35,7 +35,10 @@ function consumeAtfStacks(state, caster, p07Pct) {
 function fireAnnihilation(state, caster) {
   caster.skillState.annihilationFired = true;
 
-  // ATF 叠层伤害
+  // ATF 叠层伤害（【已实测】非默认：Annihilation 在 Annihilation State 结束时（≈9s 后）发动，
+  //   S1 Part1 的 ATK▲ 和 Attack Damage▲ buff 与 annihilationStateEndTick 同时失效，
+  //   sums 在发动时重算（不含已过期的 Annihilation State buff），
+  //   若仍处于全爆裂期间则享受全爆裂+50%补正）
   const p07    = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
   const stacks = consumeAtfStacks(state, caster, p07);
   if (stacks > 0) {

@@ -137,7 +137,7 @@ export default {
   burst: {
     groupId: 18503,
     triggers: [
-      // Burst：6 连发技能伤害 × p00%
+      // Burst：6 连发技能伤害 × p00%（默认：不受全爆裂+50%补正）
       {
         on: 'BURST_SKILL_USE',
         target: 'ENEMY',
@@ -147,6 +147,7 @@ export default {
             count: 6,
             mult: (caster) => getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100,
             label: 'eve_burst_hit',
+            opts: { burstSkillDamage: true },
           },
         ],
       },
