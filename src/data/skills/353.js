@@ -1,0 +1,125 @@
+import { pushBuff, fireSkillHit, addBurstGauge, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+import { getSkillValue } from '../../data/models.js';
+
+export default {
+
+  // ── Admire Accompaniment
+  // ■ Activates after landing {p00=30} normal attack(s). Affects the target(s).
+  //   Deals {p01}% of final ATK as additional damage.
+  // ■ Activates when entering Full Burst. Affects all allies.
+  //   Effect changes according to the number of activation times. Previous effects trigger repeatedly:
+  //   Once: Cooldown of Burst Skill ▼ {p02=1.82} sec.
+  //   Twice: Cooldown of Burst Skill ▼ {p03=2.2} sec.
+  //   Three times: Cooldown of Burst Skill ▼ {p04=2.6} sec.
+  //
+  // group_id: 23531
+  // p00 攻击次数阈值 (const): [30]
+  // p01 伤害%: [38.76, 49.05, 59.34, 69.61, 79.92, 90.19, 100.48, 110.76, 121.05, 131.34]
+  // p02 CDR 第1次 (const): [1.82]
+  // p03 CDR 第2次 (const): [2.2]
+  // p04 CDR 第3次 (const): [2.6]
+  skill1: {
+    groupId: 23531,
+    triggers: [
+      // Part1：每 30 发 → 对当前目标额外攻击一次
+      {
+        on: 'SHOT_COUNT',
+        opts: { every: 30, counterKey: 'helm353S1Shots' },
+        handler(state, caster) {
+          if (state.enemyHp <= 0) return;
+          const lv   = caster.skillLevels[0];
+          const mult = getSkillValue(caster.rawSkill1, 1, lv) / 100;
+          const sums = getBuffSums(state, caster.id);
+          fireSkillHit(state, caster, mult, sums, false, 'helm353_s1_extraHit');
+          addBurstGauge(state, caster.name, 'helm353_s1_extraHit', caster.targetBurstEnergyPerShot);
+        },
+      },
+      // Part2：进入全爆裂 → 全员 Burst Skill CDR（累积制）
+      // [TODO] CDR 引擎暂不支持；激活计数记录在 skillState.helm353S1Activations
+      // 1次: 1.82s / 2次: 4.02s / 3次: 6.62s（Previous effects trigger repeatedly）
+      {
+        on: 'ENTER_FULL_BURST',
+        handler(state, caster) {
+          caster.skillState.helm353S1Activations = (caster.skillState.helm353S1Activations ?? 0) + 1;
+        },
+      },
+    ],
+  },
+
+  // ── Aegis Cannon Suppression Fire
+  // ■ Affects 1 enemy unit(s) randomly.
+  //   Deals {p01}% of final ATK as damage.
+  // ■ Activates when attacking an Electric Code target. Affects the target.
+  //   Damage Taken ▲ {p02}%, stacks up to {p03=5} times and lasts for {p04=5} sec.
+  //
+  // group_id: 13532
+  // p00 目标数 (const): [1]
+  // p01 伤害%: [62.38, 67.2, 71.98, 76.79, 81.59, 86.39, 91.18, 95.98, 100.8, 105.58]
+  // p02 Damage Taken▲%: [3.33, 3.6, 3.84, 4.11, 4.35, 4.62, 4.86, 5.13, 5.4, 5.64]
+  // p03 最大叠层 (const): [5]
+  // p04 持续时间 (const): [5]
+  skill2: {
+    groupId: 13532,
+    triggers: [
+      // Part1：全爆裂期间每 2 秒自动向随机敌人开火
+      {
+        on: 'INTERVAL_IN_BURST',
+        opts: { seconds: 2 },
+        handler(state, caster) {
+          if (state.enemyHp <= 0) return;
+          const lv   = caster.skillLevels[1];
+          const mult = getSkillValue(caster.rawSkill2, 1, lv) / 100;
+          const sums = getBuffSums(state, caster.id);
+          fireSkillHit(state, caster, mult, sums, false, 'helm353_s2_suppFire');
+          addBurstGauge(state, caster.name, 'helm353_s2_suppFire', caster.targetBurstEnergyPerShot);
+        },
+      },
+      // Part2：每发普攻命中 Electric Code 敌人 → Damage Taken ▲，最多 5 层，每层持续 5 秒
+      {
+        on: 'SHOT_COUNT',
+        opts: { every: 1, counterKey: 'helm353S2DtTracker' },
+        handler(state, caster) {
+          if (state.enemyElement !== 'Electric') return;
+          if (state.enemyHp <= 0) return;
+          const lv        = caster.skillLevels[1];
+          const dtPct     = getSkillValue(caster.rawSkill2, 2, lv) / 100;
+          const maxStacks = getSkillValue(caster.rawSkill2, 3, lv);
+          const dur       = getSkillValue(caster.rawSkill2, 4, lv);
+          const active    = state.buffs.filter(b => b.name === 'helm353_s2_dtDebuff' && b.endTick >= state.tick).length;
+          if (active >= maxStacks) return;
+          pushBuff(state, { name: 'helm353_s2_dtDebuff', enemyDamageTakenPct: dtPct,
+            endTick: state.tick + TICK_RATE * dur });
+        },
+      },
+    ],
+  },
+
+  // ── Aegis Cannon Overload
+  // ■ Affects all enemies.
+  //   Deals {p00}% of final ATK as Burst Skill damage.
+  // ■ Activates when attacking an Electric Code target. Affects the target.
+  //   Deals {p01}% of final ATK as additional damage.
+  //
+  // group_id: 13533
+  // p00 Burst Skill 伤害%: [97.39, 104.89, 112.38, 119.88, 127.36, 134.86, 142.35, 149.85, 157.33, 164.83]
+  // p01 Electric Code 额外伤害%: [97.39, 104.89, 112.38, 119.88, 127.36, 134.86, 142.35, 149.85, 157.33, 164.83]
+  burst: {
+    groupId: 13533,
+    triggers: [
+      {
+        on: 'BURST_SKILL_USE',
+        handler(state, caster) {
+          if (state.enemyHp <= 0) return;
+          const lv        = caster.skillLevels[2];
+          const burstMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
+          const sums      = getBuffSums(state, caster.id);
+          fireSkillHit(state, caster, burstMult, sums, false, 'helm353_burst_main');
+          if (state.enemyElement === 'Electric') {
+            const bonusMult = getSkillValue(caster.rawBurst, 1, lv) / 100;
+            fireSkillHit(state, caster, bonusMult, sums, false, 'helm353_burst_electric');
+          }
+        },
+      },
+    ],
+  },
+};
