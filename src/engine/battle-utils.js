@@ -18,7 +18,8 @@ export function getBuffSums(state, unitId) {
       chargeSpeedPct = 0, reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
       chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0,
       projectileExplosionDamagePct = 0, coreDamagePct = 0, maxHpPct = 0, maxHpFlat = 0,
-      burstGaugeFlat = 0, pierceDamagePct = 0, sustainedDamageMult = 0, maxAmmoFlat = 0;
+      burstGaugeFlat = 0, pierceDamagePct = 0, sustainedDamageMult = 0, maxAmmoFlat = 0,
+      trueDamagePct = 0;
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
     if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
@@ -47,13 +48,14 @@ export function getBuffSums(state, unitId) {
     pierceDamagePct              += b.pierceDamagePct              ?? 0;
     sustainedDamageMult          += b.sustainedDamageMult          ?? 0;
     maxAmmoFlat                  += b.maxAmmoFlat                  ?? 0;
+    trueDamagePct                += b.trueDamagePct                ?? 0;
   }
   return { atkPct, atkFlat, defFlat, defPct, attackDamagePct, normalAttackDamagePct,
     critRateBonus, normalAttackCritRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct,
     reloadSpeedPct, lifeStealPct, distributedDamagePct,
     chargeTimeReductionTicks, hitRateBonus, elementAdvantageBonus,
     projectileExplosionDamagePct, coreDamagePct, maxHpPct, maxHpFlat, burstGaugeFlat,
-    pierceDamagePct, sustainedDamageMult, maxAmmoFlat };
+    pierceDamagePct, sustainedDamageMult, maxAmmoFlat, trueDamagePct };
 }
 
 // ─── Buff 添加 ─────────────────────────────────────────────────────────────
@@ -209,6 +211,7 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
   const extraAtkFlat     = opts.extraAtkFlat     ?? 0;
   // Projectile Explosion 伤害：受 projectileExplosionDamagePct 加成（累加至 extraAtkDmgPct）
   const projExplosionBonus = opts.projectileExplosion ? (sums.projectileExplosionDamagePct ?? 0) : 0;
+  const isTrueDamage       = opts.isTrueDamage ?? false;
   // 默认结算：爆裂技能伤害不受全爆裂补正（+50%）影响。
   // 例外：Rapi: Red Hood 和 Liberellio 标记 affectedByFullBurst:true，受全爆裂补正。
   // state.burstSkillFiring 由引擎在 BURST_SKILL_USE 期间设为 true，使同步命中自动跳过全爆裂补正。
@@ -233,8 +236,10 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
     isCharged:         charged,
     fullChargeDamage:  unit.fullChargeDamage ?? 10000,
     chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
+    isTrueDamage,
     extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projExplosionBonus,
-                         sustainedDamageMult: opts.sustainedDamage ? (sums.sustainedDamageMult ?? 0) : 0 },
+                         sustainedDamageMult: opts.sustainedDamage ? (sums.sustainedDamageMult ?? 0) : 0,
+                         trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0 },
     damageTakenMult:   state.enemyDamageTakenPct + distributedBonus,
   });
   unit.totalDamage += damage;
