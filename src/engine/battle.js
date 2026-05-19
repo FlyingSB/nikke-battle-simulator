@@ -272,6 +272,7 @@ function applyBurstIISkills(state) {
   const b2 = selectBurstUnit(state, 'Step2');
   if (!b2) return null;
 
+  executeSkillTriggers(state, 'ENTER_BURST_II');
   b2.burstSkillCooldownEndTick = state.tick + b2.burstSkillCooltime;
   state.burstCastersThisRotation?.add(b2.id);
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: b2 });
