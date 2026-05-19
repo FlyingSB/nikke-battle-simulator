@@ -192,8 +192,8 @@ export function applyCoverHeal(state) {
  *   isDistributed            {boolean}  使用 distributedDamagePct
  *   extraAtkFlat             {number}   本次命中额外 ATK flat
  *   projectileExplosion      {boolean}  Projectile Explosion 命中（受 projectileExplosionDamagePct 影响）
- *   fireInFullBurst          {boolean}  Fire In Full Burst 标记（享受全爆裂补正及 ENTER_FULL_BURST 效果）
- *   burstSkillDamage         {boolean}  爆裂技能本体伤害标记；抑制全爆裂补正（50%）
+ *   affectedByFullBurst      {boolean}  非默认：该命中受全爆裂补正影响（仅 Rapi: Red Hood、Liberellio）
+ *   suppressFullBurst        {boolean}  [引擎内部] 由引擎自动标记延迟爆裂技能命中，抑制全爆裂补正
  */
 export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts = {}) {
   if (state.enemyHp <= 0) return 0;
@@ -209,6 +209,12 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
   const extraAtkFlat     = opts.extraAtkFlat     ?? 0;
   // Projectile Explosion 伤害：受 projectileExplosionDamagePct 加成（累加至 extraAtkDmgPct）
   const projExplosionBonus = opts.projectileExplosion ? (sums.projectileExplosionDamagePct ?? 0) : 0;
+  // 默认结算：爆裂技能伤害不受全爆裂补正（+50%）影响。
+  // 例外：Rapi: Red Hood 和 Liberellio 标记 affectedByFullBurst:true，受全爆裂补正。
+  // state.burstSkillFiring 由引擎在 BURST_SKILL_USE 期间设为 true，使同步命中自动跳过全爆裂补正。
+  // 延迟命中（pendingSkillHits）由引擎自动标记 suppressFullBurst:true（affectedByFullBurst 的除外）。
+  const isFullBurst = state.fullBurstActive &&
+    (opts.affectedByFullBurst || (!state.burstSkillFiring && !opts.suppressFullBurst));
   const { damage, breakdown: bd } = calcDamage({
     atk:               unit.stats.atk,
     atkMultiplier:     1 + sums.atkPct,
@@ -220,7 +226,7 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
     critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDmgBonus,
     isCore,
     coreDmgIncrement,
-    isFullBurst:       state.fullBurstActive && !opts.burstSkillDamage,
+    isFullBurst,
     attackerElement:   unit.element,
     defenderElement:   state.enemyElement,
     elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantageBonus ?? 0),
@@ -251,8 +257,8 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
       extraAttackDamagePct: extraAtkDmgPct,
       projectileExplosion: opts.projectileExplosion ?? false,
       projectileExplosionBonus: projExplosionBonus,
-      fireInFullBurst: opts.fireInFullBurst ?? false,
-      isFullBurst: state.fullBurstActive,
+      affectedByFullBurst: opts.affectedByFullBurst ?? false,
+      isFullBurst,
       damageTakenPct: state.enemyDamageTakenPct + distributedBonus, enemyDef: state.enemyDef,
       isDistributed, distributedBonus,
       isCore, coreDmgIncrement, damage,

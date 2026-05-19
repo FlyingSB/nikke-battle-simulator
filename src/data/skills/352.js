@@ -124,12 +124,11 @@ export default {
           const burstMult = getSkillValue(helmBurst, 0, bLv) / 100;
           const lsPct     = getSkillValue(helmBurst, 1, bLv) / 100;
           const cdPct     = getSkillValue(helmBurst, 3, bLv) / 100;
-          // 延迟 1.05s，默认：不受全爆裂加成（50%），不受 ENTER_FULL_BURST buff 影响；预捕获 sums
+          // 延迟 1.05s，默认结算：sums 预捕获排除 ENTER_FULL_BURST buff；全爆裂补正由引擎自动抑制
           const sumsSnap  = getBuffSums(state, caster.id);
           state.pendingSkillHits.push({
             fireTick: state.tick + Math.round(1.05 * TICK_RATE),
             caster, mult: burstMult, sums: sumsSnap, isCharged: false, label: 'helm_burst',
-            opts: { burstSkillDamage: true },
           });
           pushBuff(state, { name: 'helm_burst_heal', unitId: null,
             lifeStealPct: lsPct, endTick: state.tick + TICK_RATE * 10 });

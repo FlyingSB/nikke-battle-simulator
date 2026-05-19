@@ -93,7 +93,7 @@ export default {
   burst: {
     groupId: 18323,
     triggers: [
-      // Burst: p00% 爆裂伤害（burstSkillDamage）+ 全员攻击伤害 ▲ p01% 10s
+      // Burst: p00% 爆裂技能伤害（默认结算）+ 全员攻击伤害 ▲ p01% 10s
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
@@ -102,8 +102,7 @@ export default {
 
           if (state.enemyHp > 0) {
             const hitMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
-            fireSkillHit(state, caster, hitMult, sums, false, 'mari_burst_hit',
-              { burstSkillDamage: true });
+            fireSkillHit(state, caster, hitMult, sums, false, 'mari_burst_hit');
           }
 
           const attackDmgPct = getSkillValue(caster.rawBurst, 1, lv) / 100;

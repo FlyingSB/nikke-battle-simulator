@@ -113,7 +113,7 @@ export default {
     groupId: 12623,
     triggers: [
       // Burst（Submerged World）：自身 Attack Damage ▲[Burst param0]% 10s
-      //   + 延迟 0.97s 后 [Burst param2]% ATK 技能伤害（【已实测】非默认：sums 在延迟命中时重算，享受全爆裂补正）
+      //   + 延迟 0.97s 后 [Burst param2]% ATK 技能伤害（【已实测】非默认：受全爆裂补正，sums 在命中时重算获取 ENTER_FULL_BURST buff）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
@@ -123,7 +123,7 @@ export default {
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
           state.pendingSkillHits.push({
             fireTick: state.tick + Math.round(0.97 * TICK_RATE),
-            caster, mult: burstMult, isCharged: false, label: 'burst', opts: { fireInFullBurst: true },
+            caster, mult: burstMult, isCharged: false, label: 'burst', opts: { affectedByFullBurst: true },
           });
         },
       },

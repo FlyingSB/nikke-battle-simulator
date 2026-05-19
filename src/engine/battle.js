@@ -302,7 +302,20 @@ function applyFullBurstSkills(state) {
     step3.burstSkillCooldownEndTick = state.tick + step3.burstSkillCooltime;
     state.burstCastersThisRotation?.add(step3.id);
     if (!firstFired) firstFired = step3;
+
+    // 标记"爆裂技能施放中"：使同步命中自动跳过全爆裂补正（默认结算）
+    const prePendingLen = state.pendingSkillHits.length;
+    state.burstSkillFiring = true;
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: step3 });
+    state.burstSkillFiring = false;
+
+    // 自动为此期间新增的延迟命中打 suppressFullBurst 标记（affectedByFullBurst 的除外）
+    for (let i = prePendingLen; i < state.pendingSkillHits.length; i++) {
+      const h = state.pendingSkillHits[i];
+      if (!h.opts) h.opts = {};
+      if (!h.opts.affectedByFullBurst) h.opts.suppressFullBurst = true;
+    }
+
     flushHealReceived(state);
     flushShieldReceived(state);
     if (state.enemyHp <= 0) break;
@@ -312,7 +325,7 @@ function applyFullBurstSkills(state) {
   executeSkillTriggers(state, 'ENTER_FULL_BURST');
   flushHealReceived(state);
 
-  // 4. Flush FIRE_IN_FULL_BURST hits enqueued during BURST_SKILL_USE / ENTER_FULL_BURST handlers.
+  // 4. 结算 BURST_SKILL_USE / ENTER_FULL_BURST 期间入队的 pendingFireInBurstHits（全爆裂后触发）
   for (const h of state.pendingFireInBurstHits) {
     const sums = h.sums ?? getBuffSums(state, h.caster.id);
     fireSkillHit(state, h.caster, h.mult, sums, h.isCharged, h.label, h.opts);
@@ -598,6 +611,7 @@ export function initBattle(config) {
     currentPhaseZone:   initialZone,
     tick:               0,
     fullBurstActive:    false,
+    burstSkillFiring:   false,
     fullBurstTick:      0,
     burstPhase:         0,
     // When set to an array, every damage hit (normal and skill) appends a detail record.
@@ -643,7 +657,7 @@ export function initBattle(config) {
     // Scheduled periodic heals: [{ fireTick, targetId, amount }]
     // Processed each tick before unit loops; each entry calls applyHeal + flushHealReceived.
     pendingHoTs: [],
-    // Zero-delay FIRE_IN_FULL_BURST hits that must execute after ENTER_FULL_BURST effects have applied.
+    // 在 ENTER_FULL_BURST 效果生效后再触发的命中（如 Cinderella S3 Part2）。
     // [{ caster, mult, sums, isCharged, label, opts }]
     pendingFireInBurstHits: [],
     // 持续伤害（DoT）池：见 battle-utils.js fireDotPool 注释中的字段说明。
@@ -886,8 +900,8 @@ export function tick(state) {
     // 装填处理（HIDDEN 期间也会运行，让进行中的装填能够完成）
     // unlimitedAmmoEndTick 激活期间弹药不消耗，永远不会达到 0，跳过装填逻辑
     if (unit.ammoLeft <= 0 && !((unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick)) {
+      const rSums = getBuffSums(state, unit.id);
       if (unit.reloadTick === 0) {
-        const rSums = getBuffSums(state, unit.id);
         // fixedReloadSpeedPct：固定装填速度加成，屏蔽其他装填速度效果（如 Asuka: WILLE S2）
         const effectiveReloadSpeed = unit.skillState?.fixedReloadSpeedPct ?? rSums.reloadSpeedPct;
         const dur   = Math.round(unit.reloadTicks / (1 + effectiveReloadSpeed));

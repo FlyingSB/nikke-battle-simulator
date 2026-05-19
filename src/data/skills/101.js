@@ -111,7 +111,7 @@ export default {
 
           // SSR：范围伤害 [p01]%（lv10=3009.6%）
           const dmgPct    = getSkillValue(favBurst, 0, favLv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'drake_burst', { burstSkillDamage: true });
+          fireSkillHit(state, caster, dmgPct, sums, false, 'drake_burst');
           // 自身 Max Ammo ▲[p02]%（lv10=72.18%）
           const ammoPct   = getSkillValue(favBurst, 1, favLv) / 100;
           pushBuff(state, { name: 'drake_burst_ammo',   unitId: caster.id, maxAmmoPct: ammoPct, endTick: end10 });

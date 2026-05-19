@@ -149,12 +149,11 @@ export default {
           pushBuff(state, { name: 'pum_burst_critDmg', unitId: caster.id,
             critDmgBonus: critDmgPct, endTick: end10 });
 
-          // 所有敌人：爆裂技能伤害 × p04%（burstSkillDamage：不受全爆裂 +50% 补正影响）
+          // 所有敌人：爆裂技能伤害 × p04%（默认结算，不受全爆裂 +50% 补正影响）
           if (state.enemyHp > 0) {
             const burstMult = getSkillValue(caster.rawBurst, 4, lv) / 100;
             const sums      = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, burstMult, sums, false, 'pum_burst_hit',
-              { burstSkillDamage: true });
+            fireSkillHit(state, caster, burstMult, sums, false, 'pum_burst_hit');
           }
         },
       },

@@ -147,7 +147,7 @@ export default {
               fireTick: state.tick + firstHitDelay + i * intervalTicks, caster, mult: burstMult,
               sums: preSums,
               isCharged: false, label: 'burst_hit',
-              opts: { extraAtkFlat: buffedMaxHp, burstSkillDamage: true },
+              opts: { extraAtkFlat: buffedMaxHp },
             });
           }
           // 先调度命中，再消耗 MP 并触发 S2 Part2（爆裂技能不受 S2 Part2 效果影响）

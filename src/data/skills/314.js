@@ -203,12 +203,11 @@ export default {
               atkPct, endTick: end15 });
           }
 
-          // Stage 1（始终触发）: 全体爆裂技能伤害（burstSkillDamage：不受全爆裂 +50% 补正影响）
+          // Stage 1（始终触发）: 全体爆裂技能伤害（默认结算，不受全爆裂 +50% 补正影响）
           if (state.enemyHp > 0) {
             const burstMult = getSkillValue(caster.rawBurst, 1, lv) / 100;
             const sums      = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, burstMult, sums, false, 'soda_burst_hit',
-              { burstSkillDamage: true });
+            fireSkillHit(state, caster, burstMult, sums, false, 'soda_burst_hit');
           }
 
           // 效果生效后消耗 17 层（不低于 0）

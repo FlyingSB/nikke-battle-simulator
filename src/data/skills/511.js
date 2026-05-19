@@ -117,7 +117,7 @@ export default {
     groupId: 15113,
     triggers: [
       // Burst（Glass Slippers. Full Contact.）：
-      //   S3 Part1：10 × 1365.92% ATK 爆裂技能伤害（默认：不受全爆裂+50%补正，burstSkillDamage:true）
+      //   S3 Part1：10 × 1365.92% ATK 爆裂技能伤害（默认结算，不受全爆裂+50%补正）
       //   S3 Part2：每次 Part1 命中后触发 Beautiful层数 × 28.9% 附加伤害（【已实测】非默认：sums:null，ENTER_FULL_BURST 后重算，享受全爆裂补正）
       {
         on: 'BURST_SKILL_USE',
@@ -127,8 +127,7 @@ export default {
           const beautyBonusPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const sums           = getBuffSums(state, caster.id);
           for (let i = 0; i < 10 && state.enemyHp > 0; i++) {
-            fireSkillHit(state, caster, burstHitMult, sums, false, 'burst_seq',
-              { burstSkillDamage: true });
+            fireSkillHit(state, caster, burstHitMult, sums, false, 'burst_seq');
             if (stacks > 0) {
               state.pendingFireInBurstHits.push({
                 caster, mult: stacks * beautyBonusPct, sums: null,

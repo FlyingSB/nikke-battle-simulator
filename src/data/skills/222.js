@@ -103,9 +103,8 @@ export default {
               critRateBonus: crPct, endTick: state.tick + TICK_RATE * 10 });
           }
 
-          // Part2：延迟 1.38s 后触发爆裂伤害。
-          // 命中时 sums 使用 BURST_SKILL_USE 时刻的快照（不含 ENTER_FULL_BURST buff），
-          // 且以 burstSkillDamage=true 屏蔽全爆裂 50% 加成。
+          // Part2：延迟 1.38s 后触发爆裂伤害（默认结算）。
+          // sums 预捕获以排除 ENTER_FULL_BURST buff；全爆裂补正由引擎自动抑制（suppressFullBurst）。
           const burstMult = getSkillValue(caster.rawBurst, 3, lv) / 100;
           const sumsSnap  = getBuffSums(state, caster.id);
           state.pendingSkillHits.push({
@@ -115,7 +114,6 @@ export default {
             sums:      sumsSnap,
             isCharged: false,
             label:     'sc_burst',
-            opts:      { burstSkillDamage: true },
           });
         },
       },

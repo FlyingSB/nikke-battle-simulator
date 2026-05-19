@@ -205,15 +205,15 @@ export default {
           if (caster.skillState.rapiShotCount >= 60) {
             caster.skillState.rapiShotCount -= 60;
           }
-          // [Burst param4]% 命中（lv10=2808%）— 延迟 0.1s，【已实测】非默认：能受到全爆裂加成（50%）和 ENTER_FULL_BURST buff 影响
-          // sums 不预捕获，在命中时重新计算以获取 ENTER_FULL_BURST buff 加成；无 burstSkillDamage 以获取 50% 加成
+          // [Burst param4]% 命中（lv10=2808%）— 延迟 0.1s，【已实测】非默认：受全爆裂补正（+50%）和 ENTER_FULL_BURST buff 影响
+          // sums 不预捕获，在命中时重新计算以获取 ENTER_FULL_BURST buff 加成；affectedByFullBurst:true 以获取全爆裂 50% 加成
           const burstMult = caster.rawBurst
             ? getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100
             : 28.08;
           state.pendingSkillHits.push({
             fireTick: state.tick + Math.round(0.1 * TICK_RATE),
             caster, mult: burstMult, isCharged: false, label: 'burst',
-            opts: { fireInFullBurst: true },
+            opts: { affectedByFullBurst: true },
           });
           const end10 = state.tick + TICK_RATE * 10;
           // burst 期间 attach mult = 1 + S2被动(150.72%) + Burst增益(421.2%) = 6.7192

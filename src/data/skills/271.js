@@ -95,7 +95,7 @@ export default {
         handler(state, caster) {
           const pct  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, pct, sums, false, 'noir_burst_dmg', { burstSkillDamage: true });
+          fireSkillHit(state, caster, pct, sums, false, 'noir_burst_dmg');
         },
       },
       // Part2：霰弹枪友军 Hit Rate + Interruption Parts Dmg（10 sec）

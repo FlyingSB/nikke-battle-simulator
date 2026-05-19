@@ -7,7 +7,7 @@
  *   Fix 3  — RELOAD_END removes Charge Speed buff; skill-refill does not
  *   Fix 6  — S3 Part2 mult = Beautiful stacks × 28.9% (one hit per Part1 trigger)
  *   Fix 7  — S3 Part2 fires once per each of the 10 S3 Part1 hits
- *   Fix 8  — S3 Part1 marked burstSkillDamage:true (no full burst bonus)
+ *   Fix 8  — S3 Part1 默认结算，无 burstSkillDamage 标记（引擎自动抑制全爆裂加成）
  *
  * Run: node scripts/tests/test-cinderella.mjs
  */
@@ -248,16 +248,16 @@ section('Fix 7: S3 Part2 enqueued exactly 10 times (one per Part1 hit)');
   eq('Part1 still fires 10 times', caster2.skillDamageCount?.burst_seq ?? 0, 10);
 }
 
-// ── Fix 8: S3 Part1 marked burstSkillDamage:true ─────────────────────────────
+// ── Fix 8: S3 Part1 默认结算（无 burstSkillDamage 标记，引擎自动抑制加成）────
 
-section('Fix 8: S3 Part1 opts contain burstSkillDamage:true');
+section('Fix 8: S3 Part1 默认结算，不含 burstSkillDamage 标记');
 {
   const burstUseTrigger = SKILL_TRAITS[511]?.burst?.triggers.find(t => t.on === 'BURST_SKILL_USE');
   const handlerSrc      = burstUseTrigger?.handler?.toString() ?? '';
 
-  eq('handler contains burstSkillDamage: true', handlerSrc.includes('burstSkillDamage: true'), true);
-  eq('handler labels Part1 as burst_seq',       handlerSrc.includes('burst_seq'),              true);
-  eq('handler labels Part2 as burst_beautiful', handlerSrc.includes('burst_beautiful'),         true);
+  eq('handler 不含 burstSkillDamage（默认结算）', handlerSrc.includes('burstSkillDamage'), false);
+  eq('handler labels Part1 as burst_seq',         handlerSrc.includes('burst_seq'),              true);
+  eq('handler labels Part2 as burst_beautiful',   handlerSrc.includes('burst_beautiful'),         true);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -717,28 +717,28 @@ section('T15: Blanc S2 Part2 — Burst CD ▼40.76s fires only when a same-squad
   }
 }
 
-// ── T16: burstSkillDamage audit — S3 直接伤害配置正确性 ──────────────────────
+// ── T16: B3 直接伤害默认/非默认结算配置审计 ──────────────────────────────────
 //
 // 汇总表（所有 B3 且 S3 造成直接伤害的角色）：
 //
-// | 角色              | ID  | sums 捕获时机             | burstSkillDamage | 类别          |
-// |-------------------|-----|---------------------------|-----------------|---------------|
-// | Privaty           | 170 | BURST_SKILL_USE 即时      | true            | 默认          |
-// | Scarlet           | 222 | BURST_SKILL_USE 即时      | true            | 默认          |
-// | Noir              | 271 | BURST_SKILL_USE 即时      | true            | 默认          |
-// | Raven             | 851 | BURST_SKILL_USE 预捕获    | true            | 默认          |
-// | Drake             | 101 | BURST_SKILL_USE 即时      | true            | 默认          |
-// | Maiden: Ice Rose  | 183 | BURST_SKILL_USE 预捕获    | true            | 默认          |
-// | Cinderella Part1  | 511 | BURST_SKILL_USE 即时      | true            | 默认          |
-// | Soda              | 314 | Stage2/3 buff 后即时      | true            | 默认          |
-// | EVE               | 850 | BURST_SKILL_USE 即时      | true (已修复)   | 默认          |
-// | Elegg: BaS        | 502 | BURST_SKILL_USE 预捕获    | true (已修复)   | 默认          |
-// | Asuka: WILLE      | 835 | Annihilation 发动时重算   | 无              | 非默认【已实测】|
-// | Rapi: Red Hood    |  16 | 延迟命中时重算            | 无              | 非默认【已实测】|
-// | Liberalio         | 262 | 延迟命中时重算            | 无              | 非默认【已实测】|
-// | Cinderella Part2  | 511 | sums:null，EFBF 后重算    | 无              | 非默认【已实测】|
+// | 角色              | ID  | sums 捕获时机             | 标记（新机制）          | 类别          |
+// |-------------------|-----|---------------------------|------------------------|---------------|
+// | Privaty           | 170 | BURST_SKILL_USE 即时      | 无（引擎 firing 抑制）  | 默认          |
+// | Scarlet           | 222 | BURST_SKILL_USE 即时      | 无（引擎 suppress）     | 默认          |
+// | Noir              | 271 | BURST_SKILL_USE 即时      | 无（引擎 firing 抑制）  | 默认          |
+// | Raven             | 851 | BURST_SKILL_USE 预捕获    | 无（引擎 suppress）     | 默认          |
+// | Drake             | 101 | BURST_SKILL_USE 即时      | 无（引擎 firing 抑制）  | 默认          |
+// | Maiden: Ice Rose  | 183 | BURST_SKILL_USE 预捕获    | 无（引擎 suppress）     | 默认          |
+// | Cinderella Part1  | 511 | BURST_SKILL_USE 即时      | 无（引擎 firing 抑制）  | 默认          |
+// | Soda              | 314 | Stage2/3 buff 后即时      | 无（引擎 firing 抑制）  | 默认          |
+// | EVE               | 850 | BURST_SKILL_USE 即时      | 无（声明式，引擎处理）  | 默认          |
+// | Elegg: BaS        | 502 | BURST_SKILL_USE 预捕获    | 无（引擎 suppress）     | 默认          |
+// | Asuka: WILLE      | 835 | Annihilation 发动时重算   | 无                     | 非默认【已实测】|
+// | Rapi: Red Hood    |  16 | 延迟命中时重算            | affectedByFullBurst:true| 非默认【已实测】|
+// | Liberalio         | 262 | 延迟命中时重算            | affectedByFullBurst:true| 非默认【已实测】|
+// | Cinderella Part2  | 511 | sums:null，EFBF 后重算    | 无                     | 非默认【已实测】|
 
-section('T16: burstSkillDamage audit — S3 直接伤害默认/非默认配置');
+section('T16: B3 直接伤害默认/非默认结算配置审计');
 {
   function makeState(unitId) {
     return {
@@ -759,15 +759,15 @@ section('T16: burstSkillDamage audit — S3 直接伤害默认/非默认配置')
     return { description_value_list: vals.map(v => ({ description_value: [String(v)] })) };
   }
 
-  // ── EVE (850): declarative SKILL_DAMAGE effects[0].opts.burstSkillDamage ──
+  // ── EVE (850): declarative SKILL_DAMAGE effects[0] — 无 burstSkillDamage ──
   {
     const trigger = SKILL_TRAITS[850]?.burst?.triggers?.find(
       t => t.on === 'BURST_SKILL_USE' && Array.isArray(t.effects));
     eq('EVE burst: declarative SKILL_DAMAGE trigger 存在', !!trigger, true);
-    eq('EVE SKILL_DAMAGE opts.burstSkillDamage === true', trigger?.effects?.[0]?.opts?.burstSkillDamage, true);
+    eq('EVE SKILL_DAMAGE opts.burstSkillDamage 未设置（引擎处理）', trigger?.effects?.[0]?.opts?.burstSkillDamage, undefined);
   }
 
-  // ── Elegg: BaS (502): pendingSkillHits 包含 opts.burstSkillDamage ──────────
+  // ── Elegg: BaS (502): pendingSkillHits — 无 burstSkillDamage ───────────────
   {
     const trigger = SKILL_TRAITS[502]?.burst?.triggers?.find(t => t.on === 'BURST_SKILL_USE');
     const state   = makeState(502);
@@ -776,7 +776,7 @@ section('T16: burstSkillDamage audit — S3 直接伤害默认/非默认配置')
     caster.rawBurst   = rawSkill([500, 6, 6, 500]);
     trigger.handler(state, caster, {});
     eq('Elegg burst 非13模式: 6 hits 入队', state.pendingSkillHits.length, 6);
-    eq('Elegg pendingSkillHits[0].opts.burstSkillDamage', state.pendingSkillHits[0].opts?.burstSkillDamage, true);
+    eq('Elegg pendingSkillHits[0].opts.burstSkillDamage 未设置（引擎 suppress）', state.pendingSkillHits[0].opts?.burstSkillDamage, undefined);
     eq('Elegg pendingSkillHits[0].sums 预捕获（非空）', !!state.pendingSkillHits[0].sums, true);
   }
 
@@ -789,7 +789,7 @@ section('T16: burstSkillDamage audit — S3 直接伤害默认/非默认配置')
     caster.rawBurst   = rawSkill([500, 6, 6, 500]);
     trigger.handler(state, caster, {});
     eq('Elegg burst 13幽灵模式: 13 hits 入队', state.pendingSkillHits.length, 13);
-    eq('Elegg 13幽灵 pendingSkillHits[0].opts.burstSkillDamage', state.pendingSkillHits[0].opts?.burstSkillDamage, true);
+    eq('Elegg 13幽灵 pendingSkillHits[0].opts.burstSkillDamage 未设置（引擎 suppress）', state.pendingSkillHits[0].opts?.burstSkillDamage, undefined);
   }
 
   // ── Asuka: WILLE (835): 【已实测】非默认 — Annihilation 在 Annihilation State 结束时（≈9s 后）发动 ──
@@ -827,22 +827,22 @@ section('T16: burstSkillDamage audit — S3 直接伤害默认/非默认配置')
       burstSrc.includes('asuka_burstSumsSnapshot'), false);
   }
 
-  // ── Cinderella (511): Part1 默认，Part2 非默认（源码检查）──────────────────────
+  // ── Cinderella (511): Part1 默认（无标记），Part2 非默认（源码检查）──────────
   {
     const src = SKILL_TRAITS[511]?.burst?.triggers?.find(
       t => t.on === 'BURST_SKILL_USE')?.handler?.toString() ?? '';
-    eq('Cinderella Part1 源码含 burstSkillDamage: true', src.includes('burstSkillDamage: true'), true);
+    eq('Cinderella Part1 源码不含 burstSkillDamage（默认结算）', src.includes('burstSkillDamage'), false);
     eq('Cinderella Part2 源码含 sums: null（EFBF 后重算）', src.includes('sums: null'), true);
   }
 
-  // ── Soda (314): burstSkillDamage（源码检查）──────────────────────────────────
+  // ── Soda (314): 无 burstSkillDamage（源码检查）──────────────────────────────
   {
     const src = SKILL_TRAITS[314]?.burst?.triggers?.find(
       t => t.on === 'BURST_SKILL_USE')?.handler?.toString() ?? '';
-    eq('Soda burst 源码含 burstSkillDamage: true', src.includes('burstSkillDamage: true'), true);
+    eq('Soda burst 源码不含 burstSkillDamage（默认结算）', src.includes('burstSkillDamage'), false);
   }
 
-  // ── Rapi: Red Hood (16): 非默认 — no sums 预捕获，no burstSkillDamage ───────
+  // ── Rapi: Red Hood (16): 非默认 — affectedByFullBurst:true，sums 不预捕获 ──
   {
     const trigger = SKILL_TRAITS[16]?.burst?.triggers?.find(
       t => t.on === 'BURST_SKILL_USE' && t.handler?.toString().includes('pendingSkillHits'));
@@ -858,10 +858,10 @@ section('T16: burstSkillDamage audit — S3 直接伤害默认/非默认配置')
     const hit = state.pendingSkillHits[0];
     eq('Rapi burst: 1 pendingSkillHit 入队', state.pendingSkillHits.length, 1);
     eq('Rapi pendingSkillHits[0].sums 未设置（非默认）', hit.sums, undefined);
-    eq('Rapi pendingSkillHits[0].opts.burstSkillDamage 为 falsy（非默认）', !!hit.opts?.burstSkillDamage, false);
+    eq('Rapi pendingSkillHits[0].opts.affectedByFullBurst = true（非默认）', hit.opts?.affectedByFullBurst, true);
   }
 
-  // ── Liberalio (262): 非默认 — no sums 预捕获，no burstSkillDamage ────────────
+  // ── Liberalio (262): 非默认 — affectedByFullBurst:true，sums 不预捕获 ────────
   {
     const trigger = SKILL_TRAITS[262]?.burst?.triggers?.find(t => t.on === 'BURST_SKILL_USE');
     const state   = makeState(262);
@@ -871,7 +871,7 @@ section('T16: burstSkillDamage audit — S3 直接伤害默认/非默认配置')
     const hit = state.pendingSkillHits[0];
     eq('Liberalio burst: 1 pendingSkillHit 入队', state.pendingSkillHits.length, 1);
     eq('Liberalio pendingSkillHits[0].sums 未设置（非默认）', hit.sums, undefined);
-    eq('Liberalio pendingSkillHits[0].opts.burstSkillDamage 为 falsy（非默认）', !!hit.opts?.burstSkillDamage, false);
+    eq('Liberalio pendingSkillHits[0].opts.affectedByFullBurst = true（非默认）', hit.opts?.affectedByFullBurst, true);
   }
 }
 

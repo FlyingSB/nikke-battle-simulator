@@ -2,9 +2,10 @@
  * B3 爆裂直接伤害 — 延迟与加成行为回归测试。
  *
  * 默认规则：爆裂3直接伤害不受全爆裂加成（50%）影响，也不受任何"进入全爆裂时"
- * 生效的 buff 影响。二者在代码层面通过同一对标志控制：
- *   - burstSkillDamage: true  → 屏蔽 50% 加成
- *   - sums 预捕获并传入       → 屏蔽 ENTER_FULL_BURST buff
+ * 生效的 buff 影响。引擎通过两个机制实现：
+ *   - state.burstSkillFiring = true → 同步 fireSkillHit 在 BURST_SKILL_USE 期间自动跳过 50% 加成
+ *   - 引擎自动对 pendingSkillHits 标记 suppressFullBurst → 延迟命中也跳过 50% 加成
+ *   - sums 预捕获并传入 → 屏蔽 ENTER_FULL_BURST buff（适用于有延迟的默认角色）
  *
  * 非默认角色（有明确游戏内依据）：
  *   - Rapi: Red Hood (16)：延迟 0.1s，获得 50% 加成和 ENTER_FULL_BURST buff
@@ -77,9 +78,9 @@ section('Rapi: Red Hood (16) — 延迟 0.1s，获得全爆裂加成与 ENTER_FU
 
   const src = burstTrigger?.handler?.toString() ?? '';
   eq('handler 含 0.1 * TICK_RATE', src.includes('0.1 * TICK_RATE'), true);
-  eq('handler 不含 burstSkillDamage: true（获得 50% 加成）', src.includes('burstSkillDamage: true'), false);
+  eq('handler 不含 burstSkillDamage（获得 50% 加成）', src.includes('burstSkillDamage'), false);
   eq('handler 不预捕获 sums（获得 ENTER_FULL_BURST buff）', src.includes('sumsSnap'), false);
-  eq('opts 含 fireInFullBurst: true', src.includes('fireInFullBurst: true'), true);
+  eq('opts 含 affectedByFullBurst: true', src.includes('affectedByFullBurst: true'), true);
 
   // 调用 handler 验证 fireTick
   const state  = makeState();
@@ -103,14 +104,13 @@ section('Rapi: Red Hood (16) — 延迟 0.1s，获得全爆裂加成与 ENTER_FU
   const hit = state.pendingSkillHits[0];
   eq('pendingSkillHits 有 1 个命中', state.pendingSkillHits.length, 1);
   eq('fireTick = tick + round(0.1 × 60) = 106', hit?.fireTick, 100 + Math.round(0.1 * TICK_RATE));
-  eq('opts.fireInFullBurst = true', hit?.opts?.fireInFullBurst, true);
-  eq('opts.burstSkillDamage 未设置（获得 50% 加成）', hit?.opts?.burstSkillDamage, undefined);
+  eq('opts.affectedByFullBurst = true', hit?.opts?.affectedByFullBurst, true);
   eq('sums 字段未预捕获（获得 ENTER_FULL_BURST buff）', hit?.sums, undefined);
 }
 
 // ── Drake SSR fav (101) — 默认：直接命中，无延迟 ─────────────────────────────────
 
-section('Drake SSR fav (101) — 直接命中，burstSkillDamage:true');
+section('Drake SSR fav (101) — 直接命中，无标记（默认结算，引擎 burstSkillFiring 自动抑制加成）');
 {
   const burstTrigger = SKILL_TRAITS[101]?.burst?.triggers
     .find(t => t.on === 'BURST_SKILL_USE');
@@ -118,7 +118,7 @@ section('Drake SSR fav (101) — 直接命中，burstSkillDamage:true');
   eq('有 BURST_SKILL_USE handler', !!burstTrigger, true);
 
   const src = burstTrigger?.handler?.toString() ?? '';
-  eq('handler 含 burstSkillDamage: true', src.includes('burstSkillDamage: true'), true);
+  eq('handler 不含 burstSkillDamage（默认结算无需标记）', src.includes('burstSkillDamage'), false);
   eq('handler 不使用 pendingSkillHits', src.includes('pendingSkillHits'), false);
   eq('handler 不使用 pendingFireInBurstHits', src.includes('pendingFireInBurstHits'), false);
 
@@ -139,7 +139,7 @@ section('Drake SSR fav (101) — 直接命中，burstSkillDamage:true');
 
 // ── Privaty SSR fav (170) — 默认：直接命中，无延迟 ───────────────────────────────
 
-section('Privaty SSR fav (170) — 直接命中，burstSkillDamage:true');
+section('Privaty SSR fav (170) — 直接命中，无标记（默认结算，引擎 burstSkillFiring 自动抑制加成）');
 {
   const burstTrigger = SKILL_TRAITS[170]?.burst?.triggers
     .find(t => t.on === 'BURST_SKILL_USE');
@@ -147,7 +147,7 @@ section('Privaty SSR fav (170) — 直接命中，burstSkillDamage:true');
   eq('有 BURST_SKILL_USE handler', !!burstTrigger, true);
 
   const src = burstTrigger?.handler?.toString() ?? '';
-  eq('handler 含 burstSkillDamage: true', src.includes('burstSkillDamage: true'), true);
+  eq('handler 不含 burstSkillDamage（默认结算无需标记）', src.includes('burstSkillDamage'), false);
   eq('handler 不使用 pendingSkillHits', src.includes('pendingSkillHits'), false);
   eq('handler 不使用 pendingFireInBurstHits', src.includes('pendingFireInBurstHits'), false);
 
@@ -168,7 +168,7 @@ section('Privaty SSR fav (170) — 直接命中，burstSkillDamage:true');
 
 // ── Helm SSR fav (352) — 默认：延迟 1.05s ──────────────────────────────────────
 
-section('Helm SSR fav (352) — 延迟 1.05s，默认（burstSkillDamage:true + sums 预捕获）');
+section('Helm SSR fav (352) — 延迟 1.05s，默认（无标记，sums 预捕获，引擎自动 suppressFullBurst）');
 {
   const burstTrigger = SKILL_TRAITS[352]?.burst?.triggers
     .find(t => t.on === 'BURST_SKILL_USE');
@@ -176,7 +176,7 @@ section('Helm SSR fav (352) — 延迟 1.05s，默认（burstSkillDamage:true + 
   eq('有 BURST_SKILL_USE handler', !!burstTrigger, true);
 
   const src = burstTrigger?.handler?.toString() ?? '';
-  eq('handler 含 burstSkillDamage: true', src.includes('burstSkillDamage: true'), true);
+  eq('handler 不含 burstSkillDamage（引擎自动抑制）', src.includes('burstSkillDamage'), false);
   eq('handler 含 pendingSkillHits', src.includes('pendingSkillHits'), true);
   eq('handler 含 1.05 * TICK_RATE', src.includes('1.05 * TICK_RATE'), true);
   eq('handler 预捕获 sums（sumsSnap）', src.includes('sumsSnap'), true);
@@ -196,13 +196,14 @@ section('Helm SSR fav (352) — 延迟 1.05s，默认（burstSkillDamage:true + 
   const hit = state.pendingSkillHits[0];
   eq('pendingSkillHits 有 1 个命中', state.pendingSkillHits.length, 1);
   eq('fireTick = tick + round(1.05 × 60) = 263', hit?.fireTick, 200 + Math.round(1.05 * TICK_RATE));
-  eq('opts.burstSkillDamage = true', hit?.opts?.burstSkillDamage, true);
+  eq('opts.burstSkillDamage 未设置（引擎 suppressFullBurst 负责）', hit?.opts?.burstSkillDamage, undefined);
+  eq('opts.affectedByFullBurst 未设置（默认结算）', hit?.opts?.affectedByFullBurst, undefined);
   eq('sums 已预捕获（非 undefined）', hit?.sums !== undefined, true);
 }
 
 // ── Scarlet (222) — 默认：延迟 1.38s ───────────────────────────────────────────
 
-section('Scarlet (222) — 延迟 1.38s，默认（burstSkillDamage:true + sums 预捕获）');
+section('Scarlet (222) — 延迟 1.38s，默认（无标记，sums 预捕获，引擎自动 suppressFullBurst）');
 {
   const burstTrigger = SKILL_TRAITS[222]?.burst?.triggers
     .find(t => t.on === 'BURST_SKILL_USE');
@@ -210,7 +211,7 @@ section('Scarlet (222) — 延迟 1.38s，默认（burstSkillDamage:true + sums 
   eq('有 BURST_SKILL_USE handler', !!burstTrigger, true);
 
   const src = burstTrigger?.handler?.toString() ?? '';
-  eq('handler 含 burstSkillDamage: true', src.includes('burstSkillDamage: true'), true);
+  eq('handler 不含 burstSkillDamage（引擎自动抑制）', src.includes('burstSkillDamage'), false);
   eq('handler 含 pendingSkillHits', src.includes('pendingSkillHits'), true);
   eq('handler 含 1.38 * TICK_RATE', src.includes('1.38 * TICK_RATE'), true);
 
@@ -228,7 +229,8 @@ section('Scarlet (222) — 延迟 1.38s，默认（burstSkillDamage:true + sums 
   const hit = state.pendingSkillHits[0];
   eq('pendingSkillHits 有 1 个命中', state.pendingSkillHits.length, 1);
   eq('fireTick = tick + round(1.38 × 60) = 383', hit?.fireTick, 300 + Math.round(1.38 * TICK_RATE));
-  eq('opts.burstSkillDamage = true', hit?.opts?.burstSkillDamage, true);
+  eq('opts.burstSkillDamage 未设置（引擎 suppressFullBurst 负责）', hit?.opts?.burstSkillDamage, undefined);
+  eq('opts.affectedByFullBurst 未设置（默认结算）', hit?.opts?.affectedByFullBurst, undefined);
   eq('sums 已预捕获（非 undefined）', hit?.sums !== undefined, true);
   near('burst 倍率 lv10 = 8.4915', hit?.mult ?? 0, 8.4915, 0.0001);
 }
@@ -246,17 +248,17 @@ section('Liberalio (262) — 延迟 0.97s，获得全爆裂加成与 ENTER_FULL_
   eq('handler 含 0.97 * TICK_RATE', src.includes('0.97 * TICK_RATE'), true);
   eq('handler 不含 burstSkillDamage（获得 50% 加成）', src.includes('burstSkillDamage'), false);
   eq('handler 不预捕获 sums（获得 ENTER_FULL_BURST buff）', src.includes('sumsSnap'), false);
-  eq('opts 含 fireInFullBurst: true', src.includes('fireInFullBurst: true'), true);
+  eq('opts 含 affectedByFullBurst: true', src.includes('affectedByFullBurst: true'), true);
 }
 
 // ── Cinderella 主爆裂 (511) — 默认：直接 fireSkillHit，burstSkillDamage:true ──────
 
-section('Cinderella 主爆裂 (511) — 直接 fireSkillHit，burstSkillDamage:true，label=burst_seq');
+section('Cinderella 主爆裂 (511) — 直接 fireSkillHit，无标记（默认结算），label=burst_seq');
 {
   const src = SKILL_TRAITS[511]?.burst?.triggers
     .find(t => t.on === 'BURST_SKILL_USE')?.handler?.toString() ?? '';
 
-  eq('主爆裂含 burstSkillDamage: true', src.includes('burstSkillDamage: true'), true);
+  eq('主爆裂不含 burstSkillDamage（默认结算）', src.includes('burstSkillDamage'), false);
   eq('主爆裂 label = burst_seq', src.includes('burst_seq'), true);
   eq('主爆裂不使用 pendingSkillHits', src.includes('pendingSkillHits'), false);
 }
@@ -274,7 +276,7 @@ section('Cinderella Beautiful 加成 (511) — pendingFireInBurstHits，sums:nul
 
 // ── Maiden: Ice Rose (183) — 默认：延迟 0.73s + 0.1s 间隔 ───────────────────────
 
-section('Maiden: Ice Rose (183) — 首击 0.73s，间隔 0.1s，默认（burstSkillDamage:true + sums 预捕获）');
+section('Maiden: Ice Rose (183) — 首击 0.73s，间隔 0.1s，默认（无标记，sums 预捕获，引擎自动 suppressFullBurst）');
 {
   const burstTrigger = SKILL_TRAITS[183]?.burst?.triggers
     .find(t => t.on === 'BURST_SKILL_USE');
@@ -282,7 +284,7 @@ section('Maiden: Ice Rose (183) — 首击 0.73s，间隔 0.1s，默认（burstS
   eq('有 BURST_SKILL_USE handler', !!burstTrigger, true);
 
   const src = burstTrigger?.handler?.toString() ?? '';
-  eq('handler 含 burstSkillDamage: true', src.includes('burstSkillDamage: true'), true);
+  eq('handler 不含 burstSkillDamage（引擎自动抑制）', src.includes('burstSkillDamage'), false);
   eq('handler 含 pendingSkillHits', src.includes('pendingSkillHits'), true);
   eq('handler 含 0.73 * TICK_RATE', src.includes('0.73 * TICK_RATE'), true);
   eq('handler 含 0.1 * TICK_RATE（间隔）', src.includes('0.1 * TICK_RATE'), true);
@@ -310,7 +312,7 @@ section('Maiden: Ice Rose (183) — 首击 0.73s，间隔 0.1s，默认（burstS
   eq('第 2 击 fireTick', hits[1]?.fireTick, firstDelay + interval);
   eq('第 3 击 fireTick', hits[2]?.fireTick, firstDelay + 2 * interval);
 
-  eq('所有命中 burstSkillDamage = true', hits.every(h => h.opts?.burstSkillDamage === true), true);
+  eq('所有命中 burstSkillDamage 未设置（引擎 suppressFullBurst 负责）', hits.every(h => h.opts?.burstSkillDamage === undefined), true);
   eq('所有命中 sums 已预捕获（非 undefined）', hits.every(h => h.sums !== undefined), true);
   eq('消耗全部 MP → iceroseMP = 0', caster.skillState.iceroseMP, 0);
 }

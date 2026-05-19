@@ -98,7 +98,7 @@ export default {
         handler(state, caster) {
           const lv = caster.skillLevels[2];
 
-          // Part1: 全体爆裂技能伤害（延迟 1s）
+          // Part1: 全体爆裂技能伤害（延迟 1s，默认结算：sums 预捕获，全爆裂补正由引擎自动抑制）
           const burstMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const sumsSnap  = getBuffSums(state, caster.id);
           state.pendingSkillHits.push({
@@ -108,7 +108,6 @@ export default {
             sums:      sumsSnap,
             isCharged: false,
             label:     'rv_burst',
-            opts:      { burstSkillDamage: true },
           });
 
           // Part2: A.N. Mode — 自身持续伤害倍率▲ p01% 10s

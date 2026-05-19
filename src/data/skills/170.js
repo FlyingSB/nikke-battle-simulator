@@ -123,7 +123,7 @@ export default {
           // [TODO] 实际为3段分段伤害；合计等效于单次命中，此处不区分建模
           // Burst 伤害 p00%（对所有敌人，单 Boss 场景 = 1 次命中）
           const dmgPct = getSkillValue(favBurst, 0, lv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'pv_burst', { burstSkillDamage: true });
+          fireSkillHit(state, caster, dmgPct, sums, false, 'pv_burst');
 
           const endTick = state.tick + TICK_RATE * 10;
 
