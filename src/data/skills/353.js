@@ -34,13 +34,23 @@ export default {
           addBurstGauge(state, caster.name, 'helm353_s1_extraHit', caster.targetBurstEnergyPerShot);
         },
       },
-      // Part2：进入全爆裂 → 全员 Burst Skill CDR（累积制）
-      // [TODO] CDR 引擎暂不支持；激活计数记录在 skillState.helm353S1Activations
-      // 1次: 1.82s / 2次: 4.02s / 3次: 6.62s（Previous effects trigger repeatedly）
+      // Part2：进入全爆裂 → 全员 CDR（累积制，Previous effects trigger repeatedly）
+      // 1次: 1.82s / 2次: 1.82+2.2=4.02s / 3次+: 1.82+2.2+2.6=6.62s
       {
         on: 'ENTER_FULL_BURST',
         handler(state, caster) {
-          caster.skillState.helm353S1Activations = (caster.skillState.helm353S1Activations ?? 0) + 1;
+          const lv    = caster.skillLevels[0];
+          const count = (caster.skillState.helm353S1Activations ?? 0) + 1;
+          caster.skillState.helm353S1Activations = count;
+
+          let cdSec = getSkillValue(caster.rawSkill1, 2, lv); // 1.82（第1次固定触发）
+          if (count >= 2) cdSec += getSkillValue(caster.rawSkill1, 3, lv); // +2.2
+          if (count >= 3) cdSec += getSkillValue(caster.rawSkill1, 4, lv); // +2.6
+
+          const cdTicks = Math.round(cdSec * TICK_RATE);
+          for (const u of state.squad) {
+            u.burstSkillCooldownEndTick = Math.max(state.tick, u.burstSkillCooldownEndTick - cdTicks);
+          }
         },
       },
     ],
