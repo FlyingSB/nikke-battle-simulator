@@ -295,6 +295,9 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
  * @param {object} shotCtx   { sums, isCharged, isCore, ammoAfterShot }
  */
 export function onShotFired(state, unit, shotCtx) {
+  // 全队命中计数（供依赖全队命中数的技能使用，如 Elegg: Boom and Shock S1）
+  state.squadShotCount = (state.squadShotCount ?? 0) + 1;
+
   const rid = String(unit.id);
   const charSkills = SKILL_TRAITS[rid];
   if (!charSkills) return;

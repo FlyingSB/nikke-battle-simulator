@@ -626,6 +626,8 @@ export function initBattle(config) {
     // Populated during applyBurstISkills / applyBurstIISkills / applyFullBurstSkills.
     // Cleared when a new rotation begins (gauge fills → burstPhase 0→1).
     burstCastersThisRotation: new Set(),
+    // 全队普通攻击命中计数，由 skill-executor.onShotFired 在每次射击时自增。
+    squadShotCount: 0,
     // Deferred skill hits: [{ fireTick, caster, mult, sums, isCharged, label, opts }]
     // Processed at the start of each tick before unit loops.
     pendingSkillHits: [],

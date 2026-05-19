@@ -23,22 +23,28 @@ export default {
   skill1: {
     groupId: 25021,
     triggers: [
-      // S1 Part1：战斗开始 → 初始化幽灵计数
+      // S1 Part1：战斗开始 → 初始化幽灵计数与窗口基准
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          caster.skillState.ebs_ghostCount = 0;
+          caster.skillState.ebs_ghostCount    = 0;
+          caster.skillState.ebs_windowShotBase = 0;  // 与 state.squadShotCount 同步
         },
       },
-      // S1 Part2：每 100 次命中 → 捕获1个幽灵（上限13）
-      //   [简化] 仅计算 caster 自身命中；实际游戏中全队友军均贡献，幽灵积累速度约为 squad.length 倍。
+      // S1 Part2：每 6 秒（p00）占领窗口结算 → 若全队命中 ≥100 次则捕获1个幽灵
+      //   state.squadShotCount 由引擎在每次任意单位普通攻击后自增（skill-executor.js）。
       //   ≥1 幽灵（首次）：给所有水属性友军附加 ATK ▲ p04%（以 caster ATK flat 形式，持续）
-      //   >4 幽灵（首次）：额外附加 Elem Adv ATK Dmg ▲ p06%（持续）
+      //   >4 幽灵（首次到达5幽灵）：额外附加 Elem Adv ATK Dmg ▲ p06%（持续）
       //   满载（13幽灵）时溢出捕获：触发 S2 Part2 伤害
       {
-        on: 'SHOT_COUNT',
-        opts: { every: 100, counterKey: 'ebs_hitCount' },
+        on: 'INTERVAL',
+        opts: { seconds: 6 },
         handler(state, caster) {
+          const shotsThisWindow = (state.squadShotCount ?? 0) - (caster.skillState.ebs_windowShotBase ?? 0);
+          caster.skillState.ebs_windowShotBase = state.squadShotCount ?? 0;
+
+          if (shotsThisWindow < 100) return;
+
           const ghosts = caster.skillState.ebs_ghostCount ?? 0;
 
           // 满载溢出 → S2 Part2 伤害
@@ -56,7 +62,7 @@ export default {
 
           const lv = caster.skillLevels[0];
 
-          // 首次到达 1 幽灵：给水属性友军附加 ATK flat buff
+          // 首次到达 1 幽灵：给水属性友军附加 ATK flat buff（持续）
           if (newGhosts === 1) {
             const atkPct  = getSkillValue(caster.rawSkill1, 4, lv) / 100;
             const atkFlat = Math.round(caster.stats.atk * atkPct);
@@ -67,7 +73,7 @@ export default {
             }
           }
 
-          // 首次到达 5 幽灵：额外给水属性友军附加 Elem Adv buff
+          // 首次到达 5 幽灵（>4）：额外给水属性友军附加 Elem Adv buff（持续）
           if (newGhosts === 5) {
             const elemAdvPct = getSkillValue(caster.rawSkill1, 6, lv) / 100;
             for (const u of state.squad) {
@@ -85,7 +91,7 @@ export default {
   // ■ 使用爆裂技能时激活，影响自身。
   //   ATK ▲ {p00}% 持续 {p01=10} 秒。
   // ■ 满载时捕获幽灵时激活，影响所有敌人。
-  //   造成 {p02}% 最终 ATK 的伤害。（由 S1 SHOT_COUNT 溢出逻辑触发）
+  //   造成 {p02}% 最终 ATK 的伤害。（由 S1 INTERVAL 溢出逻辑触发）
   //
   // group_id: 25022
   // p00 ATK▲%: [23.63, 25.45, 27.27, 29.09, 30.91, 32.72, 34.54, 36.36, 38.18, 40]
@@ -113,6 +119,7 @@ export default {
   //   造成 {p00}% 最终ATK的伤害，连续攻击 {p01=6} 次，幽灵数 ▼ {p02=6}（至少保留1个）。
   // ■ 幽灵数量为13时，影响随机敌人单位：
   //   造成 {p03}% 最终ATK的伤害，连续攻击 {p04=13} 次，幽灵数 ▼ {p05=9}。
+  // 首次伤害延迟0.2s，每次伤害间隔0.2s；受全爆裂伤害加成。
   //
   // group_id: 15023
   // p00 hit% (non-13): [472.72, 509.09, 545.45, 581.81, 618.18, 654.54, 690.9, 727.27, 763.63, 800]
@@ -124,32 +131,41 @@ export default {
   burst: {
     groupId: 15023,
     triggers: [
-      // Burst：根据幽灵数量选择模式，造成连续技能伤害，并更新幽灵计数
+      // Burst：根据幽灵数量选择模式，调度延迟技能命中，并立即更新幽灵计数
+      //   首击延迟 0.2s（12 tick），后续每击间隔 0.2s；不含 burstSkillDamage，受全爆裂加成
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
-          if (state.enemyHp <= 0) return;
-          const lv     = caster.skillLevels[2];
-          const ghosts = caster.skillState.ebs_ghostCount ?? 0;
-          const sums   = getBuffSums(state, caster.id);
+          const lv      = caster.skillLevels[2];
+          const ghosts  = caster.skillState.ebs_ghostCount ?? 0;
+          const preSums = getBuffSums(state, caster.id);  // 含 S2 ATK buff
+          const delay   = Math.round(0.2 * TICK_RATE);
 
           if (ghosts === 13) {
             // 13幽灵模式：13连发，幽灵 ▼ 9（结果：4）
             const hitPct = getSkillValue(caster.rawBurst, 3, lv) / 100;
-            for (let h = 0; h < 13 && state.enemyHp > 0; h++) {
-              fireSkillHit(state, caster, hitPct, sums, false, 'ebs_burst_hit');
+            for (let h = 0; h < 13; h++) {
+              state.pendingSkillHits.push({
+                fireTick: state.tick + delay * (h + 1),
+                caster, mult: hitPct, sums: preSums,
+                isCharged: false, label: 'ebs_burst_hit',
+              });
             }
-            caster.skillState.ebs_ghostCount = ghosts - 9;
+            caster.skillState.ebs_ghostCount = ghosts - 9;  // 13 - 9 = 4
           } else {
             // 非13幽灵模式：6连发，幽灵 ▼ 6（至少保留1）
             const hitPct = getSkillValue(caster.rawBurst, 0, lv) / 100;
-            for (let h = 0; h < 6 && state.enemyHp > 0; h++) {
-              fireSkillHit(state, caster, hitPct, sums, false, 'ebs_burst_hit');
+            for (let h = 0; h < 6; h++) {
+              state.pendingSkillHits.push({
+                fireTick: state.tick + delay * (h + 1),
+                caster, mult: hitPct, sums: preSums,
+                isCharged: false, label: 'ebs_burst_hit',
+              });
             }
             caster.skillState.ebs_ghostCount = Math.max(1, ghosts - 6);
           }
 
-          // 幽灵减少后，检查 Elem Adv buff 条件（需 >4 幽灵）
+          // 幽灵减少后，检查 Elem Adv buff 条件（需 >4 幽灵，即 ≥5）
           const newGhosts = caster.skillState.ebs_ghostCount;
           if (newGhosts < 5) {
             state.buffs = state.buffs.filter(b => b.name !== 'ebs_s1_elemAdv');
