@@ -5,41 +5,638 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NIKKE 战斗模拟器</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- 加载遮罩 -->
+  <!-- ── 加载遮罩 ──────────────────────────────────────────── -->
   <div id="loader">
     <div class="loader-box">
-      <h2>NIKKE 战斗模拟器</h2>
-      <p id="loadProgress">正在初始化…</p>
+      <div class="loader-title">⚡ NIKKE 战斗模拟器</div>
+      <p id="loadProgress" class="loader-msg">正在初始化…</p>
       <div class="loader-bar"><div class="loader-fill"></div></div>
     </div>
   </div>
 
-  <!-- 主应用 -->
-  <div id="app" class="hidden">
-    <header>
-      <h1>NIKKE 战斗模拟器</h1>
-      <p class="subtitle">模拟队伍对任意敌方配置的 DPS</p>
+  <!-- ── 主应用（Alpine 挂载点） ────────────────────────────── -->
+  <div id="app"
+       x-data
+       x-init="$store.sim.init().then(() => {
+         document.getElementById('loader').style.display = 'none';
+         document.getElementById('app').classList.remove('hidden');
+       })">
+
+    <!-- ── 顶栏 ─────────────────────────────────────────────── -->
+    <header class="topbar">
+      <div class="topbar-brand">⚡ NIKKE 战斗模拟器</div>
+      <div class="topbar-right">
+        <span class="topbar-status" x-text="$store.sim.accountStatus"></span>
+        <label class="btn btn-ghost btn-sm" title="导入账号 JSON">
+          📂 导入账号
+          <input type="file" accept=".json" class="visually-hidden"
+            @change="e => $store.sim.importAccount(e.target.files[0]).then(() => e.target.value = '')">
+        </label>
+      </div>
     </header>
 
-    <main>
-      <div id="squadBuilder"></div>
-      <div id="results">
-        <p class="loading-text">在上方配置你的队伍，然后点击"开始模拟"查看 DPS 结果。</p>
-      </div>
-    </main>
+    <!-- ── 三栏布局 ──────────────────────────────────────────── -->
+    <div class="layout">
 
-    <footer>
-      <p>
-        数据来源：sg-tools-cdn.blablalink.com ·
-        伤害公式来自社区研究 ·
-        <a href="ARCHITECTURE.md" target="_blank">架构</a>
-      </p>
-    </footer>
+      <!-- ╔══ 左栏：全局配置 ══╗ -->
+      <aside class="panel panel-left">
+        <div class="panel-scroll">
+
+          <!-- 同步器与研究 -->
+          <section class="card">
+            <h2 class="card-title">⚙️ 全局配置</h2>
+            <div class="field-group">
+              <label class="field-label">同步器等级</label>
+              <input class="input" type="number" min="1" max="1200"
+                x-model.number="$store.sim.synchroLevel">
+            </div>
+            <div class="field-group">
+              <label class="field-label">通用研究</label>
+              <input class="input" type="number" min="0" max="1200"
+                x-model.number="$store.sim.generalResearch">
+            </div>
+            <div class="section-sub">职业研究</div>
+            <div class="row-3">
+              <template x-for="cls in ['attacker','defender','supporter']" :key="cls">
+                <div class="field-group">
+                  <label class="field-label" x-text="({'attacker':'攻击手','defender':'防御手','supporter':'支援手'})[cls]"></label>
+                  <input class="input" type="number" min="0" max="999"
+                    :value="$store.sim.classResearch[cls]"
+                    @input="$store.sim.classResearch[cls] = +$event.target.value">
+                </div>
+              </template>
+            </div>
+            <div class="section-sub">厂商研究</div>
+            <div class="row-2">
+              <template x-for="corp in ['ELYSION','MISSILIS','TETRA','PILGRIM','ABNORMAL']" :key="corp">
+                <div class="field-group">
+                  <label class="field-label" x-text="$store.sim.corpLabel(corp)"></label>
+                  <input class="input" type="number" min="0" max="999"
+                    :value="$store.sim.corpResearch[corp]"
+                    @input="$store.sim.corpResearch[corp] = +$event.target.value">
+                </div>
+              </template>
+            </div>
+          </section>
+
+          <!-- 敌人配置 -->
+          <section class="card">
+            <h2 class="card-title">🎯 敌人配置</h2>
+            <div class="field-group">
+              <label class="field-label">防御力</label>
+              <input class="input" type="number" min="0" step="50"
+                x-model.number="$store.sim.enemy.def">
+            </div>
+            <div class="row-2">
+              <div class="field-group">
+                <label class="field-label">属性</label>
+                <select class="input" x-model="$store.sim.enemy.element">
+                  <template x-for="el in ['Fire','Water','Wind','Electric','Iron']" :key="el">
+                    <option :value="el" x-text="$store.sim.elementLabel(el)"></option>
+                  </template>
+                </select>
+              </div>
+              <div class="field-group">
+                <label class="field-label">类型</label>
+                <select class="input" x-model="$store.sim.enemy.type">
+                  <option value="Normal">普通 Rapture</option>
+                  <option value="Elite">精英 Rapture</option>
+                  <option value="Boss">Boss</option>
+                </select>
+              </div>
+            </div>
+            <label class="checkbox-row">
+              <input type="checkbox" x-model="$store.sim.enemy.hasCore">
+              <span>具有核心（命中核心 +100% 伤害）</span>
+            </label>
+            <div class="section-sub">距离阶段（总计固定 180 秒）</div>
+            <div class="row-3">
+              <div class="field-group">
+                <label class="field-label">近距离 (s)</label>
+                <input class="input" type="number" min="0" max="180"
+                  x-model.number="$store.sim.enemy.distNear">
+              </div>
+              <div class="field-group">
+                <label class="field-label">中距离 (s)</label>
+                <input class="input" type="number" min="0" max="180"
+                  x-model.number="$store.sim.enemy.distMid">
+              </div>
+              <div class="field-group">
+                <label class="field-label">远距离 (s)</label>
+                <input class="input" type="number" min="0" max="180"
+                  x-model.number="$store.sim.enemy.distFar">
+              </div>
+            </div>
+          </section>
+
+          <!-- 模拟选项 -->
+          <section class="card">
+            <h2 class="card-title">🎲 模拟选项</h2>
+            <p class="hint">战斗时长固定 180 秒</p>
+            <div class="field-group">
+              <label class="field-label">迭代次数（最多 100 次）</label>
+              <input class="input" type="number" min="1" max="100"
+                x-model.number="$store.sim.iterations">
+            </div>
+            <button class="btn btn-primary btn-block mt-1"
+              :disabled="$store.sim.simRunning"
+              @click="$store.sim.runSimulate()">
+              <span x-show="!$store.sim.simRunning">▶ 开始模拟</span>
+              <span x-show="$store.sim.simRunning">⏳ 运行中…</span>
+            </button>
+          </section>
+
+        </div>
+      </aside>
+
+      <!-- ╔══ 中栏：队伍构建 ══╗ -->
+      <div class="panel panel-center">
+
+        <!-- 槽位选择条 -->
+        <div class="slot-bar">
+          <template x-for="(slot, i) in $store.sim.team" :key="i">
+            <button class="slot-tab"
+              :class="{
+                'slot-tab--active':  $store.sim.activeSlot === i,
+                'slot-tab--filled':  !!slot.resourceId,
+                'slot-tab--disabled': !slot.active && !slot.resourceId
+              }"
+              @click="$store.sim.activeSlot = i">
+              <span class="slot-tab-num" x-text="i + 1"></span>
+              <span class="slot-tab-name" x-text="slot.resourceId ? slot.name : '空'"></span>
+              <span class="slot-tab-burst" x-show="slot.resourceId"
+                x-text="$store.sim.burstLabel(slot.burstStep)"></span>
+            </button>
+          </template>
+          <button class="btn btn-primary sim-btn-inline"
+            :disabled="$store.sim.simRunning"
+            @click="$store.sim.runSimulate()">
+            <span x-show="!$store.sim.simRunning">▶</span>
+            <span x-show="$store.sim.simRunning">⏳</span>
+          </button>
+        </div>
+
+        <!-- 活跃槽位详情 -->
+        <div class="panel-scroll slot-detail">
+
+          <!-- 空槽位 -->
+          <template x-if="!$store.sim.activeSlotData.resourceId">
+            <div class="empty-slot">
+              <div class="empty-slot-num">槽位 <span x-text="$store.sim.activeSlot + 1"></span></div>
+              <button class="btn btn-primary"
+                @click="$store.sim.openCharPicker($store.sim.activeSlot)">
+                + 选择 NIKKE
+              </button>
+            </div>
+          </template>
+
+          <!-- 已选角色 -->
+          <template x-if="$store.sim.activeSlotData.resourceId">
+            <div class="slot-form" x-data="{ showSkills: true, showEquip: true, showCube: true, showFav: true }">
+
+              <!-- 角色头部 -->
+              <div class="char-header">
+                <div class="char-info">
+                  <div class="char-name" x-text="$store.sim.activeSlotData.name"></div>
+                  <div class="char-tags">
+                    <span class="tag" x-text="$store.sim.classLabel($store.sim.activeSlotData.classType)"></span>
+                    <span class="tag" x-text="$store.sim.elementLabel($store.sim.activeSlotData.element)"></span>
+                    <span class="tag" x-text="$store.sim.activeSlotData.weaponType"></span>
+                    <span class="tag" x-text="$store.sim.corpLabel($store.sim.activeSlotData.corporation)"></span>
+                    <span class="tag tag-burst" x-text="$store.sim.burstLabel($store.sim.activeSlotData.burstStep)"></span>
+                    <span class="tag tag-dim" x-show="$store.sim.activeSlotData._loading">加载中…</span>
+                  </div>
+                </div>
+                <div class="char-actions">
+                  <button class="btn btn-ghost btn-sm"
+                    @click="$store.sim.openCharPicker($store.sim.activeSlot)">更换</button>
+                  <button class="btn btn-ghost btn-sm"
+                    @click="$store.sim.clearSlot($store.sim.activeSlot)">清除</button>
+                </div>
+              </div>
+
+              <!-- 突破 / 核心 / 羁绊 -->
+              <section class="card">
+                <h3 class="sub-title">突破 / 核心 / 羁绊</h3>
+                <div class="grade-row">
+                  <template x-for="g in [0,1,2,3]" :key="g">
+                    <button class="grade-btn"
+                      :class="{ 'grade-btn--active': $store.sim.activeSlotData.grade === g }"
+                      @click="$store.sim.setGrade($store.sim.activeSlot, g)"
+                      x-text="'突破 ' + g">
+                    </button>
+                  </template>
+                </div>
+                <div class="row-2 mt-1">
+                  <div class="field-group">
+                    <label class="field-label">
+                      核心强化
+                      <span class="field-hint">（突破 3 解锁）</span>
+                    </label>
+                    <input class="input" type="number" min="0" max="7"
+                      :disabled="$store.sim.activeSlotData.grade < 3"
+                      x-model.number="$store.sim.activeSlotData.core"
+                      @change="$store.sim.clampCore($store.sim.activeSlot)">
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">
+                      羁绊等级
+                      <span class="field-hint"
+                        x-text="'（上限 ' + $store.sim.maxBond($store.sim.activeSlotData.grade, $store.sim.activeSlotData.corporation) + '）'">
+                      </span>
+                    </label>
+                    <input class="input" type="number" min="1"
+                      :max="$store.sim.maxBond($store.sim.activeSlotData.grade, $store.sim.activeSlotData.corporation)"
+                      x-model.number="$store.sim.activeSlotData.bondLevel"
+                      @change="$store.sim.clampBond($store.sim.activeSlot)">
+                  </div>
+                </div>
+              </section>
+
+              <!-- 技能 -->
+              <section class="card">
+                <div class="section-toggle" @click="showSkills = !showSkills">
+                  <h3 class="sub-title">技能</h3>
+                  <span class="toggle-icon" x-text="showSkills ? '▲' : '▼'"></span>
+                </div>
+                <div x-show="showSkills">
+                  <template x-for="(label, j) in ['技能 1','技能 2','Burst']" :key="j">
+                    <div class="skill-row">
+                      <div class="skill-meta">
+                        <span class="skill-slot-label" x-text="label"></span>
+                        <div class="skill-lv-ctrl">
+                          <button class="lv-btn"
+                            @click="if ($store.sim.activeSlotData.skills[j] > 1) $store.sim.activeSlotData.skills[j]--">−</button>
+                          <span class="skill-lv-num" x-text="'Lv ' + $store.sim.activeSlotData.skills[j]"></span>
+                          <button class="lv-btn"
+                            @click="if ($store.sim.activeSlotData.skills[j] < 10) $store.sim.activeSlotData.skills[j]++">+</button>
+                        </div>
+                      </div>
+                      <template x-if="$store.sim.activeSlotData._nikkeData">
+                        <div class="skill-desc-block">
+                          <div class="skill-name-row"
+                            x-text="[
+                              $store.sim.activeSlotData._nikkeData?.skill1_detail?.name_localkey,
+                              $store.sim.activeSlotData._nikkeData?.skill2_detail?.name_localkey,
+                              $store.sim.activeSlotData._nikkeData?.ulti_skill_detail?.name_localkey
+                            ][j] ?? ''">
+                          </div>
+                          <p class="skill-desc"
+                            x-html="$store.sim.renderSkillHtml(
+                              [$store.sim.activeSlotData._nikkeData?.skill1_detail,
+                               $store.sim.activeSlotData._nikkeData?.skill2_detail,
+                               $store.sim.activeSlotData._nikkeData?.ulti_skill_detail][j],
+                              $store.sim.activeSlotData.skills[j]
+                            )">
+                          </p>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </section>
+
+              <!-- 装备 -->
+              <section class="card">
+                <div class="section-toggle" @click="showEquip = !showEquip">
+                  <h3 class="sub-title">装备（T10）</h3>
+                  <span class="toggle-icon" x-text="showEquip ? '▲' : '▼'"></span>
+                </div>
+                <div x-show="showEquip">
+                  <template x-for="key in $store.sim.EQUIP_SLOTS" :key="key">
+                    <div class="equip-block">
+                      <div class="equip-header">
+                        <span class="equip-slot-label" x-text="$store.sim.EQUIP_SLOT_LABELS[key]"></span>
+                        <div class="row-inline">
+                          <span class="field-hint">强化</span>
+                          <select class="input input-sm"
+                            :value="$store.sim.activeSlotData.equipment[key].level"
+                            @change="$store.sim.activeSlotData.equipment[key].level = +$event.target.value">
+                            <template x-for="lv in [0,1,2,3,4,5]" :key="lv">
+                              <option :value="lv" x-text="'+' + lv"></option>
+                            </template>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="equip-opts">
+                        <template x-for="(opt, oi) in $store.sim.activeSlotData.equipment[key].opts" :key="oi">
+                          <div class="opt-row">
+                            <select class="input input-sm opt-type" x-model="opt.type">
+                              <template x-for="ot in $store.sim.EQUIP_OPTION_TYPES" :key="ot.key">
+                                <option :value="ot.key" x-text="ot.label"></option>
+                              </template>
+                            </select>
+                            <input class="input input-sm opt-val" type="number" min="0" step="0.01"
+                              x-show="opt.type"
+                              x-model.number="opt.value"
+                              placeholder="数值">
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </section>
+
+              <!-- 和谐魔方 -->
+              <section class="card">
+                <div class="section-toggle" @click="showCube = !showCube">
+                  <h3 class="sub-title">和谐魔方</h3>
+                  <span class="toggle-icon" x-text="showCube ? '▲' : '▼'"></span>
+                </div>
+                <div x-show="showCube">
+                  <div class="row-2">
+                    <div class="field-group">
+                      <label class="field-label">魔方</label>
+                      <select class="input"
+                        :value="$store.sim.activeSlotData.cube.resourceId ?? ''"
+                        @change="$store.sim.activeSlotData.cube.resourceId = +$event.target.value || null; $store.sim.onCubeChange($store.sim.activeSlot)">
+                        <option value="">（无）</option>
+                        <template x-for="c in $store.sim.cubeOptions" :key="c.id">
+                          <option :value="c.id" x-text="c.name"></option>
+                        </template>
+                      </select>
+                    </div>
+                    <div class="field-group">
+                      <label class="field-label">等级（1–15）</label>
+                      <input class="input" type="number" min="1" max="15"
+                        x-model.number="$store.sim.activeSlotData.cube.level">
+                    </div>
+                  </div>
+                  <template x-if="$store.sim.activeSlotData._cubeData">
+                    <div class="cube-skill-wrap"
+                      x-html="$store.sim.cubeSkillHtml($store.sim.activeSlot)">
+                    </div>
+                  </template>
+                </div>
+              </section>
+
+              <!-- 收藏品 -->
+              <section class="card">
+                <div class="section-toggle" @click="showFav = !showFav">
+                  <h3 class="sub-title">收藏品</h3>
+                  <span class="toggle-icon" x-text="showFav ? '▲' : '▼'"></span>
+                </div>
+                <div x-show="showFav">
+                  <div class="row-2">
+                    <div class="field-group">
+                      <label class="field-label">道具</label>
+                      <select class="input"
+                        :value="$store.sim.activeSlotData.favoriteItem.resourceId ?? ''"
+                        @change="$store.sim.activeSlotData.favoriteItem.resourceId = +$event.target.value || null; $store.sim.onFavChange($store.sim.activeSlot)">
+                        <option value="">（无）</option>
+                        <template x-for="f in $store.sim.favItemsForSlot($store.sim.activeSlot)" :key="f.id">
+                          <option :value="f.id" x-text="f.name"></option>
+                        </template>
+                      </select>
+                    </div>
+                    <div class="field-group">
+                      <label class="field-label">等级（0–15）</label>
+                      <input class="input" type="number" min="0" max="15"
+                        x-model.number="$store.sim.activeSlotData.favoriteItem.level">
+                    </div>
+                  </div>
+                  <template x-if="$store.sim.activeSlotData._favData">
+                    <div class="fav-skill-wrap"
+                      x-html="$store.sim.favSkillHtml($store.sim.activeSlot)">
+                    </div>
+                  </template>
+                </div>
+              </section>
+
+              <!-- 最终属性 -->
+              <section class="card"
+                x-data="{ get stats() { return $store.sim.computedStats($store.sim.activeSlot); } }">
+                <h3 class="sub-title">最终属性</h3>
+                <template x-if="stats">
+                  <div>
+                    <div class="stats-grid">
+                      <div class="stat-item">
+                        <span class="stat-label">HP</span>
+                        <span class="stat-value" x-text="$store.sim.fmtNum(stats.hp)"></span>
+                      </div>
+                      <div class="stat-item">
+                        <span class="stat-label">ATK</span>
+                        <span class="stat-value"
+                          :class="stats.equipAtkPct > 0 || stats.equipAtkFlat > 0 ? 'stat-value--boost' : ''"
+                          x-text="$store.sim.fmtNum(stats.atk)"
+                          :title="stats.equipAtkPct > 0 ? '基础值（不含词条 ATK% 乘法）；词条 ATK% = ' + (stats.equipAtkPct * 100).toFixed(1) + '%' : ''">
+                        </span>
+                      </div>
+                      <div class="stat-item">
+                        <span class="stat-label">DEF</span>
+                        <span class="stat-value" x-text="$store.sim.fmtNum(stats.def)"></span>
+                      </div>
+                    </div>
+                    <div class="stats-extras">
+                      <template x-if="stats.critRate > 0.15">
+                        <span class="stat-badge">暴击率 <b x-text="$store.sim.fmtPct(stats.critRate)"></b></span>
+                      </template>
+                      <template x-if="stats.critDmg > 0.50">
+                        <span class="stat-badge">暴击伤害 <b x-text="$store.sim.fmtPct(stats.critDmg)"></b></span>
+                      </template>
+                      <template x-if="stats.elementDmgPct > 0">
+                        <span class="stat-badge">属性伤害 <b x-text="$store.sim.fmtPct(stats.elementDmgPct)"></b></span>
+                      </template>
+                      <template x-if="stats.bonusAmmo > 0">
+                        <span class="stat-badge">弹匣 +<b x-text="stats.bonusAmmo"></b></span>
+                      </template>
+                      <template x-if="stats.chargeDmgPct > 0">
+                        <span class="stat-badge">蓄力伤害 <b x-text="$store.sim.fmtPct(stats.chargeDmgPct)"></b></span>
+                      </template>
+                      <template x-if="stats.chargeSpeedPct > 0">
+                        <span class="stat-badge">蓄力速度 <b x-text="$store.sim.fmtPct(stats.chargeSpeedPct)"></b></span>
+                      </template>
+                      <template x-if="stats.equipAtkPct > 0">
+                        <span class="stat-badge stat-badge--boost">装备 ATK% +<b x-text="$store.sim.fmtPct(stats.equipAtkPct)"></b></span>
+                      </template>
+                      <template x-if="stats.equipAtkFlat > 0">
+                        <span class="stat-badge stat-badge--boost">装备 ATK固定 +<b x-text="$store.sim.fmtNum(stats.equipAtkFlat)"></b></span>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+                <template x-if="!stats">
+                  <p class="hint">角色 CDN 数据加载完成后显示</p>
+                </template>
+              </section>
+
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- ╔══ 右栏：结果 ══╗ -->
+      <aside class="panel panel-right">
+        <div class="panel-scroll">
+
+          <template x-if="!$store.sim.result && !$store.sim.simRunning">
+            <div class="empty-result">
+              <p>配置队伍后<br>点击 ▶ 查看结果</p>
+            </div>
+          </template>
+
+          <template x-if="$store.sim.simRunning">
+            <div class="empty-result">
+              <p>⏳ 正在模拟…</p>
+            </div>
+          </template>
+
+          <template x-if="$store.sim.result && !$store.sim.simRunning">
+            <div x-effect="window.__renderDamageChart && window.__renderDamageChart($store.sim.result)">
+
+              <!-- 总览 -->
+              <section class="card">
+                <h2 class="card-title">
+                  结果
+                  <span class="card-subtitle" x-text="'(' + $store.sim.result.iterations + ' 次平均)'"></span>
+                </h2>
+                <div class="result-summary">
+                  <div class="result-kv">
+                    <span class="result-label">总伤害</span>
+                    <span class="result-value result-value--main"
+                      x-text="$store.sim.fmtNum($store.sim.result.totalDamage)"></span>
+                  </div>
+                  <div class="result-kv">
+                    <span class="result-label">Full Burst 次数</span>
+                    <span class="result-value"
+                      x-text="($store.sim.result.burstCount ?? 0).toFixed(1)"></span>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 伤害分布图 -->
+              <section class="card">
+                <h3 class="sub-title">伤害分布</h3>
+                <div id="dmgChart" style="height:200px;width:100%"></div>
+              </section>
+
+              <!-- 各角色技能伤害 -->
+              <section class="card">
+                <h3 class="sub-title">角色技能伤害</h3>
+                <template x-for="unit in $store.sim.result.units" :key="unit.id">
+                  <div class="unit-block">
+                    <div class="unit-header">
+                      <span class="unit-name" x-text="unit.name"></span>
+                      <span class="unit-total" x-text="$store.sim.fmtNum(unit.totalDamage)"></span>
+                    </div>
+                    <div class="unit-share-row">
+                      <div class="share-bar">
+                        <div class="share-fill"
+                          :style="'width:' + ($store.sim.unitShare(unit) * 100).toFixed(1) + '%'">
+                        </div>
+                      </div>
+                      <span class="share-pct"
+                        x-text="($store.sim.unitShare(unit) * 100).toFixed(1) + '%'">
+                      </span>
+                    </div>
+                    <div class="skill-breakdown">
+                      <template x-for="row in $store.sim.skillDamageRows(unit)" :key="row.label">
+                        <div class="skill-dmg-row">
+                          <span class="skill-dmg-label" x-text="row.label"></span>
+                          <div class="share-bar share-bar--sm">
+                            <div class="share-fill"
+                              :style="'width:' + (row.share * 100).toFixed(1) + '%'">
+                            </div>
+                          </div>
+                          <span class="skill-dmg-val" x-text="$store.sim.fmtNum(row.damage)"></span>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </section>
+
+              <!-- 战斗日志 -->
+              <section class="card">
+                <div class="log-header">
+                  <h3 class="sub-title">战斗日志</h3>
+                  <div class="log-mode-btns">
+                    <button class="btn btn-sm"
+                      :class="$store.sim.logMode === 'aggregate' ? 'btn-primary' : 'btn-ghost'"
+                      @click="$store.sim.setLogMode('aggregate')">聚合</button>
+                    <button class="btn btn-sm"
+                      :class="$store.sim.logMode === 'detail' ? 'btn-primary' : 'btn-ghost'"
+                      @click="$store.sim.setLogMode('detail')">详细</button>
+                  </div>
+                </div>
+                <div class="log-table-wrap">
+                  <table class="log-table">
+                    <thead>
+                      <tr>
+                        <th>时间</th>
+                        <th>角色</th>
+                        <th>技能</th>
+                        <th>Buff</th>
+                        <th>伤害</th>
+                        <th x-show="$store.sim.logMode === 'detail'">弹药</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(row, ri) in $store.sim.hitLogRows" :key="ri">
+                        <tr :class="row.isCrit ? 'log-row--crit' : ''">
+                          <td class="log-time mono" x-text="$store.sim.formatTick(row.tickStart)"></td>
+                          <td x-text="row.name"></td>
+                          <td class="log-label">
+                            <span x-text="row.label"></span>
+                            <span class="log-count" x-show="row.count > 1" x-text="'×' + row.count"></span>
+                          </td>
+                          <td class="log-buff" x-text="row.buffDesc"></td>
+                          <td class="log-dmg mono" x-text="$store.sim.fmtNum(row.damage)"></td>
+                          <td class="log-ammo mono" x-show="$store.sim.logMode === 'detail'"
+                            x-text="row.charge ?? ''"></td>
+                        </tr>
+                      </template>
+                      <template x-if="!$store.sim.hitLogRows.length">
+                        <tr><td colspan="6" class="log-empty">无伤害记录</td></tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+            </div>
+          </template>
+
+        </div>
+      </aside>
+
+    </div><!-- /layout -->
+
+  </div><!-- /app -->
+
+  <!-- ── 角色选择器弹窗 ──────────────────────────────────────── -->
+  <div class="modal-overlay"
+       x-data
+       x-show="$store.sim.charPickerSlot >= 0"
+       x-transition.opacity
+       @click.self="$store.sim.closeCharPicker()"
+       style="display:none">
+    <div class="modal-box" @click.stop>
+      <div class="modal-header">
+        <h2 class="modal-title">选择 NIKKE</h2>
+        <button class="btn btn-ghost btn-sm" @click="$store.sim.closeCharPicker()">✕</button>
+      </div>
+      <input class="input modal-search" type="text"
+        placeholder="按名字搜索…"
+        x-model="$store.sim.charQuery">
+      <div class="char-grid">
+        <template x-for="char in $store.sim.filteredChars" :key="char.resourceId">
+          <button class="char-card" @click="$store.sim.selectChar(char.resourceId)">
+            <span class="char-card-name" x-text="char.name"></span>
+            <span class="char-card-meta">
+              <span x-text="$store.sim.classLabel(char.classType)"></span>
+              · <span x-text="char.weaponType"></span>
+            </span>
+          </button>
+        </template>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="src/main.js"></script>

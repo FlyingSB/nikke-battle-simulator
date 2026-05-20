@@ -129,14 +129,22 @@ export function getAccountSettings() {
   };
 }
 
-// TODO (prod): 实现文件上传入口
-// export async function loadAccountFromFile(file) {
-//   const text = await file.text();
-//   const json = JSON.parse(text);
-//   const details = json.data?.character_details ?? [];
-//   _buildRosterIndex(details);
-//   return _rosterByResourceId.size > 0;
-// }
+/**
+ * 从用户上传的文件加载账号数据（与 loadAccountFromDev 相同格式）。
+ * @param {File} file
+ * @returns {Promise<boolean>}
+ */
+export async function loadAccountFromJson(file) {
+  try {
+    const text = await file.text();
+    const json = JSON.parse(text);
+    _buildRosterIndex(json.data?.character_details ?? []);
+    _parseOutpostSettings(json.data?.outpost_info);
+    return _rosterByResourceId.size > 0;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 按 resourceId 查找角色账号数据。
