@@ -20,23 +20,18 @@ const _DEFAULT_SYNCHRO = 400;
 
 /**
  * 开发模式：从 /dev/config.json 读取文件名，再加载对应账号数据。
- * 文件不存在或解析失败时静默返回 null，不影响手动填写流程。
+ * 同时解析 data.outpost_info 填充全局设置（同步器、研究等级）。
+ * 文件不存在或解析失败时静默返回 false，不影响手动填写流程。
  * 必须在 loadAllData()（填充 CDN 角色花名册）之后调用。
  * @returns {Promise<boolean>} 是否成功加载
  */
 export async function loadAccountFromDev() {
   try {
-    const cfgRes = await fetch('/dev/config.json');
-    if (!cfgRes.ok) return false;
-    const cfg = await cfgRes.json();
-    if (!cfg.account_file) return false;
+    const json = await _fetchAccountJson();
+    if (!json) return false;
 
-    const dataRes = await fetch(`/dev/${cfg.account_file}`);
-    if (!dataRes.ok) return false;
-    const json = await dataRes.json();
-
-    const details = json.data?.character_details ?? [];
-    _buildRosterIndex(details);
+    _buildRosterIndex(json.data?.character_details ?? []);
+    _parseOutpostSettings(json.data?.outpost_info);
     return _rosterByResourceId.size > 0;
   } catch {
     return false;
@@ -44,19 +39,79 @@ export async function loadAccountFromDev() {
 }
 
 /**
- * 开发模式：从 /dev/account-settings.json 加载全局设置（同步器、研究等级）。
- * 文件缺失或字段缺失时使用缺省值（等级 400）。
+ * 开发模式：加载全局设置（同步器、研究等级）。
+ * 若 loadAccountFromDev() 已成功运行，设置已就绪，直接返回 true。
+ * 否则独立读取账号文件并解析 outpost_info。
  * @returns {Promise<boolean>} 是否成功加载
  */
 export async function loadSettingsFromDev() {
+  if (_settings) return true;
   try {
-    const res = await fetch('/dev/account-settings.json');
-    if (!res.ok) return false;
-    _settings = await res.json();
-    return true;
+    const json = await _fetchAccountJson();
+    if (!json) return false;
+    _parseOutpostSettings(json.data?.outpost_info);
+    return !!_settings;
   } catch {
     return false;
   }
+}
+
+// ─── 账号文件加载 & 设置解析 ──────────────────────────────────────────────────
+
+/**
+ * 读取 /dev/config.json 并 fetch 对应账号 JSON，失败返回 null。
+ * @returns {Promise<object|null>}
+ */
+async function _fetchAccountJson() {
+  const cfgRes = await fetch('/dev/config.json');
+  if (!cfgRes.ok) return null;
+  const cfg = await cfgRes.json();
+  if (!cfg.account_file) return null;
+
+  const dataRes = await fetch(`/dev/${cfg.account_file}`);
+  if (!dataRes.ok) return null;
+  return dataRes.json();
+}
+
+// outpost_info.recycle_room_researches 的 tid → 内部路径映射
+const _RESEARCH_TID_MAP = {
+  1001: ['generalResearch'],
+  1101: ['classResearch', 'attacker'],
+  1102: ['classResearch', 'defender'],
+  1103: ['classResearch', 'supporter'],
+  1201: ['corpResearch', 'ELYSION'],
+  1202: ['corpResearch', 'MISSILIS'],
+  1203: ['corpResearch', 'TETRA'],
+  1204: ['corpResearch', 'PILGRIM'],
+  1205: ['corpResearch', 'ABNORMAL'],
+};
+
+/**
+ * 将 outpost_info 解析为内部 _settings 格式。
+ * outpost_info 缺失时不做任何操作（保留 _settings = null，getAccountSettings 返回缺省值）。
+ * @param {object|undefined} outpostInfo
+ */
+function _parseOutpostSettings(outpostInfo) {
+  if (!outpostInfo) return;
+
+  const s = {
+    synchroLevel:    outpostInfo.synchro_level ?? _DEFAULT_SYNCHRO,
+    generalResearch: 0,
+    classResearch:   { attacker: 0, defender: 0, supporter: 0 },
+    corpResearch:    { ELYSION: 0, MISSILIS: 0, TETRA: 0, PILGRIM: 0, ABNORMAL: 0 },
+  };
+
+  for (const r of outpostInfo.recycle_room_researches ?? []) {
+    const path = _RESEARCH_TID_MAP[r.tid];
+    if (!path) continue;
+    if (path.length === 1) {
+      s[path[0]] = r.lv;
+    } else {
+      s[path[0]][path[1]] = r.lv;
+    }
+  }
+
+  _settings = s;
 }
 
 /**
@@ -64,18 +119,13 @@ export async function loadSettingsFromDev() {
  * @returns {{ synchroLevel: number, generalResearch: number, classResearch: object, corpResearch: object }}
  */
 export function getAccountSettings() {
-  const synchro = _settings?.synchroLevel ?? _DEFAULT_SYNCHRO;
+  if (_settings) return _settings;
+  const synchro = _DEFAULT_SYNCHRO;
   return {
     synchroLevel:    synchro,
-    generalResearch: _settings?.generalResearch ?? maxGeneralResearchLevel(synchro),
-    classResearch: {
-      attacker:  0, defender: 0, supporter: 0,
-      ..._settings?.classResearch,
-    },
-    corpResearch: {
-      ELYSION: 0, MISSILIS: 0, TETRA: 0, PILGRIM: 0, ABNORMAL: 0,
-      ..._settings?.corpResearch,
-    },
+    generalResearch: maxGeneralResearchLevel(synchro),
+    classResearch:   { attacker: 0, defender: 0, supporter: 0 },
+    corpResearch:    { ELYSION: 0, MISSILIS: 0, TETRA: 0, PILGRIM: 0, ABNORMAL: 0 },
   };
 }
 
