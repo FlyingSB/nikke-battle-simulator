@@ -89,7 +89,7 @@ export default {
 
           // Auto Fire Effect 1：p06% 对全体（isCharged=true，受 chargeDamagePct FA 加成）
           const p06 = getSkillValue(caster.rawSkill1, 5, s1Lv) / 100;
-          fireSkillHit(state, caster, p06, sums, true, 'swha_s1_autofire_aoe');
+          fireSkillHit(state, caster, p06, sums, true, 'S1 P1');
 
           // Auto Fire Effect 2：p07% × ammo 顺序攻击（isCharged=false，chargeDmgStat 不参与）
           const p07    = getSkillValue(caster.rawSkill1, 6, s1Lv) / 100;
@@ -98,7 +98,7 @@ export default {
             ? p07 * (1 + getSkillValue(caster.rawSkill2, 8, s2Lv) / 100)  // p09_s2: sequential dmg ▲
             : p07;
           for (let i = 0; i < ammo; i++) {
-            fireSkillHit(state, caster, seqMult, sums, false, 'swha_s1_autofire_seq');
+            fireSkillHit(state, caster, seqMult, sums, false, 'S1 P2');
           }
 
           // FA 使用次数递减；耗尽时恢复 S2 固定蓄力时长 1.2s

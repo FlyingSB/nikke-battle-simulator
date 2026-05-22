@@ -29,34 +29,40 @@ let _nextId = 90000;
 
 function dummyUnit(burstStep) {
   return {
-    characterId:        _nextId++,
-    name:               `Dummy-${burstStep}`,
-    element:            'Iron',
-    weaponType:         'MG',
+    characterId:              _nextId++,
+    name:                     `Dummy-${burstStep}`,
+    element:                  'Iron',
+    weaponType:               'MG',
     burstStep,
-    nativeBurstStep:    burstStep,
-    _computedStats:     { ...STATS },
-    burstEnergyPerShot: 1_000_000,   // 一枪填满分享 gauge
-    burstSkillCooltime: 0,
-    shotDamageMult:     1.0,
-    rateOfFire:         600,
+    nativeBurstStep:          burstStep,
+    _nikkeData:               {},
+    _computedStats:           { ...STATS },
+    targetBurstEnergyPerShot: 1_000_000,  // 一枪填满分享 gauge
+    burstSkillCooltime:       0,
+    baseAmmo:                 30,
+    reloadTicks:              120,
+    shotDamageMult:           1.0,
+    rateOfFire:               600,
   };
 }
 
 function redHoodUnit() {
   return {
-    characterId:        470,
-    name:               'Red Hood',
-    element:            'Fire',
-    weaponType:         'SR',
-    burstStep:          'Step3',
-    nativeBurstStep:    'Step3',
-    _computedStats:     { ...STATS },
-    burstEnergyPerShot: 1_000_000,
-    // burstSkillCooltime 保持默认 40s，确保模拟窗口内只触发一次爆裂
-    shotDamageMult:     1.0,
-    rateOfFire:         120,         // SR 典型 ROF
-    chargeTime:         60,          // 标准 SR 满蓄时间（ticks）
+    characterId:              470,
+    name:                     'Red Hood',
+    element:                  'Fire',
+    weaponType:               'SR',
+    burstStep:                'Step3',
+    nativeBurstStep:          'Step3',
+    _nikkeData:               {},
+    _computedStats:           { ...STATS },
+    targetBurstEnergyPerShot: 1_000_000,
+    burstSkillCooltime:       40 * 60,   // 40s，确保模拟窗口内只触发一次爆裂
+    baseAmmo:                 30,
+    reloadTicks:              90,        // SR 典型装填时间
+    shotDamageMult:           1.0,
+    rateOfFire:               120,       // SR 典型 ROF
+    chargeTime:               60,        // 标准 SR 满蓄时间（ticks）
   };
 }
 

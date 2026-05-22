@@ -122,13 +122,13 @@ export default {
           const em      = caster.skillState.rapiProjectileExplosionMult;
           // 弹丸命中伤害：[S2 param1]% ATK（lv10=88.11%）
           const hitMult = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
-          fireSkillHit(state, caster, hitMult, sums, false, 'S2_attach', {
+          fireSkillHit(state, caster, hitMult, sums, false, 'S2 P1', {
             isCore: state.enemyHasCore, coreDmgIncrement: caster.coreDmgIncrement ?? 0,
             extraAttackDamagePct: am - 1,
           });
           if (state.fullBurstActive) {
             // 全爆裂期间立即爆炸（不需等待，触发 projectileExplosion 加成）
-            fireSkillHit(state, caster, hitMult, sums, false, 'S2_explode', {
+            fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2', {
               isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true,
             });
           } else {
@@ -147,7 +147,7 @@ export default {
           const em      = caster.skillState.rapiProjectileExplosionMult;
           const hitMult = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           for (let i = 0; i < count; i++) {
-            fireSkillHit(state, caster, hitMult, sums, false, 'S2_explode', {
+            fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2', {
               isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true,
             });
           }
@@ -212,7 +212,7 @@ export default {
             : 28.08;
           state.pendingSkillHits.push({
             fireTick: state.tick + Math.round(0.1 * TICK_RATE),
-            caster, mult: burstMult, isCharged: false, label: 'burst',
+            caster, mult: burstMult, isCharged: false, label: 'Burst',
             opts: { affectedByFullBurst: true },
           });
           const end10 = state.tick + TICK_RATE * 10;

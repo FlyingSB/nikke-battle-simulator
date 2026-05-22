@@ -25,7 +25,7 @@ export default {
           const s1Lv   = caster.skillLevels[0];
           const sums   = getBuffSums(state, caster.id);
           const dmgPct = getSkillValue(caster.rawSkill1, 1, s1Lv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'sw_s1_hit');
+          fireSkillHit(state, caster, dmgPct, sums, false, 'S1');
 
           const atkPct = getSkillValue(caster.rawSkill1, 2, s1Lv) / 100;
           const end5   = state.tick + TICK_RATE * 5;
@@ -63,7 +63,7 @@ export default {
           const s2Lv   = caster.skillLevels[1];
           const sums   = getBuffSums(state, caster.id);
           const dmgPct = getSkillValue(caster.rawSkill2, 0, s2Lv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'sw_s2_hit');
+          fireSkillHit(state, caster, dmgPct, sums, false, 'S2');
 
           const crPct = getSkillValue(caster.rawSkill2, 1, s2Lv) / 100;
           const end10 = state.tick + TICK_RATE * 10;

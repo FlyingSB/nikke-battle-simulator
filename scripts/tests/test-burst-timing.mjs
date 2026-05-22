@@ -253,13 +253,13 @@ section('Liberalio (262) — 延迟 0.97s，获得全爆裂加成与 ENTER_FULL_
 
 // ── Cinderella 主爆裂 (511) — 默认：直接 fireSkillHit，burstSkillDamage:true ──────
 
-section('Cinderella 主爆裂 (511) — 直接 fireSkillHit，无标记（默认结算），label=burst_seq');
+section('Cinderella 主爆裂 (511) — 直接 fireSkillHit，无标记（默认结算），label=Burst P1');
 {
   const src = SKILL_TRAITS[511]?.burst?.triggers
     .find(t => t.on === 'BURST_SKILL_USE')?.handler?.toString() ?? '';
 
   eq('主爆裂不含 burstSkillDamage（默认结算）', src.includes('burstSkillDamage'), false);
-  eq('主爆裂 label = burst_seq', src.includes('burst_seq'), true);
+  eq('主爆裂 label = Burst P1', src.includes('Burst P1'), true);
   eq('主爆裂不使用 pendingSkillHits', src.includes('pendingSkillHits'), false);
 }
 

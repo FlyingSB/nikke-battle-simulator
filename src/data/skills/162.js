@@ -12,7 +12,7 @@ function fireRestraintChains(state, caster) {
   const sums         = getBuffSums(state, caster.id);
 
   for (let i = 0; i < chains && state.enemyHp > 0; i++) {
-    fireSkillHit(state, caster, chainHitMult, sums, false, 'mhbc_s1_chain');
+    fireSkillHit(state, caster, chainHitMult, sums, false, 'S1');
   }
   caster.skillState.mhbcRestraintChains = 0;
 
@@ -25,7 +25,7 @@ function fireRestraintChains(state, caster) {
   } else {
     state.dots.push({
       casterId:      caster.id,
-      label:         'mhbc_ensnaring',
+      label:         'S1 P2',
       dotName:       'mhbc_ensnaring',
       multPerStack:  dotMult,
       stacks:        chains,
@@ -184,7 +184,7 @@ export default {
 
           state.dots.push({
             casterId:      caster.id,
-            label:         'mhbc_dragging',
+            label:         'Burst',
             dotName:       'mhbc_dragging',
             multPerStack:  draggingMult,
             stacks,

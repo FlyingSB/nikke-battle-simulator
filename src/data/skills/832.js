@@ -102,7 +102,7 @@ export default {
 
           if (state.enemyHp > 0) {
             const hitMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
-            fireSkillHit(state, caster, hitMult, sums, false, 'mari_burst_hit');
+            fireSkillHit(state, caster, hitMult, sums, false, 'Burst');
           }
 
           const attackDmgPct = getSkillValue(caster.rawBurst, 1, lv) / 100;

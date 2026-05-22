@@ -122,7 +122,7 @@ export default {
           {
             type: 'SKILL_DAMAGE',
             mult: (caster) => getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100,
-            label: 'dkw_burst_hit',
+            label: 'Burst',
           },
         ],
       },

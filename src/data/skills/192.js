@@ -76,11 +76,10 @@ export default {
           // Crit Rate ▲ 全队（持续至 Temporary Modification 到期）
           pushBuff(state, { name: 'tv_s2_critRate', unitId: null, critRateBonus: crPct, endTick });
 
-          // Attack Speed ▲ 霰弹枪友军（写入其 skillState，battle.js ROF 累加器读取）
+          // Attack Speed ▲ 霰弹枪友军（via buff 系统，支持多施法者叠加）
           for (const t of state.squad) {
             if (t.weaponType !== 'SG') continue;
-            t.skillState.tempAtkSpeedPct     = atkSpdPct;
-            t.skillState.tempAtkSpeedEndTick = endTick;
+            pushBuff(state, { name: `tv_s1_atkSpeed_${caster.id}_${t.id}`, unitId: t.id, atkSpeedPct: atkSpdPct, endTick });
           }
         },
       },

@@ -2,13 +2,11 @@
  * 账号数据加载器。
  *
  * 开发模式：读取 /dev/config.json 获取文件名，再 fetch 对应的账号 JSON。
+ * 文件上传模式：通过 loadAccountFromJson(file) 接收用户上传的同格式 JSON。
  * 账号 JSON 格式为 GetUserCharacters API 的响应体（data.character_details[]）。
- *
- * TODO (prod): 支持用户通过 <input type="file"> 上传同格式 JSON，
- *   实现 loadAccountFromFile(file) 替代 loadAccountFromDev()。
  */
 
-import { getCharacterByNameCode, getCharacterByName, maxGeneralResearchLevel } from './models.js';
+import { getCharacterByNameCode, getCharacterByName, maxGeneralResearchLevel, getCubeResourceIdByTid } from './models.js';
 
 /** 已解析的角色账号数据，按 resourceId 索引。 */
 const _rosterByResourceId = new Map();
@@ -204,6 +202,27 @@ function _buildRosterIndex(characterDetails) {
 // API 字段前缀：squad-builder 的 key（arms/legs）与 API 字段（arm/leg）不同
 const _API_SLOT = { head: 'head', torso: 'torso', arms: 'arm', legs: 'leg' };
 
+// 装备词条 ID → 词条类型+数值映射
+// option_id = state_effect_id_prefix * 100 + level（level 1–15）
+// 数值来源：src/data/static/equipmentEffects.csv，按等级顺序
+// 以百分比整数存储（9.54 表示 9.54%），aggregateEquipOptions 传引擎前除以 100
+// vals 以整数厘百分比存储（954 表示 9.54%），UI 显示除以 100，引擎使用除以 10000
+const _OPTION_GROUPS = [
+  { start: 7000501, key: 'elementDmgPct',  vals: [954,1094,1234,1375,1515,1655,1795,1935,2075,2215,2356,2496,2636,2776,2916] },
+  { start: 7000601, key: 'hitRatePct',     vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
+  { start: 7000701, key: 'bonusAmmo',      vals: [2784,3195,3606,4017,4428,4839,5250,5660,6071,6482,6893,7304,7715,8126,8537] },
+  { start: 7000801, key: 'atkPct',         vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
+  { start: 7000901, key: 'chargeDmgPct',   vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
+  { start: 7001001, key: 'chargeSpeedPct', vals: [198,228,257,286,316,345,375,404,433,463,492,521,551,580,609] },
+  { start: 7001101, key: 'critRatePct',    vals: [230,264,298,332,366,400,435,469,503,537,570,605,639,673,707] },
+  { start: 7001201, key: 'critDmgPct',     vals: [664,762,860,958,1056,1154,1252,1350,1448,1546,1644,1742,1840,1938,2036] },
+  { start: 7001301, key: 'defFlat',        vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
+];
+const _OPTION_MAP = new Map();
+for (const g of _OPTION_GROUPS) {
+  for (let i = 0; i < 15; i++) _OPTION_MAP.set(g.start + i, { type: g.key, value: g.vals[i] });
+}
+
 // tid 第三位（0-based index 2）编码职业要求
 const _CLASS_DIGIT = { 1: 'Attacker', 2: 'Defender', 3: 'Supporter' };
 
@@ -214,7 +233,7 @@ function _parseEntry(raw) {
     bondLevel: raw.attractive_lv ?? 1,
     skills:   [raw.skill1_lv ?? 1, raw.skill2_lv ?? 1, raw.ulti_skill_lv ?? 1],
     cube: {
-      resourceId: raw.harmony_cube_tid  || null,
+      resourceId: raw.harmony_cube_tid ? getCubeResourceIdByTid(raw.harmony_cube_tid) : null,
       level:      raw.harmony_cube_lv   || 0,
     },
     favoriteItem: {
@@ -234,6 +253,7 @@ function _parseEquip(slotKey, raw) {
   const k    = _API_SLOT[slotKey];
   const tid  = raw[`${k}_equip_tid`]  ?? 0;
   const tier = raw[`${k}_equip_tier`] ?? 1;
+  const lv   = raw[`${k}_equip_lv`]   ?? 0;
   const o1   = raw[`${k}_equip_option1_id`] ?? 0;
   const o2   = raw[`${k}_equip_option2_id`] ?? 0;
   const o3   = raw[`${k}_equip_option3_id`] ?? 0;
@@ -244,7 +264,12 @@ function _parseEquip(slotKey, raw) {
 
   return {
     classReq,
-    tier:    `T${tier}`,
-    options: [o1 !== 0, o2 !== 0, o3 !== 0],
+    tier:  `T${tier}`,
+    level: lv,
+    opts:  [
+      { ...(_OPTION_MAP.get(o1) ?? { type: '', value: 0 }) },
+      { ...(_OPTION_MAP.get(o2) ?? { type: '', value: 0 }) },
+      { ...(_OPTION_MAP.get(o3) ?? { type: '', value: 0 }) },
+    ],
   };
 }

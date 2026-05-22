@@ -44,7 +44,7 @@ function fireAnnihilation(state, caster) {
   if (stacks > 0) {
     const annMult = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]) / 100;
     const sums    = getBuffSums(state, caster.id);
-    fireSkillHit(state, caster, annMult * stacks, sums, false, 'asuka_w_burst_annihilation');
+    fireSkillHit(state, caster, annMult * stacks, sums, false, 'Burst');
   }
 
   // ── S2 Part2 ──
@@ -52,9 +52,9 @@ function fireAnnihilation(state, caster) {
 
   // MG 过热速度 ▼100% for 3s：将逐发增速归零
   // current_rate_of_fire_change_pershot = base × (1 + increment - decrement) = 0（decrement=1）
-  if (caster.skillState.mgRofChangePerShot != null) {
-    caster.skillState.asukaW_mgHeatOrig    = caster.skillState.mgRofChangePerShot;
-    caster.skillState.mgRofChangePerShot   = 0;
+  if (caster.mgRofChangePerShot != null) {
+    caster.asukaW_mgHeatOrig    = caster.mgRofChangePerShot;
+    caster.mgRofChangePerShot   = 0;
     caster.skillState.asukaW_mgHeatEndTick = state.tick + TICK_RATE * 3;
   }
 
@@ -96,7 +96,7 @@ export default {
         handler(state, caster) {
           const sums   = getBuffSums(state, caster.id);
           const dmgPct = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'asuka_w_s1_p1');
+          fireSkillHit(state, caster, dmgPct, sums, false, 'S1 P1');
         },
       },
       // S1 Part2（Annihilation State 期间）：每 10 发 → 技能伤害 p06% + Anti A.T. Field 叠层
@@ -110,7 +110,7 @@ export default {
           const sums = getBuffSums(state, caster.id);
           const p06  = getSkillValue(caster.rawSkill1, 5, s1Lv) / 100;
           const p07  = getSkillValue(caster.rawSkill1, 6, s1Lv) / 100;
-          fireSkillHit(state, caster, p06, sums, false, 'asuka_w_s1_p2');
+          fireSkillHit(state, caster, p06, sums, false, 'S1 P2');
           applyAtfStack(state, caster, p07);
         },
       },
@@ -216,9 +216,9 @@ export default {
           // MG 过热速度恢复（3s 后还原 mgRofChangePerShot）
           const mgHeatEnd = caster.skillState.asukaW_mgHeatEndTick ?? 0;
           if (mgHeatEnd > 0 && state.tick >= mgHeatEnd) {
-            if (caster.skillState.asukaW_mgHeatOrig != null) {
-              caster.skillState.mgRofChangePerShot = caster.skillState.asukaW_mgHeatOrig;
-              caster.skillState.asukaW_mgHeatOrig  = null;
+            if (caster.asukaW_mgHeatOrig != null) {
+              caster.mgRofChangePerShot = caster.asukaW_mgHeatOrig;
+              caster.asukaW_mgHeatOrig  = null;
             }
             caster.skillState.asukaW_mgHeatEndTick = 0;
           }

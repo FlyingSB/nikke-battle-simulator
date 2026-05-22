@@ -118,8 +118,7 @@ export default {
   // p04: [3, 3, 3, 3, 3, 3, 3, 3, 3, 5] (弹头增量；lv10=5)
   // p05: [15, ...] (持续时间, const)
   //
-  // Attack speed ▲：写入 skillState.tempAtkSpeedPct + tempAtkSpeedEndTick，
-  //   battle.js ROF 累加器读取（baseRof × (1 + tempAtkSpeedPct)）。
+  // Attack speed ▲：通过 buff 系统传入，battle.js ROF 累加器读取。
   // 弹头数 ▲ 不影响伤害计算，不建模。
   burst: {
     groupId: 12343,
@@ -130,9 +129,8 @@ export default {
           const atkSpdPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const atkPct    = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const end15     = state.tick + TICK_RATE * 15;
-          // Attack speed ▲：ROF 乘数，由 battle.js 循环读取
-          caster.skillState.tempAtkSpeedPct     = atkSpdPct;
-          caster.skillState.tempAtkSpeedEndTick = end15;
+          // Attack speed ▲：via buff 系统
+          pushBuff(state, { name: 'dorothy234_burst_atkSpeed', unitId: caster.id, atkSpeedPct: atkSpdPct, endTick: end15 });
           // ATK ▲
           pushBuff(state, { name: 'dorothy234_burst_atk', unitId: caster.id, atkPct, endTick: end15 });
         },

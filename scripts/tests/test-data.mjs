@@ -478,7 +478,7 @@ section('T10: computeFinalStats — equipOptions non-zero (atkFlat, critRate, cr
     equipment:    {},
     equipOptions: {
       atkFlat:       5_000,
-      defFlat:       200,
+      defFlat:       0.10,   // 10% DEF 增量（小数形式；aggregateEquipOptions 已从整数/10000转换）
       critRatePct:   0.10,
       critDmgPct:    0.25,
       elementDmgPct: 0.05,
@@ -493,8 +493,8 @@ section('T10: computeFinalStats — equipOptions non-zero (atkFlat, critRate, cr
   // atk = base(17576)；atkFlat(5000) 单独以 equipAtkFlat 返回，不并入 stats.atk
   near('atk (base, no atkFlat)', stats.atk,         17_576, 1);
   near('equipAtkFlat',           stats.equipAtkFlat,  5_000, 1);
-  // def = base(3027) + defFlat(200) = 3227
-  near('def + defFlat',       stats.def, 3_227, 1);
+  // def = base(3027) + round(3027 * 0.10) = 3027 + 303 = 3330
+  near('def + defFlat',       stats.def, 3_330, 1);
   // critRate = 0.15 + 0.10 = 0.25
   near('critRate', stats.critRate, 0.25, 0.0001);
   // critDmg = 0.50 + 0.25 = 0.75

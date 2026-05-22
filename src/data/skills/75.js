@@ -116,7 +116,7 @@ export default {
           } else {
             state.dots.push({
               casterId:      caster.id,
-              label:         'dws_s2_fb_dot',
+              label:         'S2 P2',
               dotName:       'dws_s2_fb_dot',
               multPerStack:  mult,
               stacks:        1,
@@ -182,7 +182,7 @@ export default {
           } else {
             state.dots.push({
               casterId:      caster.id,
-              label:         'dws_burst_dot',
+              label:         'Burst',
               dotName:       'dws_burst_dot',
               multPerStack:  totalMult,
               stacks:        1,

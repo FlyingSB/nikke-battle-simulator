@@ -191,9 +191,8 @@ export function calcDamage(input) {
   const damageTakenMult_ = 1 + damageTakenMult + distributedDamageMult;
 
   // ── Final ──
-  const damage = Math.floor(
-    baseDamage * commonMult * elemMult * chargeMult * extraMult * damageTakenMult_
-  );
+  const raw = baseDamage * commonMult * elemMult * chargeMult * extraMult * damageTakenMult_;
+  const damage = isNaN(raw) ? 0 : Math.floor(raw);
 
   return {
     damage,

@@ -16,6 +16,7 @@ import { simulate, simulateMonteCarlo } from '../engine/battle.js';
 import { computeFinalStats } from '../engine/stats.js';
 import { CUBE_NAMES, CUBE_URLS, FAVORITE_ITEM_URLS } from '../data/manifest.js';
 import { renderSkillDesc } from './skill-render.js';
+import { MODELED_IDS } from '../data/skill-traits.js';
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────
 
@@ -23,21 +24,24 @@ const CLASS_LABEL   = { Attacker: '攻击手', Defender: '防御手', Supporter:
 const CORP_LABEL    = { ELYSION: '极乐净土', MISSILIS: '米西利斯', TETRA: '泰特拉', PILGRIM: '朝圣者', ABNORMAL: '反常' };
 const ELEMENT_LABEL = { Fire: '火', Water: '水', Wind: '风', Electric: '电', Iron: '铁' };
 
+const STORAGE_KEY = 'nikke-sim-v1';
+
 const EQUIP_SLOTS = ['head', 'torso', 'arms', 'legs'];
 const EQUIP_SLOT_LABELS = { head: '头部', torso: '躯干', arms: '手臂', legs: '腿部' };
 
+// vals 以整数厘百分比存储（954 表示 9.54%），与 account-loader._OPTION_GROUPS 保持一致
 export const EQUIP_OPTION_TYPES = [
-  { key: '',               label: '（无）',        unit: '' },
-  { key: 'atkPct',         label: '攻击力 ▲%',     unit: '%' },
-  { key: 'atkFlat',        label: '攻击力固定 ▲',  unit: '' },
-  { key: 'critRatePct',    label: '暴击率 ▲',      unit: '%' },
-  { key: 'critDmgPct',     label: '暴击伤害 ▲',    unit: '%' },
-  { key: 'hitRatePct',     label: '命中率 ▲',      unit: '%' },
-  { key: 'elementDmgPct',  label: '属性伤害 ▲',    unit: '%' },
-  { key: 'bonusAmmo',      label: '弹匣容量 ▲',    unit: '' },
-  { key: 'chargeDmgPct',   label: '蓄力伤害 ▲',    unit: '%' },
-  { key: 'chargeSpeedPct', label: '蓄力速度 ▲',    unit: '%' },
-  { key: 'defFlat',        label: '防御力固定 ▲',  unit: '' },
+  { key: '',               label: '（无）',             unit: '',  vals: [] },
+  { key: 'atkPct',         label: '攻击力增加',          unit: '%', vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
+  { key: 'atkFlat',        label: '攻击力增加（固定值）', unit: '',  vals: [] },
+  { key: 'critRatePct',    label: '暴击率增加',          unit: '%', vals: [230,264,298,332,366,400,435,469,503,537,570,605,639,673,707] },
+  { key: 'critDmgPct',     label: '暴击伤害增加',        unit: '%', vals: [664,762,860,958,1056,1154,1252,1350,1448,1546,1644,1742,1840,1938,2036] },
+  { key: 'hitRatePct',     label: '命中率增加',          unit: '%', vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
+  { key: 'elementDmgPct',  label: '优越代码伤害增加',    unit: '%', vals: [954,1094,1234,1375,1515,1655,1795,1935,2075,2215,2356,2496,2636,2776,2916] },
+  { key: 'bonusAmmo',      label: '最大装弹数增加',      unit: '%', vals: [2784,3195,3606,4017,4428,4839,5250,5660,6071,6482,6893,7304,7715,8126,8537] },
+  { key: 'chargeDmgPct',   label: '蓄力伤害增加',        unit: '%', vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
+  { key: 'chargeSpeedPct', label: '蓄力速度增加',        unit: '%', vals: [198,228,257,286,316,345,375,404,433,463,492,521,551,580,609] },
+  { key: 'defFlat',        label: '防御力增加',          unit: '%', vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
 ];
 
 const FAV_ITEMS_RS = [
@@ -55,12 +59,16 @@ const FAV_ITEMS_RS = [
   { id: 100602, name: '指挥官娃娃·限 (SR·SR)',  weapon: 'SR',  rare: 'SR' },
 ];
 
-// SSR 收藏品：FAVORITE_ITEM_URLS 中 id >= 200000 的条目，映射到角色 resourceId
-const SSR_FAV_BY_CHAR = Object.fromEntries(
-  Object.keys(FAVORITE_ITEM_URLS)
-    .filter(id => Number(id) >= 200000)
-    .map(id => [Number(id) - 200000, Number(id)])
-);
+// SSR 收藏品：角色 resourceId → SSR 珍藏品 resourceId
+// 通过读取本地 favorites/*.json 的 name_code 与 characters.json 对照得出
+const SSR_FAV_BY_CHAR = {
+   32: 200601, // Miranda   → Sheet of Paper
+  101: 200801, // Drake     → Villain Figurine
+  170: 201401, // Privaty   → Central Government Special Medal
+  192: 201101, // Tove      → Fire Starter
+  281: 201701, // Moran     → Peony Hairpin
+  352: 200701, // Helm      → Antique Compass
+};
 
 const DEFAULT_FAV_SR = { AR: 100102, MG: 100202, RL: 100302, SG: 100402, SMG: 100502, SR: 100602 };
 
@@ -117,6 +125,12 @@ function defaultSlot(active = false) {
 
 // ─── 辅助函数 ──────────────────────────────────────────────────────────────
 
+// opt.value 以整数厘百分比存储（954 表示 9.54%），传引擎前除以 10000 得小数
+const _PCT_OPT_KEYS = new Set([
+  'elementDmgPct', 'hitRatePct', 'bonusAmmo', 'atkPct',
+  'chargeDmgPct', 'chargeSpeedPct', 'critRatePct', 'critDmgPct', 'defFlat',
+]);
+
 function aggregateEquipOptions(equipment) {
   const result = {};
   for (const key of EQUIP_SLOTS) {
@@ -126,7 +140,9 @@ function aggregateEquipOptions(equipment) {
       if (!opt.type) continue;
       const v = Number(opt.value) || 0;
       if (!v) continue;
-      result[opt.type] = (result[opt.type] ?? 0) + v;
+      // 整数厘百分比求和后除以 10000 → 引擎所需小数（0.0954）
+      const normalized = _PCT_OPT_KEYS.has(opt.type) ? v / 10000 : v;
+      result[opt.type] = (result[opt.type] ?? 0) + normalized;
     }
   }
   return result;
@@ -140,9 +156,14 @@ export function fmtNum(n) {
   return Math.round(n).toLocaleString();
 }
 
+export function fmtStat(n) {
+  if (n == null || isNaN(n)) return '—';
+  return Math.round(n).toLocaleString();
+}
+
 function fmtPct(n) {
   if (n == null || isNaN(n)) return '—';
-  return (n * 100).toFixed(1) + '%';
+  return (n * 100).toFixed(2) + '%';
 }
 
 function fmtTime(sec) {
@@ -163,42 +184,112 @@ function formatTick(tick) {
   return `${mm}:${ss}`;
 }
 
+// { name, label, desc } 分别对应 角色列、技能列、事件描述列
+const BATTLE_EVENT_COLS = {
+  burst_i:      e => ({ name: e.unitName ?? '', label: 'Burst',  desc: 'Burst I' }),
+  burst_ii:     e => ({ name: e.unitName ?? '', label: 'Burst',  desc: 'Burst II' }),
+  full_burst:   e => ({ name: e.unitName ?? '', label: 'Burst',  desc: 'Full Burst' }),
+  burst_end:    () => ({ name: '',               label: '',       desc: 'Full Burst 结束' }),
+  burst_timeout:() => ({ name: '',               label: '',       desc: 'Full Burst 超时' }),
+  reload:       e => ({ name: e.unitName ?? '', label: '',       desc: '装填' }),
+  phase_change: e => ({ name: '',               label: '',       desc: `距离 → ${e.zone ?? ''}` }),
+};
+
+const TRIGGER_DESC = {
+  BATTLE_START:     '战斗开始',
+  ENTER_FULL_BURST: '全爆裂',
+  FULL_BURST_END:   '爆裂结束',
+  INTERVAL:         '定时',
+  INTERVAL_IN_BURST:'爆裂定时',
+  RELOAD_END:       '装填结束',
+  LAST_BULLET:      '末弹',
+  FULL_CHARGE:      '全蓄力',
+  HEAL_RECEIVED:    '治疗',
+  BURST_SKILL_USE:  '爆裂技能',
+};
+
+function formatHitLabel(label) {
+  if (label === 'normal_shot') return '普通攻击';
+  return label;
+}
+
+function buildEventRows(eventLog) {
+  if (!eventLog?.length) return [];
+  return eventLog.map(e => {
+    let name = '', label = '', target = '';
+    if (e.type === 'skill_trigger') {
+      const part = e.partIdx != null ? ` P${e.partIdx + 1}` : '';
+      name   = e.unitName;
+      label  = `${e.skillLabel}${part}`;
+      target = e.target ?? '';
+    } else {
+      const fn = BATTLE_EVENT_COLS[e.type];
+      const r  = fn ? fn(e) : { name: '', label: e.type, desc: '' };
+      name  = r.name;
+      label = r.desc || r.label;   // 事件描述放进技能列
+    }
+    return {
+      tickStart:  e.tick,
+      tickEnd:    e.tick,
+      kind:       'event',
+      eventType:  e.type,
+      name,
+      label,
+      target,
+      buffDesc:   '',
+      damage:     null,
+      count:      1,
+      isCrit:     false,
+    };
+  });
+}
+
 function buildAggregateLog(hitLog, unitNames) {
   if (!hitLog?.length) return [];
   const rows = [];
-  let cur = null;
+  // 每个 unitId+label 独立维护开放段，互不干扰
+  const open = new Map();
 
   for (const h of hitLog) {
-    const name   = unitNames[h.unitId] ?? String(h.unitId);
-    const bufKey = (h.buffBreakdown ?? []).map(b => b.name).sort().join(',');
+    const name = unitNames[h.unitId] ?? String(h.unitId);
+    const bufKey = [
+      h.atkPct  ?? 0,
+      h.atkFlat ?? 0,
+      h.attackDamagePct ?? 0,
+      h.hitMult ?? 1,
+      h.distanceAdv ? 1 : 0,
+      h.elemMult  ?? 1,
+      h.chargeMult ?? 1,
+      h.favNormalAttackDamageMult ?? 1,
+      h.critDmgInc ?? 0,
+    ].map(v => (typeof v === 'number' ? v.toFixed(6) : v)).join('|');
 
-    if (
-      cur &&
-      cur.unitId === h.unitId &&
-      cur.label  === h.label  &&
-      cur.bufKey === bufKey
-    ) {
+    const key = `${h.unitId}|${h.label}`;
+    const cur  = open.get(key);
+
+    if (cur && cur.bufKey === bufKey) {
       cur.damage += h.damage;
       cur.count++;
       cur.tickEnd = h.tick;
     } else {
       if (cur) rows.push(cur);
-      cur = {
-        tickStart:     h.tick,
-        tickEnd:       h.tick,
-        unitId:        h.unitId,
+      open.set(key, {
+        tickStart: h.tick,
+        tickEnd:   h.tick,
+        unitId:    h.unitId,
         name,
-        label:         h.label,
+        label:     formatHitLabel(h.label),
+        target:    '敌人',
         bufKey,
-        buffDesc:      (h.buffBreakdown ?? []).map(b => b.name).join(' / ') || '—',
-        damage:        h.damage,
-        count:         1,
-        isCrit:        h.isCrit,
-      };
+        buffDesc:  (h.buffBreakdown ?? []).map(b => b.name).join(' / ') || '—',
+        damage:    h.damage,
+        count:     1,
+        isCrit:    h.isCrit,
+      });
     }
   }
-  if (cur) rows.push(cur);
-  return rows;
+  for (const cur of open.values()) rows.push(cur);
+  return rows.sort((a, b) => a.tickStart - b.tickStart);
 }
 
 function buildDetailLog(hitLog, unitNames) {
@@ -208,7 +299,8 @@ function buildDetailLog(hitLog, unitNames) {
     tickEnd:    h.tick,
     unitId:     h.unitId,
     name:       unitNames[h.unitId] ?? String(h.unitId),
-    label:      h.label,
+    label:      formatHitLabel(h.label),
+    target:     '敌人',
     bufKey:     '',
     buffDesc:   (h.buffBreakdown ?? []).map(b => b.name).join(' / ') || '—',
     damage:     h.damage,
@@ -229,6 +321,7 @@ export function createStore() {
     loading:       true,
     loadProgress:  '正在初始化…',
     accountStatus: '',
+    devMode:       false,
 
     // 全局设置
     synchroLevel:    200,
@@ -260,11 +353,12 @@ export function createStore() {
     charPickerSlot:  -1,
 
     // 结果
-    result:      null,
-    hitLogRows:  [],
-    hitLogRaw:   null,
-    simRunning:  false,
-    logMode:     'aggregate',
+    result:        null,
+    hitLogRows:    [],
+    hitLogRaw:     null,
+    battleLogRaw:  null,
+    simRunning:    false,
+    logMode:       'aggregate',
 
     // 常量（模板使用）
     EQUIP_SLOTS,
@@ -279,6 +373,7 @@ export function createStore() {
     elementLabel(e) { return ELEMENT_LABEL[e] ?? e; },
     burstLabel(b)   { return ({ Step1: 'B-I', Step2: 'B-II', Step3: 'B-III' })[b] ?? b; },
     fmtNum,
+    fmtStat,
     fmtPct,
     fmtTime,
     formatTick,
@@ -290,8 +385,8 @@ export function createStore() {
 
     get filteredChars() {
       const q = (this.charQuery ?? '').toLowerCase().trim();
-      if (!q) return this.allChars.slice(0, 60);
-      return this.allChars.filter(c => c.name.toLowerCase().includes(q)).slice(0, 60);
+      if (!q) return this.allChars;
+      return this.allChars.filter(c => c.name.toLowerCase().includes(q));
     },
 
     favItemsForSlot(slotIdx) {
@@ -301,7 +396,7 @@ export function createStore() {
       if (!slot.resourceId) return byWeapon;
       const ssrId = SSR_FAV_BY_CHAR[slot.resourceId];
       if (!ssrId) return byWeapon;
-      return [...byWeapon, { id: ssrId, name: `SSR 专属 (${slot.name})`, weapon: slot.weaponType, rare: 'SSR' }];
+      return [...byWeapon, { id: ssrId, name: 'SSR珍藏品', weapon: slot.weaponType, rare: 'SSR' }];
     },
 
     // ── 初始化 ────────────────────────────────────────────────────────────────
@@ -315,24 +410,50 @@ export function createStore() {
         this.loadProgress = `部分数据加载失败：${err.message}`;
       }
 
-      this.allChars    = getAllCharacters();
+      this.allChars    = getAllCharacters().map(c => ({ ...c, modeled: MODELED_IDS.has(c.resourceId) }));
       this.cubeOptions = Object.entries(CUBE_URLS)
         .map(([id]) => ({ id: Number(id), name: CUBE_NAMES[id] ?? `魔方 ${id}` }))
         .sort((a, b) => a.id - b.id);
 
       const accountLoaded = await loadAccountFromDev();
       if (accountLoaded) {
+        this.devMode       = true;
         this.accountStatus = `账号已加载，共 ${getAccountSize()} 个角色`;
         const settings = getAccountSettings();
         this._applySettings(settings);
       } else {
+        this.devMode       = false;
         this.accountStatus = '未找到账号文件（手动模式）';
+      }
+
+      // 恢复上次保存的状态（在账号默认值之后，用户自定义优先）
+      const _saved = localStorage.getItem(STORAGE_KEY);
+      if (_saved) {
+        try { this._restoreSnapshot(JSON.parse(_saved)); } catch {}
       }
 
       this.loading = false;
     },
 
     // ── 账号导入 ──────────────────────────────────────────────────────────────
+
+    async reloadAccountFromDev() {
+      this.accountStatus = '正在重新加载…';
+      const ok = await loadAccountFromDev();
+      if (!ok) {
+        this.accountStatus = '⚠ 读取 dev/config.json 失败';
+        return;
+      }
+      const settings = getAccountSettings();
+      this._applySettings(settings);
+      this.accountStatus = `✓ 账号已更新，共 ${getAccountSize()} 个角色`;
+      for (let i = 0; i < 5; i++) {
+        const slot = this.team[i];
+        if (!slot.resourceId) continue;
+        const entry = getRosterEntry(slot.resourceId);
+        if (entry) this._applyRosterEntry(i, entry);
+      }
+    },
 
     async importAccount(file) {
       if (!file) return;
@@ -359,6 +480,80 @@ export function createStore() {
       this.generalResearch = settings.generalResearch;
       Object.assign(this.classResearch, settings.classResearch);
       Object.assign(this.corpResearch,  settings.corpResearch);
+    },
+
+    // ── 状态持久化 ────────────────────────────────────────────────────────────
+
+    _getSnapshot() {
+      return {
+        synchroLevel:    this.synchroLevel,
+        generalResearch: this.generalResearch,
+        classResearch:   { ...this.classResearch },
+        corpResearch:    { ...this.corpResearch },
+        enemy:           { ...this.enemy },
+        iterations:      this.iterations,
+        team: this.team.map(slot => ({
+          active:       slot.active,
+          resourceId:   slot.resourceId,
+          name:         slot.name,
+          classType:    slot.classType,
+          corporation:  slot.corporation,
+          element:      slot.element,
+          weaponType:   slot.weaponType,
+          burstStep:    slot.burstStep,
+          grade:        slot.grade,
+          core:         slot.core,
+          bondLevel:    slot.bondLevel,
+          skills:       slot.skills.slice(),
+          cube:         { resourceId: slot.cube.resourceId, level: slot.cube.level },
+          favoriteItem: { resourceId: slot.favoriteItem.resourceId, level: slot.favoriteItem.level },
+          equipment:    Object.fromEntries(EQUIP_SLOTS.map(k => [k, {
+            classReq: slot.equipment[k].classReq,
+            tier:     slot.equipment[k].tier,
+            level:    slot.equipment[k].level,
+            opts:     slot.equipment[k].opts.map(o => ({ type: o.type, value: o.value })),
+          }])),
+        })),
+      };
+    },
+
+    _restoreSnapshot(state) {
+      if (!state) return;
+      if (state.synchroLevel    != null) this.synchroLevel    = state.synchroLevel;
+      if (state.generalResearch != null) this.generalResearch = state.generalResearch;
+      if (state.classResearch)  Object.assign(this.classResearch, state.classResearch);
+      if (state.corpResearch)   Object.assign(this.corpResearch,  state.corpResearch);
+      if (state.enemy)          Object.assign(this.enemy, state.enemy);
+      if (state.iterations      != null) this.iterations = state.iterations;
+      if (!Array.isArray(state.team)) return;
+      state.team.forEach((saved, i) => {
+        if (i >= this.team.length || !saved) return;
+        const slot = this.team[i];
+        slot.active       = saved.active      ?? slot.active;
+        slot.resourceId   = saved.resourceId  ?? null;
+        slot.name         = saved.name        ?? '';
+        slot.classType    = saved.classType   ?? slot.classType;
+        slot.corporation  = saved.corporation ?? slot.corporation;
+        slot.element      = saved.element     ?? slot.element;
+        slot.weaponType   = saved.weaponType  ?? slot.weaponType;
+        slot.burstStep    = saved.burstStep   ?? slot.burstStep;
+        slot.grade        = saved.grade       ?? 0;
+        slot.core         = saved.core        ?? 0;
+        slot.bondLevel    = saved.bondLevel   ?? 1;
+        if (saved.skills)       slot.skills = saved.skills.slice();
+        if (saved.cube)         Object.assign(slot.cube, saved.cube);
+        if (saved.favoriteItem) Object.assign(slot.favoriteItem, saved.favoriteItem);
+        if (saved.equipment) {
+          for (const k of EQUIP_SLOTS) {
+            if (saved.equipment[k]) Object.assign(slot.equipment[k], saved.equipment[k]);
+          }
+        }
+        if (slot.resourceId) {
+          this._loadNikkeData(i, slot.resourceId);
+          if (slot.cube.resourceId)         this._loadCubeData(i, slot.cube.resourceId);
+          if (slot.favoriteItem.resourceId) this._loadFavData(i, slot.favoriteItem.resourceId);
+        }
+      });
     },
 
     // ── 角色选择 ──────────────────────────────────────────────────────────────
@@ -505,13 +700,33 @@ export function createStore() {
       slot.favoriteItem.resourceId = entry.favoriteItem.resourceId;
       slot.favoriteItem.level      = entry.favoriteItem.level || 1;
 
-      // 账号数据只有 boolean options，无法恢复词条类型 — 保留 opts 默认值
+      for (const key of EQUIP_SLOTS) {
+        const eq = entry.equipment?.[key];
+        if (!eq) continue;
+        slot.equipment[key].classReq = eq.classReq;
+        slot.equipment[key].tier     = eq.tier;
+        slot.equipment[key].level    = eq.level ?? 0;
+        if (eq.opts) slot.equipment[key].opts = eq.opts;
+      }
 
       if (slot.cube.resourceId) this._loadCubeData(i, slot.cube.resourceId);
       if (slot.favoriteItem.resourceId) this._loadFavData(i, slot.favoriteItem.resourceId);
     },
 
     // ── 技能描述渲染 ──────────────────────────────────────────────────────────
+
+    // 返回 slot 第 skillIndex（0/1/2）个技能的有效 skillDetail：
+    // SSR 珍藏品已加载时，从 favoriteitem_skill_group_data 读取；否则从角色 nikke 数据读取。
+    effectiveSkillDetail(slotIdx, skillIndex) {
+      const slot = this.team[slotIdx];
+      const fsg  = slot?._favData?.favoriteitem_skill_group_data;
+      if (fsg?.length) {
+        const entry = fsg.find(e => e.skill_change_slot === skillIndex + 1);
+        if (entry?.info) return entry.info;
+      }
+      const nd = slot?._nikkeData;
+      return [nd?.skill1_detail, nd?.skill2_detail, nd?.ulti_skill_detail][skillIndex] ?? null;
+    },
 
     renderSkillHtml(skillDetail, skillLevel) {
       if (!skillDetail) return '';
@@ -602,10 +817,11 @@ export function createStore() {
         return;
       }
 
-      this.simRunning = true;
-      this.result     = null;
-      this.hitLogRows = [];
-      this.hitLogRaw  = null;
+      this.simRunning   = true;
+      this.result       = null;
+      this.hitLogRows   = [];
+      this.hitLogRaw    = null;
+      this.battleLogRaw = null;
 
       await new Promise(r => setTimeout(r, 10));
 
@@ -619,17 +835,32 @@ export function createStore() {
           )
         );
 
-        const squadConfig = activeSlots.map((slot, idx) => ({
-          characterId:    slot.resourceId,
-          name:           slot.name || `NIKKE ${idx + 1}`,
-          classType:      slot.classType,
-          element:        slot.element,
-          weaponType:     slot.weaponType,
-          burstStep:      slot.burstStep ?? 'Step3',
-          level:          this.synchroLevel,
-          _computedStats: squadStats[idx],
-          _nikkeData:     slot._nikkeData ?? null,
-        }));
+        const squadConfig = activeSlots.map((slot, idx) => {
+          const nd             = slot._nikkeData;
+          const isChargeWeapon = ['SR', 'RL'].includes(slot.weaponType);
+          return {
+            characterId:           slot.resourceId,
+            name:                  slot.name || `NIKKE ${idx + 1}`,
+            classType:             slot.classType,
+            element:               slot.element,
+            weaponType:            slot.weaponType,
+            burstStep:             slot.burstStep ?? 'Step3',
+            level:                 this.synchroLevel,
+            _computedStats:        squadStats[idx],
+            _nikkeData:            nd ?? null,
+            _favItemData:          slot._favData ?? null,
+            favoriteItem:          { resourceId: slot.favoriteItem.resourceId, level: slot.favoriteItem.level },
+            cubeLevel:             slot.cube.level ?? 15,
+            skillLevels:           slot.skills.slice(0, 3),
+            baseAmmo:              nd?.shot_detail?.max_ammo,
+            fullChargeDamage:      nd?.shot_detail?.full_charge_damage ?? 10000,
+            reloadTicks:           nd ? Math.round((nd.shot_detail?.reload_time ?? 200) / 100 * 60) : undefined,
+            burstEnergyPerShot:    nd?.shot_detail?.burst_energy_pershot,
+            fullChargeBurstEnergy: nd?.shot_detail?.full_charge_burst_energy ?? 0,
+            chargeTimeTicks:       isChargeWeapon ? Math.round((nd?.shot_detail?.charge_time ?? 0) / 100 * 60) : 0,
+            burstSkillCooltime:    nd ? Math.round((nd.ulti_skill_detail?.skill_cooltime ?? 4000) / 100 * 60) : undefined,
+          };
+        });
 
         const distancePhases = [];
         if (this.enemy.distNear > 0) distancePhases.push({ zone: 'NEAR', durationS: Number(this.enemy.distNear) });
@@ -639,7 +870,6 @@ export function createStore() {
         const baseConfig = {
           squad:    squadConfig,
           enemy: {
-            maxHp:   10_000_000,
             def:     Number(this.enemy.def)  || 500,
             element: this.enemy.element,
             type:    this.enemy.type,
@@ -654,8 +884,9 @@ export function createStore() {
         const mcResult  = simulateMonteCarlo(baseConfig, iters);
         const single    = simulate({ ...baseConfig, hitLog: true });
 
-        this.result     = { ...mcResult, iterations: iters };
-        this.hitLogRaw  = single.hitLog;
+        this.result        = { ...mcResult, iterations: iters };
+        this.hitLogRaw     = single.hitLog;
+        this.battleLogRaw  = single.log ?? [];
         this._rebuildLog();
       } catch (err) {
         console.error('模拟出错:', err);
@@ -670,9 +901,11 @@ export function createStore() {
       const unitNames = Object.fromEntries(
         (this.result.units ?? []).map(u => [u.id, u.name])
       );
-      this.hitLogRows = this.logMode === 'detail'
+      const hitRows   = this.logMode === 'detail'
         ? buildDetailLog(this.hitLogRaw, unitNames)
         : buildAggregateLog(this.hitLogRaw, unitNames);
+      const eventRows = buildEventRows(this.battleLogRaw);
+      this.hitLogRows = [...hitRows, ...eventRows].sort((a, b) => a.tickStart - b.tickStart);
     },
 
     setLogMode(mode) {
@@ -685,6 +918,7 @@ export function createStore() {
     skillDamageRows(unit) {
       if (!unit?.skillDamage) return [];
       return Object.entries(unit.skillDamage)
+        .filter(([, dmg]) => dmg > 0)
         .map(([label, dmg]) => ({
           label,
           damage: dmg,

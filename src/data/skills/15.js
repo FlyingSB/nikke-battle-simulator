@@ -53,7 +53,7 @@ export default {
           const skillDmg  = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           const partsDmg  = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, skillDmg, sums, false, 'anisss_s2');
+          fireSkillHit(state, caster, skillDmg, sums, false, 'S2');
           pushBuff(state, { name: 'anisss_s2_partsDmg', unitId: caster.id,
             interruptionPartsDamagePct: partsDmg, endTick: state.tick + TICK_RATE * 10 });
         },

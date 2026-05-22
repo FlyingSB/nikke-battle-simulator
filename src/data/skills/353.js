@@ -30,7 +30,7 @@ export default {
           const lv   = caster.skillLevels[0];
           const mult = getSkillValue(caster.rawSkill1, 1, lv) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, false, 'helm353_s1_extraHit');
+          fireSkillHit(state, caster, mult, sums, false, 'S1');
           addBurstGauge(state, caster.name, 'helm353_s1_extraHit', caster.targetBurstEnergyPerShot);
         },
       },
@@ -80,7 +80,7 @@ export default {
           const lv   = caster.skillLevels[1];
           const mult = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, false, 'helm353_s2_suppFire');
+          fireSkillHit(state, caster, mult, sums, false, 'S2');
           addBurstGauge(state, caster.name, 'helm353_s2_suppFire', caster.targetBurstEnergyPerShot);
         },
       },
@@ -123,10 +123,10 @@ export default {
           const lv        = caster.skillLevels[2];
           const burstMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const sums      = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, burstMult, sums, false, 'helm353_burst_main');
+          fireSkillHit(state, caster, burstMult, sums, false, 'Burst P1');
           if (state.enemyElement === 'Electric') {
             const bonusMult = getSkillValue(caster.rawBurst, 1, lv) / 100;
-            fireSkillHit(state, caster, bonusMult, sums, false, 'helm353_burst_electric');
+            fireSkillHit(state, caster, bonusMult, sums, false, 'Burst P2');
           }
         },
       },

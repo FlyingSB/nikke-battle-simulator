@@ -212,7 +212,7 @@ section('Fix 6: S3 Part2 mirrors Beautiful stack count (mult = stacks × 0.289)'
 
   // label should be 'burst_beautiful'
   eq('all burst_beautiful label correct',
-    state.pendingFireInBurstHits.every(h => h.label === 'burst_beautiful'), true);
+    state.pendingFireInBurstHits.every(h => h.label === 'Burst P2'), true);
 
   // sums = null (recomputed after ENTER_FULL_BURST)
   eq('all burst_beautiful sums = null',
@@ -234,7 +234,7 @@ section('Fix 7: S3 Part2 enqueued exactly 10 times (one per Part1 hit)');
   burstUseTrigger.handler(state, caster, {});
 
   eq('pendingFireInBurstHits count = 10', state.pendingFireInBurstHits.length, 10);
-  eq('burst_seq hit count = 10', caster.skillDamageCount?.burst_seq ?? 0, 10);
+  eq('burst_seq hit count = 10', caster.skillDamageCount?.['Burst P1'] ?? 0, 10);
 
   // With 0 stacks: no Part2 enqueued
   const state2  = makeState();
@@ -245,7 +245,7 @@ section('Fix 7: S3 Part2 enqueued exactly 10 times (one per Part1 hit)');
   burstUseTrigger.handler(state2, caster2, {});
 
   eq('no pendingFireInBurstHits when Beautiful = 0', state2.pendingFireInBurstHits.length, 0);
-  eq('Part1 still fires 10 times', caster2.skillDamageCount?.burst_seq ?? 0, 10);
+  eq('Part1 still fires 10 times', caster2.skillDamageCount?.['Burst P1'] ?? 0, 10);
 }
 
 // ── Fix 8: S3 Part1 默认结算（无 burstSkillDamage 标记，引擎自动抑制加成）────
@@ -256,8 +256,8 @@ section('Fix 8: S3 Part1 默认结算，不含 burstSkillDamage 标记');
   const handlerSrc      = burstUseTrigger?.handler?.toString() ?? '';
 
   eq('handler 不含 burstSkillDamage（默认结算）', handlerSrc.includes('burstSkillDamage'), false);
-  eq('handler labels Part1 as burst_seq',         handlerSrc.includes('burst_seq'),              true);
-  eq('handler labels Part2 as burst_beautiful',   handlerSrc.includes('burst_beautiful'),         true);
+  eq('handler labels Part1 as Burst P1',          handlerSrc.includes('Burst P1'),               true);
+  eq('handler labels Part2 as Burst P2',          handlerSrc.includes('Burst P2'),               true);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

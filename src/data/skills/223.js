@@ -44,7 +44,7 @@ export default {
               state.tick > caster.skillState.weaponSwitchEndTick) return;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
           if (state.enemyHp > 0)
-            fireSkillHit(state, caster, 5.3046, sums, false, 'memincin_s1p3');
+            fireSkillHit(state, caster, 5.3046, sums, false, 'S1');
         },
       },
     ],
@@ -168,7 +168,7 @@ export default {
           const sums         = getBuffSums(state, caster.id);
           const burstHitMult = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
           if (state.enemyHp > 0)
-            fireSkillHit(state, caster, burstHitMult, sums, false, 'burst_hit');
+            fireSkillHit(state, caster, burstHitMult, sums, false, 'Burst');
 
           // Memory Incineration 武器切换：SMG → 蓄力武器（1.8s/FC，275.18% × 250%）
           // duration=10s, chargeTime=1.8s → floor(10/1.8)=5 FCs；第 6 次 t=10.8s 超出窗口丢失

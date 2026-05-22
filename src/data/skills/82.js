@@ -58,17 +58,14 @@ export default {
           const maxAmmoPct  = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
           const critDmgPct  = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
           const atkPct      = getSkillValue(caster.rawSkill1, 7, caster.skillLevels[0]) / 100;
-          const literBoostEndTick = end5;
           for (const u of state.squad) {
             const boostExtra = Math.floor(u.baseAmmo * maxAmmoPct);
-            u.skillState.literAmmoBoostEndTick = literBoostEndTick;
-            u.skillState.literAmmoBoostExtra   = boostExtra;
+            pushBuff(state, { name: `liter_s1_t1_reload_${u.id}`, unitId: u.id, maxAmmoFlat: boostExtra, endTick: end5 });
             if (state.ammoLog)
               state.ammoLog.push({ tick: state.tick, unitId: u.id, unitName: u.name,
                 delta: 0, ammoAfter: u.ammoLeft, maxAmmo: u.maxAmmo + boostExtra,
                 maxAmmoDelta: boostExtra, source: `liter_s1_t1_maxAmmo(+${(maxAmmoPct*100).toFixed(2)}%)` });
           }
-          pushBuff(state, { name: 'liter_s1_t1_maxAmmo', unitId: null, maxAmmoPct, endTick: literBoostEndTick });
           if (cnt >= 2) pushBuff(state, { name: 'liter_s1_critDmg', unitId: null, critDmgBonus: critDmgPct, endTick: end5 });
           if (cnt >= 3) pushBuff(state, { name: 'liter_s1_atkPct',  unitId: null, atkPct,                  endTick: end5 });
         },

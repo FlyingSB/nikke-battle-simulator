@@ -121,3 +121,5 @@ export const SKILL_TRAITS = {
   353: s353,
   316: s316,
 };
+
+export const MODELED_IDS = new Set(Object.keys(SKILL_TRAITS).map(Number));

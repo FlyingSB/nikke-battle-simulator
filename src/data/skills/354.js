@@ -78,7 +78,7 @@ export default {
         handler(state, caster) {
           const drunken = state.buffs.find(b => b.name === 'mast_drunken');
           if ((drunken?.stackCount ?? 0) < 3) return;
-          caster.skillState.mastHangoverEndTick = state.tick + TICK_RATE * 10;
+          caster.skillState.stunnedUntilTick = state.tick + TICK_RATE * 10;
           state.buffs = state.buffs.filter(b => b.name !== 'mast_drunken' && b.derivedFrom !== 'mast_drunken');
         },
       },

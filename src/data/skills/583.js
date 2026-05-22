@@ -177,7 +177,7 @@ export default {
             type: 'SKILL_DAMAGE',
             count: 1,
             mult: (caster) => getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100,
-            label: 'fortune_burst_hit',
+            label: 'Burst',
           },
         ],
       },

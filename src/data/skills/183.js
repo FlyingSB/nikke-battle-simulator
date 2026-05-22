@@ -110,7 +110,7 @@ export default {
         handler(state, caster, ctx) {
           const skillDmg = getSkillValue(caster.rawSkill2, 9, caster.skillLevels[1]) / 100;
           const sums     = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, skillDmg, sums, false, 'icr_s2_fc_dmg');
+          fireSkillHit(state, caster, skillDmg, sums, false, 'S2');
           addBurstGauge(state, caster.name, 'icr_s2_fc_dmg', caster.targetBurstEnergyPerShot);
         },
       },
@@ -146,7 +146,7 @@ export default {
             state.pendingSkillHits.push({
               fireTick: state.tick + firstHitDelay + i * intervalTicks, caster, mult: burstMult,
               sums: preSums,
-              isCharged: false, label: 'burst_hit',
+              isCharged: false, label: 'Burst',
               opts: { extraAtkFlat: buffedMaxHp },
             });
           }

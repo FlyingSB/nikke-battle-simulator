@@ -79,7 +79,7 @@ export default {
           const lv   = caster.skillLevels[1];
           const mult = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, false, 'ada_s2_grenade', { isTrueDamage: true });
+          fireSkillHit(state, caster, mult, sums, false, 'S2', { isTrueDamage: true });
         },
       },
       // 全爆裂结束时重置上次触发记录

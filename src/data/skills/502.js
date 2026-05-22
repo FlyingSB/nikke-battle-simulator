@@ -59,7 +59,7 @@ export default {
             const lv     = caster.skillLevels[1];
             const hitPct = getSkillValue(caster.rawSkill2, 2, lv) / 100;
             const sums   = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, hitPct, sums, false, 'ebs_s2_overflow');
+            fireSkillHit(state, caster, hitPct, sums, false, 'S2');
             return;
           }
 
@@ -163,7 +163,7 @@ export default {
               state.pendingSkillHits.push({
                 fireTick: state.tick + delay * (h + 1),
                 caster, mult: hitPct, sums: preSums,
-                isCharged: false, label: 'ebs_burst_hit',
+                isCharged: false, label: 'Burst',
                 opts: {},
               });
             }
@@ -175,7 +175,7 @@ export default {
               state.pendingSkillHits.push({
                 fireTick: state.tick + delay * (h + 1),
                 caster, mult: hitPct, sums: preSums,
-                isCharged: false, label: 'ebs_burst_hit',
+                isCharged: false, label: 'Burst',
                 opts: {},
               });
             }

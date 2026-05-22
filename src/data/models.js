@@ -33,7 +33,7 @@ export function getAllCharacters() {
       nameCode:    c.name_code ?? 0,
       name:        c.name_localkey?.name ?? String(c.resource_id),
       classType:   c.class ?? 'Attacker',
-      element:     c.element_details?.[0]?.element ?? null,
+      element:     c.element_id?.element?.element ?? null,
       weaponType:  (typeof c.shot_id    === 'object' ? c.shot_id?.element?.weapon_type : null) ?? null,
       damageType:  (typeof c.shot_id    === 'object' ? c.shot_id?.element?.attack_type : null) ?? null,
       corporation: c.corporation ?? 'ELYSION',
@@ -141,6 +141,20 @@ export function normalizeCube(raw) {
     levels: [raw.level1 ?? [], raw.level2 ?? [], raw.level3 ?? []],
     skills: (raw.harmonycube_skill_group ?? []).filter(Boolean),
   };
+}
+
+// 账号 JSON harmony_cube_tid（7位）→ CUBE_URLS / loadCube 所用的 resource_id（5位）
+// 数据来源：src/data/static/cubes/*.json 中的 id 和 resource_id 字段
+const _CUBE_TID_TO_RID = new Map([
+  [1000301, 10001], [1000302, 10002], [1000303, 10003], [1000304, 10004],
+  [1000305, 10005], [1000306, 10006], [1000307, 11001], [1000308, 13001],
+  [1000309, 12001], [1000310, 13002], [1000311, 12002], [1000312, 10009],
+  [1000313, 10007], [1000314, 10008], [1000315, 10010],
+]);
+
+/** 按账号 JSON 中的 harmony_cube_tid 查找 resource_id。 */
+export function getCubeResourceIdByTid(tid) {
+  return _CUBE_TID_TO_RID.get(Number(tid)) ?? null;
 }
 
 // ─── Attractive（羁绊等级） ──────────────────────────────────────────────────
@@ -391,7 +405,6 @@ export function parseNikkeDetail(raw) {
 export function getSkillValue(skillDetail, paramIndex, skillLevel) {
   const raw = skillDetail?.description_value_list?.[paramIndex]?.description_value?.[skillLevel - 1];
   if (raw == null) {
-    console.error(`[getSkillValue] 取值失败: id=${skillDetail?.id ?? 'null'}, paramIndex=${paramIndex}, skillLevel=${skillLevel}`);
     return 0;
   }
   return parseFloat(raw);
@@ -473,7 +486,6 @@ export function getFavItemSkillEffects(favData, itemLevel) {
 export function getSsrFavSkills(favData, itemLevel, skillLevelOverride) {
   const fskills = favData?.favoriteitem_skill_group_data;
   if (!fskills?.length) return null;
-  const skillLv = skillLevelOverride ?? 10;
   const result  = {};
   const slotLabels = { 1: 'skill1', 2: 'skill2', 3: 'burst' };
   // CDN 数组顺序可能不固定（部分角色为逆序），按 skill_change_slot 显式映射
@@ -481,6 +493,8 @@ export function getSsrFavSkills(favData, itemLevel, skillLevelOverride) {
     const info  = entry?.info;
     const label = slotLabels[entry?.skill_change_slot];
     if (!info || !label) continue;
+    // CDN JSON 中的 skill_level 始终为 1（非玩家实际等级），不可用；默认满级 10
+    const skillLv = skillLevelOverride ?? 10;
     result[label] = { ...info, _activeSkillLevel: skillLv };
   }
   return Object.keys(result).length ? result : null;

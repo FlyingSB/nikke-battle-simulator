@@ -40,17 +40,20 @@ let _nextId = 90000;
  */
 function dummyUnit(burstStep, nativeBurstStep, overrides = {}) {
   return {
-    characterId:        _nextId++,
-    name:               `Dummy-${burstStep}`,
-    element:            'Iron',
-    weaponType:         'MG',
+    characterId:              _nextId++,
+    name:                     `Dummy-${burstStep}`,
+    element:                  'Iron',
+    weaponType:               'MG',
     burstStep,
-    nativeBurstStep:    nativeBurstStep ?? burstStep,
-    _computedStats:     { ...STATS },
-    burstEnergyPerShot: 1_000_000,   // one shot fills the shared gauge
-    burstSkillCooltime: 0,            // no post-burst cooldown
-    shotDamageMult:     1.0,
-    rateOfFire:         600,
+    nativeBurstStep:          nativeBurstStep ?? burstStep,
+    _nikkeData:               {},
+    _computedStats:           { ...STATS },
+    targetBurstEnergyPerShot: 1_000_000,  // one shot fills the shared gauge
+    burstSkillCooltime:       0,
+    baseAmmo:                 30,
+    reloadTicks:              120,
+    shotDamageMult:           1.0,
+    rateOfFire:               600,
     ...overrides,
   };
 }
@@ -58,17 +61,20 @@ function dummyUnit(burstStep, nativeBurstStep, overrides = {}) {
 /** Rapi: Red Hood unit (characterId=16, SKILL_TRAITS entry active). */
 function rapiUnit(burstStep = 'Step3', nativeBurstStep = 'Step3', overrides = {}) {
   return {
-    characterId:        16,
-    name:               'Rapi: Red Hood',
-    element:            'Fire',
-    weaponType:         'MG',
+    characterId:              16,
+    name:                     'Rapi: Red Hood',
+    element:                  'Fire',
+    weaponType:               'MG',
     burstStep,
     nativeBurstStep,
-    _computedStats:     { ...STATS },
-    burstEnergyPerShot: 1_000_000,
-    burstSkillCooltime: 0,
-    shotDamageMult:     1.0,
-    rateOfFire:         600,
+    _nikkeData:               {},
+    _computedStats:           { ...STATS },
+    targetBurstEnergyPerShot: 1_000_000,
+    burstSkillCooltime:       0,
+    baseAmmo:                 30,
+    reloadTicks:              120,
+    shotDamageMult:           1.0,
+    rateOfFire:               600,
     ...overrides,
   };
 }
@@ -167,8 +173,8 @@ section('R5 — Rapi B3, non-CA: burst fires 28.08× skill damage');
     rapiUnit('Step3', 'Step3'),
   ]));
   const rapi = rapiResult(r);
-  eq('R5.1  burst damage label exists',        'burst' in (rapi.skillDamage ?? {}),        true);
-  eq('R5.2  burst damage > 0',                 (rapi.skillDamage?.burst ?? 0) > 0,          true);
+  eq('R5.1  burst damage label exists',        'Burst' in (rapi.skillDamage ?? {}),        true);
+  eq('R5.2  burst damage > 0',                 (rapi.skillDamage?.Burst ?? 0) > 0,          true);
 }
 
 // ─── R6: Rapi B3, CA → CA burst buff fires, no B3 damage ────────────────────
@@ -182,7 +188,7 @@ section('R6 — Rapi B3, Combat Assist: CA ATK-flat buff fires; burst damage abs
   ]));
   const rapi = rapiResult(r);
   eq('R6.1  CA burst buff fired',              buffFired(r.buffLog, 'rapi_burst_ca_atkFlat'),            true);
-  eq('R6.2  burst damage label absent',        'burst' in (rapi.skillDamage ?? {}),                     false);
+  eq('R6.2  burst damage label absent',        'Burst' in (rapi.skillDamage ?? {}),                     false);
 }
 
 // ─── R7: Rapi configured as B1 → no burst damage; Scenario D fires ──────────
@@ -197,7 +203,7 @@ section('R7 — Rapi as B1 slot: no B3 burst damage; Scenario D buff fires');
   ]));
   const rapi = rapiResult(r);
   eq('R7.1  at least one burst fired',         r.burstCount > 0,                                         true);
-  eq('R7.2  Rapi fires burst damage as B1 caster', (rapi.skillDamage?.burst ?? 0) > 0,                  true);
+  eq('R7.2  Rapi fires burst damage as B1 caster', (rapi.skillDamage?.Burst ?? 0) > 0,                  true);
   eq('R7.3  Scenario D ATK buff fired',        buffFired(r.buffLog, 'rapi_s1_enterBurst_atkPct'),        true);
   eq('R7.4  Scenario C buff did NOT fire',     buffFired(r.buffLog, 'rapi_s1_ca_attackDmg'),             false);
 }

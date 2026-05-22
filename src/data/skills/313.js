@@ -26,7 +26,7 @@ export default {
             const lv   = caster.skillLevels[0];
             const mult = getSkillValue(caster.rawSkill1, 1, lv) / 100;
             const sums = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, mult, sums, false, 'pum_s1_hit');
+            fireSkillHit(state, caster, mult, sums, false, 'S1');
           }
         },
       },
@@ -153,7 +153,7 @@ export default {
           if (state.enemyHp > 0) {
             const burstMult = getSkillValue(caster.rawBurst, 4, lv) / 100;
             const sums      = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, burstMult, sums, false, 'pum_burst_hit');
+            fireSkillHit(state, caster, burstMult, sums, false, 'Burst');
           }
         },
       },

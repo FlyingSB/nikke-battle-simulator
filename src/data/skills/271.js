@@ -49,8 +49,7 @@ export default {
           const reloadPct = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
           const endTick   = state.tick + TICK_RATE * 10;
           for (const u of state.squad) {
-            u.skillState.noirAmmoBoostExtra   = ammoFlat;
-            u.skillState.noirAmmoBoostEndTick = endTick;
+            pushBuff(state, { name: `noir_s2_reload_${caster.id}_${u.id}`, unitId: u.id, maxAmmoFlat: ammoFlat, endTick });
             const expandedMax = u.maxAmmo + ammoFlat;
             const reloadAmt   = Math.round(expandedMax * reloadPct);
             u.ammoLeft        = Math.min(expandedMax, u.ammoLeft + reloadAmt);
@@ -95,7 +94,7 @@ export default {
         handler(state, caster) {
           const pct  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, pct, sums, false, 'noir_burst_dmg');
+          fireSkillHit(state, caster, pct, sums, false, 'Burst');
         },
       },
       // Part2：霰弹枪友军 Hit Rate + Interruption Parts Dmg（10 sec）

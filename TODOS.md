@@ -97,3 +97,28 @@
 **背景：** 由 `/plan-design-review` 在 2026-04-01 加入。`style.css:5-19` 的 CSS token 系统是事实来源。可运行 `/design-consultation` 从现有代码库生成结构化文档。
 
 **依赖 / 阻塞：** 无依赖。优先级低。
+
+---
+
+## 部件系统（Parts / Interruption Parts）
+
+**内容：** Boss 拥有独立 HP 的可摧毁部件。
+
+引擎层面待实现：
+- Boss 部件 HP 池（独立于主体 HP 的多 HP 目标）
+- PART_DESTROYED 触发事件（部件 HP 归零时分派）
+- `damageToPartsMult` 字段：`damage.js` 已有占位，须接入 `getBuffSums` / `fireSkillHit` 管线
+- `interruptionPartsDamagePct`：已被 skills/15.js 和 16.js 推入 `state.buffs`，但 `getBuffSums` 未读取
+- Snow White: Heavy Arms (471) S2 "Damage to Parts ▲" 暂以 `attackDamagePct` 近似，建模后替换
+
+技能层面（建模部件系统后需补全）：
+- Helm (352) S2：Damage to Interruption Parts ▲（持续）
+- Rapi: Red Hood (16) S1：Damage to Interruption Parts ▲ 48%（全爆裂时 10s，字段已存未接入）
+- Anis: Sparkling Summer (15) S2：Damage to Interruption Parts ▲（全爆裂时 10s，字段已存未接入）
+- Raven (851) S2 Blue Blade Part1/2：Vital Attack — Damage to Parts ▲（战斗开始 / 全爆裂，5s）
+- Raven (851) S2 Blue Blade Part3：Single Point Attack — Sustained damage ▲（PART_DESTROYED 触发，15s）
+- Raven (851) 爆裂 Tempest Effect1：A.N. Mode 移除 Single Point Attack
+
+**背景：** 从 battle.js 顶部注释迁移。优先级低，待 Boss 战模式正式支持时实现。
+
+**依赖 / 阻塞：** 无。

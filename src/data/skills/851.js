@@ -34,7 +34,7 @@ export default {
           } else {
             state.dots.push({
               casterId:        caster.id,
-              label:           'rv_s1_dot',
+              label:           'S1',
               dotName:         'rv_s1_dot',
               multPerStack,
               stacks:          1,
@@ -107,7 +107,7 @@ export default {
             mult:      burstMult,
             sums:      sumsSnap,
             isCharged: false,
-            label:     'rv_burst',
+            label:     'Burst',
           });
 
           // Part2: A.N. Mode — 自身持续伤害倍率▲ p01% 10s

@@ -113,7 +113,7 @@ export default {
             mult:      burstMult,
             sums:      sumsSnap,
             isCharged: false,
-            label:     'sc_burst',
+            label:     'Burst',
           });
         },
       },

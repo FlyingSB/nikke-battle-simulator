@@ -66,7 +66,7 @@ export default {
           const dmgPct = getSkillValue(favS2, 2, favLv) / 100;
           // 游戏打 3 个不同目标，模拟器只有单敌，只计 1 次命中
           const sums   = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, dmgPct, sums, false, 'drake_s2_10shot');
+          fireSkillHit(state, caster, dmgPct, sums, false, 'S2 P1');
         },
       },
       // [SSR] 每 5 发 → 最低 HP 1 敌方受 [p06]% ATK 技能伤害
@@ -79,7 +79,7 @@ export default {
           if (!favS2 || favLv <= 0) return;
           const dmgPct = getSkillValue(favS2, 5, favLv) / 100;
           const sums   = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, dmgPct, sums, false, 'drake_s2_5shot');
+          fireSkillHit(state, caster, dmgPct, sums, false, 'S2 P2');
         },
       },
     ],
@@ -111,7 +111,7 @@ export default {
 
           // SSR：范围伤害 [p01]%（lv10=3009.6%）
           const dmgPct    = getSkillValue(favBurst, 0, favLv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'drake_burst');
+          fireSkillHit(state, caster, dmgPct, sums, false, 'Burst');
           // 自身 Max Ammo ▲[p02]%（lv10=72.18%）
           const ammoPct   = getSkillValue(favBurst, 1, favLv) / 100;
           pushBuff(state, { name: 'drake_burst_ammo',   unitId: caster.id, maxAmmoPct: ammoPct, endTick: end10 });

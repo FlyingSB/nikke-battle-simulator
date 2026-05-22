@@ -19,7 +19,7 @@ export function getBuffSums(state, unitId) {
       chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0,
       projectileExplosionDamagePct = 0, coreDamagePct = 0, maxHpPct = 0, maxHpFlat = 0,
       burstGaugeFlat = 0, pierceDamagePct = 0, sustainedDamageMult = 0, maxAmmoFlat = 0,
-      trueDamagePct = 0;
+      trueDamagePct = 0, atkSpeedPct = 0;
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
     if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
@@ -49,13 +49,14 @@ export function getBuffSums(state, unitId) {
     sustainedDamageMult          += b.sustainedDamageMult          ?? 0;
     maxAmmoFlat                  += b.maxAmmoFlat                  ?? 0;
     trueDamagePct                += b.trueDamagePct                ?? 0;
+    atkSpeedPct                  += b.atkSpeedPct                  ?? 0;
   }
   return { atkPct, atkFlat, defFlat, defPct, attackDamagePct, normalAttackDamagePct,
     critRateBonus, normalAttackCritRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct,
     reloadSpeedPct, lifeStealPct, distributedDamagePct,
     chargeTimeReductionTicks, hitRateBonus, elementAdvantageBonus,
     projectileExplosionDamagePct, coreDamagePct, maxHpPct, maxHpFlat, burstGaugeFlat,
-    pierceDamagePct, sustainedDamageMult, maxAmmoFlat, trueDamagePct };
+    pierceDamagePct, sustainedDamageMult, maxAmmoFlat, trueDamagePct, atkSpeedPct };
 }
 
 // ─── Buff 添加 ─────────────────────────────────────────────────────────────
@@ -184,7 +185,7 @@ export function applyCoverHeal(state) {
 // ─── 技能伤害 ───────────────────────────────────────────────────────────────
 
 /**
- * 执行一次技能命中，减少 enemyHp，累加 unit.totalDamage。
+ * 执行一次技能命中，累加 unit.totalDamage。
  * 返回实际造成的伤害量。
  *
  * opts 可选字段：
@@ -197,8 +198,20 @@ export function applyCoverHeal(state) {
  *   affectedByFullBurst      {boolean}  非默认：该命中受全爆裂补正影响（仅 Rapi: Red Hood、Liberellio）
  *   suppressFullBurst        {boolean}  [引擎内部] 由引擎自动标记延迟爆裂技能命中，抑制全爆裂补正
  */
+function resolveSkillLabel(unit, label) {
+  if (!label || label === 'normal_shot') return label;
+  const m = label.match(/^(S1|S2|Burst)( P\d+)?$/);
+  if (!m) return label;
+  const slot = m[1];
+  const part = m[2] ?? '';
+  const raw = slot === 'S1' ? unit.rawSkill1
+            : slot === 'S2' ? unit.rawSkill2
+            : unit.rawBurst;
+  return (raw?.name_localkey ?? slot) + part;
+}
+
 export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts = {}) {
-  if (state.enemyHp <= 0) return 0;
+  label = resolveSkillLabel(unit, label);
   const charged          = isCharged !== undefined ? isCharged : ['SR', 'RL'].includes(unit.weaponType);
   const effectiveCritRate = (unit.stats.critRate ?? 0.15) + sums.critRateBonus
     + (charged ? 0 : (sums.normalAttackCritRateBonus ?? 0));
@@ -243,7 +256,6 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
     damageTakenMult:   state.enemyDamageTakenPct + distributedBonus,
   });
   unit.totalDamage += damage;
-  state.enemyHp    -= damage;
   if (sums.lifeStealPct > 0) {
     unit.unitHp = Math.min(unit.stats.hp, unit.unitHp + damage * sums.lifeStealPct);
   }
@@ -295,7 +307,6 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
 //
 export function fireDotPool(state) {
   for (const dot of state.dots) {
-    if (state.enemyHp <= 0) break;
     if (dot.nextFireTick > state.tick) continue;
     if (dot.nextFireTick > dot.endTick) continue;
     dot.nextFireTick += dot.intervalTicks;

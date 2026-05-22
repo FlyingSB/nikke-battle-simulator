@@ -525,8 +525,8 @@ section('T13: Nayuta S1 Part3 — FULL_CHARGE during Memory Incineration fires 5
   caster.skillState = { weaponSwitchEndTick: T + 600 }; // switch active
   fcTrigger.handler(state, caster, { sums: zeroSums });
 
-  const hitEntry = state.hitLog.find(h => h.label === 'memincin_s1p3');
-  eq('hitLog entry for memincin_s1p3 exists', !!hitEntry, true);
+  const hitEntry = state.hitLog.find(h => h.label === 'S1');
+  eq('hitLog entry for S1 exists', !!hitEntry, true);
   eq('hitMult = 5.3046', hitEntry?.hitMult, 5.3046);
 
   // When Memory Incineration is NOT active, handler must not fire

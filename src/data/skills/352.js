@@ -91,7 +91,7 @@ export default {
           const exMult = parseFloat(exVals[s2Lv - 1] ?? '0') / 100;
           if (exMult <= 0) return;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, exMult, sums, false);
+          fireSkillHit(state, caster, exMult, sums, false, 'S2');
           addBurstGauge(state, caster.name, 'helm_s2_skill', caster.targetBurstEnergyPerShot);
         },
       },
@@ -128,7 +128,7 @@ export default {
           const sumsSnap  = getBuffSums(state, caster.id);
           state.pendingSkillHits.push({
             fireTick: state.tick + Math.round(1.05 * TICK_RATE),
-            caster, mult: burstMult, sums: sumsSnap, isCharged: false, label: 'helm_burst',
+            caster, mult: burstMult, sums: sumsSnap, isCharged: false, label: 'Burst',
           });
           pushBuff(state, { name: 'helm_burst_heal', unitId: null,
             lifeStealPct: lsPct, endTick: state.tick + TICK_RATE * 10 });

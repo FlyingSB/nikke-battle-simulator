@@ -81,7 +81,7 @@ export default {
           const lv   = caster.skillLevels[0];
           const pct  = getSkillValue(caster.rawSkill1, 3, lv) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, pct, sums, false, 'astar_s1_fcDmg');
+          fireSkillHit(state, caster, pct, sums, false, 'S1');
         },
       },
     ],
@@ -205,7 +205,7 @@ export default {
           const endTick = state.tick + TICK_RATE * 10;
           state.dots.push({
             casterId:        caster.id,
-            label:           'astar_burst_shootingStars',
+            label:           'Burst',
             dotName:         'astar_burst_shootingStars',
             multPerStack:    mult,
             stacks:          1,

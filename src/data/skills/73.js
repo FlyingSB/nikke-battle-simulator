@@ -34,7 +34,7 @@ export default {
           // 全体敌人技能伤害 p02%
           const dmgPct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
           const sums   = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, dmgPct, sums, false, 'brid_s1_dmg');
+          fireSkillHit(state, caster, dmgPct, sums, false, 'S1');
         },
       },
     ],
@@ -82,7 +82,7 @@ export default {
           const lv     = caster.skillLevels[1];
           const dmgPct = getSkillValue(caster.rawSkill2, 6, lv) / 100;
           const sums   = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, dmgPct, sums, false, 'brid_s2_dmg');
+          fireSkillHit(state, caster, dmgPct, sums, false, 'S2');
         },
       },
     ],

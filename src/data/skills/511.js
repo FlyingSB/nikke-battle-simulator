@@ -55,7 +55,7 @@ export default {
           if (state.enemyHp <= 0) return;
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
           const hitMult = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
-          fireSkillHit(state, caster, hitMult, sums, false, 'S1_fc_bonus');
+          fireSkillHit(state, caster, hitMult, sums, false, 'S1');
           addBurstGauge(state, caster.name, 'S1_fc_bonus', caster.targetBurstEnergyPerShot ?? 0);
         },
       },
@@ -127,11 +127,11 @@ export default {
           const beautyBonusPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const sums           = getBuffSums(state, caster.id);
           for (let i = 0; i < 10 && state.enemyHp > 0; i++) {
-            fireSkillHit(state, caster, burstHitMult, sums, false, 'burst_seq');
+            fireSkillHit(state, caster, burstHitMult, sums, false, 'Burst P1');
             if (stacks > 0) {
               state.pendingFireInBurstHits.push({
                 caster, mult: stacks * beautyBonusPct, sums: null,
-                isCharged: false, label: 'burst_beautiful', opts: {},
+                isCharged: false, label: 'Burst P2', opts: {},
               });
             }
           }

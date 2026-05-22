@@ -77,7 +77,7 @@ export default {
 
           // 常规追加伤害 p00%
           const dmgPct = getSkillValue(favS2, 0, lv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'pv_s2_lastbullet');
+          fireSkillHit(state, caster, dmgPct, sums, false, 'S2 P1');
 
           // Damage Taken ▲ p02% for 10s
           const dtPct   = getSkillValue(favS2, 2, lv) / 100;
@@ -89,7 +89,7 @@ export default {
           // 目标处于 Designated Target 状态时的额外追加伤害 p01%
           if ((state.pvDesignatedTargetEndTick ?? 0) > state.tick) {
             const desDmgPct = getSkillValue(favS2, 1, lv) / 100;
-            fireSkillHit(state, caster, desDmgPct, sums, false, 'pv_s2_designated');
+            fireSkillHit(state, caster, desDmgPct, sums, false, 'S2 P2');
           }
         },
       },
@@ -123,7 +123,7 @@ export default {
           // [TODO] 实际为3段分段伤害；合计等效于单次命中，此处不区分建模
           // Burst 伤害 p00%（对所有敌人，单 Boss 场景 = 1 次命中）
           const dmgPct = getSkillValue(favBurst, 0, lv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'pv_burst');
+          fireSkillHit(state, caster, dmgPct, sums, false, 'Burst');
 
           const endTick = state.tick + TICK_RATE * 10;
 

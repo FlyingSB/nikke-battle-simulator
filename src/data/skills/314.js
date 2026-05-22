@@ -146,7 +146,7 @@ export default {
           }
 
           if (mult > 0) {
-            fireSkillHit(state, caster, mult, sums, false, 'soda_s2_hit');
+            fireSkillHit(state, caster, mult, sums, false, 'S2');
           }
         },
       },
@@ -207,7 +207,7 @@ export default {
           if (state.enemyHp > 0) {
             const burstMult = getSkillValue(caster.rawBurst, 1, lv) / 100;
             const sums      = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, burstMult, sums, false, 'soda_burst_hit');
+            fireSkillHit(state, caster, burstMult, sums, false, 'Burst');
           }
 
           // 效果生效后消耗 17 层（不低于 0）

@@ -83,7 +83,7 @@ body {
 /* ── 3-column layout ─────────────────────────────────────── */
 .layout {
   display: grid;
-  grid-template-columns: 260px 1fr 380px;
+  grid-template-columns: 260px 640px 1fr;
   height: calc(100vh - 48px);
   overflow: hidden;
 }
@@ -99,6 +99,17 @@ body {
 .panel-left   { border-right: 1px solid var(--border); background: var(--surface); }
 .panel-center { background: var(--bg); }
 .panel-right  { border-left: 1px solid var(--border); background: var(--surface); }
+
+/* 右栏结果面板：固定区 + 可压缩日志区 */
+.result-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.result-panel-fixed { flex-shrink: 0; overflow-y: auto; padding: 12px 12px 0; }
+.result-panel-log {
+  flex: 1; min-height: 80px;
+  display: flex; flex-direction: column;
+  padding: 0 12px 12px;
+}
+.card--log { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-bottom: 0; }
+.card--log .log-table-wrap { flex: 1; min-height: 0; max-height: none; }
 
 /* ── Cards ───────────────────────────────────────────────── */
 .card {
@@ -174,7 +185,7 @@ select.input { cursor: pointer; }
   padding: 5px 8px; overflow-x: auto; flex-shrink: 0;
 }
 .slot-tab {
-  flex: 1; min-width: 64px; max-width: 110px;
+  flex: 1;
   display: flex; flex-direction: column; align-items: center;
   gap: 1px; padding: 5px 3px;
   background: transparent; border: 1px solid transparent;
@@ -190,13 +201,8 @@ select.input { cursor: pointer; }
 .slot-tab--active .slot-tab-num { color: var(--accent); }
 .slot-tab-name { font-size: 0.7rem; font-weight: 500; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slot-tab-burst { font-size: 0.58rem; color: var(--text-muted); font-family: var(--font-mono); }
-.sim-btn-inline {
-  margin-left: 8px; min-width: 36px; flex-shrink: 0;
-  padding: 5px 8px; font-size: 0.85rem;
-}
-
 /* ── Slot detail ─────────────────────────────────────────── */
-.slot-detail { flex: 1; overflow: hidden; }
+.slot-detail { flex: 1; min-height: 0; overflow-x: hidden; }
 
 .empty-slot {
   display: flex; flex-direction: column;
@@ -398,6 +404,21 @@ select.input { cursor: pointer; }
 .log-ammo  { color: var(--text-muted); text-align: right; }
 .log-empty { text-align: center; color: var(--text-muted); padding: 14px; }
 
+/* 事件行 */
+.log-row--event td { background: var(--surface2); border-bottom: 1px solid var(--border); }
+.log-row--event .log-time  { color: var(--text-muted); }
+.log-row--event .log-label { color: var(--text-dim); font-style: italic; }
+.log-row--event .log-buff  { color: var(--text-muted); font-style: italic; }
+.log-row--ev-full_burst .log-label,
+.log-row--ev-burst_i    .log-label,
+.log-row--ev-burst_ii   .log-label { color: var(--accent3); font-style: normal; font-weight: 600; }
+.log-row--ev-full_burst .log-buff,
+.log-row--ev-burst_i    .log-buff,
+.log-row--ev-burst_ii   .log-buff  { color: var(--accent3); font-style: normal; font-weight: 600; }
+.log-row--ev-skill_trigger td:nth-child(2) { color: var(--text); }
+.log-row--ev-skill_trigger .log-label      { color: var(--accent); font-style: normal; }
+.log-row--ev-skill_trigger .log-buff       { color: var(--text-muted); font-style: italic; }
+
 /* ── Modal / Char picker ─────────────────────────────────── */
 [x-cloak] { display: none; }
 .modal-overlay {
@@ -409,7 +430,7 @@ select.input { cursor: pointer; }
   background: var(--surface); border: 1px solid var(--border2);
   border-radius: var(--r-lg); width: min(560px, 94vw);
   max-height: 80vh; display: flex; flex-direction: column;
-  overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  overflow: clip; box-shadow: 0 24px 64px rgba(0,0,0,0.6);
 }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -422,7 +443,8 @@ select.input { cursor: pointer; }
 .char-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 5px; padding: 8px 14px;
-  overflow-y: auto; flex: 1;
+  overflow-y: scroll;
+  max-height: calc(80vh - 110px);
   scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
 }
 .char-card {
@@ -435,3 +457,5 @@ select.input { cursor: pointer; }
 .char-card:hover { background: var(--surface3); border-color: var(--accent); }
 .char-card-name { font-size: 0.72rem; font-weight: 600; color: var(--text); }
 .char-card-meta { font-size: 0.6rem; color: var(--text-dim); }
+.char-card--unmodeled { opacity: 0.35; cursor: not-allowed; }
+.char-card--unmodeled:hover { background: var(--surface2); border-color: var(--border); }

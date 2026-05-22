@@ -13,6 +13,20 @@ import { createStore } from './ui/store.js';
 
 Alpine.store('sim', createStore());
 
+// ── 自动保存 ──────────────────────────────────────────────────────────────────
+document.addEventListener('alpine:initialized', () => {
+  let _saveTimer = null;
+  Alpine.effect(() => {
+    const sim = Alpine.store('sim');
+    if (sim.loading) return;
+    const snapshot = sim._getSnapshot();
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+      try { localStorage.setItem('nikke-sim-v1', JSON.stringify(snapshot)); } catch {}
+    }, 500);
+  });
+});
+
 // ── echarts 懒加载 ────────────────────────────────────────────────────────────
 let _echarts = null;
 async function getEcharts() {
