@@ -12,3 +12,6 @@ scripts/*.txt
 
 # 开发用账号数据（私密，不入库）
 dev/
+
+# Playwright MCP 浏览器自动化缓存
+.playwright-mcp/
