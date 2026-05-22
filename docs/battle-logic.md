@@ -54,7 +54,7 @@
 | 6 | 和谐魔方固定属性 | 按魔方等级索引 |
 | 7 | 收藏品固定属性 | 按物品等级索引 |
 | 8 | 研究加成 | 职业 × 阵营研究等级 |
-| 9 | 装备词条 atkFlat（"Increase ATK"固定值） | **不计入 stats.atk**，单独存为 `equipAtkFlat`，在 getBuffSums 中累入 atkFlat |
+| 9 | 装备词条（均为百分比加成） | 游戏内所有实装装备词条均为百分比加成（含 ATK%）；代码中存在的固定值词条类型（如 `atkFlat`）在游戏中未出现，应忽略 |
 
 ### 特殊处理
 
@@ -74,10 +74,12 @@
 FinalDamage = BaseDamage
             × CommonMultiplier
             × ElementMultiplier        （仅属性克制时，否则 ×1）
-            × ChargeDamageMultiplier   （仅 SR/RL isCharged=true 时，否则 ×1）
+            × ChargeDamageMultiplier   （仅当前武器 isCharged=true 时，否则 ×1）
             × ExtraMultiplier
             × DamageTakenLikeMultiplier
 ```
+
+> **True Damage**：若伤害类型为真实伤害（`isTrueDamage=true`），BaseDamage 计算中敌人防御视为 0（effectiveDef = 0）。
 
 ### 3.1 BaseDamage
 
@@ -89,7 +91,7 @@ BaseDamage   = max(0, effectiveAtk) × hitMultiplier × favNormalAttackDamageMul
 - `atkPct` 汇总：equipAtkPct + 所有生效 buff 的 atkPct（加法叠加）。
 - `atkFlat` 汇总：equipAtkFlat + 所有生效 buff 的 atkFlat。
 - `hitMultiplier`：普通攻击为 `shot_detail.damage / 10000`；技能伤害为技能描述中的百分比。
-- `favNormalAttackDamageMult`：收藏品 "Normal Attack Damage ▲"（SMG/SG 收藏品），直接乘在 BaseDamage 上，是**独立乘法**，与 ExtraMultiplier 不相加。
+- `favNormalAttackDamageMult`：收藏品 "Normal Attack Damage ▲"（SMG/SG 收藏品），直接乘在 BaseDamage 上，是**独立乘法**，与 ExtraMultiplier 不相加；**仅加成于该收藏品对应武器类型的普通攻击**（SMG 收藏品仅加成 SMG 普攻，SG 收藏品仅加成 SG 普攻）。
 - **True Damage**：effectiveDef = 0（完全忽略防御）。
 
 ### 3.2 CommonMultiplier
@@ -110,7 +112,7 @@ CommonMult = 1
 - 当 attacker 的属性克制 defender 时：`ElementMult = 1 + 0.10 + elementAdvantageDmgIncrement`。
 - 否则：`ElementMult = 1.0`（无减伤惩罚）。
 
-### 3.4 ChargeDamageMultiplier（仅 SR/RL）
+### 3.4 ChargeDamageMultiplier（当前武器 isCharged=true 时）
 
 ```
 ChargeMult = (fullChargeDamage / 10000) × (1 + favChargeDmgPct) + (chargeDmgStat - 1)
@@ -119,7 +121,8 @@ ChargeMult = (fullChargeDamage / 10000) × (1 + favChargeDmgPct) + (chargeDmgSta
 - `fullChargeDamage`：来自 `shot_detail.full_charge_damage`（10000 = ×1.0 基线）。
 - `favChargeDmgPct`：收藏品 "Charge Damage ▲"，仅与 `shot_detail.damage` 相乘（独立项）。
 - `chargeDmgStat - 1`：装备/技能/魔方的蓄力伤害加成（加法项），传入形式为 `(1 + chargeDmgPct)`。
-- 非 SR/RL 武器：ChargeMult = 1.0。
+- 判定条件为当前武器的 `isCharged=true`，而非武器类型是否为 SR/RL。部分角色通过技能临时切换为可蓄力武器，此时同样应用 ChargeMult。
+- `isCharged=false` 时（含非蓄力武器）：ChargeMult = 1.0。
 
 ### 3.5 ExtraMultiplier
 
@@ -133,7 +136,7 @@ ExtraMult = 1 + Σ(以下各项，生效时才加）
 | 普通攻击伤害% | `normalAttackDamagePct` | 仅普通攻击 |
 | 子弹爆炸伤害% | `projectileExplosionDamagePct` | 仅 RL 普攻或标记了 projectileExplosion 的技能命中 |
 | 穿透伤害% | `pierceDamagePct` | 仅穿透命中 |
-| 持续伤害% | `sustainedDamageMult` | 仅 DoT |
+| 持续伤害% | `sustainedDamagePct` | 仅 DoT |
 | 真实伤害% | `trueDamagePct` | 仅 isTrueDamage 命中 |
 | 其他类型 | `damageToPartsMult` 等 | 各自对应场景 |
 
@@ -146,24 +149,31 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 ```
 
 - `enemyDamageTakenPct`：对敌 debuff（"Damage Taken ▲"）的累加器，全局共享。
-- `distributedDamagePct`：分散伤害加成（特定技能）。
+- `distributedDamagePct`：分摊伤害加成（特定技能），与 `enemyDamageTakenPct` 同属承伤类乘法项。
 
 ### 3.7 暴击判定
 
-- 有效暴击率 = `min(1, stats.critRate + sums.critRateBonus + (非蓄力时: normalAttackCritRateBonus))`。
-- 爆裂技能命中：使用相同暴击率（技能有暴击）。
+- 普通攻击有效暴击率 = `min(1, stats.critRate + sums.critRateBonus + sums.normalAttackCritRateBonus)`。
+  - `normalAttackCritRateBonus`：游戏内"普通攻击暴击率"加成，**不区分蓄力与否**，仅适用于普通攻击（不含技能伤害或爆裂技能）。
+- 爆裂技能命中暴击率 = `min(1, stats.critRate + sums.critRateBonus)`（不含 normalAttackCritRateBonus）。
 
 ### 3.8 核心命中判定
 
-- 前提：`state.enemyHasCore = true`。
+敌人核心有三种状态：
+- **无核心**：`state.enemyHasCore = false`，不进行核心命中判定。
+- **有核心（未保护）**：核心暴露，按命中率正常判定。
+- **核心被保护**：核心被护甲遮蔽，普通攻击无法命中核心；仅穿透攻击（`isPierce=true`）可命中核心。
+
+命中率判定（适用于"有核心"及穿透命中保护核心两种情况）：
 - 普通攻击：核心命中率 = `coreHitRateMult`（武器类型默认值见武器系统）。
 - 技能命中：由 `opts.isCore` 显式指定（通常为 false，除非技能说明"命中核心"）。
 
 ### 3.9 全爆裂补正规则
 
-- 普通攻击命中：始终受全爆裂 +50% 补正。
-- 爆裂技能命中（`BURST_SKILL_USE` 期间同步触发）：**默认不受**全爆裂补正（`burstSkillFiring=true` 时自动抑制）。
-- 延迟命中（`pendingSkillHits`）：引擎自动打 `suppressFullBurst=true` 标记，**不受**全爆裂补正。
+- `fullBurstActive` 由 `ENTER_FULL_BURST` 触发后置为 `true`，在全爆裂窗口内持续有效。
+- **直接伤害类 B3 爆裂技能**：结算顺序在 `ENTER_FULL_BURST` 之前，此时 `fullBurstActive` 尚未为 `true`，自然不受 +50% 补正。
+- **普通攻击命中**（全爆裂激活后）：受 +50% 补正。
+- **延迟命中**（`pendingSkillHits`）：引擎自动打 `suppressFullBurst=true` 标记，**不受**全爆裂补正。
 - 例外：显式标记 `opts.affectedByFullBurst=true` 的技能命中**受**全爆裂补正（如 Rapi: Red Hood）。
 
 ---
@@ -219,6 +229,7 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 - 支持时间制（`seconds`）和回合制（`endRounds`，每发消耗 1 回合）。
 - 期间可选无限弹药（`unlimitedAmmo: true`）。
 - 切换结束后可有 `backswingTicks` 的封锁期（`weaponSwitchPostBackswingEndTick`）。
+- 切换武器后，当前武器弹匣默认为满弹；若有技能在切换时显式设定弹药数，则以技能值为准。
 
 ---
 
@@ -267,6 +278,11 @@ maxAmmo = baseAmmo
 
 ## 6. 爆裂槽与爆裂序列
 
+### 6.0 爆裂通用规则
+
+- **阶段推进由施放者决定**：绝大多数角色施放爆裂技能后将爆裂阶段推进到下一阶段；少数角色施放后重新开始当前阶段（不推进）。
+- **选角顺序**：若队伍中有多个相同爆裂阶段的角色，**从左到右**依次检查其爆裂技能冷却状态，选择第一个可施放的角色。【TODO】此行为可通过设置改变。
+
 ### 6.1 共享爆裂槽
 
 - 总量：1,000,000。
@@ -291,14 +307,21 @@ burstPhase = 0（充能中）
             → B2 施放（BURST_SKILL_USE）
               → ENTER_BURST_III 被动触发
               → 等待 burstStepTicks
-                → burstPhase = 3，fullBurstActive = true（10s 窗口）
-                → B3 施放（BURST_SKILL_USE，依次）
-                → ENTER_FULL_BURST 被动触发
+                → burstPhase = 3
+                → B3 施放（BURST_SKILL_USE，依次；一旦阶段推进，其余 B3 本轮无法再施放）
+                → ENTER_FULL_BURST 被动触发 → fullBurstActive = true（默认 10s 窗口，可被技能改变）
                 → pendingFireInBurstHits 结算
-                  → 10s 后
+                  → 全爆裂窗口结束后
                     → FULL_BURST_END 触发
-                    → burstGauge = 0，burstPhase = 0
+                    → fullBurstActive = false，burstGauge = 0，burstPhase = 0
 ```
+
+> **`fullBurstActive` vs `ENTER_FULL_BURST` 的区别**
+>
+> - `fullBurstActive`：**状态标志**。由 `ENTER_FULL_BURST` 触发后置为 `true`，生效期完全等于全爆裂窗口（B3 施放完毕后才为 `true`）。用于伤害计算中的 +50% 全爆裂补正（见 3.2）以及 `IN_FULL_BURST` 条件判断。
+> - `ENTER_FULL_BURST`：**触发时机**。在所有 B3 施放完毕后触发**一次**，代表"进入全爆裂"事件，用于激活角色被动（如全爆裂时长延长、额外效果等），同时置 `fullBurstActive = true`。
+>
+> 结果：直接伤害类 B3 爆裂技能结算时 `fullBurstActive` 尚未为 `true`，自然不受 +50% 补正影响，无需额外标记。
 
 ### 6.3 阶段超时
 
@@ -307,16 +330,15 @@ burstPhase = 0（充能中）
 
 ### 6.4 B1/B2 缺席处理
 
-- 队伍中无 Step1 单位（或所有 Step1 单位 `canBurst=false`）：直接跳过 B1 阶段，推进到 B2。
-- B1 单位冷却中：等待，每 tick 重试，直到冷却结束。
+- 队伍中不存在 StepN 单位，**或**所有 StepN 单位的爆裂技能均在冷却中：**爆裂阶段无法推进**，进入 6.3 阶段超时流程（10 秒内未推进则取消爆裂）。
+- StepN 单位冷却中：等待，每 tick 重试，直到冷却结束或超时。
 
 ### 6.5 Full Burst 期间的爆裂技能伤害顺序
 
-1. 所有 B3 单位依次施放爆裂技能（`BURST_SKILL_USE`）。
-2. 期间同步命中不受全爆裂 +50% 补正（`burstSkillFiring` 标记）。
-3. 延迟命中自动打 `suppressFullBurst` 标记。
-4. B3 全部施放完毕后触发 `ENTER_FULL_BURST`。
-5. 处理 `pendingFireInBurstHits`（在 ENTER_FULL_BURST 效果生效后才结算的命中）。
+1. 所有 B3 单位依次施放爆裂技能（`BURST_SKILL_USE`）；此时 `fullBurstActive` 尚未为 `true`，直接命中不受 +50% 补正。
+2. B3 全部施放完毕后触发 `ENTER_FULL_BURST`，置 `fullBurstActive = true`。
+3. 延迟命中（`pendingSkillHits`）自动打 `suppressFullBurst=true` 标记，不受全爆裂补正。
+4. 处理 `pendingFireInBurstHits`（在 `ENTER_FULL_BURST` 效果生效后才结算的命中，受 `fullBurstActive` 影响）。
 
 ---
 
@@ -337,29 +359,46 @@ burstPhase = 0（充能中）
 | `attackDamagePct` | 攻击伤害%（ExtraMultiplier 加法） |
 | `normalAttackDamagePct` | 普通攻击伤害% |
 | `critRateBonus` | 暴击率加成 |
+| `normalAttackCritRateBonus` | 普通攻击暴击率加成（不区分蓄力） |
 | `critDmgBonus` | 暴击伤害加成（增量） |
 | `chargeDamagePct` | 蓄力伤害加成（加到 chargeMult） |
 | `chargeSpeedPct` | 蓄力速度% |
 | `reloadSpeedPct` | 装填速度% |
-| `maxAmmoFlat` | 弹匣容量固定加成 |
+| `maxAmmoFlat` | 弹匣容量固定加成（到期时同样截断当前弹药，与 `maxAmmoPct` 行为一致） |
 | `maxAmmoPct` | 弹匣容量百分比加成（到期时截断当前弹药） |
 | `burstGaugeFlat` | 每发充能固定加成 |
 | `enemyDamageTakenPct` | 敌方承伤 debuff（叠加到全局累加器） |
 | `atkSpeedPct` | 攻击速度%（影响 RPM） |
 | `lifeStealPct` | 生命偷取% |
 | `pierceDamagePct` | 穿透伤害% |
-| `sustainedDamageMult` | 持续伤害% |
+| `distributedDamagePct` | 分摊伤害% |
+| `sustainedDamagePct` | 持续伤害%（原名 `sustainedDamageMult`，已重命名） |
+| `stackLimit` | 叠加上限（默认 1；大于 1 时为可叠加效果，见 7.2） |
+| `isDebuff` | 是否为 debuff（影响免疫与驱散机制，见 7.3） |
 
-### 7.2 Buff 刷新规则
+### 7.2 Buff 刷新与叠加规则
 
-- **同名 + 同目标** buff：刷新 `endTick`（取较大值），不叠加。
-- 回合制 buff 刷新：`roundsLeft = max(existing, new)`。
-- 不同名 buff 的同类加成：**加法叠加**（如 ATK% 来自多个技能）。
+- **同名 + 同目标，`stackLimit=1`（默认）**：刷新 `endTick`（取较大值），不叠加。
+- **回合制 buff 刷新**：`roundsLeft = max(existing, new)`。
+- **不同名 buff 的同类加成**：**加法叠加**（如 ATK% 来自多个技能）。
 
-### 7.3 敌方 debuff
+#### 可叠加效果（`stackLimit > 1`）
 
-- `DEBUFF_ENEMY` 效果：直接累加到 `state.enemyDamageTakenPct`（全局累加器，不走 buffs 数组）。
-- 当前无独立到期机制：debuff 为永久性（或由 buff 过期清理中的 `enemyDamageTakenPct` 减法处理）。
+- 同名 buff 叠加时，无论是否达到 `stackLimit`（是否新增一层），均刷新 `endTick`（整体持续时间重置）。
+- 若当前层数 < `stackLimit`，同时新增一层。
+- 到期时**一次性移除全部层数**（非逐层过期）。
+- `getBuffSums` 时所有层的数值叠加（如每层 `atkPct=5%`，3 层 = 15%）。
+
+### 7.3 debuff 统一管理
+
+我方受到的 debuff 与敌方受到的 debuff **统一由 buff 机制管理**，通过 buff 对象中的 `isDebuff` 字段加以区分。两者的差异仅在免疫/驱散类技能时体现：
+
+- **免疫**：阻止 `isDebuff=true` 的效果施加（不影响 buff）。
+- **驱散**：移除目标身上 `isDebuff=true` 的效果（不影响 buff）。
+
+对敌 debuff（如 `enemyDamageTakenPct`）不需要额外的全局累加器，其到期、刷新、叠加规则与普通 buff 相同，`getBuffSums` 时对敌方单位求和即可。
+
+> **当前实现**：`DEBUFF_ENEMY` 效果仍直接累加到 `state.enemyDamageTakenPct` 全局累加器，尚未迁移至统一 buff 数组管理（待改造）。
 
 ### 7.4 getBuffSums
 
@@ -388,9 +427,9 @@ burstPhase = 0（充能中）
 | `AMMO_MILESTONE` | 全队消耗弹药累计达到 400/500 发 | 团队 |
 | `INTERVAL` | 全程每 N 秒（首次在 t+Ns） | 团队/非团队 |
 | `INTERVAL_IN_BURST` | 全爆裂期间每 N 秒 | 团队 |
-| `HEAL_RECEIVED` | 任意友军受到治疗 | 团队（ctx.unit = 受治疗者） |
-| `APPLY_SHIELD` | 任意友军获盾 | 非团队（仅 caster === ctx.unit 响应） |
-| `COVER_HEAL` | 掩体受到治疗 | 团队 |
+| `HEAL_RECEIVED` | 某单位受到治疗时触发（ctx.unit = 受治疗者）；全队治疗产生 5 个独立事件，每个事件对应各自受治疗的单位 | 团队 |
+| `APPLY_SHIELD` | 某单位获得护盾时触发；全队获盾同样产生 5 个独立事件 | 非团队（仅 caster === ctx.unit 响应） |
+| `COVER_HEAL_RECEIVED` | 掩体受到治疗 | 团队 |
 | `CORE_HIT` | 命中敌人核心 | 非团队 |
 | `RELOAD_END` | 自然装填完成 | 非团队（不含技能补弹） |
 
@@ -406,6 +445,9 @@ burstPhase = 0（充能中）
 | `BURST_III_UNITS` | `burstStep === 'Step3'` 的单位 |
 | `ALLIES_WITH_ELEMENT` | 指定属性的友军 |
 | `LOWEST_ATK_BURST_III` | ATK 最低的 B3 友军 |
+| `ALL_ALLIES_EXCEPT_SELF` | 除自身以外的所有队友（如 Brid: Silent Track 爆裂技能） |
+| `N_ALLIES_EXCEPT_SELF` | 除自身以外的 N 名队友 |
+| `N_ALLIES_SELF_LAST` | N 名队友，自身优先级最低（如 Miranda） |
 
 ### 8.3 效果类型（effects[].type）
 
@@ -457,7 +499,7 @@ burstPhase = 0（充能中）
 ### 9.2 HoT（持续治疗）
 
 - 推入 `pendingHoTs`：`{ fireTick, targetId, amount }`。
-- 每 tick 处理到期条目，调用 `applyHeal` 并 flush。
+- 每 tick 处理到期条目，调用 `applyHeal` 并 flush；**会触发 `HEAL_RECEIVED` 事件**，与直接治疗行为一致。
 
 ### 9.3 护盾
 
@@ -469,7 +511,7 @@ burstPhase = 0（充能中）
 ### 9.4 掩体治疗
 
 - `applyCoverHeal(state)` 设置标记。
-- `flushCoverHeal()` 触发 `COVER_HEAL` 团队触发。
+- `flushCoverHeal()` 触发 `COVER_HEAL_RECEIVED` 团队触发。
 - 掩体 HP 不追踪（仅建模事件）。
 
 ---
@@ -517,7 +559,7 @@ burstPhase = 0（充能中）
 ### 11.3 属性克制关系
 
 ```
-Fire → Wind → Iron → Electric → Water → Fire（循环克制）
+Fire（燃烧）→ Wind（风压）→ Iron（铁甲）→ Electric（电击）→ Water（水冷）→ Fire（循环克制）
 ```
 
 克制方在 ElementMultiplier 获得基础 +10% 加成（可被技能进一步提升）。被克制方无减伤惩罚。
