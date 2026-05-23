@@ -308,7 +308,7 @@ burstPhase = 0（充能中）
               → ENTER_BURST_III 被动触发
               → 等待 burstStepTicks
                 → burstPhase = 3
-                → B3 施放（BURST_SKILL_USE，依次；一旦阶段推进，其余 B3 本轮无法再施放）
+                → B3 施放（BURST_SKILL_USE；按 §6.0 从左到右选第一个 CD 就绪的单位；其余 B3 本轮无法施放）
                 → ENTER_FULL_BURST 被动触发 → fullBurstActive = true（默认 10s 窗口，可被技能改变）
                 → pendingFireInBurstHits 结算
                   → 全爆裂窗口结束后

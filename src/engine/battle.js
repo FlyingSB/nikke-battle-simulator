@@ -184,18 +184,18 @@ function applyBurstIISkills(state) {
  * B3 直接命中由于 fullBurstActive 尚未为 true，自然不受 +50% 补正，无需额外标记。
  */
 function applyFullBurstSkills(state) {
-  // 1. B3 单位依次施放爆裂技能（此时 fullBurstActive 仍为 false）
-  const burstFireOrder = state.squad.filter(u =>
+  // 1. 按 §6.0 从左到右选第一个 CD 就绪的 B3 单位施放；其余本轮无法施放。
+  const step3 = state.squad.find(u =>
     (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
     u.canBurst !== false &&
     u.burstCdRemaining <= 0
-  );
+  ) ?? null;
 
-  let firstFired = null;
-  for (const step3 of burstFireOrder) {
+  const firstFired = step3;
+
+  if (step3) {
     step3.burstCdRemaining = step3.burstSkillCooltime;
     state.burstCastersThisRotation?.add(step3.id);
-    if (!firstFired) firstFired = step3;
 
     const prePendingLen = state.pendingSkillHits.length;
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: step3 });
