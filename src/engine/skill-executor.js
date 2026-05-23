@@ -268,7 +268,7 @@ function applyEffects(state, caster, targets, effects, ctx) {
           t.tempMaxAmmoMult    = eff.mult ?? 1;
           t.tempMaxAmmoEndTick = state.tick + TICK_RATE * eff.seconds;
           const expandedMax    = Math.max(1, t.baseAmmo + Math.round(t.baseAmmo * (t.tempMaxAmmoMult - 1)))
-                               + (t.stats.bonusAmmo ?? 0) + t.favAmmoBonus;
+                               + Math.round(t.baseAmmo * (t.stats.bonusAmmo ?? 0)) + t.favAmmoBonus;
           t.ammoLeft           = expandedMax;
           t.reloadTick         = 0;
           if (state.ammoLog)

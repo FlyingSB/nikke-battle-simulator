@@ -54,7 +54,7 @@ group_id: S1=25131  S2=25132  Burst=15133
 - 全员 `attackDamagePct +0.04`，10s（BUFF_GLOBAL）
 
 **FULL_BURST_END — S1 CD 减少**
-- 全员 `burstSkillCooldownEndTick -= 7.48s`（REDUCE_BURST_CD）
+- 全员 `burstCdRemaining = Math.max(0, burstCdRemaining - 7.48s × 60 ticks)`（REDUCE_BURST_CD）
 
 **AMMO_MILESTONE — S1 400 发**
 - 共享爆裂槽 ▲37% max（GRANT_BURST_GAUGE）

@@ -859,7 +859,7 @@ export function createStore() {
             fullChargeBurstEnergy: nd?.shot_detail?.full_charge_burst_energy ?? 0,
             chargeTimeTicks:       isChargeWeapon ? Math.round((nd?.shot_detail?.charge_time ?? 0) / 100 * 60) : 0,
             burstSkillCooltime:    nd ? Math.round(
-              ((nd.ulti_skill_detail?.skill_cooltime_list?.[slot.skills[2] - 1]
+              ((nd.ulti_skill_detail?.skill_cooltime_list?.[(slot.skills[2] >= 1 ? slot.skills[2] : 1) - 1]
                 ?? nd.ulti_skill_detail?.skill_cooltime
                 ?? 4000) / 100 * 60)
             ) : undefined,

@@ -397,9 +397,9 @@ export function initBattle(config) {
       // by SKILL_TRAITS triggers (see skill-traits.js entry for this character).
       configuredCombatAssist: cfg.combatAssist ?? false,
       combatAssistStatus: cfg.combatAssist ?? false,
-      // Burst skill cooldown: endTick=0 means ready from the start.
       // 爆裂技能剩余冷却（ticks）。0 表示已可释放，每 tick 递减 1。
-      // 可由减 CD 技能直接减少：u.burstCdRemaining = Math.max(0, u.burstCdRemaining - ticks)
+      // 爆裂技能开局 CD = 0（立即就绪）；其他普通/被动技能若有 CD，须在其 handler 中自行管理。
+      // 减 CD 技能：u.burstCdRemaining = Math.max(0, u.burstCdRemaining - ticks)
       burstCdRemaining:         0,
       // Burst skill cooltime in ticks (from CDN ulti_skill_detail.skill_cooltime_list / 100 * 60).
       // 必须由调用方提供（validateUnitConfig 已校验）。
@@ -683,8 +683,9 @@ export function tick(state) {
     applyBurstEndSkills(state);
   }
 
-  // 爆裂阶段 1 或 2 超时（10 秒窗口）：若未推进，爆裂取消 → 槽归零
-  if ((state.burstPhase === 1 || state.burstPhase === 2) &&
+  // 爆裂阶段 1 / 2 / 3（B3 尚未施放）超时（各自 10 秒窗口）：若未推进，爆裂取消 → 槽归零
+  if ((state.burstPhase === 1 || state.burstPhase === 2 ||
+       (state.burstPhase === 3 && !state.fullBurstActive)) &&
       state.burstPhaseTimeoutTick > 0 && state.tick >= state.burstPhaseTimeoutTick) {
     state.burstPhase          = 0;
     state.burstPhaseTimeoutTick = 0;
@@ -723,24 +724,28 @@ export function tick(state) {
     }
   }
 
-  // B2 延迟结束 → 等待 B3 冷却就绪，再触发 Full Burst
-  // fullBurstActive 由 applyFullBurstSkills 在 B3 全部施放完毕后设置（文档 §3.9 时序）
+  // B2 延迟结束 → 进入阶段 3，等待 B3 冷却（与 B1→B2 模式对称）
   if (state.burstPhase === 2 && state.burstPhaseTick !== Infinity && state.tick >= state.burstPhaseTick) {
-    // 若队伍中存在 B3 单位但 CD 尚未就绪，则留在阶段 2 等待（与 B1/B2 等 CD 逻辑对称）
-    const hasB3  = state.squad.some(u => (u.burstStep === 'Step3' || u.burstStep === 'StepFull') && u.canBurst !== false);
+    state.burstPhase            = 3;
+    state.burstPhaseTick        = Infinity;
+    state.burstPhaseTimeoutTick = state.tick + TICK_RATE * 10;
+  }
+
+  // 阶段 3：等待 B3 冷却 — 每 tick 重试，直到有 B3 单位冷却结束（或无 B3 单位则立即触发）。
+  // fullBurstActive 由 applyFullBurstSkills 在 B3 全部施放完毕后设置（文档 §6.5 时序）。
+  if (state.burstPhase === 3 && !state.fullBurstActive && state.burstPhaseTick === Infinity) {
+    const hasB3 = state.squad.some(u =>
+      (u.burstStep === 'Step3' || u.burstStep === 'StepFull') && u.canBurst !== false
+    );
     const b3Ready = !hasB3 || state.squad.some(u =>
       (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
       u.canBurst !== false && u.burstCdRemaining <= 0
     );
-    if (!b3Ready) {
-      // 将等待点推进到下一 tick，使每 tick 重试，同时 burstPhaseTimeoutTick 继续计时
-      state.burstPhaseTick = state.tick;
-    } else {
-      state.burstPhase        = 3;
-      state.fullBurstTick     = state.tick + TICK_RATE * 10; // 10s burst window
+    if (b3Ready) {
       state.burstPhaseTimeoutTick = 0;
       for (const u of state.squad) u.burstCount++;
       const fired = applyFullBurstSkills(state);
+      state.fullBurstTick = state.tick + TICK_RATE * 10; // 10s burst window
       events.push({ type: 'full_burst', tick: state.tick, unitName: fired?.name ?? null });
     }
   }
