@@ -49,11 +49,11 @@ export default {
           if (caster.skillState.dws_status === 'intro') {
             const sdPct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
             pushBuff(state, { name: 'dws_s1_intro_sd', unitId: caster.id,
-              sustainedDamageMult: sdPct, endTick: state.tick + TICK_RATE * 10 });
+              sustainedDamagePct: sdPct, endTick: state.tick + TICK_RATE * 10 });
           } else if (caster.skillState.dws_status === 'highlight') {
             const sdPct = getSkillValue(caster.rawSkill1, 4, lv) / 100;
             pushBuff(state, { name: 'dws_s1_hl_sd', unitId: caster.id,
-              sustainedDamageMult: sdPct, endTick: state.tick + TICK_RATE * 10 });
+              sustainedDamagePct: sdPct, endTick: state.tick + TICK_RATE * 10 });
           }
         },
       },
@@ -94,11 +94,11 @@ export default {
           const existing = state.buffs.find(b => b.name === 'dws_s2_fc_sd' && b.unitId === caster.id);
           if (existing) {
             existing.stackCount          = Math.min(2, (existing.stackCount ?? 1) + 1);
-            existing.sustainedDamageMult = existing.stackCount * pct;
-            existing.endTick             = end;
+            existing.sustainedDamagePct = existing.stackCount * pct;
+            existing.endTick            = end;
           } else {
             pushBuff(state, { name: 'dws_s2_fc_sd', unitId: caster.id,
-              sustainedDamageMult: pct, endTick: end, stackCount: 1 });
+              sustainedDamagePct: pct, endTick: end, stackCount: 1 });
           }
         },
       },

@@ -84,7 +84,7 @@ const ELEMENT_CHART = {
  * @property {number} [sequentialAttackDamageMult] 仅连续攻击适用
  * @property {number} [affectsAllEnemiesDamageMult]
  * @property {number} [affects1EnemyDamageMult]
- * @property {number} [sustainedDamageMult]        仅持续（DoT）伤害适用
+ * @property {number} [sustainedDamagePct]         仅持续（DoT）伤害适用
  * @property {number} [trueDamageMult]             仅真实伤害适用
  * @property {number} [damageDealtToShieldMult]    仅对护盾适用
  * @property {number} [damageToProjectilesMult]    仅对子弹适用
@@ -225,7 +225,7 @@ function sumExtra(extra, input) {
   sum += extra.sequentialAttackDamageMult    ?? 0;
   sum += extra.affectsAllEnemiesDamageMult   ?? 0;
   sum += extra.affects1EnemyDamageMult       ?? 0;
-  sum += extra.sustainedDamageMult           ?? 0;
+  sum += extra.sustainedDamagePct            ?? 0;
   sum += extra.trueDamageMult                ?? 0;
   sum += extra.damageDealtToShieldMult       ?? 0;
   sum += extra.damageToProjectilesMult       ?? 0;

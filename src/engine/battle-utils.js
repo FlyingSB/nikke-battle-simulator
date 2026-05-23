@@ -18,45 +18,47 @@ export function getBuffSums(state, unitId) {
       chargeSpeedPct = 0, reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
       chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0,
       projectileExplosionDamagePct = 0, coreDamagePct = 0, maxHpPct = 0, maxHpFlat = 0,
-      burstGaugeFlat = 0, pierceDamagePct = 0, sustainedDamageMult = 0, maxAmmoFlat = 0,
+      burstGaugeFlat = 0, pierceDamagePct = 0, sustainedDamagePct = 0, maxAmmoFlat = 0,
       trueDamagePct = 0, atkSpeedPct = 0;
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
     if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
-    atkPct                       += b.atkPct                       ?? 0;
-    atkFlat                      += b.atkFlat                      ?? 0;
-    defFlat                      += b.defFlat                      ?? 0;
-    defPct                       += b.defPct                       ?? 0;
-    attackDamagePct              += b.attackDamagePct              ?? 0;
-    normalAttackDamagePct        += b.normalAttackDamagePct        ?? 0;
-    critRateBonus                += b.critRateBonus                ?? 0;
-    normalAttackCritRateBonus    += b.normalAttackCritRateBonus    ?? 0;
-    critDmgBonus                 += b.critDmgBonus                 ?? 0;
-    chargeDamagePct              += b.chargeDamagePct              ?? 0;
-    chargeSpeedPct               += b.chargeSpeedPct               ?? 0;
-    reloadSpeedPct               += b.reloadSpeedPct               ?? 0;
-    lifeStealPct                 += b.lifeStealPct                 ?? 0;
-    distributedDamagePct         += b.distributedDamagePct         ?? 0;
-    chargeTimeReductionTicks     += b.chargeTimeReductionTicks     ?? 0;
-    hitRateBonus                 += b.hitRateBonus                 ?? 0;
-    elementAdvantageBonus        += b.elementAdvantageBonus        ?? 0;
-    projectileExplosionDamagePct += b.projectileExplosionDamagePct ?? 0;
-    coreDamagePct                += b.coreDamagePct                ?? 0;
-    maxHpPct                     += b.maxHpPct                     ?? 0;
-    maxHpFlat                    += b.maxHpFlat                    ?? 0;
-    burstGaugeFlat               += b.burstGaugeFlat               ?? 0;
-    pierceDamagePct              += b.pierceDamagePct              ?? 0;
-    sustainedDamageMult          += b.sustainedDamageMult          ?? 0;
-    maxAmmoFlat                  += b.maxAmmoFlat                  ?? 0;
-    trueDamagePct                += b.trueDamagePct                ?? 0;
-    atkSpeedPct                  += b.atkSpeedPct                  ?? 0;
+    // 可叠加 buff（stacks > 1）：各字段按层数等比累加
+    const k = b.stacks ?? 1;
+    atkPct                       += (b.atkPct                       ?? 0) * k;
+    atkFlat                      += (b.atkFlat                      ?? 0) * k;
+    defFlat                      += (b.defFlat                      ?? 0) * k;
+    defPct                       += (b.defPct                       ?? 0) * k;
+    attackDamagePct              += (b.attackDamagePct              ?? 0) * k;
+    normalAttackDamagePct        += (b.normalAttackDamagePct        ?? 0) * k;
+    critRateBonus                += (b.critRateBonus                ?? 0) * k;
+    normalAttackCritRateBonus    += (b.normalAttackCritRateBonus    ?? 0) * k;
+    critDmgBonus                 += (b.critDmgBonus                 ?? 0) * k;
+    chargeDamagePct              += (b.chargeDamagePct              ?? 0) * k;
+    chargeSpeedPct               += (b.chargeSpeedPct               ?? 0) * k;
+    reloadSpeedPct               += (b.reloadSpeedPct               ?? 0) * k;
+    lifeStealPct                 += (b.lifeStealPct                 ?? 0) * k;
+    distributedDamagePct         += (b.distributedDamagePct         ?? 0) * k;
+    chargeTimeReductionTicks     += (b.chargeTimeReductionTicks     ?? 0) * k;
+    hitRateBonus                 += (b.hitRateBonus                 ?? 0) * k;
+    elementAdvantageBonus        += (b.elementAdvantageBonus        ?? 0) * k;
+    projectileExplosionDamagePct += (b.projectileExplosionDamagePct ?? 0) * k;
+    coreDamagePct                += (b.coreDamagePct                ?? 0) * k;
+    maxHpPct                     += (b.maxHpPct                     ?? 0) * k;
+    maxHpFlat                    += (b.maxHpFlat                    ?? 0) * k;
+    burstGaugeFlat               += (b.burstGaugeFlat               ?? 0) * k;
+    pierceDamagePct              += (b.pierceDamagePct              ?? 0) * k;
+    sustainedDamagePct           += (b.sustainedDamagePct           ?? 0) * k;
+    maxAmmoFlat                  += (b.maxAmmoFlat                  ?? 0) * k;
+    trueDamagePct                += (b.trueDamagePct                ?? 0) * k;
+    atkSpeedPct                  += (b.atkSpeedPct                  ?? 0) * k;
   }
   return { atkPct, atkFlat, defFlat, defPct, attackDamagePct, normalAttackDamagePct,
     critRateBonus, normalAttackCritRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct,
     reloadSpeedPct, lifeStealPct, distributedDamagePct,
     chargeTimeReductionTicks, hitRateBonus, elementAdvantageBonus,
     projectileExplosionDamagePct, coreDamagePct, maxHpPct, maxHpFlat, burstGaugeFlat,
-    pierceDamagePct, sustainedDamageMult, maxAmmoFlat, trueDamagePct, atkSpeedPct };
+    pierceDamagePct, sustainedDamagePct, maxAmmoFlat, trueDamagePct, atkSpeedPct };
 }
 
 // ─── Buff 添加 ─────────────────────────────────────────────────────────────
@@ -64,16 +66,22 @@ export function getBuffSums(state, unitId) {
 export function pushBuff(state, buffObj) {
   const existing = state.buffs.find(b => b.name === buffObj.name && b.unitId === buffObj.unitId);
   if (existing) {
+    // 无论是否达到上限，均刷新 endTick（整体持续时间重置）
     existing.endTick = Math.max(existing.endTick, buffObj.endTick);
-    // Round-based buff refresh: reset roundsLeft to max(current, new)
+    // 回合制 buff 刷新：roundsLeft 取较大值
     if (buffObj.endRounds !== undefined)
       existing.roundsLeft = Math.max(existing.roundsLeft ?? 0, buffObj.endRounds);
+    // 可叠加效果（stackLimit > 1）：层数未达上限时新增一层
+    const limit = buffObj.stackLimit ?? 1;
+    if (limit > 1 && (existing.stacks ?? 1) < limit) {
+      existing.stacks = (existing.stacks ?? 1) + 1;
+    }
     return;
   }
-  // Initialize roundsLeft from endRounds when first pushed
-  const buff = buffObj.endRounds !== undefined && buffObj.roundsLeft === undefined
-    ? { ...buffObj, roundsLeft: buffObj.endRounds }
-    : buffObj;
+  // 初次推入：设置 roundsLeft（回合制）和 stacks（初始层数为 1）
+  const buff = { ...buffObj, stacks: buffObj.stacks ?? 1 };
+  if (buff.endRounds !== undefined && buff.roundsLeft === undefined)
+    buff.roundsLeft = buff.endRounds;
   state.buffs.push(buff);
   if (state.buffLog) {
     state.buffLog.push({ type: 'buff_gain', tick: state.tick, name: buff.name, unitId: buff.unitId, endTick: buff.endTick,
@@ -213,9 +221,9 @@ function resolveSkillLabel(unit, label) {
 export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts = {}) {
   label = resolveSkillLabel(unit, label);
   const charged          = isCharged !== undefined ? isCharged : ['SR', 'RL'].includes(unit.weaponType);
-  const effectiveCritRate = (unit.stats.critRate ?? 0.15) + sums.critRateBonus
-    + (charged ? 0 : (sums.normalAttackCritRateBonus ?? 0));
-  const isCrit           = rollCrit(Math.min(1, effectiveCritRate));
+  // normalAttackCritRateBonus 仅适用于普通攻击，技能伤害不受此加成
+  const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRateBonus);
+  const isCrit           = rollCrit(effectiveCritRate);
   const isCore           = opts.isCore           ?? false;
   const coreDmgIncrement = (opts.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0);
   const extraAtkDmgPct   = opts.extraAttackDamagePct ?? 0;
@@ -225,12 +233,10 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
   // Projectile Explosion 伤害：受 projectileExplosionDamagePct 加成（累加至 extraAtkDmgPct）
   const projExplosionBonus = opts.projectileExplosion ? (sums.projectileExplosionDamagePct ?? 0) : 0;
   const isTrueDamage       = opts.isTrueDamage ?? false;
-  // 默认结算：爆裂技能伤害不受全爆裂补正（+50%）影响。
-  // 例外：Rapi: Red Hood 和 Liberellio 标记 affectedByFullBurst:true，受全爆裂补正。
-  // state.burstSkillFiring 由引擎在 BURST_SKILL_USE 期间设为 true，使同步命中自动跳过全爆裂补正。
-  // 延迟命中（pendingSkillHits）由引擎自动标记 suppressFullBurst:true（affectedByFullBurst 的除外）。
+  // B3 爆裂技能施放时 fullBurstActive 尚未置为 true，直接命中自然不受 +50% 补正。
+  // 延迟命中（pendingSkillHits）由引擎统一标记 suppressFullBurst:true（affectedByFullBurst 的除外）。
   const isFullBurst = state.fullBurstActive &&
-    (opts.affectedByFullBurst || (!state.burstSkillFiring && !opts.suppressFullBurst));
+    (opts.affectedByFullBurst || !opts.suppressFullBurst);
   const { damage, breakdown: bd } = calcDamage({
     atk:               unit.stats.atk,
     atkMultiplier:     1 + sums.atkPct,
@@ -251,7 +257,7 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
     chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
     isTrueDamage,
     extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projExplosionBonus,
-                         sustainedDamageMult: opts.sustainedDamage ? (sums.sustainedDamageMult ?? 0) : 0,
+                         sustainedDamagePct: opts.sustainedDamage ? (sums.sustainedDamagePct ?? 0) : 0,
                          trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0 },
     damageTakenMult:   state.enemyDamageTakenPct + distributedBonus,
   });
@@ -303,7 +309,7 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
 //   endTick       {number}   过期 tick（Infinity = 永久，直到手动移除）
 //   nextFireTick  {number}   下一次触发伤害的 tick
 //   intervalTicks {number}   每次触发间隔的 tick 数（60 = 每秒）
-//   sustainedDamage {boolean} 默认 true；false → 普通技能伤害（不受 sustainedDamageMult 加成）
+//   sustainedDamage {boolean} 默认 true；false → 普通技能伤害（不受 sustainedDamagePct 加成）
 //
 export function fireDotPool(state) {
   for (const dot of state.dots) {

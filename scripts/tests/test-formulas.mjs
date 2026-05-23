@@ -337,7 +337,7 @@ section('T15b: sumExtra — each of the 9 remaining extra field types individual
     'sequentialAttackDamageMult',
     'affectsAllEnemiesDamageMult',
     'affects1EnemyDamageMult',
-    'sustainedDamageMult',
+    'sustainedDamagePct',
     'trueDamageMult',
     'damageDealtToShieldMult',
     'damageToProjectilesMult',

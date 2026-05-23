@@ -179,11 +179,12 @@ function applyBurstIISkills(state) {
 
 /**
  * 所有"进入 Full Burst"时的效果。
- * 被动技能（ENTER_FULL_BURST）和 Step3 burst 技能（BURST_SKILL_USE）均由
- * executeSkillTriggers 分派。
+ * 严格按照文档时序：B3 施放（fullBurstActive=false）→ fullBurstActive=true
+ * → ENTER_FULL_BURST 被动触发 → pendingFireInBurstHits 结算。
+ * B3 直接命中由于 fullBurstActive 尚未为 true，自然不受 +50% 补正，无需额外标记。
  */
 function applyFullBurstSkills(state) {
-  // 1. B3 单位依次施放爆裂技能
+  // 1. B3 单位依次施放爆裂技能（此时 fullBurstActive 仍为 false）
   const burstFireOrder = state.squad.filter(u =>
     (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
     u.canBurst !== false &&
@@ -196,13 +197,10 @@ function applyFullBurstSkills(state) {
     state.burstCastersThisRotation?.add(step3.id);
     if (!firstFired) firstFired = step3;
 
-    // 标记"爆裂技能施放中"：使同步命中自动跳过全爆裂补正（默认结算）
     const prePendingLen = state.pendingSkillHits.length;
-    state.burstSkillFiring = true;
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: step3 });
-    state.burstSkillFiring = false;
 
-    // 自动为此期间新增的延迟命中打 suppressFullBurst 标记（affectedByFullBurst 的除外）
+    // B3 期间新增的延迟命中将在全爆裂窗口内触发（届时 fullBurstActive=true），需屏蔽补正
     for (let i = prePendingLen; i < state.pendingSkillHits.length; i++) {
       const h = state.pendingSkillHits[i];
       if (!h.opts) h.opts = {};
@@ -213,11 +211,22 @@ function applyFullBurstSkills(state) {
     flushShieldReceived(state);
   }
 
-  // 2. 全爆裂阶段生效（B3 施放完毕后）— 绝大多数技能的 ENTER_FULL_BURST 在此触发
+  // 2. 所有 B3 施放完毕后，进入全爆裂状态
+  state.fullBurstActive = true;
+
+  // 3. ENTER_FULL_BURST 被动触发（此时 fullBurstActive 已为 true）
+  const prePendingLenFull = state.pendingSkillHits.length;
   executeSkillTriggers(state, 'ENTER_FULL_BURST');
   flushHealReceived(state);
 
-  // 3. 结算 BURST_SKILL_USE / ENTER_FULL_BURST 期间入队的 pendingFireInBurstHits（全爆裂后触发）
+  // ENTER_FULL_BURST 期间新增的延迟命中同样屏蔽全爆裂补正
+  for (let i = prePendingLenFull; i < state.pendingSkillHits.length; i++) {
+    const h = state.pendingSkillHits[i];
+    if (!h.opts) h.opts = {};
+    if (!h.opts.affectedByFullBurst) h.opts.suppressFullBurst = true;
+  }
+
+  // 4. 结算 pendingFireInBurstHits（在 ENTER_FULL_BURST 生效后触发，受全爆裂补正）
   for (const h of state.pendingFireInBurstHits) {
     const sums = h.sums ?? getBuffSums(state, h.caster.id);
     fireSkillHit(state, h.caster, h.mult, sums, h.isCharged, h.label, h.opts);
@@ -471,6 +480,7 @@ export function initBattle(config) {
     enemyDef:           config.enemy.def ?? 0,
     enemyElement:       config.enemy.element ?? 'Iron',
     enemyHasCore:       config.enemy.hasCore ?? false,
+    enemyCoreProtected: config.enemy.coreProtected ?? false,
     // Active enemy zone for distance-based damage. Updated on each non-CANNOT_BE_AIMED phase entry.
     // config.enemy.distance overrides the phase schedule entirely (legacy / test usage).
     distanceZone:       config.enemy.distance ?? (initialZone !== 'CANNOT_BE_AIMED' ? initialZone : null),
@@ -480,7 +490,6 @@ export function initBattle(config) {
     tick:               0,
     burstStepTicks,
     fullBurstActive:    false,
-    burstSkillFiring:   false,
     fullBurstTick:      0,
     burstPhase:         0,
     // When set to an array, every damage hit (normal and skill) appends a detail record.
@@ -708,9 +717,9 @@ export function tick(state) {
   }
 
   // B2 延迟结束 → Full Burst
+  // fullBurstActive 由 applyFullBurstSkills 在 B3 全部施放完毕后设置（文档 §3.9 时序）
   if (state.burstPhase === 2 && state.burstPhaseTick !== Infinity && state.tick >= state.burstPhaseTick) {
     state.burstPhase        = 3;
-    state.fullBurstActive   = true;
     state.fullBurstTick     = state.tick + TICK_RATE * 10; // 10s burst window
     state.burstPhaseTimeoutTick = 0;
     // 此处不重置槽 — 重置在 Full Burst 结束时进行。
@@ -779,7 +788,7 @@ export function tick(state) {
         ? unit.maxAmmo + flatBoost
         : (ammoMult !== 1
           ? Math.max(1, unit.baseAmmo + Math.round(unit.baseAmmo * (ammoMult - 1)))
-            + (unit.stats.bonusAmmo ?? 0) + unit.favAmmoBonus
+            + Math.round(unit.baseAmmo * (unit.stats.bonusAmmo ?? 0)) + unit.favAmmoBonus
           : unit.maxAmmo);
       // 分段装填：每次装填动作仅恢复 round(maxAmmo × reloadFraction) 发，不超过上限。
       // reloadFraction=1（默认）时等价于一次装满。
@@ -851,15 +860,21 @@ export function tick(state) {
         ? (unit.skillState.weaponSwitchHitMult ?? WEAPON_HIT_MULT[effectiveWeaponType] ?? 0.03)
         : (unit.shotDamageMult ?? WEAPON_HIT_MULT[unit.weaponType] ?? 0.03);
       const isCharged = ['SR', 'RL'].includes(effectiveWeaponType);
+      // normalAttackCritRateBonus 适用于所有普通攻击（含蓄力），不区分蓄力与否
       const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRateBonus
-        + (isCharged ? 0 : (sums.normalAttackCritRateBonus ?? 0)));
+        + (sums.normalAttackCritRateBonus ?? 0));
       const isCrit    = rollCrit(effectiveCritRate);
-      // 普通射击的核心命中概率。
-      // MG/SR/RL 必定命中核心（coreHitRateMult=1，默认）。SMG：默认 0.033。
-      // TODO: SG/AR — 标定核心命中率；在测定前默认 1
-      // TODO: 基于 CDN shot spread / hitbox 数据实现真实的命中率机制
+      // 核心命中判定（文档 §3.8）。
+      // 穿透攻击：weaponSwitchPierce / pierceActive / pierceEndTick 任一生效时命中穿透。
+      // 核心被保护（enemyCoreProtected=true）：仅穿透攻击可命中核心。
+      const isPierce = (weaponSwitchActive && unit.skillState.weaponSwitchPierce)
+        || unit.skillState.pierceActive
+        || (unit.skillState.pierceEndTick ?? 0) > state.tick;
       const coreHitRateMult = unit.coreHitRateMult ?? 1;
-      const isCore = state.enemyHasCore && (coreHitRateMult >= 1 || Math.random() < coreHitRateMult);
+      const coreRoll = coreHitRateMult >= 1 || Math.random() < coreHitRateMult;
+      const isCore = state.enemyHasCore && (
+        state.enemyCoreProtected ? (isPierce && coreRoll) : coreRoll
+      );
 
       const { damage, breakdown: bd } = calcDamage({
         atk:               unit.stats.atk,
@@ -886,10 +901,7 @@ export function tick(state) {
         favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
         extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct
                              + (effectiveWeaponType === 'RL' ? sums.projectileExplosionDamagePct : 0),
-                             ...((weaponSwitchActive && unit.skillState.weaponSwitchPierce)
-                                 || unit.skillState.pierceActive
-                                 || (unit.skillState.pierceEndTick ?? 0) > state.tick
-                               ? { pierceDamageMult: sums.pierceDamagePct } : {}) },
+                             ...(isPierce ? { pierceDamageMult: sums.pierceDamagePct } : {}) },
         damageTakenMult:   state.enemyDamageTakenPct,
       });
 

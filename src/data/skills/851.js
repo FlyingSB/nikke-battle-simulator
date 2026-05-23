@@ -113,7 +113,7 @@ export default {
           // Part2: A.N. Mode — 自身持续伤害倍率▲ p01% 10s
           const sdMult = getSkillValue(caster.rawBurst, 1, lv) / 100;
           pushBuff(state, { name: 'rv_burst_sustainedDmg', unitId: caster.id,
-            sustainedDamageMult: sdMult, endTick: state.tick + TICK_RATE * 10 });
+            sustainedDamagePct: sdMult, endTick: state.tick + TICK_RATE * 10 });
         },
       },
     ],

@@ -149,7 +149,7 @@ export default {
           const lv      = caster.skillLevels[1];
           const sDmgPct = getSkillValue(caster.rawSkill2, 6, lv) / 100;
           pushBuff(state, { name: 'mhbc_s2_sustainedDmg', unitId: caster.id,
-            sustainedDamageMult: sDmgPct, endTick: state.tick + TICK_RATE * 10 });
+            sustainedDamagePct: sDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
     ],
