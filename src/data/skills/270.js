@@ -67,8 +67,7 @@ export default {
           );
           if (!hasSquadAlly) return;
           const reductionTicks = Math.round(40.76 * TICK_RATE);
-          caster.burstSkillCooldownEndTick = Math.max(state.tick,
-            caster.burstSkillCooldownEndTick - reductionTicks);
+          caster.burstCdRemaining = Math.max(0, caster.burstCdRemaining - reductionTicks);
         },
       },
     ],

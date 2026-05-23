@@ -247,7 +247,7 @@ function applyEffects(state, caster, targets, effects, ctx) {
         const reductionTicks = Math.round(TICK_RATE * eff.seconds);
         for (const t of targets) {
           if (t === '__enemy__') continue;
-          t.burstSkillCooldownEndTick = Math.max(state.tick, t.burstSkillCooldownEndTick - reductionTicks);
+          t.burstCdRemaining = Math.max(0, t.burstCdRemaining - reductionTicks);
         }
         if (state.buffLog && reductionTicks > 0)
           state.buffLog.push({ type: 'cd_reduction', tick: state.tick,

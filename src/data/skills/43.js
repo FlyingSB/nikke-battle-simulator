@@ -84,7 +84,7 @@ export default {
             const cdSec = getSkillValue(caster.rawSkill2, 1, lv);
             const reductionTicks = Math.round(TICK_RATE * cdSec);
             for (const u of state.squad) {
-              u.burstSkillCooldownEndTick = Math.max(state.tick, u.burstSkillCooldownEndTick - reductionTicks);
+              u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
             }
             if (state.buffLog)
               state.buffLog.push({ type: 'cd_reduction', tick: state.tick,

@@ -49,7 +49,7 @@ export default {
 
           const cdTicks = Math.round(cdSec * TICK_RATE);
           for (const u of state.squad) {
-            u.burstSkillCooldownEndTick = Math.max(state.tick, u.burstSkillCooldownEndTick - cdTicks);
+            u.burstCdRemaining = Math.max(0, u.burstCdRemaining - cdTicks);
           }
         },
       },

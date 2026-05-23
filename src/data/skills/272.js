@@ -48,7 +48,7 @@ export default {
 
           pushBuff(state, { name: 'rouge_s1_maxHp', unitId: null, maxHpFlat, endTick });
           for (const u of state.squad)
-            u.burstSkillCooldownEndTick = Math.max(state.tick, u.burstSkillCooldownEndTick - cdTicks);
+            u.burstCdRemaining = Math.max(0, u.burstCdRemaining - cdTicks);
         },
       },
     ],

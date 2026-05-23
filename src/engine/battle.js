@@ -74,7 +74,7 @@ function getPhaseAtTick(phases, tick) {
  * 若其 burst 技能冷却已结束则返回该单位，否则返回 null。
  */
 function selectBurstUnit(state, burstStep) {
-  return state.squad.find(u => u.burstStep === burstStep && u.canBurst !== false && u.burstSkillCooldownEndTick <= state.tick) ?? null;
+  return state.squad.find(u => u.burstStep === burstStep && u.canBurst !== false && u.burstCdRemaining <= 0) ?? null;
 }
 
 /**
@@ -156,7 +156,7 @@ function applyBurstISkills(state) {
     return null;
   }
 
-  b1.burstSkillCooldownEndTick = state.tick + b1.burstSkillCooltime;
+  b1.burstCdRemaining = b1.burstSkillCooltime;
   state.burstCastersThisRotation?.add(b1.id);
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: b1 });
   flushHealReceived(state);
@@ -169,7 +169,7 @@ function applyBurstIISkills(state) {
   const b2 = selectBurstUnit(state, 'Step2');
   if (!b2) return null;
 
-  b2.burstSkillCooldownEndTick = state.tick + b2.burstSkillCooltime;
+  b2.burstCdRemaining = b2.burstSkillCooltime;
   state.burstCastersThisRotation?.add(b2.id);
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: b2 });
   flushHealReceived(state);
@@ -188,12 +188,12 @@ function applyFullBurstSkills(state) {
   const burstFireOrder = state.squad.filter(u =>
     (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
     u.canBurst !== false &&
-    u.burstSkillCooldownEndTick <= state.tick
+    u.burstCdRemaining <= 0
   );
 
   let firstFired = null;
   for (const step3 of burstFireOrder) {
-    step3.burstSkillCooldownEndTick = state.tick + step3.burstSkillCooltime;
+    step3.burstCdRemaining = step3.burstSkillCooltime;
     state.burstCastersThisRotation?.add(step3.id);
     if (!firstFired) firstFired = step3;
 
@@ -398,8 +398,10 @@ export function initBattle(config) {
       configuredCombatAssist: cfg.combatAssist ?? false,
       combatAssistStatus: cfg.combatAssist ?? false,
       // Burst skill cooldown: endTick=0 means ready from the start.
-      burstSkillCooldownEndTick: 0,
-      // Burst skill cooltime in ticks (from CDN ulti_skill_detail.skill_cooltime / 100 * 60).
+      // 爆裂技能剩余冷却（ticks）。0 表示已可释放，每 tick 递减 1。
+      // 可由减 CD 技能直接减少：u.burstCdRemaining = Math.max(0, u.burstCdRemaining - ticks)
+      burstCdRemaining:         0,
+      // Burst skill cooltime in ticks (from CDN ulti_skill_detail.skill_cooltime_list / 100 * 60).
       // 必须由调用方提供（validateUnitConfig 已校验）。
       burstSkillCooltime:       cfg.burstSkillCooltime,
       totalDamage:      0,
@@ -665,6 +667,11 @@ export function tick(state) {
     if (u.shieldHp > 0 && state.tick >= u.shieldEndTick) u.shieldHp = 0;
   }
 
+  // ── 爆裂技能冷却递减 ─────────────────────────────────────────────────────────
+  for (const u of state.squad) {
+    if (u.burstCdRemaining > 0) u.burstCdRemaining--;
+  }
+
   // ── 爆裂序列状态机 ─────────────────────────────────────────────
 
   // Full Burst 窗口到期 → 共享槽清零，团队需重新填充
@@ -716,16 +723,26 @@ export function tick(state) {
     }
   }
 
-  // B2 延迟结束 → Full Burst
+  // B2 延迟结束 → 等待 B3 冷却就绪，再触发 Full Burst
   // fullBurstActive 由 applyFullBurstSkills 在 B3 全部施放完毕后设置（文档 §3.9 时序）
   if (state.burstPhase === 2 && state.burstPhaseTick !== Infinity && state.tick >= state.burstPhaseTick) {
-    state.burstPhase        = 3;
-    state.fullBurstTick     = state.tick + TICK_RATE * 10; // 10s burst window
-    state.burstPhaseTimeoutTick = 0;
-    // 此处不重置槽 — 重置在 Full Burst 结束时进行。
-    for (const u of state.squad) u.burstCount++;
-    const fired = applyFullBurstSkills(state);
-    events.push({ type: 'full_burst', tick: state.tick, unitName: fired?.name ?? null });
+    // 若队伍中存在 B3 单位但 CD 尚未就绪，则留在阶段 2 等待（与 B1/B2 等 CD 逻辑对称）
+    const hasB3  = state.squad.some(u => (u.burstStep === 'Step3' || u.burstStep === 'StepFull') && u.canBurst !== false);
+    const b3Ready = !hasB3 || state.squad.some(u =>
+      (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
+      u.canBurst !== false && u.burstCdRemaining <= 0
+    );
+    if (!b3Ready) {
+      // 将等待点推进到下一 tick，使每 tick 重试，同时 burstPhaseTimeoutTick 继续计时
+      state.burstPhaseTick = state.tick;
+    } else {
+      state.burstPhase        = 3;
+      state.fullBurstTick     = state.tick + TICK_RATE * 10; // 10s burst window
+      state.burstPhaseTimeoutTick = 0;
+      for (const u of state.squad) u.burstCount++;
+      const fired = applyFullBurstSkills(state);
+      events.push({ type: 'full_burst', tick: state.tick, unitName: fired?.name ?? null });
+    }
   }
 
   // 共享槽填满 → 进入阶段 1（等待 B1 冷却；若冷却已结束立即尝试）

@@ -63,7 +63,7 @@ export default {
           const lv      = caster.skillLevels[0];
           const cdTicks = Math.round(getSkillValue(caster.rawSkill1, 2, lv) * TICK_RATE);
           for (const u of state.squad) {
-            u.burstSkillCooldownEndTick = Math.max(state.tick, u.burstSkillCooldownEndTick - cdTicks);
+            u.burstCdRemaining = Math.max(0, u.burstCdRemaining - cdTicks);
           }
         },
       },

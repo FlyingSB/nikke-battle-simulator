@@ -83,7 +83,7 @@ export default {
           const sec = getSkillValue(s2, 9, lv);
           const reductionTicks = Math.round(TICK_RATE * sec);
           for (const u of state.squad)
-            u.burstSkillCooldownEndTick = Math.max(state.tick, u.burstSkillCooldownEndTick - reductionTicks);
+            u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
           if (state.buffLog)
             state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
               name: 'moran_s2_fervor_cdReduction', unitId: null, reductionTicks });
@@ -158,7 +158,7 @@ export default {
           if (s1 && s1Lv > 0 && caster.skillState.moranFervorActive) {
             const fervorSec   = getSkillValue(s1, 3, s1Lv);
             const fervorTicks = Math.round(TICK_RATE * fervorSec);
-            caster.burstSkillCooldownEndTick = Math.max(state.tick, caster.burstSkillCooldownEndTick - fervorTicks);
+            caster.burstCdRemaining = Math.max(0, caster.burstCdRemaining - fervorTicks);
             if (state.buffLog)
               state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
                 name: 'moran_s1_fervor_cdReduction', unitId: caster.id, reductionTicks: fervorTicks });

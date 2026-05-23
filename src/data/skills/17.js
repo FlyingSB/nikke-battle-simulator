@@ -14,10 +14,10 @@ function applyStarEffect(state, caster) {
     const atkPct = getSkillValue(caster.rawSkill1, 1, lv) / 100;
     pushBuff(state, { name: 'astar_s1_myOwnStarAtk', unitId: caster.id,
       atkPct, endTick: Infinity });
-    // 全员爆裂冷却缩减（直接减少 burstSkillCooldownEndTick，不低于当前 tick）
+    // 全员爆裂冷却缩减（直接减少 burstCdRemaining，不低于 0）
     const cdReduceTicks = Math.round(getSkillValue(caster.rawSkill1, 2, lv) * TICK_RATE);
     for (const u of state.squad) {
-      u.burstSkillCooldownEndTick = Math.max(state.tick, u.burstSkillCooldownEndTick - cdReduceTicks);
+      u.burstCdRemaining = Math.max(0, u.burstCdRemaining - cdReduceTicks);
     }
   }
   // Everyone's Star：爆裂重入阶段 1（changeBurstStep 应在此处设置，当前仅记录状态供其他技能读取）

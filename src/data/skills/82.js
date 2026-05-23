@@ -40,7 +40,7 @@ export default {
           if (cnt >= 3) sec += 3.17;
           const reductionTicks = Math.round(TICK_RATE * sec);
           for (const u of state.squad) {
-            u.burstSkillCooldownEndTick = Math.max(state.tick, u.burstSkillCooldownEndTick - reductionTicks);
+            u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
           }
           if (state.buffLog && reductionTicks > 0)
             state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'liter_s1_cdReduction', unitId: null, reductionTicks });

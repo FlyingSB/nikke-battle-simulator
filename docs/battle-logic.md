@@ -325,17 +325,17 @@ burstPhase = 0（充能中）
 
 ### 6.3 阶段超时
 
-- 阶段 1 和阶段 2 各有 10 秒超时（`burstPhaseTimeoutTick`）。
+- 阶段 1/2/3 各有 10 秒超时（`burstPhaseTimeoutTick`）。
 - 若阶段未在 10 秒内推进，爆裂取消，`burstGauge = 0`，`burstPhase = 0`。
 
-### 6.4 B1/B2 缺席处理
+### 6.4 缺席处理
 
 - 队伍中不存在 StepN 单位，**或**所有 StepN 单位的爆裂技能均在冷却中：**爆裂阶段无法推进**，进入 6.3 阶段超时流程（10 秒内未推进则取消爆裂）。
 - StepN 单位冷却中：等待，每 tick 重试，直到冷却结束或超时。
 
 ### 6.5 Full Burst 期间的爆裂技能伤害顺序
 
-1. 所有 B3 单位依次施放爆裂技能（`BURST_SKILL_USE`）；此时 `fullBurstActive` 尚未为 `true`，直接命中不受 +50% 补正。
+1. 某 B3 单位施放爆裂技能（`BURST_SKILL_USE`）；此时 `fullBurstActive` 尚未为 `true`，直接命中不受 +50% 补正。
 2. B3 全部施放完毕后触发 `ENTER_FULL_BURST`，置 `fullBurstActive = true`。
 3. 延迟命中（`pendingSkillHits`）自动打 `suppressFullBurst=true` 标记，不受全爆裂补正。
 4. 处理 `pendingFireInBurstHits`（在 `ENTER_FULL_BURST` 效果生效后才结算的命中，受 `fullBurstActive` 影响）。

@@ -249,7 +249,7 @@ section('T9: Moran SSR burst — handler sets weaponSwitch + lifeSteal + ATK buf
   };
   const caster = state.squad[0];
   caster.skillState                = { weaponSwitchEndTick: 0, moranFervorActive: true };
-  caster.burstSkillCooldownEndTick = 1200;  // simulated CD: 20s × 60 ticks = 1200
+  caster.burstCdRemaining = 1200;  // simulated CD remaining: 20s × 60 ticks = 1200
   caster.ssrFavSkills = {
     burst: {
       _activeSkillLevel: 10,
@@ -298,7 +298,7 @@ section('T9: Moran SSR burst — handler sets weaponSwitch + lifeSteal + ATK buf
   eq('ATK flat = round(atk * 42.57%)',         atkBuff?.atkFlat,       Math.round(100000 * parseFloat('42.57') / 100));
 
   // S1 Fervor: burst CD reduced by 20s (1200 ticks) → max(0, 1200 - 1200) = 0
-  eq('Fervor reduced own burst CD by 20s',    caster.burstSkillCooldownEndTick, 0);
+  eq('Fervor reduced own burst CD by 20s',    caster.burstCdRemaining, 0);
 }
 
 // ── T10: WEAPON_SWITCH round-based expiry ────────────────────────────────────
@@ -676,7 +676,7 @@ section('T15: Blanc S2 Part2 — Burst CD ▼40.76s fires only when a same-squad
   function makeBlancState(...allies) {
     const caster = {
       id: 270, squad: derivedSquad, unitHp: 100000,
-      burstSkillCooldownEndTick: INIT_CD,
+      burstCdRemaining: INIT_CD,
       skillState: {}, skillLevels: [1, 1, 1],
       rawSkill2: { description_value_list: [
         { description_value: ['1.78'] },   // p01（HoT%，Part2 不读）
@@ -691,14 +691,14 @@ section('T15: Blanc S2 Part2 — Burst CD ▼40.76s fires only when a same-squad
   {
     const st = makeBlancState();
     cdTrigger.handler(st, st.caster);
-    eq('A: 无友军 → CD 不变', st.caster.burstSkillCooldownEndTick, INIT_CD);
+    eq('A: 无友军 → CD 不变', st.caster.burstCdRemaining, INIT_CD);
   }
 
   // 场景 B：同小队友军但已阵亡（unitHp=0）→ 条件不满足，CD 不变
   {
     const st = makeBlancState({ id: 271, squad: '777', unitHp: 0 });
     cdTrigger.handler(st, st.caster);
-    eq('B: 同队友军阵亡 → CD 不变', st.caster.burstSkillCooldownEndTick, INIT_CD);
+    eq('B: 同队友军阵亡 → CD 不变', st.caster.burstCdRemaining, INIT_CD);
   }
 
   // 场景 C：同小队友军存活 → 条件满足，CD ▼2446 ticks
@@ -706,14 +706,14 @@ section('T15: Blanc S2 Part2 — Burst CD ▼40.76s fires only when a same-squad
     const st = makeBlancState({ id: 271, squad: '777', unitHp: 50000 });
     cdTrigger.handler(st, st.caster);
     eq('C: 同队友军存活 → CD 减少 2446 ticks',
-      st.caster.burstSkillCooldownEndTick, Math.max(TICK, INIT_CD - REDUCTION));
+      st.caster.burstCdRemaining, Math.max(0, INIT_CD - REDUCTION));
   }
 
   // 场景 D：不同小队友军存活 → 条件不满足，CD 不变
   {
     const st = makeBlancState({ id: 300, squad: 'Counters', unitHp: 80000 });
     cdTrigger.handler(st, st.caster);
-    eq('D: 不同小队友军存活 → CD 不变', st.caster.burstSkillCooldownEndTick, INIT_CD);
+    eq('D: 不同小队友军存活 → CD 不变', st.caster.burstCdRemaining, INIT_CD);
   }
 }
 
