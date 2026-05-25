@@ -433,7 +433,6 @@
                       <div class="stat-item">
                         <span class="stat-label">ATK</span>
                         <span class="stat-value"
-                          :class="stats.equipAtkPct > 0 || stats.equipAtkFlat > 0 ? 'stat-value--boost' : ''"
                           x-text="$store.sim.fmtStat(stats.atk)"
                           :title="stats.equipAtkPct > 0 ? '基础值（不含词条 ATK% 乘法）；词条 ATK% = ' + (stats.equipAtkPct * 100).toFixed(2) + '%' : ''">
                         </span>
@@ -444,29 +443,35 @@
                       </div>
                     </div>
                     <div class="stats-extras">
-                      <template x-if="stats.critRate > 0.15">
-                        <span class="stat-badge">暴击率 <b x-text="$store.sim.fmtPct(stats.critRate)"></b></span>
-                      </template>
-                      <template x-if="stats.critDmg > 0.50">
-                        <span class="stat-badge">暴击伤害 <b x-text="$store.sim.fmtPct(stats.critDmg)"></b></span>
-                      </template>
                       <template x-if="stats.elementDmgPct > 0">
-                        <span class="stat-badge">属性伤害 <b x-text="$store.sim.fmtPct(stats.elementDmgPct)"></b></span>
+                        <span class="stat-badge">优越代码伤害增加 +<b x-text="$store.sim.fmtPct(stats.elementDmgPct)"></b></span>
+                      </template>
+                      <template x-if="stats.hitRatePct > 0">
+                        <span class="stat-badge">命中率增加 +<b x-text="$store.sim.fmtPct(stats.hitRatePct)"></b></span>
                       </template>
                       <template x-if="stats.bonusAmmo > 0">
-                        <span class="stat-badge">弹匣 +<b x-text="$store.sim.fmtPct(stats.bonusAmmo)"></b></span>
-                      </template>
-                      <template x-if="stats.chargeDmgPct > 0">
-                        <span class="stat-badge">蓄力伤害 <b x-text="$store.sim.fmtPct(stats.chargeDmgPct)"></b></span>
-                      </template>
-                      <template x-if="stats.chargeSpeedPct > 0">
-                        <span class="stat-badge">蓄力速度 <b x-text="$store.sim.fmtPct(stats.chargeSpeedPct)"></b></span>
+                        <span class="stat-badge">最大装弹数增加 +<b x-text="$store.sim.fmtPct(stats.bonusAmmo)"></b></span>
                       </template>
                       <template x-if="stats.equipAtkPct > 0">
-                        <span class="stat-badge stat-badge--boost">装备 ATK% +<b x-text="$store.sim.fmtPct(stats.equipAtkPct)"></b></span>
+                        <span class="stat-badge">攻击力增加 +<b x-text="$store.sim.fmtPct(stats.equipAtkPct)"></b></span>
                       </template>
                       <template x-if="stats.equipAtkFlat > 0">
-                        <span class="stat-badge stat-badge--boost">装备 ATK固定 +<b x-text="$store.sim.fmtStat(stats.equipAtkFlat)"></b></span>
+                        <span class="stat-badge">攻击力增加（固定值） +<b x-text="$store.sim.fmtStat(stats.equipAtkFlat)"></b></span>
+                      </template>
+                      <template x-if="stats.chargeDmgPct > 0">
+                        <span class="stat-badge">蓄力伤害增加 +<b x-text="$store.sim.fmtPct(stats.chargeDmgPct)"></b></span>
+                      </template>
+                      <template x-if="stats.chargeSpeedPct > 0">
+                        <span class="stat-badge">蓄力速度增加 +<b x-text="$store.sim.fmtPct(stats.chargeSpeedPct)"></b></span>
+                      </template>
+                      <template x-if="stats.critRate > 0.15">
+                        <span class="stat-badge">暴击率增加 +<b x-text="$store.sim.fmtPct(stats.critRate - 0.15)"></b></span>
+                      </template>
+                      <template x-if="stats.critDmg > 0.50">
+                        <span class="stat-badge">暴击伤害增加 +<b x-text="$store.sim.fmtPct(stats.critDmg - 0.50)"></b></span>
+                      </template>
+                      <template x-if="stats.equipDefPct > 0">
+                        <span class="stat-badge">防御力增加 +<b x-text="$store.sim.fmtPct(stats.equipDefPct)"></b></span>
                       </template>
                     </div>
                   </div>
@@ -573,8 +578,8 @@
                           <th class="log-line-hd">#</th>
                           <th>时间</th>
                           <th>施展者</th>
-                          <th>目标</th>
                           <th>技能</th>
+                          <th>目标</th>
                           <th>Buff</th>
                           <th>伤害</th>
                           <th x-show="$store.sim.logMode === 'detail'">弹药</th>
@@ -588,11 +593,11 @@
                             <td class="log-line" x-text="ri + 1"></td>
                             <td class="log-time mono" x-text="row.kind !== 'event' && row.tickEnd > row.tickStart ? $store.sim.formatTick(row.tickStart) + '~' + $store.sim.formatTick(row.tickEnd) : $store.sim.formatTick(row.tickStart)"></td>
                             <td x-text="row.name"></td>
-                            <td x-text="row.target ?? ''"></td>
                             <td class="log-label">
                               <span x-text="row.label"></span>
                               <span class="log-count" x-show="row.count > 1" x-text="'×' + row.count"></span>
                             </td>
+                            <td x-text="row.target ?? ''"></td>
                             <td class="log-buff" x-text="row.buffDesc"></td>
                             <td class="log-dmg mono" x-text="row.damage != null ? $store.sim.fmtNum(row.damage) : ''"></td>
                             <td class="log-ammo mono" x-show="$store.sim.logMode === 'detail'"

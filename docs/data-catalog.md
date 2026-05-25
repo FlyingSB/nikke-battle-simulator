@@ -25,6 +25,52 @@ URL 哈希随游戏补丁变化，版本号记录在 [`src/data/manifest.js`](..
 | [`equipmentEffects.json`](../src/data/static/equipmentEffects.json) | 装备词条效果（每个词条的 state_effect_id_list） |
 | [`buffEffects.json`](../src/data/static/buffEffects.json) | Buff 系统数据 |
 
+### 装备词条数值表
+
+文件：[`src/data/static/equipmentEffects.csv`](../src/data/static/equipmentEffects.csv)
+
+`equipmentEffects.json` 是 CDN 原始数据，仅含 `state_effect_id_list`；  
+`equipmentEffects.csv` 是手工整理的 T10 词条数值表，供引擎读取具体数值。词条仅存在于 T10 装备，T1–T9 无词条槽位。
+
+**CSV 列定义**
+
+| 列名 | 含义 |
+|------|------|
+| `T10词条` | 游戏内英文词条名 |
+| `中文翻译` | 中文对照名 |
+| `function_type` | 引擎识别键（account-loader.js `_OPTION_MAP` 中的 key） |
+| `state_effect_id_prefix` | 词条 ID 前缀（7 位 option_id = prefix × 100 + level） |
+| `等级1`…`等级15` | 各强化等级的数值（带 `%`，引擎存储时 ÷100 转为小数） |
+
+**option_id 编码规则**
+
+```
+option_id = state_effect_id_prefix × 100 + level   (level 1–15)
+```
+
+例：prefix=70011（暴击率），level=7 → option_id = 7001107
+
+**function_type → 引擎 key 映射**
+
+| function_type | 引擎 key | prefix | 等级 1 | 等级 15 |
+|---------------|---------|--------|-------|--------|
+| `IncElementDmg` | `elementDmgPct` | 70005 | 9.54% | 29.16% |
+| `StatAccuracyCircle` | `hitRatePct` | 70006 | 4.77% | 14.63% |
+| `StatAmmoLoad` | `bonusAmmo` | 70007 | 27.84% | 85.37% |
+| `StatAtk` | `atkPct` | 70008 | 4.77% | 14.63% |
+| `StatChargeDamage` | `chargeDmgPct` | 70009 | 4.77% | 14.63% |
+| `StatChargeTime` | `chargeSpeedPct` | 70010 | 1.98% | 6.09% |
+| `StatCritical` | `critRatePct` | 70011 | 2.30% | 7.07% |
+| `StatCriticalDamage` | `critDmgPct` | 70012 | 6.64% | 20.36% |
+| `StatDef` | `defFlat` | 70013 | 4.77% | 14.63% |
+
+> **引擎特殊处理**  
+> `bonusAmmo`：以小数 pct 存储，应用为 `Math.round(baseAmmo × pct)`，不直接相加。  
+> `defFlat`：实际是 pct，应用为 `def += Math.round(def × pct)`。  
+> 相关文件：`src/data/account-loader.js`（`_OPTION_GROUPS` / `_OPTION_MAP`）、`src/engine/stats.js`。
+
+---
+
 ### 魔方详情数据
 
 存储路径：[`src/data/static/cubes/`](../src/data/static/cubes/)（文件名为 `resource_id.json`）  

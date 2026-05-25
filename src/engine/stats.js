@@ -229,7 +229,8 @@ export function computeFinalStats(slot, nikkeLevel, research) {
   // 战斗引擎在 getBuffSums 的初始值中累入，使其仍参与伤害公式，
   // 但不影响技能"X% of caster's ATK"中的基础 ATK 参考值。
   const equipAtkFlat = opts.atkFlat ?? 0;
-  def += Math.round(def * (opts.defFlat ?? 0));
+  const equipDefPct = opts.defFlat ?? 0;
+  def += Math.round(def * equipDefPct);
   equipAtkPct += opts.atkPct ?? 0;
 
   return {
@@ -252,5 +253,6 @@ export function computeFinalStats(slot, nikkeLevel, research) {
     // 装填速度：仅来自魔方（Resilience Quick Reload HC）
     reloadSpeedPct: cubeReloadSpeedPct,
     hitRatePct:     opts.hitRatePct     ?? 0,
+    equipDefPct,
   };
 }
