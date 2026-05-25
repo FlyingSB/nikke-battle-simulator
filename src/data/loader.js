@@ -73,14 +73,14 @@ export async function loadCube(resourceId) {
 }
 
 /**
- * 按 resource_id 加载收藏品 JSON。
+ * 按 resource_id 加载珍藏品 JSON。
  * 优先读取本地静态快照，缺失时回退 CDN。
  * @param {number|string} resourceId
  * @returns {Promise<object>}
  */
 export async function loadFavoriteItem(resourceId) {
   const id    = Number(resourceId);
-  const url   = FAVORITE_ITEM_URLS[id] ?? null; // SSR 专属收藏品可能无 CDN URL，本地文件优先
+  const url   = FAVORITE_ITEM_URLS[id] ?? null; // SSR 专属珍藏品可能无 CDN URL，本地文件优先
   const local = `${LOCAL_BASE}/favorites/${id}.json`;
   return _loadByUrl('fav', id, url, local);
 }

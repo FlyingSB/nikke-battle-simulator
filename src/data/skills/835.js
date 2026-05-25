@@ -31,7 +31,7 @@ function consumeAtfStacks(state, caster, p07Pct) {
 
 // ─── Annihilation 发动（Annihilation State 结束时触发）────────────────────
 // ■ 对 Anti A.T. Field 目标造成叠层伤害并移除叠层
-// ■ S2 Part2 同时激活：MG 过热速度↓100% 3s、清空弹药、HP 回复、装填速度↑60%
+// ■ S2 Part2 同时激活：MG 过热速度↓100% 3s、清空弹药、HP 回复、换弹速度↑60%
 function fireAnnihilation(state, caster) {
   caster.skillState.annihilationFired = true;
 
@@ -62,7 +62,7 @@ function fireAnnihilation(state, caster) {
   caster.ammoLeft  = 0;
   caster.reloadTick = 0;
 
-  // 装填速度固定 ↑p08%（仅本次装填生效，屏蔽其他装填速度效果；由 skill2 RELOAD_END 清除）
+  // 换弹速度固定 ↑p08%（仅本次装填生效，屏蔽其他换弹速度效果；由 skill2 RELOAD_END 清除）
   caster.skillState.fixedReloadSpeedPct = getSkillValue(caster.rawSkill2, 7, s2Lv) / 100;
 
   // HP 回复 p06% MaxHP/s × p07 秒（HoT）
@@ -146,7 +146,7 @@ export default {
         },
       },
 
-      // 固定装填速度清除：本次装填完成后 fixedReloadSpeedPct 失效
+      // 固定换弹速度清除：本次装填完成后 fixedReloadSpeedPct 失效
       {
         on: 'RELOAD_END',
         logTargets: 'SELF',

@@ -94,16 +94,16 @@ option_id = state_effect_id_prefix × 100 + level   (level 1–15)
 | [`13001.json`](../src/data/static/cubes/13001.json) | Vigor Cube |
 | [`13002.json`](../src/data/static/cubes/13002.json) | Healing Cube |
 
-### 收藏品数据
+### 珍藏品数据
 
 存储路径：[`src/data/static/favorites/`](../src/data/static/favorites/)  
 加载器优先读取本地文件，缺失时回退 CDN（CDN URL 见 `manifest.js` → `FAVORITE_ITEM_URLS`）。  
-SSR 专属收藏品（ID 以 `2` 开头）仅有本地文件，无 CDN URL 记录。
+SSR 专属珍藏品（ID 以 `2` 开头）仅有本地文件，无 CDN URL 记录。
 
 ID 规则：`100XYY`，X = 武器类型（1=AR / 2=MG / 3=RL / 4=SG / 5=SMG / 6=SR），YY = `01`（R）/ `02`（SR）。  
-SSR 专属收藏品与角色绑定，提升全部三个技能等级。
+SSR 专属珍藏品与角色绑定，提升全部三个技能等级。
 
-| 文件 | 收藏品名称 | 类型 |
+| 文件 | 珍藏品名称 | 类型 |
 |------|-----------|------|
 | [`100101.json`](../src/data/static/favorites/100101.json) | Cooking Commander Doll | AR · R |
 | [`100102.json`](../src/data/static/favorites/100102.json) | Cooking Commander Doll Ltd. | AR · SR |
@@ -117,10 +117,10 @@ SSR 专属收藏品与角色绑定，提升全部三个技能等级。
 | [`100502.json`](../src/data/static/favorites/100502.json) | Coffee Commander Doll Ltd. | SMG · SR |
 | [`100601.json`](../src/data/static/favorites/100601.json) | Napping Commander Doll | SR-weapon · R |
 | [`100602.json`](../src/data/static/favorites/100602.json) | Napping Commander Doll Ltd. | SR-weapon · SR |
-| [`200601.json`](../src/data/static/favorites/200601.json) | Miranda 专属收藏品 | SSR |
+| [`200601.json`](../src/data/static/favorites/200601.json) | Miranda 专属珍藏品 | SSR |
 | [`200701.json`](../src/data/static/favorites/200701.json) | Antique Compass（Helm SSR） | SSR |
 | [`200801.json`](../src/data/static/favorites/200801.json) | Villain Figurine（Drake SSR） | SSR |
-| [`201701.json`](../src/data/static/favorites/201701.json) | Moran 专属收藏品 | SSR |
+| [`201701.json`](../src/data/static/favorites/201701.json) | Moran 专属珍藏品 | SSR |
 | [`201101.json`](../src/data/static/favorites/201101.json) | Fire Starter（Tove SSR） | SSR |
 | [`201401.json`](../src/data/static/favorites/201401.json) | Central Government Special Medal（Privaty SSR） | SSR |
 

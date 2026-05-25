@@ -76,7 +76,7 @@
             <div class="row-3">
               <template x-for="cls in ['attacker','defender','supporter']" :key="cls">
                 <div class="field-group">
-                  <label class="field-label" x-text="({'attacker':'攻击手','defender':'防御手','supporter':'支援手'})[cls]"></label>
+                  <label class="field-label" x-text="({'attacker':'火力型','defender':'防御型','supporter':'辅助型'})[cls]"></label>
                   <input class="input" type="number" min="0" max="999"
                     :value="$store.sim.classResearch[cls]"
                     @input="$store.sim.classResearch[cls] = +$event.target.value">
@@ -218,9 +218,9 @@
                 </div>
               </div>
 
-              <!-- 突破 / 核心 / 羁绊 -->
+              <!-- 极限突破 / 核心加强 / 好感度 -->
               <section class="card">
-                <h3 class="sub-title">突破 / 核心 / 羁绊</h3>
+                <h3 class="sub-title">极限突破 / 核心加强 / 好感度</h3>
                 <div class="grade-row">
                   <template x-for="g in [0,1,2,3]" :key="g">
                     <button class="grade-btn"
@@ -233,8 +233,8 @@
                 <div class="row-2 mt-1">
                   <div class="field-group">
                     <label class="field-label">
-                      核心强化
-                      <span class="field-hint">（突破 3 解锁）</span>
+                      核心加强等级
+                      <span class="field-hint">（极限突破 3 解锁）</span>
                     </label>
                     <input class="input" type="number" min="0" max="7"
                       :disabled="$store.sim.activeSlotData.grade < 3"
@@ -243,7 +243,7 @@
                   </div>
                   <div class="field-group">
                     <label class="field-label">
-                      羁绊等级
+                      好感度等级
                       <span class="field-hint"
                         x-text="'（上限 ' + $store.sim.maxBond($store.sim.activeSlotData.grade, $store.sim.activeSlotData.corporation) + '）'">
                       </span>
@@ -375,10 +375,10 @@
                 </div>
               </section>
 
-              <!-- 收藏品 -->
+              <!-- 珍藏品 -->
               <section class="card">
                 <div class="section-toggle" @click="showFav = !showFav">
-                  <h3 class="sub-title">收藏品</h3>
+                  <h3 class="sub-title">珍藏品</h3>
                   <span class="toggle-icon" x-text="showFav ? '▲' : '▼'"></span>
                 </div>
                 <div x-show="showFav">

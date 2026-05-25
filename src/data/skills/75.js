@@ -86,7 +86,7 @@ export default {
   skill2: {
     groupId: 20752,
     triggers: [
-      // S2 Part3: 满蓄力 → 自身持续伤害▲ p01%/层 3s，叠加至 2 层（刷新计时器）
+      // S2 Part3: 全蓄力 → 自身持续伤害▲ p01%/层 3s，叠加至 2 层（刷新计时器）
       {
         on: 'FULL_CHARGE',
         logTargets: 'SELF',

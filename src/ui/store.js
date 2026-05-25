@@ -36,9 +36,9 @@ function _postTrace(config, hitLog, battleLog, result) {
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────
 
-const CLASS_LABEL   = { Attacker: '攻击手', Defender: '防御手', Supporter: '支援手' };
+const CLASS_LABEL   = { Attacker: '火力型', Defender: '防御型', Supporter: '辅助型' };
 const CORP_LABEL    = { ELYSION: '极乐净土', MISSILIS: '米西利斯', TETRA: '泰特拉', PILGRIM: '朝圣者', ABNORMAL: '反常' };
-const ELEMENT_LABEL = { Fire: '火', Water: '水', Wind: '风', Electric: '电', Iron: '铁' };
+const ELEMENT_LABEL = { Fire: '燃烧', Water: '水冷', Wind: '风压', Electric: '电击', Iron: '铁甲' };
 
 const STORAGE_KEY = 'nikke-sim-v1';
 
@@ -75,7 +75,7 @@ const FAV_ITEMS_RS = [
   { id: 100602, name: '指挥官娃娃·限 (SR·SR)',  weapon: 'SR',  rare: 'SR' },
 ];
 
-// SSR 收藏品：角色 resourceId → SSR 珍藏品 resourceId
+// SSR 珍藏品：角色 resourceId → SSR 珍藏品 resourceId
 // 通过读取本地 favorites/*.json 的 name_code 与 characters.json 对照得出
 const SSR_FAV_BY_CHAR = {
    32: 200601, // Miranda   → Sheet of Paper
@@ -377,7 +377,7 @@ function buildDmgTooltipHTML(h) {
   r('敌人防御力', `-${_numFmt(enemyDef)})`);
   r('武器伤害系数', `*${_pct(hitMult)}`);
   if (favMult !== 1) {
-    r('普通攻击倍率（收藏品）', `*${_pct(favMult)}`);
+    r('普通攻击倍率（珍藏品）', `*${_pct(favMult)}`);
   }
 
   // CommonMultiplier
@@ -725,7 +725,7 @@ export function createStore() {
       this.team[i] = defaultSlot(false);
     },
 
-    // ── 突破与羁绊 ────────────────────────────────────────────────────────────
+    // ── 极限突破与好感度 ──────────────────────────────────────────────────────
 
     setGrade(i, grade) {
       const slot = this.team[i];
@@ -765,7 +765,7 @@ export function createStore() {
       }
     },
 
-    // ── 收藏品 ────────────────────────────────────────────────────────────────
+    // ── 珍藏品 ────────────────────────────────────────────────────────────────
 
     async onFavChange(i) {
       const slot = this.team[i];

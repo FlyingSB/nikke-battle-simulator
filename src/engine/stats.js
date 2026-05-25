@@ -2,10 +2,10 @@
  * 最终属性计算。
  * 计算流程：基础（每位 NIKKE 的等级表）
  *         → 突破 / 核心（Limit Break）
- *         + 羁绊加成（固定值）
+ *         + 好感度加成（固定值）
  *         + 装备 ATK/HP/DEF（固定值；物品基础属性 × 强化倍率）
  *         + 魔方固定值（按魔方等级）
- *         + 收藏品固定值（按物品等级）
+ *         + 珍藏品固定值（按物品等级）
  *         + 研究固定值（每级加成 × 级数）
  *         + 装备词条 atkFlat / defFlat（固定值）
  *
@@ -27,7 +27,7 @@ import {
  * @property {string} corporation        // ELYSION | MISSILIS | TETRA | PILGRIM | ABNORMAL
  * @property {string} element
  * @property {string} weaponType
- * @property {number} grade              // 突破等级 0-3
+ * @property {number} grade              // 极限突破等级 0-3
  * @property {number} core               // 核心 0-7（仅在突破 3 时有效）
  * @property {number} bondLevel          // 1-40
  * @property {number[]} skills           // [skill1, skill2, burst]
@@ -36,7 +36,7 @@ import {
  * @property {{ head: EquipSlotCfg, torso: EquipSlotCfg, arms: EquipSlotCfg, legs: EquipSlotCfg }} equipment
  * @property {object|null} _nikkeData    // loadNikke() 返回的 CDN 原始 JSON（已加载时）
  * @property {object|null} _cubeData     // 魔方原始 CDN JSON（已加载时）
- * @property {object|null} _favItemData  // 收藏品原始 CDN JSON（已加载时）
+ * @property {object|null} _favItemData  // 珍藏品原始 CDN JSON（已加载时）
  * @property {EquipOptions} [equipOptions] // 四个装备槽位词条加成的合计
  */
 
@@ -94,7 +94,7 @@ export const SLOT_MAP = {
  * @property {number} [bonusAmmo=0]        "Increase Max Ammunition Capacity" — 固定子弹数。
  *                                          使用 grouped-ROUND 规则计算：将相同 pct 的词条分组，
  *                                          然后每组 Math.round(baseAmmo × pct × count)。
- *                                          OL 最多 4 个槽位。此处不要包含收藏品 / 魔方 pct，
+ *                                          OL 最多 4 个槽位。此处不要包含珍藏品 / 魔方 pct，
  *                                          那些会在 battle.js 的 maxAmmo 初始化处单独应用。
  * @property {number} [chargeDmgPct=0]     "Increase Charge Damage" — 加在蓄力倍率上的小数
  * @property {number} [chargeSpeedPct=0]   "Increase Charge Speed" — 小数（仅记录，减少蓄力时间）
@@ -156,7 +156,7 @@ export function computeFinalStats(slot, nikkeLevel, research) {
     def = applyGradeCore(base.def, grade, core, slot.classType);
   }
 
-  // 2. 羁绊等级 — 固定属性加成（不是百分比）
+  // 2. 好感度等级 — 固定属性加成（不是百分比）
   const bond = getBondBonus(slot.classType, slot.bondLevel ?? 0);
   atk += bond.atk;
   hp  += bond.hp;
@@ -206,8 +206,8 @@ export function computeFinalStats(slot, nikkeLevel, research) {
     }
   }
 
-  // 5. 收藏品的固定属性加成（ATK/HP/DEF 数组，按物品等级 0–15 索引）。
-  //    收藏技能被动（Charge Damage、Normal Attack Damage、Max Ammo 等）
+  // 5. 珍藏品的固定属性加成（ATK/HP/DEF 数组，按物品等级 0–15 索引）。
+  //    珍藏技能被动（Charge Damage、Normal Attack Damage、Max Ammo 等）
   //    会在 battle.js 的 initBattle 中作为战斗开局的永久 buff 应用，不在此处处理。
   if (slot._favItemData && (slot.favoriteItem?.level ?? 0) > 0) {
     const fav   = slot._favItemData;
@@ -244,13 +244,13 @@ export function computeFinalStats(slot, nikkeLevel, research) {
     equipAtkFlat,
     critRate:       BASE_CRIT_RATE + (opts.critRatePct ?? 0),
     critDmg:        BASE_CRIT_DMG  + (opts.critDmgPct  ?? 0),
-    // 属性克制伤害：装备词条 + 魔方 Anti Code HC
+    // 优越代码攻击伤害：装备词条 + 魔方 Anti Code HC
     elementDmgPct:  (opts.elementDmgPct ?? 0) + cubeElementDmgPct,
     bonusAmmo:      opts.bonusAmmo      ?? 0,
     chargeDmgPct:   opts.chargeDmgPct   ?? 0,
     // 蓄力速度：装备词条 + 魔方（Adjutant）
     chargeSpeedPct: (opts.chargeSpeedPct ?? 0) + cubeChargeSpeedPct,
-    // 装填速度：仅来自魔方（Resilience Quick Reload HC）
+    // 换弹速度：仅来自魔方（Resilience Quick Reload HC）
     reloadSpeedPct: cubeReloadSpeedPct,
     hitRatePct:     opts.hitRatePct     ?? 0,
     equipDefPct,

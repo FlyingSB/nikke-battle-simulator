@@ -16,7 +16,7 @@ export default {
   skill1: {
     groupId: 20431,
     triggers: [
-      // S1 Part 1: 每 3 次满蓄力 → 自身下一发获得穿透（Pierce）。
+      // S1 Part 1: 每 3 次全蓄力 → 自身下一发获得穿透（Pierce）。
       //   伤害计算在 onShotFired 之前，FULL_CHARGE handler 在射击后触发：
       //   因此"消耗"逻辑放在 handler 开头（清除上一发穿透状态），再按计数重新激活。
       {
@@ -65,7 +65,7 @@ export default {
   skill2: {
     groupId: 20432,
     triggers: [
-      // S2: 累计满蓄力次数计数；每 5 次给全员攻击伤害加成，每 8 次减少全员爆裂冷却
+      // S2: 累计全蓄力次数计数；每 5 次给全员攻击伤害加成，每 8 次减少全员爆裂冷却
       {
         on: 'FULL_CHARGE',
         logTargets: 'ALL_ALLIES',
@@ -74,14 +74,14 @@ export default {
           caster.skillState.dkw_fcCount = (caster.skillState.dkw_fcCount ?? 0) + 1;
           const cnt = caster.skillState.dkw_fcCount;
 
-          // 每 5 次满蓄力：全员攻击伤害 ▲ p03% 10s（同名 buff 刷新）
+          // 每 5 次全蓄力：全员攻击伤害 ▲ p03% 10s（同名 buff 刷新）
           if (cnt % 5 === 0) {
             const atkDmgPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
             pushBuff(state, { name: 'dkw_s2_atkDmg', unitId: null,
               attackDamagePct: atkDmgPct, endTick: state.tick + TICK_RATE * 10 });
           }
 
-          // 每 8 次满蓄力：全员爆裂冷却 ▼ p01s
+          // 每 8 次全蓄力：全员爆裂冷却 ▼ p01s
           if (cnt % 8 === 0) {
             const cdSec = getSkillValue(caster.rawSkill2, 1, lv);
             const reductionTicks = Math.round(TICK_RATE * cdSec);

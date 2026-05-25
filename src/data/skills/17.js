@@ -43,7 +43,7 @@ export default {
   // p01 (index 0): burst stage (const 1，未使用)
   // p02 (index 1): My Own Star ATK%: [23.64, 25.46, 27.28, 29.09, 30.91, 32.73, 34.55, 36.37, 38.19, 40.01]
   // p03 (index 2): 爆裂冷却缩减 sec: [5.34, 5.58, 5.82, 6.05, 6.29, 6.53, 6.77, 7, 7.24, 7.48]
-  // p04 (index 3): 满蓄力附加伤害%: [71, 76.46, 81.92, 87.38, 92.84, 98.3, 103.76, 109.22, 114.68, 120.13]
+  // p04 (index 3): 全蓄力附加伤害%: [71, 76.46, 81.92, 87.38, 92.84, 98.3, 103.76, 109.22, 114.68, 120.13]
   // p05 (index 4): Burst Gauge 充能速度%: [3.54, 3.81, 4.09, 4.36, 4.63, 4.91, 5.18, 5.45, 5.72, 6]
   skill1: {
     groupId: 20171,
@@ -74,7 +74,7 @@ export default {
         handler: applyStarEffect,
       },
 
-      // Part4：满蓄力命中 → 对目标造成附加伤害（普通技能伤害，非 sustained）
+      // Part4：全蓄力命中 → 对目标造成附加伤害（普通技能伤害，非 sustained）
       {
         on: 'FULL_CHARGE',
         handler(state, caster) {
@@ -120,7 +120,7 @@ export default {
         },
       },
 
-      // Part2：满蓄力命中时，处于 Everyone's Star → 以施放者最终 MaxHP × p03% 治疗全员
+      // Part2：全蓄力命中时，处于 Everyone's Star → 以施放者最终 MaxHP × p03% 治疗全员
       // 治疗会触发 HEAL_RECEIVED（battle.js 在 onShotFired 后调用 flushHealReceived）
       {
         on: 'FULL_CHARGE',

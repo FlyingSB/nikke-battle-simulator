@@ -86,7 +86,7 @@ export default {
   // group_id: 12203
   // p01 (lv10=499.5%) p02: [1,...] p03: [1,...]
   //
-  // 满蓄力伤害 = p01 × 10（1000% FC = ×10）= lv10: 4995% of final ATK
+  // 全蓄力伤害 = p01 × 10（1000% FC = ×10）= lv10: 4995% of final ATK
   // endRounds=1：击发 1 次后武器自动归还 AR
   // 距离加成仍按原始武器（AR，MID 区间）判定，由 battle.js 统一处理
   burst: {

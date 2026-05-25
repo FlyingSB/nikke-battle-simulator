@@ -7,7 +7,7 @@ const S2_INTERVAL_SEC = 10;
 export default {
 
   // ── Precision Sniping
-  // ■ 满蓄力命中时激活，影响全体友军。
+  // ■ 全蓄力命中时激活，影响全体友军。
   //   对护盾造成的伤害 ▲ {p00}% 持续 {p01=3} 秒。
   // ■ 命中目标核心时激活，影响全体友军。
   //   穿透伤害 ▲ {p02}% 持续 {p03=10} 秒。
@@ -20,7 +20,7 @@ export default {
   skill1: {
     groupId: 28321,
     triggers: [
-      // S1 T1: 满蓄力命中 → 全员对护盾伤害 ▲ p00% 3s
+      // S1 T1: 全蓄力命中 → 全员对护盾伤害 ▲ p00% 3s
       // [TODO] Damage dealt to Shield buff 系统暂未支持，跳过实现
       //
       // S1 T2: 命中核心 → 全员 Pierce Damage ▲ p02% 10s

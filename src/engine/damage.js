@@ -4,7 +4,7 @@
  * FinalDamage =
  *   BaseDamage
  *   × CommonMultiplier
- *   × ElementMultiplier        （仅在属性克制时）
+ *   × ElementMultiplier        （仅在优越代码克制时）
  *   × ChargeDamageMultiplier   （仅 SR / RL / 特殊武器）
  *   × ExtraMultiplier
  *   × DamageTakenLikeMultiplier
@@ -19,12 +19,12 @@
  *   + 0.30                        距离优势（NEAR：SG/SMG；MID：AR/MG；FAR：SR）
  *   + 0.50                        Full Burst 生效中
  *
- * ElementMultiplier = 0.10 + elementAdvantageDmgIncrement   （仅当攻击方拥有属性克制时）
- *   Fire > Wind > Iron > Electric > Water > Fire（5 属性循环）
+ * ElementMultiplier = 0.10 + elementAdvantageDmgIncrement   （仅当攻击方拥有优越代码克制时）
+ *   燃烧 > 风压 > 铁甲 > 电击 > 水冷 > 燃烧（5 代码循环）
  *
  * ChargeDamageMultiplier = (full_charge_damage / 10000) × (1 + favChargeDmgPct) + Σ chargeDmgBonuses
  *   full_charge_damage 来自 shot_detail（10000 = 基线 ×1.0；SR/RL 数值更高）
- *   favChargeDmgPct：收藏品 "Charge Damage Multiplier ▲" — 只对 shot_detail.damage 相乘
+ *   favChargeDmgPct：珍藏品 "Charge Damage Multiplier ▲" — 只对 shot_detail.damage 相乘
  *   chargeDmgBonuses：技能 / 魔方 / 装备的蓄力加成 — 彼此相加
  *   仅在 SR / RL / 特殊蓄力武器的 isCharged=true 时应用
  *
@@ -39,7 +39,7 @@
  * target_burst_energy_pershot  = 每次命中敌人获得的能量
  * burst_energy_pershot         = 每次命中掩体 / 非主目标获得的能量
  * 对空射击                      = 0 能量
- * full_charge_burst_energy     = SR/RL 满蓄力射击的额外爆裂能量（叠加在上述之上）
+ * full_charge_burst_energy     = SR/RL 全蓄力射击的额外爆裂能量（叠加在上述之上）
  *
  * ── 射速（通过测试校准） ───────────────────────────────────────────────
  * rate_of_fire 单位 = 每分钟发射数（RPM）
@@ -58,7 +58,7 @@ import {
   CHARGE_DAMAGE_BASE,
 } from './constants.js';
 
-// ─── 属性克制表 ────────────────────────────────────────────────────────────
+// ─── 代码克制表 ────────────────────────────────────────────────────────────
 
 /** key 克制 value。循环：Fire > Wind > Iron > Electric > Water > Fire */
 const ELEMENT_CHART = {
@@ -112,11 +112,11 @@ const ELEMENT_CHART = {
  * @property {number}        [elementAdvantageDmgIncrement=0]
  * @property {boolean}       [isCharged=false]       SR / RL / 特殊蓄力射击
  * @property {number}        [fullChargeDamage=10000] shot_detail.full_charge_damage（10000=×1.0）
- * @property {number}        [favChargeDmgPct=0]     收藏品 "Charge Damage Multiplier ▲" — 仅对
+ * @property {number}        [favChargeDmgPct=0]     珍藏品 "Charge Damage Multiplier ▲" — 仅对
  *   shot_detail.damage 相乘：chargeMult = (fullCharge/10000)×(1+fav) + otherBonuses
- * @property {number}        [chargeDmgStat=1]       装备 / 技能 / 魔方带来的蓄力伤害加成（不含收藏品）。
+ * @property {number}        [chargeDmgStat=1]       装备 / 技能 / 魔方带来的蓄力伤害加成（不含珍藏品）。
  *   以 (1 + stats.chargeDmgPct + sums.chargeDamagePct) 形式传入。
- * @property {number}        [favNormalAttackDamageMult=1]  收藏品 "Normal Attack Damage Multiplier ▲"
+ * @property {number}        [favNormalAttackDamageMult=1]  珍藏品 "Normal Attack Damage Multiplier ▲"
  *   适用于 SMG/SG — 独立倍率，直接乘在 baseDamage 上（与 ExtraMultiplier 不是加法关系）。
  * @property {ExtraFlags}    [extra]
  * @property {number}        [damageTakenMult=0]   来自敌方 debuff

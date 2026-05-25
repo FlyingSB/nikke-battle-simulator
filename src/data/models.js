@@ -157,10 +157,10 @@ export function getCubeResourceIdByTid(tid) {
   return _CUBE_TID_TO_RID.get(Number(tid)) ?? null;
 }
 
-// ─── Attractive（羁绊等级） ──────────────────────────────────────────────────
+// ─── Attractive（好感度等级） ──────────────────────────────────────────────────
 
 /**
- * 获取指定职业和羁绊等级的固定属性加成。
+ * 获取指定职业和好感度等级的固定属性加成。
  * 值为固定值（非百分比）— 直接加到最终属性上。
  * @param {'Attacker'|'Defender'|'Supporter'} classType
  * @param {number} level   1–40
@@ -294,7 +294,7 @@ export function getBaseStats(nikkeData, level) {
  *   多数 Step3 NIKKE 会进入 StepFull。少数例外保持当前阶段。
  * @property {string}  classType            'Attacker'|'Defender'|'Supporter'
  * @property {string}  corporation          'ELYSION'|'MISSILIS'|'TETRA'|'PILGRIM'|'ABNORMAL'
- * @property {boolean} isOverspec           true → 羁绊上限 Lv.40（corporation_sub_type=OVERSPEC）
+ * @property {boolean} isOverspec           true → 好感度上限 Lv.40（corporation_sub_type=OVERSPEC）
  * @property {number}  baseCritRate         基础暴击率（critical_ratio / 10000）。多数 = 0.15。
  * @property {number}  baseCritDmgBonus     暴击时相对 1× 的加成（critical_damage/10000 - 1）。多数 = 0.50。
  * @property {string}  element              NIKKE 属性
@@ -308,7 +308,7 @@ export function getBaseStats(nikkeData, level) {
  * @property {number}  reloadTime           每次装填的秒数（reload_time / 100）
  * @property {number}  shotCount            每次射击的弹丸数。SG = 10。伤害为合计值不变；仅对逐发技能有意义。
  * @property {number}  chargeBaseMult       full_charge_damage / 10000。仅 SR/RL；AR/SMG/MG/SG = 1.0。
- * @property {number}  chargeTime           满蓄力所需秒数（charge_time / 100）
+ * @property {number}  chargeTime           全蓄力所需秒数（charge_time / 100）
  * @property {number}  rateOfFire           初始 RPM
  * @property {number}  endRateOfFire        MG 起速后的最高 RPM（非 MG 时 = rateOfFire）
  * @property {number}  rateOfFireChange     每发 RPM 增量（MG 起速；非 MG 为 0）
@@ -316,7 +316,7 @@ export function getBaseStats(nikkeData, level) {
  * @property {number}  burstEnergyPerShot         非目标命中时每发的能量（掩体 / miss）
  * @property {number}  targetBurstEnergyPerShot   命中敌方主目标时每发的能量
  *   队伍合计需 1,000,000 才能触发 burst。MG/AR：~500 掩体 / ~1000 敌人。
- * @property {number}  fullChargeBurstEnergy      SR/RL 满蓄力射击的额外爆裂能量
+ * @property {number}  fullChargeBurstEnergy      SR/RL 全蓄力射击的额外爆裂能量
  * @property {object|null} skill1   原始 skill1_detail CDN 对象
  * @property {object|null} skill2   原始 skill2_detail CDN 对象
  * @property {object|null} burst    原始 ulti_skill_detail CDN 对象
@@ -411,7 +411,7 @@ export function getSkillValue(skillDetail, paramIndex, skillLevel) {
 }
 
 /**
- * 从 SSR 收藏品在指定物品等级下的 collection_skill_group_data
+ * 从 SSR 珍藏品在指定物品等级下的 collection_skill_group_data
  * 中提取对模拟有影响的被动效果。
  *
  * 每个收藏技能是战斗开局的永久被动。第 si 个技能槽使用根级别的
@@ -427,7 +427,7 @@ export function getSkillValue(skillDetail, paramIndex, skillLevel) {
  * 忽略（因未建模受伤 / 掩体）：
  *   "DEF ▲"、"Damage Taken ▼"、"Cover's Max HP ▲"
  *
- * @param {object} favData   — 原始 CDN 收藏品 JSON（.data 字段）
+ * @param {object} favData   — 原始 CDN 珍藏品 JSON（.data 字段）
  * @param {number} itemLevel — 0–15
  * @returns {{ chargeDmgPct: number, attackDmgPct: number, ammoPct: number, coreDmgPct: number }}
  */
@@ -468,17 +468,17 @@ export function getFavItemSkillEffects(favData, itemLevel) {
 }
 
 /**
- * 为装备了 SSR 收藏品的 NIKKE 返回升级后的技能详情对象。
+ * 为装备了 SSR 珍藏品的 NIKKE 返回升级后的技能详情对象。
  *
- * SSR 收藏品自带 `favoriteitem_skill_group_data`：三项数组（Skill1、Skill2、Burst），
+ * SSR 珍藏品自带 `favoriteitem_skill_group_data`：三项数组（Skill1、Skill2、Burst），
  * 每项包含对应角色技能的完整 10 级数值表。`level1`/`level2` 数组归属于
  * `collection_skill_group_data`（全队基础被动），与此处无关。
  *
  * favoriteitem 技能由玩家独立升级（1–10），CDN 不编码当前等级；默认按满级（10）计算。
  *
- * 当收藏品没有 `favoriteitem_skill_group_data`（R/SR 物品）时返回 `null`。
+ * 当珍藏品没有 `favoriteitem_skill_group_data`（R/SR 物品）时返回 `null`。
  *
- * @param {object} favData              原始 CDN 收藏品 JSON（.data 字段）
+ * @param {object} favData              原始 CDN 珍藏品 JSON（.data 字段）
  * @param {number} itemLevel            物品强化等级（保留参数，当前未使用）
  * @param {number} [skillLevelOverride] 指定技能等级（1–10）；省略时默认为 10
  * @returns {{ skill1: object, skill2: object, burst: object } | null}

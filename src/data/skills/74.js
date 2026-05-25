@@ -1,7 +1,7 @@
 import { pushBuff, applyHeal, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
-// 根据当前 ticket 数量刷新全队最大生命值 buff。
+// 根据当前 ticket 数量刷新全队最大体力 buff。
 // pushBuff 仅更新 endTick，不更新 buff 值，故直接修改 state.buffs。
 function refreshTicketMaxHp(state, caster) {
   const count          = caster.skillState.sfTicketCount ?? 0;
@@ -24,7 +24,7 @@ export default {
   // ── I'll Check Your Ticket!
   // ■ 战斗开始时及使用爆裂技能时激活，影响所有友军。
   //   发放 1 张票（最多累积 2 张，效果持续）。
-  //   票效果：最大生命值 ▲ 票数 × {p00}% of 施术者最大生命值。
+  //   票效果：最大体力 ▲ 票数 × {p00}% of 施术者最大体力。
   // ■ 进入全爆裂时激活，影响所有友军。
   //   爆裂技能冷却时间 ▼ {p02} 秒。
   // ■ 进入全爆裂时激活，影响所有友军。
@@ -78,8 +78,8 @@ export default {
   },
 
   // ── I'll Help You Board the Train!
-  // ■ 队伍中任意成员生命值低于 {p00=15}% 时激活，若有票则影响该目标。
-  //   恢复施术者最终最大生命值的 {p01}% 作为生命值。
+  // ■ 队伍中任意成员体力低于 {p00=15}% 时激活，若有票则影响该目标。
+  //   恢复施术者最终最大体力的 {p01}% 作为体力。
   //   票数 ▼ 1（First Train Discount 激活期间不消耗）。
   // ■ 战斗开始时激活，影响所有友军。
   //   First Train Discount 持续 {p03=6} 秒。
@@ -135,7 +135,7 @@ export default {
 
   // ── I'll Get You There Safely!
   // ■ 影响所有友军。
-  //   恢复施术者最终最大生命值的 {p00}% 作为生命值。
+  //   恢复施术者最终最大体力的 {p00}% 作为体力。
   //
   // group_id: 10743
   // p00 治疗% of caster MaxHP: [19.06, 20.53, 22, 23.46, 24.93, 26.4, 27.86, 29.33, 30.8, 32.26]

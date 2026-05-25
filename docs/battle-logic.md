@@ -49,10 +49,10 @@
 | 1 | 角色等级表基础值 | `atk / hp / def` |
 | 2 | 突破（Grade 0-3） | `× (1 + 0.02×grade) + 20×grade` |
 | 3 | 核心（Core 1-7，仅 Grade 3） | `× (1.06 + core×0.0212) + 60 + core×c/7` |
-| 4 | 羁绊等级 | 固定加值 |
+| 4 | 好感度等级 | 固定加值 |
 | 5 | T10 装备（每槽 × 强化倍率） | `Math.round(base × (1 + 0.1×level))` |
 | 6 | 和谐魔方固定属性 | 按魔方等级索引 |
-| 7 | 收藏品固定属性 | 按物品等级索引 |
+| 7 | 珍藏品固定属性 | 按物品等级索引 |
 | 8 | 研究加成 | 职业 × 阵营研究等级 |
 | 9 | 装备词条（均为百分比加成） | 游戏内所有实装装备词条均为百分比加成（含 ATK%）；代码中存在的固定值词条类型（如 `atkFlat`）在游戏中未出现，应忽略 |
 
@@ -73,7 +73,7 @@
 ```
 FinalDamage = BaseDamage
             × CommonMultiplier
-            × ElementMultiplier        （仅属性克制时，否则 ×1）
+            × ElementMultiplier        （仅优越代码克制时，否则 ×1）
             × ChargeDamageMultiplier   （仅当前武器 isCharged=true 时，否则 ×1）
             × ExtraMultiplier
             × DamageTakenLikeMultiplier
@@ -91,7 +91,7 @@ BaseDamage   = max(0, effectiveAtk) × hitMultiplier × favNormalAttackDamageMul
 - `atkPct` 汇总：equipAtkPct + 所有生效 buff 的 atkPct（加法叠加）。
 - `atkFlat` 汇总：equipAtkFlat + 所有生效 buff 的 atkFlat。
 - `hitMultiplier`：普通攻击为 `shot_detail.damage / 10000`；技能伤害为技能描述中的百分比。
-- `favNormalAttackDamageMult`：收藏品 "Normal Attack Damage ▲"（SMG/SG 收藏品），直接乘在 BaseDamage 上，是**独立乘法**，与 ExtraMultiplier 不相加；**仅加成于该收藏品对应武器类型的普通攻击**（SMG 收藏品仅加成 SMG 普攻，SG 收藏品仅加成 SG 普攻）。
+- `favNormalAttackDamageMult`：珍藏品 "Normal Attack Damage ▲"（SMG/SG 珍藏品），直接乘在 BaseDamage 上，是**独立乘法**，与 ExtraMultiplier 不相加；**仅加成于该珍藏品对应武器类型的普通攻击**（SMG 珍藏品仅加成 SMG 普攻，SG 珍藏品仅加成 SG 普攻）。
 - **True Damage**：effectiveDef = 0（完全忽略防御）。
 
 ### 3.2 CommonMultiplier
@@ -108,8 +108,8 @@ CommonMult = 1
 
 ### 3.3 ElementMultiplier
 
-- 属性克制关系：Fire > Wind > Iron > Electric > Water > Fire（循环）。
-- 当 attacker 的属性克制 defender 时：`ElementMult = 1 + 0.10 + elementAdvantageDmgIncrement`。
+- 代码克制关系：燃烧 > 风压 > 铁甲 > 电击 > 水冷 > 燃烧（循环）。
+- 当 attacker 的代码克制 defender 时：`ElementMult = 1 + 0.10 + elementAdvantageDmgIncrement`。
 - 否则：`ElementMult = 1.0`（无减伤惩罚）。
 
 ### 3.4 ChargeDamageMultiplier（当前武器 isCharged=true 时）
@@ -119,7 +119,7 @@ ChargeMult = (fullChargeDamage / 10000) × (1 + favChargeDmgPct) + (chargeDmgSta
 ```
 
 - `fullChargeDamage`：来自 `shot_detail.full_charge_damage`（10000 = ×1.0 基线）。
-- `favChargeDmgPct`：收藏品 "Charge Damage ▲"，仅与 `shot_detail.damage` 相乘（独立项）。
+- `favChargeDmgPct`：珍藏品 "Charge Damage ▲"，仅与 `shot_detail.damage` 相乘（独立项）。
 - `chargeDmgStat - 1`：装备/技能/魔方的蓄力伤害加成（加法项），传入形式为 `(1 + chargeDmgPct)`。
 - 判定条件为当前武器的 `isCharged=true`，而非武器类型是否为 SR/RL。部分角色通过技能临时切换为可蓄力武器，此时同样应用 ChargeMult。
 - `isCharged=false` 时（含非蓄力武器）：ChargeMult = 1.0。
@@ -209,7 +209,7 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 - 下一发须等到 `tick >= chargeTick` 才打出（确定性，非概率）。
 - `chargeSpeedPct` 仅缩短**蓄力（瞄准）阶段**，不影响 fore/backswing。
 - `chargeTimeTicks > 0` 的 buff：先应用 `chargeSpeedPct` 百分比缩短，再应用 `chargeTimeReductionTicks` 固定 tick 减少。
-- 蓄力武器的爆裂能量：`baseEnergy × (fullChargeDamage / 10000)`（满蓄力加成）。
+- 蓄力武器的爆裂能量：`baseEnergy × (fullChargeDamage / 10000)`（全蓄力加成）。
 
 ### 4.4 MG 起速模型
 
@@ -227,7 +227,7 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 
 - 期间覆盖 `hitMult`、`weaponType`（可选）、是否蓄力。
 - 支持时间制（`seconds`）和回合制（`endRounds`，每发消耗 1 回合）。
-- 期间可选无限弹药（`unlimitedAmmo: true`）。
+- 期间可选无限装弹（`unlimitedAmmo: true`）。
 - 切换结束后可有 `backswingTicks` 的封锁期（`weaponSwitchPostBackswingEndTick`）。
 - 切换武器后，当前武器弹匣默认为满弹；若有技能在切换时显式设定弹药数，则以技能值为准。
 
@@ -240,15 +240,15 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 ```
 maxAmmo = baseAmmo
         + Math.round(baseAmmo × bonusAmmoPct_OL)   （装备词条，grouped-ROUND）
-        + Math.round(baseAmmo × favAmmoPct)         （收藏品 ammoPct）
+        + Math.round(baseAmmo × favAmmoPct)         （珍藏品 ammoPct）
 ```
 
 > `baseAmmo`：CDN `shot_detail` 对应的初始弹数（或武器类型默认值）。
 
 ### 5.2 装填流程
 
-1. `ammoLeft <= 0`（且无限弹药未激活）时进入装填。
-2. 有效装填速度：`fixedReloadSpeedPct`（若存在）覆盖所有其他加成；否则使用 `sums.reloadSpeedPct`。
+1. `ammoLeft <= 0`（且无限装弹未激活）时进入装填。
+2. 有效换弹速度：`fixedReloadSpeedPct`（若存在）覆盖所有其他加成；否则使用 `sums.reloadSpeedPct`。
 3. 装填时长：`Math.round(reloadTicks / (1 + effectiveReloadSpeed))`。
 4. 装填完成后恢复弹药：
    - 分段装填（`reloadFraction < 1`）：`Math.min(effectiveMax, Math.round(maxAmmo × reloadFraction))`。
@@ -287,8 +287,8 @@ maxAmmo = baseAmmo
 
 - 总量：1,000,000。
 - 来源：每次普通攻击命中敌人，增加 `targetBurstEnergyPerShot`（CDN 值，已是目标命中值）。
-- SR/RL 满蓄力加成：`baseEnergy × (fullChargeDamage / 10000)`。
-- buff 的 `burstGaugeFlat` 加成：叠加到 `baseEnergy`，然后整体乘以满蓄力系数。
+- SR/RL 全蓄力加成：`baseEnergy × (fullChargeDamage / 10000)`。
+- buff 的 `burstGaugeFlat` 加成：叠加到 `baseEnergy`，然后整体乘以全蓄力系数。
 - **仅 `burstPhase === 0` 时累积**；B1–Full Burst 期间停止充能。
 - Full Burst 结束后重置为 0。
 
@@ -363,7 +363,7 @@ burstPhase = 0（充能中）
 | `critDmgBonus` | 暴击伤害加成（增量） |
 | `chargeDamagePct` | 蓄力伤害加成（加到 chargeMult） |
 | `chargeSpeedPct` | 蓄力速度% |
-| `reloadSpeedPct` | 装填速度% |
+| `reloadSpeedPct` | 换弹速度% |
 | `maxAmmoFlat` | 弹匣容量固定加成（到期时同样截断当前弹药，与 `maxAmmoPct` 行为一致） |
 | `maxAmmoPct` | 弹匣容量百分比加成（到期时截断当前弹药） |
 | `burstGaugeFlat` | 每发充能固定加成 |
@@ -423,7 +423,7 @@ burstPhase = 0（充能中）
 | `SHOT_COUNT` | 本单位每 N 发普攻 | 非团队（溢出保留） |
 | `SQUAD_SHOT_COUNT` | 任意单位射击时广播 | 全员（ctx.shootingUnit） |
 | `LAST_BULLET` | 本单位打出最后一发 | 非团队 |
-| `FULL_CHARGE` | SR/RL 满蓄力射击 | 非团队 |
+| `FULL_CHARGE` | SR/RL 全蓄力射击 | 非团队 |
 | `AMMO_MILESTONE` | 全队消耗弹药累计达到 400/500 发 | 团队 |
 | `INTERVAL` | 全程每 N 秒（首次在 t+Ns） | 团队/非团队 |
 | `INTERVAL_IN_BURST` | 全爆裂期间每 N 秒 | 团队 |
@@ -490,7 +490,7 @@ burstPhase = 0（充能中）
 
 ## 9. 治疗与护盾
 
-### 9.1 HP 治疗
+### 9.1 体力治疗
 
 - `applyHeal(state, target, amount)`：`unitHp = min(maxHp, unitHp + amount)`。
 - 治疗后将 target 推入 `pendingHealReceived` 队列。

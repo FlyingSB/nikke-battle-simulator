@@ -24,7 +24,7 @@ function buildHTML(r) {
 
   const outcomeLabel = isAveraged
     ? `胜率 ${(r.winRate * 100).toFixed(1)}%`
-    : (r.victory ? '胜利' : `剩余 HP ${hpPct}%`);
+    : (r.victory ? '胜利' : `剩余体力 ${hpPct}%`);
   const outcomeClass = r.victory ? 'victory' : 'defeat';
 
   return `
@@ -54,7 +54,7 @@ function buildHTML(r) {
     </div>
     ${!r.victory && !isAveraged ? `
     <div class="stat-card defeat">
-      <span class="label">敌人剩余 HP</span>
+      <span class="label">敌人剩余体力</span>
       <span class="value">${formatNumber(r.enemyHpLeft)}</span>
     </div>` : ''}
   </div>

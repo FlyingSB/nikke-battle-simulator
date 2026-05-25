@@ -45,7 +45,7 @@ const RELOAD_TICKS_DEFAULT = {
 
 // 爆裂槽能量系统 — 全队共享同一个能量计数器（0..BURST_GAUGE_MAX）。
 // 每发的单位能量来自 CDN shot_detail.target_burst_energy_pershot（原值，不缩放）。
-// 满蓄力能量 = burstEnergyPerShot × (fullChargeDamage / 10000)。
+// 全蓄力能量 = burstEnergyPerShot × (fullChargeDamage / 10000)。
 // 共享槽达到上限后 burst_i 触发；所有写入均通过 addBurstGauge() → state.burstGauge。
 const BURST_GAUGE_MAX = 1_000_000;
 
@@ -798,7 +798,7 @@ export function tick(state) {
     if (unit.ammoLeft <= 0 && !((unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick)) {
       const rSums = getBuffSums(state, unit.id);
       if (unit.reloadTick === 0) {
-        // fixedReloadSpeedPct：固定装填速度加成，屏蔽其他装填速度效果（如 Asuka: WILLE S2）
+        // fixedReloadSpeedPct：固定换弹速度加成，屏蔽其他换弹速度效果（如 Asuka: WILLE S2）
         const effectiveReloadSpeed = unit.skillState?.fixedReloadSpeedPct ?? rSums.reloadSpeedPct;
         const dur   = Math.round(unit.reloadTicks / (1 + effectiveReloadSpeed));
         unit.reloadTick      = state.tick + dur;
@@ -981,7 +981,7 @@ export function tick(state) {
             .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct),
         });
       }
-      // 满蓄力能量 = (targetBurstEnergyPerShot + burstGaugeFlat) × (fullChargeDamage / 10000)。
+      // 全蓄力能量 = (targetBurstEnergyPerShot + burstGaugeFlat) × (fullChargeDamage / 10000)。
       // 模拟器中所有攻击均命中目标，故使用 target_burst_energy_pershot（非掩体/未命中值）。
       // burstGaugeFlat：来自 buff 的 flat 加成（如 Neon: Vision Eye S2 Part4），
       // 与基础充能叠加后整体乘以 FC 倍率（flat 加法，不得改为百分比乘法）。

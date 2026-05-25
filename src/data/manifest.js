@@ -88,7 +88,7 @@ export const CUBE_NAMES = {
 };
 
 /**
- * 收藏品 URL，以 resource_id 为键。
+ * 珍藏品 URL，以 resource_id 为键。
  * ID 规则：100XYY，其中 X = 武器（1=AR，2=MG，3=RL，4=SG，5=SMG，6=SR 武器），YY=01(R)，02(SR)
  */
 export const FAVORITE_ITEM_URLS = {
@@ -104,7 +104,7 @@ export const FAVORITE_ITEM_URLS = {
   100502: `${CDN_BASE}/lh-37/jm-82/45d094194b9c9037940f91d5fe2a3b9e.json`, // Coffee Commander Doll Ltd. (SMG-SR)
   100601: `${CDN_BASE}/fl-49/qa-34/d6b2d7d74cc43bc2e214ddefb1cb5e30.json`, // Napping Commander Doll (SR-weapon-R)
   100602: `${CDN_BASE}/hs-19/ay-22/dfee9fe38f21aead258654194bf7d509.json`, // Napping Commander Doll Ltd. (SR-weapon-SR)
-  // SSR 专属收藏品（角色特化；提升全部三个技能等级）
+  // SSR 专属珍藏品（角色特化；提升全部三个技能等级）
   200701: `${CDN_BASE}/qf-35/xj-78/2cef2b4f5f105b32637e4fa0cb9b2b36.json`, // Antique Compass (Helm SSR)
   200801: `${CDN_BASE}/mq-17/ov-18/324e104bfcec45d056cbd6ee6f12a6ee.json`, // Villain Figurine (Drake SSR)
   201401: `${CDN_BASE}/ym-06/wl-16/2a2ddcb790f7df98815ab1dfc36a20b9.json`, // Central Government Special Medal (Privaty SSR)

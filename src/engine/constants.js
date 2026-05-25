@@ -12,7 +12,7 @@ export const BURST_GAUGE_MAX = 1_000_000;
  *   target_burst_energy_pershot  — 命中主要敌方目标
  *   burst_energy_pershot         — 命中掩体 / 护盾 / 非主目标部位
  *   对空射击                      — 0 能量
- *   full_charge_burst_energy     — SR/RL 满蓄力射击时的附加能量（叠加在以上之上）
+ *   full_charge_burst_energy     — SR/RL 全蓄力射击时的附加能量（叠加在以上之上）
  * 所有值均来自 CDN 数据中每个角色的 shot_detail。
  */
 
@@ -30,9 +30,9 @@ export const BURST_GAUGE_MAX = 1_000_000;
  * 例如 Rapi Red Hood：60 → 4200 RPM，每发 +100 → 42 发 ≈ 3.17 秒达到上限
  */
 
-// ── 属性克制 ─────────────────────────────────────────────────────────────
+// ── 优越代码 ─────────────────────────────────────────────────────────────
 
-/** 属性克制的基础加成（在 1.0 之上相加）。 */
+/** 优越代码克制的基础加成（在 1.0 之上相加）。 */
 export const ELEMENT_ADVANTAGE_BASE = 0.10;
 
 // ── 距离优势 ────────────────────────────────────────────────────────────
@@ -104,7 +104,7 @@ export const WEAPON_HIT_MULT = {
 };
 
 /**
- * SR/RL 进行满蓄力射击并命中主要目标时，
+ * SR/RL 进行全蓄力射击并命中主要目标时，
  * full_charge_burst_energy 会叠加在 target_burst_energy_pershot 之上。
- * 例如 Alice：56000（普通命中）+ 35000（满蓄力加成）= 每次蓄力命中 91000
+ * 例如 Alice：56000（普通命中）+ 35000（全蓄力加成）= 每次蓄力命中 91000
  */
