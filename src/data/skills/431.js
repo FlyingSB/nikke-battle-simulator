@@ -37,6 +37,13 @@ export default {
   skill2: {
     groupId: 24312,
     triggers: [
+      {
+        on: 'PROGRAM_INIT',
+        handler(state, caster) {
+          caster.skillState.volumeFbCount       = 0;
+          caster.skillState.volumeBurstUseCount = 0;
+        },
+      },
       // S2 Part 1："前效重复触发"，进入全爆裂时全员累进减少爆裂冷却：
       //   1st ▼2.34s; 2nd +▼2.70s; 3rd+ +▼3.17s
       {

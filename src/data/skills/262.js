@@ -86,6 +86,13 @@ export default {
   skill2: {
     groupId: 22622,
     triggers: [
+      // S2 Part1：战斗开始 → 自身永久免疫蓄力速度增加/减少效果（技能来源；装备词条不受影响）
+      {
+        on: 'BATTLE_START',
+        handler(state, caster) {
+          caster.immuneSkillChargeSpeed = true;
+        },
+      },
       // S2（Strange Currents）：首次全蓄力命中 → Raging Current：自身 Attack Damage ▲[S2 param0]% 永久
       // "stage target" = Boss 战唯一目标，首发即激活
       {

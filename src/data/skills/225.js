@@ -20,6 +20,13 @@ export default {
   skill1: {
     groupId: 22251,
     triggers: [
+      {
+        on: 'PROGRAM_INIT',
+        handler(state, caster) {
+          caster.skillState.sbsBurstChargeModeEndTick = 0;
+          caster.skillState.sbsChargeCount            = 0;
+        },
+      },
       // S1（Fleetly Fading: Breakthrough）：统一 9 步计数器，溢出保留
       // 普通模式每发 +1；Burst 模式每发 +3
       // 阈值 3/6/9：250.47% / 500% / 750.47% ATK
@@ -30,7 +37,7 @@ export default {
         handler(state, caster, ctx) {
           const inBurstMode = state.tick < caster.skillState.sbsBurstChargeModeEndTick;
           const delta = inBurstMode ? 3 : 1;
-          const prev  = caster.skillState.sbsChargeCount;
+          const prev  = caster.skillState.sbsChargeCount ?? 0;
           const next  = prev + delta;
           caster.skillState.sbsChargeCount = next >= 9 ? next - 9 : next;
           const sums       = ctx.sums ?? getBuffSums(state, caster.id);
@@ -72,7 +79,7 @@ export default {
           caster.tempMaxAmmoMult    = mult;
           caster.tempMaxAmmoEndTick = state.tick + TICK_RATE * seconds;
           const expandedMax = Math.max(1, caster.baseAmmo + Math.round(caster.baseAmmo * (mult - 1)))
-                            + (caster.stats.bonusAmmo ?? 0) + caster.favAmmoBonus;
+                            + Math.round(caster.baseAmmo * (caster.stats.bonusAmmo ?? 0)) + caster.favAmmoBonus;
           caster.ammoLeft   = expandedMax;
           caster.reloadTick = 0;
           if (state.ammoLog)

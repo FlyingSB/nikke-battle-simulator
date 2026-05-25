@@ -479,6 +479,9 @@ export function initBattle(config) {
 
   const state = {
     squad,
+    // 敌人最大 HP（用于技能伤害守卫 `state.enemyHp > 0`）。
+    // 当前模拟器不追踪 HP 递减，使用 Infinity 令守卫始终通过（DPS 全程模拟模式）。
+    enemyHp:            config.enemy.hp ?? Infinity,
     enemyDef:           config.enemy.def ?? 0,
     enemyElement:       config.enemy.element ?? 'Iron',
     enemyHasCore:       config.enemy.hasCore ?? false,
@@ -546,6 +549,8 @@ export function initBattle(config) {
     pendingSkillEvents: [],
   };
 
+  // PROGRAM_INIT: 程序初始化阶段，仅用于 skillState 计数器/标志位归零，不写入战斗日志。
+  executeSkillTriggers(state, 'PROGRAM_INIT');
   // BATTLE_START: dispatch all declarative battle-start triggers (e.g. LM Bubble debuff).
   executeSkillTriggers(state, 'BATTLE_START');
 

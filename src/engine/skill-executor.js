@@ -2,6 +2,8 @@
  * 声明式技能执行器。
  *
  * 触发时机（on 字段）：
+ *   PROGRAM_INIT        程序初始化阶段（battle.js 构建 state 后、BATTLE_START 前触发；不写入战斗日志）
+ *                       仅用于将 skillState 计数器/标志位赋初值，不产生任何游戏效果
  *   BATTLE_START        战斗开始时（含"敌人出现时"，Boss 战中合并处理，见注释）
  *   ENTER_BURST_I       进入爆裂阶段 1（共享槽填满那一 tick）
  *   ENTER_BURST_II      进入爆裂阶段 2（B1 施放后，B2 施放前）
@@ -66,6 +68,7 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
 
 // 团队触发：ctx.unit 无意义，所有持有该技能的在队单位均触发
 const TEAM_TRIGGERS = new Set([
+  'PROGRAM_INIT',
   'BATTLE_START', 'ENTER_BURST_I', 'ENTER_BURST_II', 'ENTER_BURST_III', 'ENTER_FULL_BURST', 'FULL_BURST_END',
   'AMMO_MILESTONE', 'HEAL_RECEIVED', 'COVER_HEAL',
 ]);

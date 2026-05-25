@@ -25,9 +25,9 @@ export default {
   skill1: {
     groupId: 25021,
     triggers: [
-      // S1 Part1：战斗开始 → 初始化幽灵计数与窗口基准
+      // S1 Part1：初始化幽灵计数与窗口基准
       {
-        on: 'BATTLE_START',
+        on: 'PROGRAM_INIT',
         handler(state, caster) {
           caster.skillState.ebs_ghostCount     = 0;
           caster.skillState.ebs_windowShotBase = 0;

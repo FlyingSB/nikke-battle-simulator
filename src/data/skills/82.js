@@ -27,6 +27,13 @@ export default {
   skill1: {
     groupId: 20821,
     triggers: [
+      {
+        on: 'PROGRAM_INIT',
+        handler(state, caster) {
+          caster.skillState.literFbCount       = 0;
+          caster.skillState.literBurstUseCount = 0;
+        },
+      },
       // S1 Part 1（Liter Boost）："前效重复触发"，进入全爆裂时：
       //   爆裂冷却累进减少：1st ▼2.34s; 2nd +▼2.70s; 3rd+ +▼3.17s
       {

@@ -23,6 +23,12 @@ export default {
   skill1: {
     groupId: 23551,
     triggers: [
+      {
+        on: 'PROGRAM_INIT',
+        handler(state, caster) {
+          caster.skillState.anchorFbCount = 0;
+        },
+      },
       // S1 Part 1（Starfish Omurice）："前效重复触发"，每次进入全爆裂：
       //   [TODO] 第 1 次+：HP 回复效能 ▲30.96% 5s（全员）— 待治疗系统实现
       //   第 2 次+：Distributed Damage ▲30.40% 10s（全员）
