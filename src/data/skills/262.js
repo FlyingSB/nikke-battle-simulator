@@ -27,6 +27,7 @@ export default {
       // S1 T1（Calm Depths）：进入全爆裂 → 自身 ATK ▲[S1 param0]% 3s
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'SELF',
         handler(state, caster) {
           const atkPct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
           pushBuff(state, { name: 'lib_s1_t1_atkPct', unitId: caster.id,
@@ -36,6 +37,7 @@ export default {
       // S1 T4：进入全爆裂 → ATK 最低的 B3 友军（排除 Lib 自身）蓄力速度减少 [S1 param5]% 10s
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const b3Units = state.squad.filter(u => u.burstStep === 'Step3');
           if (!b3Units.length) return;
@@ -50,6 +52,7 @@ export default {
       {
         on: 'FULL_CHARGE',
         conditions: [{ type: 'IS_CORE_HIT' }],
+        logTargets: 'SELF',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           pushBuff(state, { name: 'lib_s1_t2_attackDmg', unitId: caster.id,
@@ -59,6 +62,7 @@ export default {
       // S1 T3：全蓄力命中 → 5×[S1 param4]% ATK 技能伤害 + 为 Lib 补充爆裂槽
       {
         on: 'FULL_CHARGE',
+        logTargets: null,
         handler(state, caster, ctx) {
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
           const skillMult = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
@@ -89,6 +93,7 @@ export default {
       // S2 Part1：战斗开始 → 自身永久免疫蓄力速度增加/减少效果（技能来源；装备词条不受影响）
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           caster.immuneSkillChargeSpeed = true;
         },
@@ -97,6 +102,7 @@ export default {
       // "stage target" = Boss 战唯一目标，首发即激活
       {
         on: 'FULL_CHARGE',
+        logTargets: 'SELF',
         handler(state, caster) {
           if (caster.skillState.libRagingCurrentActive) return;
           caster.skillState.libRagingCurrentActive = true;

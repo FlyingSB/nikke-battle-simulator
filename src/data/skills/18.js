@@ -23,6 +23,7 @@ export default {
   // p08: [155.28, 167.23, 179.17, 191.12, 203.06, 215.01, 226.95, 238.9, 250.84, 262.79]
   skill1: {
     groupId: 20181,
+    partOffset: 1,
     triggers: [
       // S1 Part1（Healthy Body）：受到攻击且无 Healthy Body → 自身无敌 3s + 免疫 debuff 3s（5次/战）
       //   + Healthy Body: HP 回复效力 ▲10.26% 20s — 防御性技能，暂不建模
@@ -32,6 +33,7 @@ export default {
       //   Super Firepower 状态中追加 262.79% final ATK
       {
         on: 'FULL_CHARGE',
+        logTargets: null,
         handler(state, caster, ctx) {
           if (state.enemyHp <= 0) return;
           const sums     = ctx.sums ?? getBuffSums(state, caster.id);
@@ -75,6 +77,7 @@ export default {
       // S2 Part1：战斗开始 → 火力槽 = 100
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           caster.skillState.nveGauge = getSkillValue(caster.rawSkill2, 7, caster.skillLevels[1]);
         },
@@ -105,6 +108,8 @@ export default {
       //   flat 加法，与基础充能叠加后整体乘 FC 倍率（不是百分比乘法）
       {
         on: 'FULL_BURST_END',
+        partOverride: 3,
+        logTargets: 'SELF',
         handler(state, caster) {
           const gauge = caster.skillState.nveGauge ?? 0;
           if (gauge <= 0) return;
@@ -121,6 +126,8 @@ export default {
       //   （Burst 的 BURST_SKILL_USE 先于 ENTER_FULL_BURST 触发，Super Firepower 状态已生效）
       {
         on: 'ENTER_FULL_BURST',
+        partOverride: 4,
+        logTargets: 'SELF',
         handler(state, caster) {
           const end10  = state.tick + TICK_RATE * 10;
           const atkPct = getSkillValue(caster.rawSkill2, 3, caster.skillLevels[1]) / 100;

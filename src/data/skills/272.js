@@ -35,6 +35,7 @@ export default {
       // 每 8 次全蓄力 → 全员 Max HP ▲（仅增上限，不恢复 HP）+ 全员爆裂冷却▼
       {
         on: 'FULL_CHARGE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           caster.skillState.rougeS1FcCount = (caster.skillState.rougeS1FcCount ?? 0) + 1;
           if (caster.skillState.rougeS1FcCount < 8) return;
@@ -77,6 +78,7 @@ export default {
       // Part1：战斗开始时处于 back row → Sword Coin 状态 → 自身+两侧友军永久 Attack Damage ▲
       {
         on: 'BATTLE_START',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const idx = state.squad.indexOf(caster);
           if (idx !== 1 && idx !== 3) return;  // 非 back row 不触发
@@ -95,6 +97,7 @@ export default {
       // Damage Taken ▼ 对友军的减伤不影响 DPS 输出，此处仅推进层级，不建模减伤 buff
       {
         on: 'FULL_CHARGE',
+        logTargets: null,
         handler(state, caster) {
           if ((caster.skillState.rougeCoinLevel ?? 0) !== 1) return;
 
@@ -109,6 +112,7 @@ export default {
       // 全员永久 Max HP ▲（不恢复 HP，模拟器中 maxHpFlat 不触发治疗）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster, ctx) {
           if (ctx.unit?.id !== caster.id) return;
           if ((caster.skillState.rougeCoinLevel ?? 0) !== 2) return;
@@ -152,6 +156,7 @@ export default {
       // Part1：无条件 → 全员 ATK flat ▲（% of caster ATK，10 sec）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster, ctx) {
           if (ctx.unit?.id !== caster.id) return;
           const lv      = caster.skillLevels[2];
@@ -164,6 +169,7 @@ export default {
       // Part2：有 Sword Coin（level≥1）→ 全员 Max HP ▲（不恢复 HP，10 sec）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster, ctx) {
           if (ctx.unit?.id !== caster.id) return;
           if ((caster.skillState.rougeCoinLevel ?? 0) < 1) return;
@@ -178,6 +184,7 @@ export default {
       // Part3：有 Shield Coin（level≥2）→ 全员 Max HP ▲（10 sec；原文无"不恢复 HP"说明）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster, ctx) {
           if (ctx.unit?.id !== caster.id) return;
           if ((caster.skillState.rougeCoinLevel ?? 0) < 2) return;
@@ -192,6 +199,7 @@ export default {
       // Part4：有 Double Sword Coin（level≥3）→ 全员 Max HP ▲（不恢复 HP，10 sec）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster, ctx) {
           if (ctx.unit?.id !== caster.id) return;
           if ((caster.skillState.rougeCoinLevel ?? 0) < 3) return;

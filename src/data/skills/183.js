@@ -59,6 +59,7 @@ export default {
       // S1 Part3（Meditation）：每 6 次全蓄力 → 自身 Max HP ▲[S1 param2]% 15s（叠加至 10 层）
       {
         on: 'FULL_CHARGE',
+        logTargets: 'SELF',
         handler(state, caster) {
           caster.skillState.iceroseChargeCount = (caster.skillState.iceroseChargeCount ?? 0) + 1;
           if (caster.skillState.iceroseChargeCount < 6) return;
@@ -107,6 +108,7 @@ export default {
       // S2 Part1 inline 于 S1 触发器；S2 Part2 inline 于 Burst 触发器
       {
         on: 'FULL_CHARGE',
+        logTargets: null,
         handler(state, caster, ctx) {
           const skillDmg = getSkillValue(caster.rawSkill2, 9, caster.skillLevels[1]) / 100;
           const sums     = ctx.sums ?? getBuffSums(state, caster.id);

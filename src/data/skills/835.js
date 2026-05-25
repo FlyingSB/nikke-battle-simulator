@@ -137,6 +137,7 @@ export default {
       // S2 Part1：进入全爆裂时若处于 Annihilation State → Attack Damage ▲p01% 10s
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'SELF',
         handler(state, caster) {
           if (state.tick > (caster.skillState.annihilationStateEndTick ?? 0)) return;
           const atkDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
@@ -148,6 +149,7 @@ export default {
       // 固定装填速度清除：本次装填完成后 fixedReloadSpeedPct 失效
       {
         on: 'RELOAD_END',
+        logTargets: 'SELF',
         handler(state, caster, ctx) {
           if (ctx.unit.id !== caster.id) return;
           caster.skillState.fixedReloadSpeedPct = null;
@@ -174,6 +176,7 @@ export default {
       // Annihilation State 激活（爆裂技能使用时）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const bLv  = caster.skillLevels[2];
           const end9 = state.tick + TICK_RATE * 9;
@@ -206,6 +209,7 @@ export default {
       // Annihilation 到期检查 + MG 过热恢复检查（每 1s 轮询）
       {
         on: 'INTERVAL',
+        logTargets: 'ENEMY',
         opts: { seconds: 1 },
         handler(state, caster) {
           // Annihilation State 结束 → 发动 Annihilation（含 S2 Part2）

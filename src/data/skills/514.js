@@ -37,6 +37,7 @@ export default {
       // Prediction 到期 → 激活 Heat Emission
       {
         on: 'INTERVAL',
+        logTargets: ['SELF', 'ALL_ALLIES'],
         opts: { seconds: 1 },
         handler(state, caster) {
           const predEnd = caster.skillState.grave_predictionEndTick ?? 0;
@@ -88,6 +89,7 @@ export default {
       // Heat Emission 解除条件 b：弹匣填满（RELOAD_END）
       {
         on: 'RELOAD_END',
+        logTargets: 'SELF',
         handler(state, caster) {
           clearHeatEmission(state);
         },
@@ -156,6 +158,7 @@ export default {
       // 注：无限弹药期间弹药不消耗，不会触发 RELOAD_END，故 Overheat I 在 Prediction 期间自然保留
       {
         on: 'RELOAD_END',
+        logTargets: 'SELF',
         handler(state, caster) {
           caster.skillState.grave_s2_shot15 = 0;
           state.buffs = state.buffs.filter(
@@ -190,6 +193,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: ['SELF', 'ALL_ALLIES'],
         handler(state, caster) {
           const lv  = caster.skillLevels[2];
           const end = state.tick + TICK_RATE * 10;

@@ -81,6 +81,7 @@ export default {
       // 注：Boss 战中"敌人出现时"与"战斗开始时"视为同一时机，合并处理
       {
         on: 'BATTLE_START',
+        target: 'ENEMY',
         handler(state, caster) {
           const damageTakenPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           state.enemyDamageTakenPct += damageTakenPct;

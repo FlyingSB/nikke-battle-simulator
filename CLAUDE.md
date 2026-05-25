@@ -8,18 +8,11 @@
 
 ## 开发服务器
 本项目使用原生 ES modules — 无需构建步骤。
-本地运行时，请通过 HTTP 提供项目根目录（不要用 file://）：
+本地运行时使用 **VS Code Live Server 扩展**（端口 5500）：
+右键点击 index.html → Open with Live Server
 
-```bash
-# 方式 1：VS Code Live Server 扩展（推荐）
-# 右键点击 index.html → Open with Live Server
-
-# 方式 2：Python
-python -m http.server 5173
-
-# 方式 3：Node（安装后可用）
-npx serve .
-```
+⚠️ **Playwright 规则**：用户已在 5500 端口开着 Live Server，且页面已跑出结果。
+直接用 `browser_evaluate` / `browser_snapshot` 读取现有页面，**不要** navigate 刷新，**不要** 自行启动任何服务器。
 
 ## 项目结构
 ```

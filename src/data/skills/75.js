@@ -26,6 +26,7 @@ export default {
       // BURST_SKILL_USE 先于 ENTER_FULL_BURST 触发；此处仅标记本体本轮已使用爆裂，供状态判断使用
       {
         on: 'BURST_SKILL_USE',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.dws_burstUsedFlag = true;
         },
@@ -33,6 +34,7 @@ export default {
       // 进入全爆裂：首次分配 Intro/Highlight 状态（永久暴击伤害加成），每次给予 10s 持续伤害加成
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'SELF',
         handler(state, caster) {
           const lv = caster.skillLevels[0];
 
@@ -87,6 +89,7 @@ export default {
       // S2 Part3: 满蓄力 → 自身持续伤害▲ p01%/层 3s，叠加至 2 层（刷新计时器）
       {
         on: 'FULL_CHARGE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const lv  = caster.skillLevels[1];
           const pct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
@@ -105,6 +108,7 @@ export default {
       // S2 Part4: 进入全爆裂 → 对舞台目标每秒 p06% ATK 持续伤害 DoT，持续 9s
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ENEMY',
         handler(state, caster) {
           const lv   = caster.skillLevels[1];
           const mult = getSkillValue(caster.rawSkill2, 6, lv) / 100;

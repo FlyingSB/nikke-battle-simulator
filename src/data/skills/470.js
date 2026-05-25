@@ -38,6 +38,7 @@ export default {
       // 每新增一层刷新计时；叠层过期后归零重新计数。
       {
         on: 'FULL_CHARGE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const existing   = state.buffs.find(b => b.name === 'rh_s1_chargeSpd' && b.unitId === caster.id);
           const prevStacks = existing ? caster.skillState.rhCsStacks : 0;
@@ -80,6 +81,7 @@ export default {
       // S2 Part1（Wild Tooth）：战斗开始 → 自身持续 Pierce
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           caster.skillState.pierceActive = true;
         },
@@ -130,6 +132,7 @@ export default {
       //   游戏实测 10s 内 32 次攻击 → 600/(32-1) = 19.35 ≈ 19 ticks/shot。
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const isRedWolf = caster.burstStep === 'Step3' || caster.burstStep === 'StepFull';
           if (!isRedWolf) return;
@@ -162,6 +165,7 @@ export default {
       // 全爆裂结束：恢复普通武器弹药 + 重算 CS 转化
       {
         on: 'FULL_BURST_END',
+        logTargets: 'SELF',
         handler(state, caster) {
           if ((caster.skillState.weaponSwitchEndTick ?? 0) <= state.tick)
             caster.skillState.weaponSwitchEndTick = 0;

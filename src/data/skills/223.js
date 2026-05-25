@@ -32,6 +32,7 @@ export default {
       // S1 Part1: Indomitability — 战斗开始 9s HP 不低于 1（1次/战）
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           caster.skillState.nayutaIndomitabilityEndTick = state.tick + TICK_RATE * 9;
         },
@@ -39,6 +40,7 @@ export default {
       // S1 Part3: Memory Incineration 期间全蓄力攻击 → 额外 530.46%（150% 全员 + 380.46% boss）
       {
         on: 'FULL_CHARGE',
+        logTargets: null,
         handler(state, caster, ctx) {
           if ((caster.skillState.weaponSwitchEndTick ?? 0) <= 0 ||
               state.tick > caster.skillState.weaponSwitchEndTick) return;
@@ -75,6 +77,7 @@ export default {
     triggers: [
       {
         on: 'BATTLE_START',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.nayutaMemAbsStacks = 0;
         },

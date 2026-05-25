@@ -86,8 +86,9 @@ export default {
       // 与满层触发共用 buff name；pushBuff 刷新语义保证不叠加
       {
         on: 'HEAL_RECEIVED',
-        handler(state, caster, ctx) {
-          if (ctx.unit?.id !== caster.id) return;
+        conditions: [{ type: 'HEALED_UNIT_IS_SELF' }],
+        logTargets: 'ALL_ALLIES',
+        handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
           pushBuff(state, { name: 'crown_skill2_attackDmg', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 7 });

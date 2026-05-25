@@ -36,6 +36,7 @@ export default {
       // S1 Part2：全蓄力攻击 → 自身 Charge Speed ▲100%（自然装填到满后移除）
       {
         on: 'FULL_CHARGE',
+        logTargets: 'SELF',
         handler(state, caster) {
           pushBuff(state, { name: 'cinderella_s1_chargeSpd', unitId: caster.id,
             chargeSpeedPct: 1.0, endTick: Infinity });
@@ -43,6 +44,7 @@ export default {
       },
       {
         on: 'RELOAD_END',
+        logTargets: 'SELF',
         handler(state, caster) {
           state.buffs = state.buffs.filter(b =>
             !(b.name === 'cinderella_s1_chargeSpd' && b.unitId === caster.id));
@@ -51,6 +53,7 @@ export default {
       // S1 Part3：全蓄力命中 → [S1 param3]% ATK 附加技能伤害，同时附加对应充能
       {
         on: 'FULL_CHARGE',
+        logTargets: null,
         handler(state, caster, ctx) {
           if (state.enemyHp <= 0) return;
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
@@ -79,16 +82,18 @@ export default {
       // S2（Dirt-Resistant Mirror）：战斗开始 + 进入爆裂阶段 3 → 创建诱饵替身（96% MaxHP，持续）
       {
         on: 'BATTLE_START',
+        logTargets: null,
         handler(state, caster) { caster.skillState.cinderellaDecoyActive = true; },
       },
       {
         on: 'ENTER_BURST_III',
         handler(state, caster) { caster.skillState.cinderellaDecoyActive = true; },
       },
-      // 诱饵存在时每 3s Beautiful +1 层（上限 12），每层永久 MaxHP ▲1.6%
+      // 每 3s Beautiful +1 层（上限 12），每层永久 MaxHP ▲1.6%
       // Beautiful 层数存于 cinderellaBeautyStacks；maxHpPct 写入 buff 使 getBuffSums 可聚合
       {
         on: 'INTERVAL',
+        logTargets: 'SELF',
         opts: { seconds: 3 },
         handler(state, caster) {
           if (!caster.skillState.cinderellaDecoyActive) return;

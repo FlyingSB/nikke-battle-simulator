@@ -21,6 +21,7 @@ export default {
       // Part1: 全蓄力 → DoT 叠层（max 10，每次刷新 5s 计时器）
       {
         on: 'FULL_CHARGE',
+        logTargets: 'ENEMY',
         handler(state, caster) {
           const lv           = caster.skillLevels[0];
           const multPerStack = getSkillValue(caster.rawSkill1, 0, lv) / 100;
@@ -50,6 +51,7 @@ export default {
       // Part2: 进入全爆裂 → 自身 ATK ▲ p02% 10s
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'SELF',
         handler(state, caster) {
           const lv     = caster.skillLevels[0];
           const atkPct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
@@ -95,6 +97,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: ['ENEMY', 'SELF'],
         handler(state, caster) {
           const lv = caster.skillLevels[2];
 

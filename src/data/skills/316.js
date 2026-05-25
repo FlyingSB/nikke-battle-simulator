@@ -22,6 +22,7 @@ export default {
       // Part1：战斗开始 → 弹药袋初始化至 6000
       {
         on: 'BATTLE_START',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.velvetAmmoPouch = 6000;
         },
@@ -37,6 +38,7 @@ export default {
       // 弹药袋消耗计入全队弹药里程碑（供 LM 等统计），但不视作攻击命中。
       {
         on: 'FULL_CHARGE',
+        logTargets: 'SELF',
         handler(state, caster) {
           if (state.fullBurstActive) return;
           const pouch = caster.skillState.velvetAmmoPouch ?? 0;
@@ -77,6 +79,7 @@ export default {
       // 爆裂武器切换（SMG）期间不触发 FULL_CHARGE，本效果在武器切换结束后由 SR 全蓄力触发。
       {
         on: 'FULL_CHARGE',
+        logTargets: 'ALL_ALLIES',
         conditions: [{ type: 'IN_FULL_BURST' }],
         handler(state, caster) {
           const pouch = caster.skillState.velvetAmmoPouch ?? 0;
@@ -96,6 +99,7 @@ export default {
       // Part2 辅助：进入全爆裂 → 重置普攻计数器
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.velvetFbShotCount = 0;
         },
@@ -145,6 +149,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const lv    = caster.skillLevels[2];
           const end10 = state.tick + TICK_RATE * 10;

@@ -21,6 +21,7 @@ export default {
       //   因此"消耗"逻辑放在 handler 开头（清除上一发穿透状态），再按计数重新激活。
       {
         on: 'FULL_CHARGE',
+        logTargets: 'SELF',
         handler(state, caster) {
           // 上一发是穿透发 → 消耗穿透标志
           if (caster.skillState.pierceActive) {
@@ -67,6 +68,7 @@ export default {
       // S2: 累计满蓄力次数计数；每 5 次给全员攻击伤害加成，每 8 次减少全员爆裂冷却
       {
         on: 'FULL_CHARGE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv = caster.skillLevels[1];
           caster.skillState.dkw_fcCount = (caster.skillState.dkw_fcCount ?? 0) + 1;
@@ -117,6 +119,7 @@ export default {
       // Burst 伤害：p00% of final ATK
       {
         on: 'BURST_SKILL_USE',
+        logTargets: null,
         target: 'ENEMY',
         effects: [
           {
@@ -129,6 +132,7 @@ export default {
       // Wipe Out body hit：全员 ATK ▲ p03% of caster's ATK（flat）10s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv      = caster.skillLevels[2];
           const atkPct  = getSkillValue(caster.rawBurst, 3, lv) / 100;

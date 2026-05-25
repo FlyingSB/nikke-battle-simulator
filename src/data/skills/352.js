@@ -33,6 +33,7 @@ export default {
       // S1 SSR：全蓄力命中 → 全员 HP 回复（dvl[2]） + 全队共享爆裂槽增加（dvl[3]）
       {
         on: 'FULL_CHARGE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const helmS1 = caster.ssrFavSkills?.skill1;
           const s1Lv   = helmS1?._activeSkillLevel ?? 0;
@@ -66,6 +67,7 @@ export default {
   // p04: [105.76, 113.89, 122.03, 130.16, 138.3, 146.44, 154.57, 162.71, 170.84, 178.98]
   skill2: {
     groupId: 23522,
+    partOffset: 1,
     triggers: [
       // S2（Fire Away）：进入全爆裂 → 全员 Attack Damage ▲X% 10s（SSR fav 数值）
       // [TODO 基础技能] 进入全爆裂 → 全员 Attack Damage ▲p02% p03s（基础技能 group_id 23522 未建模）
@@ -83,6 +85,7 @@ export default {
       // S2 SSR：全蓄力命中 → 额外技能伤害（dvl[3]） + Helm 爆裂槽增加
       {
         on: 'FULL_CHARGE',
+        logTargets: null,
         handler(state, caster, ctx) {
           const helmS2 = caster.ssrFavSkills?.skill2;
           const s2Lv   = helmS2?._activeSkillLevel ?? 0;

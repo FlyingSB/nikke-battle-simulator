@@ -44,6 +44,7 @@ export default {
       // 战斗开始：Damage Taken ▲ p02% 永久施加（单体 Boss 下锁定目标始终存在）
       {
         on: 'BATTLE_START',
+        logTargets: 'ENEMY',
         handler(state, caster) {
           const p02 = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
           state.enemyDamageTakenPct += p02;
@@ -55,6 +56,7 @@ export default {
       // FA 激活时额外推送 Charge Damage ▲（endTick+1 使其仅对本帧 isCharged=true 的 AoE 有效）。
       {
         on: 'FULL_CHARGE',
+        logTargets: ['SELF', 'ENEMY'],
         handler(state, caster) {
           const s1Lv    = caster.skillLevels[0];
           const s2Lv    = caster.skillLevels[1];
@@ -148,6 +150,7 @@ export default {
       // 战斗开始：固定蓄力时长为 1.2s（直接覆盖 unit.chargeTimeTicks）
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           caster.chargeTimeTicks = Math.round(1.2 * TICK_RATE);
         },
@@ -189,6 +192,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const bLv   = caster.skillLevels[2];
           const end10 = state.tick + TICK_RATE * 10;

@@ -23,6 +23,8 @@ export default {
       // S1 SSR Fervor（被动）：战斗开始 → 激活 Fervor 状态（用于 S2 与 Burst）
       {
         on: 'BATTLE_START',
+        partOverride: 2,
+        logTargets: 'SELF',
         handler(state, caster) {
           if (caster.ssrFavSkills?.skill1) caster.skillState.moranFervorActive = true;
         },
@@ -68,6 +70,7 @@ export default {
   // p10: [5.34, 5.58, 5.82, 6.05, 6.29, 6.53, 6.77, 7, 7.24, 7.48]
   skill2: {
     groupId: 22812,
+    partOffset: 2,
     triggers: [
       // [TODO] S2 T1：末弹 → 最高 ATK 3 名敌人嘲讽 4s（无敌人选择/嘲讽模型）
       // [TODO] S2 T2-4：HP 低于 91% 时分阶段提升 MaxHP（无 HP 受伤模型）

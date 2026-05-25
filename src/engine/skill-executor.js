@@ -80,13 +80,13 @@ const LOGGABLE_TRIGGERS = new Set([
   'FULL_CHARGE', 'HEAL_RECEIVED', 'BURST_SKILL_USE',
 ]);
 
-// 将 tdef.target 或 trigger 类型推导为目标显示字符串
+// 将 tdef.target 或 trigger 类型推导为目标显示字符串（effect-based trigger 的兜底逻辑）
 function resolveEventTarget(tdef, trigger, caster) {
   const raw = tdef?.target;
   if (raw === 'ALL_ALLIES' || raw === 'BURST_CASTERS' || raw === 'NON_BURST_CASTERS') return '全体队友';
   if (raw === 'SELF') return caster.name;
   if (raw === 'ENEMY') return '敌人';
-  // handler 类技能按触发类型推断
+  // handler 类技能按触发类型推断（已被 logTargets 取代；此处保留作为无 logTargets 时的最终兜底）
   switch (trigger) {
     case 'HEAL_RECEIVED':
     case 'LAST_BULLET':
@@ -103,20 +103,34 @@ function resolveEventTarget(tdef, trigger, caster) {
   }
 }
 
-function pushSkillEvent(state, trigger, caster, skillKey, partIdx, tdef) {
+// 将 logTargets 关键字解析为显示字符串
+function resolveLogTarget(key, caster) {
+  if (key === 'ALL_ALLIES') return '全体队友';
+  if (key === 'SELF')       return caster.name;
+  if (key === 'ENEMY')      return '敌人';
+  return key;
+}
+
+function pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef, skill) {
   if (!state.pendingSkillEvents || !LOGGABLE_TRIGGERS.has(trigger)) return;
-  const slot  = skillKey === 'skill1' ? 'S1' : skillKey === 'skill2' ? 'S2' : 'Burst';
-  const raw   = slot === 'S1' ? caster.rawSkill1 : slot === 'S2' ? caster.rawSkill2 : caster.rawBurst;
+  // logTargets: null → 不记录；string → 单行；array → 多行；未设置 → 兜底逻辑
+  if ('logTargets' in tdef && tdef.logTargets === null) return;
+
+  const slot    = skillKey === 'skill1' ? 'S1' : skillKey === 'skill2' ? 'S2' : 'Burst';
+  const raw     = slot === 'S1' ? caster.rawSkill1 : slot === 'S2' ? caster.rawSkill2 : caster.rawBurst;
   const skLabel = raw?.name_localkey ?? slot;
-  state.pendingSkillEvents.push({
-    type:       'skill_trigger',
-    tick:       state.tick,
-    unitName:   caster.name,
-    skillLabel: skLabel,
-    partIdx,
-    trigger,
-    target:     resolveEventTarget(tdef, trigger, caster),
-  });
+  const partOffset = skill?.partOffset ?? 0;
+  const partIdx    = tdef.partOverride !== undefined ? tdef.partOverride : (tdefIdx + partOffset);
+  const base = { type: 'skill_trigger', tick: state.tick, unitName: caster.name,
+                 skillLabel: skLabel, partIdx, trigger };
+
+  if ('logTargets' in tdef) {
+    const keys = Array.isArray(tdef.logTargets) ? tdef.logTargets : [tdef.logTargets];
+    for (const k of keys)
+      state.pendingSkillEvents.push({ ...base, target: resolveLogTarget(k, caster) });
+  } else {
+    state.pendingSkillEvents.push({ ...base, target: resolveEventTarget(tdef, trigger, caster) });
+  }
 }
 
 // ─── 条件判断 ──────────────────────────────────────────────────────────────
@@ -141,6 +155,8 @@ function checkOne(state, caster, cond, ctx) {
       return !!ctx.isCharged;
     case 'IS_CORE_HIT':
       return !!ctx.isCore;
+    case 'HEALED_UNIT_IS_SELF':
+      return ctx.unit?.id === caster.id;
     default:
       return true;
   }
@@ -332,7 +348,7 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
           const targets = resolveTargets(state, caster, tdef.target, tdef.targetOpts);
           applyEffects(state, caster, targets, tdef.effects ?? [], ctx);
         }
-        pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef);
+        pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef, skill);
       }
     }
   }
@@ -398,7 +414,7 @@ export function onShotFired(state, unit, shotCtx) {
           if (!checkConditions(state, unit, tdef, ctx)) break;
           if (tdef.handler) tdef.handler(state, unit, ctx);
           else applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
-          pushSkillEvent(state, 'LAST_BULLET', unit, skillKey, tdefIdx, tdef);
+          pushSkillEvent(state, 'LAST_BULLET', unit, skillKey, tdefIdx, tdef, skill);
           break;
 
         case 'FULL_CHARGE':
@@ -406,7 +422,7 @@ export function onShotFired(state, unit, shotCtx) {
           if (!checkConditions(state, unit, tdef, ctx)) break;
           if (tdef.handler) tdef.handler(state, unit, ctx);
           else applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
-          pushSkillEvent(state, 'FULL_CHARGE', unit, skillKey, tdefIdx, tdef);
+          pushSkillEvent(state, 'FULL_CHARGE', unit, skillKey, tdefIdx, tdef, skill);
           break;
 
         case 'CORE_HIT':
@@ -459,7 +475,7 @@ export function onInterval(state) {
         if (!checkConditions(state, caster, tdef, ctx)) continue;
         if (tdef.handler) tdef.handler(state, caster, ctx);
         else applyEffects(state, caster, resolveTargets(state, caster, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
-        pushSkillEvent(state, 'INTERVAL', caster, skillKey, tdefIdx);
+        pushSkillEvent(state, 'INTERVAL', caster, skillKey, tdefIdx, tdef, skill);
       }
     }
   }
@@ -482,7 +498,7 @@ export function onReloadEnd(state, unit) {
       if (!checkConditions(state, unit, tdef, ctx)) continue;
       if (tdef.handler) tdef.handler(state, unit, ctx);
       else applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
-      pushSkillEvent(state, 'RELOAD_END', unit, skillKey, tdefIdx);
+      pushSkillEvent(state, 'RELOAD_END', unit, skillKey, tdefIdx, tdef, skill);
     }
   }
 }
@@ -518,7 +534,7 @@ export function onIntervalInBurst(state) {
         if (!checkConditions(state, caster, tdef, ctx)) continue;
         if (tdef.handler) tdef.handler(state, caster, ctx);
         else applyEffects(state, caster, resolveTargets(state, caster, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
-        pushSkillEvent(state, 'INTERVAL_IN_BURST', caster, skillKey, tdefIdx);
+        pushSkillEvent(state, 'INTERVAL_IN_BURST', caster, skillKey, tdefIdx, tdef, skill);
       }
     }
   }

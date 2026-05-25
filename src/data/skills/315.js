@@ -55,6 +55,7 @@ export default {
       // Part1：全蓄力命中有效射程内 → 全队 ATK ▲[p00]% of caster ATK（flat）5s
       {
         on: 'FULL_CHARGE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           if (!isInEffectiveRange(state, caster)) return;
           const lv   = caster.skillLevels[0];
@@ -65,11 +66,12 @@ export default {
         },
       },
 
-      // Part2：任意全蓄力攻击（不需在有效射程内）→ 自身 Spy Lens 叠层（最多 10 层，5s 内未刷新则清零）
+      // Part2：任意全蓄力（不需在有效射程内）→ 自身 Spy Lens 叠层（最多 10 层，5s 内未刷新则清零）
       // 达到满层（10 层）时激活 S2 Part2 的 pierce + ATK% 持续效果
       // 每次叠层后同步 extraDistZones，使下一发射击立即享受扩展的优势射程
       {
         on: 'FULL_CHARGE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const now = state.tick;
 
@@ -116,6 +118,7 @@ export default {
       // Part1：全蓄力命中有效射程内 → 全队 Pierce Damage ▲[p00]% 5s
       {
         on: 'FULL_CHARGE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           if (!isInEffectiveRange(state, caster)) return;
           const lv  = caster.skillLevels[1];
@@ -147,6 +150,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv    = caster.skillLevels[2];
           const end10 = state.tick + TICK_RATE * 10;
