@@ -599,7 +599,11 @@
                             </td>
                             <td x-text="row.target ?? ''"></td>
                             <td class="log-buff" x-text="row.buffDesc"></td>
-                            <td class="log-dmg mono" x-text="row.damage != null ? $store.sim.fmtNum(row.damage) : ''"></td>
+                            <td class="log-dmg mono"
+                              :class="$store.sim.logMode === 'detail' && row._hit ? 'log-dmg--tip' : ''"
+                              x-text="row.damage != null ? $store.sim.fmtNum(row.damage) : ''"
+                              @mouseenter="$store.sim.logMode === 'detail' && row._hit && $store.sim.showDmgTooltip($event, row._hit)"
+                              @mouseleave="$store.sim.hideDmgTooltip()"></td>
                             <td class="log-ammo mono" x-show="$store.sim.logMode === 'detail'"
                               x-text="row.charge ?? ''"></td>
                           </tr>
@@ -655,6 +659,7 @@
     </div>
   </div>
 
+  <div id="dmg-tooltip" class="dmg-tooltip" style="display:none"></div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

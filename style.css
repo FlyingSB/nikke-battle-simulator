@@ -421,6 +421,51 @@ select.input { cursor: pointer; }
 .log-row--ev-skill_trigger .log-label      { color: var(--accent); font-style: normal; }
 .log-row--ev-skill_trigger .log-buff       { color: var(--text-muted); font-style: italic; }
 
+/* ── 伤害分解 tooltip ────────────────────────────────────────── */
+.log-dmg--tip { cursor: help; text-decoration: underline dotted var(--text-dim); }
+
+.dmg-tooltip {
+  position: fixed;
+  z-index: 999;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  padding: 6px 4px;
+  font-size: 0.68rem;
+  pointer-events: none;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  min-width: 200px;
+}
+
+.dmg-tooltip-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.dmg-tooltip-table td {
+  padding: 2px 8px;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+.dmg-tooltip-table td:first-child {
+  color: var(--text-dim);
+  text-align: left;
+}
+
+.dmg-tooltip-table td:last-child {
+  font-family: var(--font-mono);
+  color: var(--text);
+  text-align: right;
+}
+
+.dmg-tooltip-table tr:last-child td {
+  border-top: 1px solid var(--border2);
+  padding-top: 4px;
+  color: var(--accent3);
+  font-weight: 600;
+}
+
 /* ── Modal / Char picker ─────────────────────────────────── */
 [x-cloak] { display: none; }
 .modal-overlay {

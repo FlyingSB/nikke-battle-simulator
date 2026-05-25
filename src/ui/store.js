@@ -326,7 +326,108 @@ function buildDetailLog(hitLog, unitNames) {
     maxAmmo:    h.maxAmmo,
     isFullBurst:h.isFullBurst,
     charge:     h.isFullBurst ? '' : (h.ammoLeft != null ? `${h.ammoLeft}/${h.maxAmmo}` : '—'),
+    _hit:       h,
   }));
+}
+
+// ─── 伤害分解 tooltip ────────────────────────────────────────────────────────
+
+const _ELEM_ADV_BASE      = 0.10;
+const _BASE_CRIT_DAMAGE   = 0.50;
+const _BASE_CORE_DAMAGE   = 1.00;
+const _DISTANCE_ADV_BONUS = 0.30;
+const _FULL_BURST_BONUS   = 0.50;
+
+function _pct(v, decimals = 2) {
+  return (v * 100).toFixed(decimals) + '%';
+}
+function _numFmt(v) {
+  return Math.round(v).toLocaleString();
+}
+
+function buildDmgTooltipHTML(h) {
+  const rows = [];
+  const r = (name, val) => rows.push([name, val]);
+
+  const atkPct    = h.atkPct   ?? 0;
+  const atkFlat   = h.atkFlat  ?? 0;
+  const enemyDef  = h.enemyDef ?? 0;
+  const hitMult   = h.hitMult  ?? 1;
+  const favMult   = h.favNormalAttackDamageMult ?? 1;
+  const isCrit    = h.isCrit   ?? false;
+  const critInc   = h.critDmgInc ?? 0;
+  const isCore    = h.isCore   ?? false;
+  const coreInc   = h.coreDmgIncrement ?? 0;
+  const distAdv   = h.distanceAdv ?? false;
+  const isFB      = h.isFullBurst ?? false;
+  const elemMult  = h.elemMult ?? 1;
+  const chargeMult= h.chargeMult ?? 1;
+  const atkDmgPct = h.attackDamagePct ?? 0;
+  const dmgTaken  = h.damageTakenPct ?? 0;
+
+  // 基础攻击段
+  r('基础攻击力', `(${_numFmt(h.atk ?? 0)}`);
+  if (atkPct !== 0) {
+    r('—', '*(100%');
+    r('攻击力增加', `+${_pct(atkPct)})`);
+  }
+  if (atkFlat !== 0) {
+    r('攻击力增加（固定）', `+${_numFmt(atkFlat)}`);
+  }
+  r('敌人防御力', `-${_numFmt(enemyDef)})`);
+  r('武器伤害系数', `*${_pct(hitMult)}`);
+  if (favMult !== 1) {
+    r('普通攻击倍率（收藏品）', `*${_pct(favMult)}`);
+  }
+
+  // CommonMultiplier
+  const cmBonuses = [];
+  if (isCrit)  cmBonuses.push(['暴击伤害加成', _BASE_CRIT_DAMAGE + critInc]);
+  if (isCore)  cmBonuses.push(['核心伤害加成', _BASE_CORE_DAMAGE + coreInc]);
+  if (distAdv) cmBonuses.push(['距离优势', _DISTANCE_ADV_BONUS]);
+  if (isFB)    cmBonuses.push(['Full Burst 加成', _FULL_BURST_BONUS]);
+  if (cmBonuses.length > 0) {
+    r('—', '*(100%');
+    cmBonuses.forEach(([name, val], i) => {
+      r(name, `+${_pct(val)}${i === cmBonuses.length - 1 ? ')' : ''}`);
+    });
+  }
+
+  // ElementMultiplier
+  if (elemMult > 1.0001) {
+    const extra = elemMult - 1 - _ELEM_ADV_BASE;
+    r('—', '*(100%');
+    if (extra > 0.0001) {
+      r('基础优越代码伤害增加', `+${_pct(_ELEM_ADV_BASE)}`);
+      r('优越代码伤害增加', `+${_pct(extra)})`);
+    } else {
+      r('基础优越代码伤害增加', `+${_pct(_ELEM_ADV_BASE)})`);
+    }
+  }
+
+  // ChargeDamageMultiplier
+  if (Math.abs(chargeMult - 1) > 0.0001) {
+    r('蓄力伤害系数', `*${_pct(chargeMult)}`);
+  }
+
+  // ExtraMultiplier
+  if (Math.abs(atkDmgPct) > 0.0001) {
+    r('—', '*(100%');
+    r('攻击伤害增加', `+${_pct(atkDmgPct)})`);
+  }
+
+  // DamageTakenLikeMultiplier
+  if (Math.abs(dmgTaken) > 0.0001) {
+    r('—', '*(100%');
+    r('受创伤害增加', `+${_pct(dmgTaken)})`);
+  }
+
+  r('—', `=${_numFmt(h.damage ?? 0)}`);
+
+  const trs = rows.map(([n, v]) =>
+    `<tr><td>${n}</td><td>${v}</td></tr>`
+  ).join('');
+  return `<table class="dmg-tooltip-table">${trs}</table>`;
 }
 
 // ─── store 工厂 ────────────────────────────────────────────────────────────────
@@ -933,6 +1034,27 @@ export function createStore() {
     setLogMode(mode) {
       this.logMode = mode;
       this._rebuildLog();
+    },
+
+    showDmgTooltip(event, hitData) {
+      const tip = document.getElementById('dmg-tooltip');
+      if (!tip) return;
+      tip.innerHTML = buildDmgTooltipHTML(hitData);
+      tip.style.left = '-9999px';
+      tip.style.top  = '0px';
+      tip.style.display = 'block';
+      const rect = tip.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let x = event.clientX + 16, y = event.clientY + 8;
+      if (x + rect.width  > vw) x = event.clientX - rect.width  - 8;
+      if (y + rect.height > vh) y = event.clientY - rect.height - 8;
+      tip.style.left = x + 'px';
+      tip.style.top  = y + 'px';
+    },
+
+    hideDmgTooltip() {
+      const tip = document.getElementById('dmg-tooltip');
+      if (tip) tip.style.display = 'none';
     },
 
     // ── 结果辅助 ─────────────────────────────────────────────────────────────
