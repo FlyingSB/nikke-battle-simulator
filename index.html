@@ -570,6 +570,7 @@
                     <table class="log-table">
                       <thead>
                         <tr>
+                          <th class="log-line-hd">#</th>
                           <th>时间</th>
                           <th>施展者</th>
                           <th>目标</th>
@@ -584,6 +585,7 @@
                           <tr :class="row.kind === 'event'
                             ? ('log-row--event log-row--ev-' + row.eventType)
                             : (row.isCrit ? 'log-row--crit' : '')">
+                            <td class="log-line" x-text="ri + 1"></td>
                             <td class="log-time mono" x-text="row.kind !== 'event' && row.tickEnd > row.tickStart ? $store.sim.formatTick(row.tickStart) + '~' + $store.sim.formatTick(row.tickEnd) : $store.sim.formatTick(row.tickStart)"></td>
                             <td x-text="row.name"></td>
                             <td x-text="row.target ?? ''"></td>
@@ -598,7 +600,7 @@
                           </tr>
                         </template>
                         <template x-if="!$store.sim.hitLogRows.length">
-                          <tr><td colspan="7" class="log-empty">无伤害记录</td></tr>
+                          <tr><td colspan="8" class="log-empty">无伤害记录</td></tr>
                         </template>
                       </tbody>
                     </table>

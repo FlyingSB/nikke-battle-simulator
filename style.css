@@ -396,6 +396,8 @@ select.input { cursor: pointer; }
 .log-table tr:hover td { background: var(--surface3); }
 .log-row--crit td { color: var(--text); }
 .log-row--crit .log-dmg { color: var(--accent3) !important; }
+.log-line     { color: var(--text-muted); text-align: right; white-space: nowrap; user-select: none; }
+.log-line-hd  { width: 28px; text-align: right; }
 .log-time  { color: var(--text-muted); white-space: nowrap; }
 .log-label { color: var(--text); }
 .log-count { color: var(--text-muted); margin-left: 3px; }

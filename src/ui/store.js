@@ -18,6 +18,22 @@ import { CUBE_NAMES, CUBE_URLS, FAVORITE_ITEM_URLS } from '../data/manifest.js';
 import { renderSkillDesc } from './skill-render.js';
 import { MODELED_IDS } from '../data/skill-traits.js';
 
+// ─── 开发模式 trace 上报 ────────────────────────────────────────────────────
+// 仅在 localhost 且 trace-server.mjs 运行时生效；服务器未启动时静默忽略。
+
+const _DEV = typeof location !== 'undefined' && location.hostname === 'localhost';
+const _TRACE_URL = 'http://127.0.0.1:7474/trace';
+
+function _postTrace(config, hitLog, battleLog, result) {
+  if (!_DEV) return;
+  const payload = JSON.stringify({ config, hitLog, battleLog, result });
+  fetch(_TRACE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: payload,
+  }).catch(() => {}); // 服务器未启动时静默失败
+}
+
 // ─── 常量 ──────────────────────────────────────────────────────────────────
 
 const CLASS_LABEL   = { Attacker: '攻击手', Defender: '防御手', Supporter: '支援手' };
@@ -892,6 +908,7 @@ export function createStore() {
         this.hitLogRaw     = single.hitLog;
         this.battleLogRaw  = single.log ?? [];
         this._rebuildLog();
+        _postTrace(baseConfig, single.hitLog, single.log ?? [], { ...mcResult, iterations: iters });
       } catch (err) {
         console.error('模拟出错:', err);
         alert(`模拟出错：${err.message}`);

@@ -117,13 +117,14 @@ function buildLogHTML(log, isAveraged) {
 <p class="loading-text" style="padding:1rem">本次运行未发生爆裂事件。</p>`;
   }
 
-  const rows = log.map(e => {
+  const rows = log.map((e, i) => {
     const meta  = LOG_LABELS[e.type] ?? { label: e.type, cls: '' };
     const t     = e.tick / TICK_RATE;
     const mm    = String(Math.floor(t / 60)).padStart(2, '0');
     const ss    = String(Math.floor(t % 60)).padStart(2, '0');
     const name  = e.unitName ? ` — ${e.unitName}` : '';
     return `<div class="log-row ${meta.cls}">
+      <span class="log-line">${i + 1}</span>
       <span class="log-time">[${mm}:${ss}]</span>
       <span class="log-desc">${meta.label}${name}</span>
     </div>`;
