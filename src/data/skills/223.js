@@ -73,6 +73,12 @@ export default {
   skill2: {
     groupId: 22232,
     triggers: [
+      {
+        on: 'BATTLE_START',
+        handler(state, caster) {
+          caster.skillState.nayutaMemAbsStacks = 0;
+        },
+      },
       // S2 Impermanence — Memory Absorption 每 3s 触发（首次 t=3s）
       // 同步执行 S1 Part2 ally buffs（每次生效均刷新，含满层后）
       {

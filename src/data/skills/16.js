@@ -100,12 +100,18 @@ export default {
   skill2: {
     groupId: 20162,
     triggers: [
-      // S2 被动声明：战斗开始时初始化 attach/explode 倍率（与 skillState 初始值对应）
+      // S2 被动：战斗开始时初始化 attach/explode 倍率及所有弹丸计数器
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          // attach +150.72%（基础 ×2.5072）；explode +100.6%（基础 ×2.006）
-          // 初始值已在 skillState 设定，此触发为声明式补充，无额外操作
+          const attachBonus    = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
+          const explosionBonus = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
+          caster.skillState.rapiShotCount               = 0;
+          caster.skillState.rapiProjectileThreshold     = 120;
+          caster.skillState.rapiProjectileAttachMult    = 1 + attachBonus;
+          caster.skillState.rapiProjectileExplosionMult = 1 + explosionBonus;
+          caster.skillState.rapiPendingProjectileCount  = 0;
+          caster.skillState.rapiProjectileBuffEndTick   = 0;
         },
       },
       // S2（Attachable Projectiles）：每 120 发（全爆裂期间 60 发）触发 projectile
