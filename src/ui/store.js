@@ -867,6 +867,7 @@ export function createStore() {
             _favItemData:          slot._favData ?? null,
             favoriteItem:          { resourceId: slot.favoriteItem.resourceId, level: slot.favoriteItem.level },
             cubeLevel:             slot.cube.level ?? 15,
+            _cubeData:             slot._cubeData ?? null,
             skillLevels:           slot.skills.slice(0, 3),
             baseAmmo:              nd?.shot_detail?.max_ammo,
             fullChargeDamage:      nd?.shot_detail?.full_charge_damage ?? 10000,
