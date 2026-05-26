@@ -589,7 +589,9 @@
                             <td class="log-line" x-text="ri + 1"></td>
                             <td class="log-time mono" x-text="row.kind !== 'event' && row.tickEnd > row.tickStart ? $store.sim.formatTick(row.tickStart) + '~' + $store.sim.formatTick(row.tickEnd) : $store.sim.formatTick(row.tickStart)"></td>
                             <td x-text="row.name"></td>
-                            <td class="log-label">
+                            <td class="log-label log-label--tip"
+                              @mouseenter="$store.sim.showSkillTooltip($event, row)"
+                              @mouseleave="$store.sim.hideSkillTooltip()">
                               <span x-text="row.label"></span>
                               <span class="log-count" x-show="row.count > 1" x-text="'×' + row.count"></span>
                             </td>
@@ -655,7 +657,8 @@
     </div>
   </div>
 
-  <div id="dmg-tooltip" class="dmg-tooltip" style="display:none"></div>
+  <div id="dmg-tooltip"   class="dmg-tooltip"   style="display:none"></div>
+  <div id="skill-tooltip" class="skill-tooltip" style="display:none"></div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

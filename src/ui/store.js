@@ -11,7 +11,7 @@ import {
   getAccountSize,
   getRosterEntry,
 } from '../data/account-loader.js';
-import { getAllCharacters, getCharacterByResourceId, normalizeCube } from '../data/models.js';
+import { getAllCharacters, getCharacterByResourceId, normalizeCube, getSsrFavSkills } from '../data/models.js';
 import { simulate, simulateMonteCarlo } from '../engine/battle.js';
 import { computeFinalStats } from '../engine/stats.js';
 import { CUBE_NAMES, CUBE_URLS, FAVORITE_ITEM_URLS } from '../data/manifest.js';
@@ -187,6 +187,68 @@ function fmtTime(sec) {
   const m = Math.floor(sec / 60);
   const s = (sec % 60).toFixed(1);
   return m > 0 ? `${m}:${s.padStart(4, '0')}` : `${sec.toFixed(1)}s`;
+}
+
+// ─── 技能 tooltip 辅助 ───────────────────────────────────────────────────────
+
+const CHARGE_WEAPONS = new Set(['SR', 'RL']);
+
+function _normalAttackTipHTML(unitData) {
+  const sd = unitData.nd?.shot_detail;
+  if (!sd) return null;
+  const wt = unitData.weaponType ?? '?';
+  const dmgPct  = sd.damage != null ? (sd.damage / 100).toFixed(2) + '%' : '?';
+  const corePct = sd.core_damage_rate != null ? '+' + ((sd.core_damage_rate / 10000 - 1) * 100).toFixed(0) + '%' : '?';
+  const rows = [
+    `<tr><td>武器类型</td><td>${wt}</td></tr>`,
+    `<tr><td>武器伤害</td><td>${dmgPct}</td></tr>`,
+  ];
+  if (CHARGE_WEAPONS.has(wt) && sd.full_charge_damage != null) {
+    const chargePct = (sd.full_charge_damage / 100).toFixed(2) + '%';
+    rows.push(`<tr><td>全蓄力伤害</td><td>${chargePct}</td></tr>`);
+  }
+  rows.push(`<tr><td>核心命中</td><td>${corePct}</td></tr>`);
+  return `<div class="skill-tip-title">普通攻击</div><table class="skill-tip-table">${rows.join('')}</table>`;
+}
+
+// 根据行数据找到对应技能（skill 对象 + level）
+// 对 burst_i/burst_ii/full_burst 事件直接取 rawBurst；
+// 对 skill_trigger 和技能伤害行则按 label 匹配三个技能槽。
+function _findSkillByRow(row, unitData) {
+  if (!unitData) return null;
+  // Burst 事件 → burst 技能
+  if (row.eventType === 'burst_i' || row.eventType === 'burst_ii' || row.eventType === 'full_burst') {
+    return { skill: unitData.rawBurst, level: unitData.skillLevels[2] ?? 10 };
+  }
+  // 剥离 " P1" " P2" 等后缀再匹配
+  const base = row.label.replace(/ P\d+$/, '');
+  // 从 label 推断所属技能槽：S1_xxx / S2_xxx / Burst_xxx 前缀，或 xxx_s2_yyy 形式（如 velvet_s2_bonusHit）
+  const tier = (base === 'S1' || base.startsWith('S1_')) ? 'S1'
+             : (base === 'S2' || base.startsWith('S2_') || /_s2_/i.test(base)) ? 'S2'
+             : (base === 'Burst' || base.startsWith('Burst_')) ? 'Burst'
+             : null;
+  const { rawSkill1, rawSkill2, rawBurst, skillLevels } = unitData;
+  if (rawSkill1 && (tier === 'S1' || rawSkill1.name_localkey === base))
+    return { skill: rawSkill1, level: skillLevels[0] ?? 10 };
+  if (rawSkill2 && (tier === 'S2' || rawSkill2.name_localkey === base))
+    return { skill: rawSkill2, level: skillLevels[1] ?? 10 };
+  if (rawBurst  && (tier === 'Burst' || rawBurst.name_localkey  === base))
+    return { skill: rawBurst,  level: skillLevels[2] ?? 10 };
+  return null;
+}
+
+function _skillDescTipHTML(skill, level, renderFn) {
+  if (!skill) return null;
+  const name = skill.name_localkey ?? '';
+  const desc = renderFn(
+    skill.description_localkey ?? '',
+    skill.description_value_list ?? [],
+    level ?? 10
+  );
+  if (!desc && !name) return null;
+  const nameHtml = name ? `<div class="skill-tip-name">${name}</div>` : '';
+  const descHtml = desc ? `<div class="skill-tip-desc">${desc}</div>` : '';
+  return nameHtml + descHtml;
 }
 
 // ─── 战斗日志聚合 ─────────────────────────────────────────────────────────────
@@ -476,6 +538,7 @@ export function createStore() {
     battleLogRaw:  null,
     simRunning:    false,
     logMode:       'aggregate',
+    _squadLookup:  null,
 
     // 常量（模板使用）
     EQUIP_SLOTS,
@@ -666,6 +729,10 @@ export function createStore() {
           }
         }
         if (slot.resourceId) {
+          // 从花名册补全可能在旧存档中缺失或错误的字段
+          const charMeta = getCharacterByResourceId(slot.resourceId);
+          if (charMeta?.element) slot.element = charMeta.element;
+          if (charMeta?.weaponType) slot.weaponType = charMeta.weaponType;
           this._loadNikkeData(i, slot.resourceId);
           if (slot.cube.resourceId)         this._loadCubeData(i, slot.cube.resourceId);
           if (slot.favoriteItem.resourceId) this._loadFavData(i, slot.favoriteItem.resourceId);
@@ -760,7 +827,8 @@ export function createStore() {
       try {
         const data = await loadCube(resourceId);
         this.team[i]._cubeData = data;
-      } catch {
+      } catch (err) {
+        console.error(`[slot ${i}] Cube ${resourceId} 加载失败:`, err?.message ?? err);
         this.team[i]._cubeData = null;
       }
     },
@@ -779,7 +847,8 @@ export function createStore() {
       try {
         const data = await loadFavoriteItem(resourceId);
         this.team[i]._favData = data;
-      } catch {
+      } catch (err) {
+        console.error(`[slot ${i}] FavItem ${resourceId} 加载失败:`, err?.message ?? err);
         this.team[i]._favData = null;
       }
     },
@@ -793,7 +862,7 @@ export function createStore() {
       try {
         slot._nikkeData = await loadNikke(resourceId);
       } catch (err) {
-        console.warn(`[slot ${i}] NIKKE ${resourceId} 加载失败:`, err.message);
+        console.error(`[slot ${i}] NIKKE ${resourceId} 加载失败:`, err?.message ?? err);
       } finally {
         slot._loading = false;
       }
@@ -871,7 +940,10 @@ export function createStore() {
           const name = skill.name_localkey ?? `技能 ${si + 1}`;
           return `<div class="cube-skill"><b class="skill-name">${name}</b> <span class="skill-lv">Lv${skillLv}</span><p class="skill-desc">${desc}</p></div>`;
         }).join('');
-      } catch { return ''; }
+      } catch (err) {
+        console.error(`[cubeSkillHtml] slot ${slotIdx} cube ${slot.cube.resourceId} 渲染失败:`, err?.message ?? err);
+        return '';
+      }
     },
 
     favSkillHtml(slotIdx) {
@@ -939,6 +1011,7 @@ export function createStore() {
       this.hitLogRows   = [];
       this.hitLogRaw    = null;
       this.battleLogRaw = null;
+      this._squadLookup = null;
 
       await new Promise(r => setTimeout(r, 10));
 
@@ -981,6 +1054,21 @@ export function createStore() {
                 ?? nd.ulti_skill_detail?.skill_cooltime
                 ?? 4000) / 100 * 60)
             ) : undefined,
+          };
+        });
+
+        // 构建技能 tooltip 查找表（按单位名索引）
+        this._squadLookup = {};
+        activeSlots.forEach((slot, idx) => {
+          const unitName     = slot.name || `NIKKE ${idx + 1}`;
+          const ssrFavSkills = getSsrFavSkills(slot._favData, slot.favoriteItem?.level ?? 1);
+          this._squadLookup[unitName] = {
+            weaponType: slot.weaponType,
+            nd:         slot._nikkeData,
+            skillLevels: slot.skills.slice(0, 3),
+            rawSkill1: ssrFavSkills?.skill1 ?? slot._nikkeData?.skill1_detail    ?? null,
+            rawSkill2: ssrFavSkills?.skill2 ?? slot._nikkeData?.skill2_detail    ?? null,
+            rawBurst:  ssrFavSkills?.burst  ?? slot._nikkeData?.ulti_skill_detail ?? null,
           };
         });
 
@@ -1055,6 +1143,45 @@ export function createStore() {
     hideDmgTooltip() {
       const tip = document.getElementById('dmg-tooltip');
       if (tip) tip.style.display = 'none';
+    },
+
+    // ── 技能 tooltip ─────────────────────────────────────────────────────────
+
+    showSkillTooltip(event, row) {
+      const tip = document.getElementById('skill-tooltip');
+      if (!tip) return;
+      const html = this._buildSkillTipHTML(row);
+      if (!html) { tip.style.display = 'none'; return; }
+      tip.innerHTML = html;
+      tip.style.left = '-9999px';
+      tip.style.top  = '0px';
+      tip.style.display = 'block';
+      const rect = tip.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let x = event.clientX + 16, y = event.clientY + 8;
+      if (x + rect.width  > vw) x = event.clientX - rect.width  - 8;
+      if (y + rect.height > vh) y = event.clientY - rect.height - 8;
+      tip.style.left = x + 'px';
+      tip.style.top  = y + 'px';
+    },
+
+    hideSkillTooltip() {
+      const tip = document.getElementById('skill-tooltip');
+      if (tip) tip.style.display = 'none';
+    },
+
+    _buildSkillTipHTML(row) {
+      const unitData = this._squadLookup?.[row.name];
+
+      // 普通攻击行：显示武器属性
+      if (row.label === '普通攻击') {
+        return unitData ? _normalAttackTipHTML(unitData) : null;
+      }
+
+      // 技能/事件行：匹配对应技能并显示描述
+      const found = _findSkillByRow(row, unitData);
+      if (!found?.skill) return null;
+      return _skillDescTipHTML(found.skill, found.level, renderSkillDesc);
     },
 
     // ── 结果辅助 ─────────────────────────────────────────────────────────────

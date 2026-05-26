@@ -27,6 +27,9 @@ const ENEMY = {
 
 let _nextId = 90000;
 
+const _MOCK_VALS = Array(10).fill('100');
+const _MOCK_SKILL_N = n => ({ description_value_list: Array.from({ length: n }, () => ({ description_value: _MOCK_VALS })) });
+
 function dummyUnit(burstStep) {
   return {
     characterId:              _nextId++,
@@ -38,10 +41,14 @@ function dummyUnit(burstStep) {
     _nikkeData:               {},
     _computedStats:           { ...STATS },
     targetBurstEnergyPerShot: 1_000_000,  // 一枪填满分享 gauge
+    burstEnergyPerShot:       500,
     burstSkillCooltime:       0,
     baseAmmo:                 30,
     reloadTicks:              120,
     shotDamageMult:           1.0,
+    coreDmgIncrement:         0,
+    fullChargeDamage:         10000,
+    reloadFraction:           1.0,
     rateOfFire:               600,
   };
 }
@@ -54,13 +61,22 @@ function redHoodUnit() {
     weaponType:               'SR',
     burstStep:                'Step3',
     nativeBurstStep:          'Step3',
-    _nikkeData:               {},
+    // skill handlers 读取 rawSkill1/rawSkill2/rawBurst；提供最小 mock
+    _nikkeData: {
+      skill1_detail:     _MOCK_SKILL_N(10),
+      skill2_detail:     _MOCK_SKILL_N(10),
+      ulti_skill_detail: _MOCK_SKILL_N(10),
+    },
     _computedStats:           { ...STATS },
     targetBurstEnergyPerShot: 1_000_000,
+    burstEnergyPerShot:       500,
     burstSkillCooltime:       40 * 60,   // 40s，确保模拟窗口内只触发一次爆裂
     baseAmmo:                 30,
     reloadTicks:              90,        // SR 典型装填时间
     shotDamageMult:           1.0,
+    coreDmgIncrement:         0,
+    fullChargeDamage:         10000,
+    reloadFraction:           1.0,
     rateOfFire:               120,       // SR 典型 ROF
     chargeTime:               60,        // 标准 SR 满蓄时间（ticks）
   };

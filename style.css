@@ -466,6 +466,64 @@ select.input { cursor: pointer; }
   font-weight: 600;
 }
 
+/* ── 技能 tooltip ────────────────────────────────────────── */
+.log-label--tip { cursor: help; }
+.log-label--tip span:first-child { text-decoration: underline dotted var(--text-dim); }
+
+.skill-tooltip {
+  position: fixed;
+  z-index: 999;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  padding: 8px 10px;
+  font-size: 0.68rem;
+  pointer-events: none;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  max-width: 320px;
+  min-width: 160px;
+}
+
+.skill-tip-title {
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+}
+
+.skill-tip-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.skill-tip-table td {
+  padding: 2px 6px;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+.skill-tip-table td:first-child {
+  color: var(--text-dim);
+}
+.skill-tip-table td:last-child {
+  font-family: var(--font-mono);
+  color: var(--text);
+  text-align: right;
+}
+
+.skill-tip-name {
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 5px;
+  font-size: 0.72rem;
+}
+
+.skill-tip-desc {
+  color: var(--text-muted);
+  line-height: 1.6;
+  white-space: normal;
+}
+.skill-tip-desc .skill-val   { color: var(--text); font-weight: 600; }
+.skill-tip-desc .skill-param { color: #FA8030; }
+
 /* ── Modal / Char picker ─────────────────────────────────── */
 [x-cloak] { display: none; }
 .modal-overlay {

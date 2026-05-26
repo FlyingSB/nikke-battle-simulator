@@ -256,30 +256,62 @@ export function maxGeneralResearchLevel(syncLevel) {
  * @returns {{ atk: number, hp: number, def: number }}
  */
 export function getBaseStats(nikkeData, level) {
-  if (!nikkeData) return { atk: 0, hp: 0, def: 0 };
+  if (!nikkeData) {
+    console.error('[getBaseStats] nikkeData 为 null/undefined');
+    throw new Error('[getBaseStats] nikkeData 为 null/undefined');
+  }
 
   const idx = Math.max(0, level - 1);
 
   // 现代 CDN 布局：每项属性独立数组（character_level_attack_list 等）
   if (nikkeData.character_level_attack_list?.length) {
     const atkList = nikkeData.character_level_attack_list;
-    const hpList  = nikkeData.character_level_hp_list       ?? [];
-    const defList = nikkeData.character_level_defence_list  ?? [];
+    const hpList  = nikkeData.character_level_hp_list;
+    const defList = nikkeData.character_level_defence_list;
+    if (!hpList?.length) {
+      const err = `[getBaseStats] resource_id=${nikkeData.resource_id}: character_level_hp_list 缺失或为空`;
+      console.error(err, nikkeData);
+      throw new Error(err);
+    }
+    if (!defList?.length) {
+      const err = `[getBaseStats] resource_id=${nikkeData.resource_id}: character_level_defence_list 缺失或为空`;
+      console.error(err, nikkeData);
+      throw new Error(err);
+    }
     return {
-      atk: atkList[idx] ?? atkList[atkList.length - 1] ?? 0,
-      hp:  hpList[idx]  ?? hpList[hpList.length   - 1] ?? 0,
-      def: defList[idx] ?? defList[defList.length  - 1] ?? 0,
+      atk: atkList[idx] ?? atkList[atkList.length - 1],
+      hp:  hpList[idx]  ?? hpList[hpList.length   - 1],
+      def: defList[idx] ?? defList[defList.length  - 1],
     };
   }
 
   // 旧版兼容：扁平的 stat_list 数组，每项为 {atk, hp, def} 对象
-  const list = nikkeData.stat_list ?? nikkeData.stats ?? nikkeData.level_stat ?? nikkeData.stat ?? [];
-  const entry = list[idx] ?? list[list.length - 1] ?? {};
-  return {
-    atk: entry.atk ?? entry.attack  ?? entry.Atk ?? 0,
-    hp:  entry.hp  ?? entry.Hp      ?? entry.HP  ?? 0,
-    def: entry.def ?? entry.defence ?? entry.Def ?? 0,
-  };
+  const list = nikkeData.stat_list ?? nikkeData.stats ?? nikkeData.level_stat ?? nikkeData.stat;
+  if (!list?.length) {
+    const err = `[getBaseStats] resource_id=${nikkeData.resource_id}: stat list 缺失或为空（尝试字段 stat_list/stats/level_stat/stat）`;
+    console.error(err, nikkeData);
+    throw new Error(err);
+  }
+  const entry = list[idx] ?? list[list.length - 1];
+  const atk = entry.atk ?? entry.attack ?? entry.Atk;
+  const hp  = entry.hp  ?? entry.Hp     ?? entry.HP;
+  const def = entry.def ?? entry.defence ?? entry.Def;
+  if (atk == null) {
+    const err = `[getBaseStats] resource_id=${nikkeData.resource_id} level=${level}: atk 字段缺失（尝试 atk/attack/Atk）`;
+    console.error(err, entry);
+    throw new Error(err);
+  }
+  if (hp == null) {
+    const err = `[getBaseStats] resource_id=${nikkeData.resource_id} level=${level}: hp 字段缺失（尝试 hp/Hp/HP）`;
+    console.error(err, entry);
+    throw new Error(err);
+  }
+  if (def == null) {
+    const err = `[getBaseStats] resource_id=${nikkeData.resource_id} level=${level}: def 字段缺失（尝试 def/defence/Def）`;
+    console.error(err, entry);
+    throw new Error(err);
+  }
+  return { atk, hp, def };
 }
 
 // ─── 单 NIKKE 详情 ─────────────────────────────────────────────────────
@@ -343,46 +375,77 @@ export function getBaseStats(nikkeData, level) {
  * @returns {NikkeDetail}
  */
 export function parseNikkeDetail(raw) {
-  if (!raw) return null;
-  const sd = raw.shot_detail ?? {};
+  if (!raw) {
+    console.error('[parseNikkeDetail] raw 为 null/undefined');
+    throw new Error('[parseNikkeDetail] raw 为 null/undefined');
+  }
+  if (!raw.shot_detail) {
+    const err = `[parseNikkeDetail] resource_id=${raw.resource_id}: shot_detail 缺失`;
+    console.error(err, raw);
+    throw new Error(err);
+  }
+  const sd = raw.shot_detail;
+
+  function req(obj, field, ctx) {
+    if (obj[field] == null) {
+      const err = `[parseNikkeDetail] resource_id=${raw.resource_id}: ${ctx}.${field} 缺失`;
+      console.error(err, obj);
+      throw new Error(err);
+    }
+    return obj[field];
+  }
+
+  const elem = raw.element_details?.[0]?.element;
+  if (elem == null) {
+    const err = `[parseNikkeDetail] resource_id=${raw.resource_id}: element_details[0].element 缺失`;
+    console.error(err, raw.element_details);
+    throw new Error(err);
+  }
+
+  if (sd.rate_of_fire === undefined) {
+    const err = `[parseNikkeDetail] resource_id=${raw.resource_id}: shot_detail.rate_of_fire 缺失`;
+    console.error(err, sd);
+    throw new Error(err);
+  }
+
   return {
     resourceId:   raw.resource_id,
 
-    burstDuration: (raw.burst_duration ?? 1000) / 100,     // 厘秒 → 秒
-    useBurstSkill:   raw.use_burst_skill  ?? 'Step1',
-    changeBurstStep: raw.change_burst_step ?? null,
+    burstDuration: req(raw, 'burst_duration', 'raw') / 100,     // 厘秒 → 秒
+    useBurstSkill:   req(raw, 'use_burst_skill', 'raw'),
+    changeBurstStep: raw.change_burst_step ?? null,              // null = 不切换阶段，为合法值
 
-    classType:   raw.class       ?? null,
-    corporation: raw.corporation ?? null,
+    classType:   req(raw, 'class', 'raw'),
+    corporation: req(raw, 'corporation', 'raw'),
     isOverspec:  raw.corporation_sub_type === 'OVERSPEC',
 
-    baseCritRate:     (raw.critical_ratio  ?? 1500) / 10000,  // 1500 → 0.15
-    baseCritDmgBonus: (raw.critical_damage ?? 15000) / 10000 - 1.0,  // 15000 → 0.50
+    baseCritRate:     req(raw, 'critical_ratio', 'raw') / 10000,
+    baseCritDmgBonus: req(raw, 'critical_damage', 'raw') / 10000 - 1.0,
 
-    element: raw.element_details?.[0]?.element ?? null,
+    element: elem,
 
     // 武器
-    weaponMultiplier: (sd.damage          ?? 0)     / 10000,
-    coreDmgBonus:     (sd.core_damage_rate ?? 20000) / 10000 - 1.0,  // 20000 → 1.0
-    maxAmmo:          sd.max_ammo          ?? 0,
-    reloadFraction:   (sd.reload_bullet    ?? 10000) / 10000,
-    reloadTime:       (sd.reload_time      ?? 0)     / 100,
-    shotCount:        sd.shot_count        ?? 1,
+    weaponMultiplier: req(sd, 'damage', 'shot_detail') / 10000,
+    coreDmgBonus:     req(sd, 'core_damage_rate', 'shot_detail') / 10000 - 1.0,
+    maxAmmo:          req(sd, 'max_ammo', 'shot_detail'),
+    reloadFraction:   req(sd, 'reload_bullet', 'shot_detail') / 10000,
+    reloadTime:       (sd.reload_time ?? 0) / 100,              // 部分 CDN 记录可能不含此字段
+    shotCount:        req(sd, 'shot_count', 'shot_detail'),
 
     // 蓄力武器（SR / RL）
-    chargeBaseMult: (sd.full_charge_damage ?? 10000) / 10000,
-    chargeTime:     (sd.charge_time        ?? 0)     / 100,
+    chargeBaseMult: req(sd, 'full_charge_damage', 'shot_detail') / 10000,
+    chargeTime:     (sd.charge_time ?? 0) / 100,                // 非蓄力武器可缺失
 
-    // MG 起速
-    rateOfFire:           sd.rate_of_fire               ?? 0,
+    // MG 起速（非 MG 可缺失，默认 0）
+    rateOfFire:           sd.rate_of_fire,
     endRateOfFire:        sd.end_rate_of_fire            ?? 0,
     rateOfFireChange:     sd.rate_of_fire_change_pershot ?? 0,
     rateOfFireResetTime:  (sd.rate_of_fire_reset_time    ?? 0) / 100,
 
     // 爆裂能量
-    burstEnergyPerShot:       sd.burst_energy_pershot        ?? 0,
-    targetBurstEnergyPerShot: sd.target_burst_energy_pershot ?? 0,
-    fullChargeBurstEnergy:    sd.full_charge_burst_energy     ?? 0,
+    burstEnergyPerShot:       req(sd, 'burst_energy_pershot', 'shot_detail'),
+    targetBurstEnergyPerShot: req(sd, 'target_burst_energy_pershot', 'shot_detail'),
+    fullChargeBurstEnergy:    sd.full_charge_burst_energy ?? 0, // SR/RL 专属，可缺失
 
     // 技能（原始数据 — 使用 getSkillValue() 读取值）
     skill1: raw.skill1_detail      ?? null,
@@ -405,7 +468,8 @@ export function parseNikkeDetail(raw) {
 export function getSkillValue(skillDetail, paramIndex, skillLevel) {
   const raw = skillDetail?.description_value_list?.[paramIndex]?.description_value?.[skillLevel - 1];
   if (raw == null) {
-    return 0;
+    console.error('[getSkillValue] 技能值缺失', { paramIndex, skillLevel, group_id: skillDetail?.group_id });
+    throw new Error(`[getSkillValue] paramIndex=${paramIndex} skillLevel=${skillLevel} group_id=${skillDetail?.group_id}: 技能值缺失`);
   }
   return parseFloat(raw);
 }

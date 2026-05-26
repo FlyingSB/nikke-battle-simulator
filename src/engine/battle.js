@@ -272,9 +272,24 @@ function validateUnitConfig(cfg) {
 export function initBattle(config) {
   const squad = config.squad.map(cfg => {
     validateUnitConfig(cfg);
-    const stats   = cfg._computedStats ?? computeFinalStats(cfg, cfg.level ?? 200, {});
+    const stats   = cfg._computedStats ?? (() => {
+      if (cfg.level == null) {
+        const err = `[initBattle] 角色「${cfg.name}」缺少 level 且无 _computedStats`;
+        console.error(err, cfg);
+        throw new Error(err);
+      }
+      return computeFinalStats(cfg, cfg.level, {});
+    })();
     // CHARACTER_TRAITS.weaponType overrides CDN-derived cfg.weaponType when the CDN data is known to be wrong.
-    const wt      = getCharacterTraits(cfg.characterId)?.weaponType ?? cfg.weaponType ?? 'AR';
+    const wt = (() => {
+      const result = getCharacterTraits(cfg.characterId)?.weaponType ?? cfg.weaponType;
+      if (result == null) {
+        const err = `[initBattle] 角色「${cfg.name}」缺少 weaponType`;
+        console.error(err, cfg);
+        throw new Error(err);
+      }
+      return result;
+    })();
     // Collection skill ammo bonus (MG items: Max Ammo ▲X%) applied at unit creation.
     // Other collection skill effects are applied as permanent buffs after state is built.
     const collFx  = cfg._favItemData
@@ -297,9 +312,16 @@ export function initBattle(config) {
       ? getSsrFavSkills(cfg._favItemData, cfg.favoriteItem?.level ?? 0, cfg.ssrFavSkillLevel)
       : null;
     return {
-      id:               cfg.characterId ?? 0,
-      name:             cfg.name ?? 'NIKKE',
-      element:          cfg.element ?? 'Iron',
+      id:               cfg.characterId,
+      name:             (() => {
+        if (cfg.name == null) {
+          const err = `[initBattle] 角色 characterId=${cfg.characterId} 缺少 name`;
+          console.error(err, cfg);
+          throw new Error(err);
+        }
+        return cfg.name;
+      })(),
+      element:          cfg.element ?? null,
       weaponType:       wt,
       burstStep:        cfg.burstStep ?? 'Step3',
       // CDN native burst step (use_burst_skill). Used by skills like Rapi S1 to identify
@@ -340,25 +362,62 @@ export function initBattle(config) {
       // calculations referencing "X% of caster's ATK" use base ATK only.
       equipAtkFlat:             stats.equipAtkFlat ?? 0,
       // Fire rate from CDN shot_detail.rate_of_fire (RPM). 0 = use ATTACK_SPEED fallback.
-      rateOfFire:       cfg.rateOfFire
-                        ?? (cfg._nikkeData?.shot_detail?.rate_of_fire ?? 0),
+      rateOfFire: (() => {
+        const v = cfg.rateOfFire ?? cfg._nikkeData?.shot_detail?.rate_of_fire;
+        if (v === undefined) {
+          const err = `[initBattle] 角色「${cfg.name}」缺少 rateOfFire（cfg 与 CDN 均无此字段）`;
+          console.error(err, cfg);
+          throw new Error(err);
+        }
+        return v;
+      })(),
       // Normal shot hit multiplier from shot_detail.damage / 10000.
-      // Prefer explicit cfg value, then derive from _nikkeData, fall back to WEAPON_HIT_MULT table.
-      shotDamageMult:   cfg.shotDamageMult
-                        ?? (cfg._nikkeData?.shot_detail?.damage != null ? cfg._nikkeData.shot_detail.damage / 10000 : null),
+      // Prefer explicit cfg value, then derive from _nikkeData.
+      shotDamageMult: (() => {
+        const v = cfg.shotDamageMult
+          ?? (cfg._nikkeData?.shot_detail?.damage != null ? cfg._nikkeData.shot_detail.damage / 10000 : undefined);
+        if (v == null) {
+          const err = `[initBattle] 角色「${cfg.name}」缺少 shotDamageMult（cfg 与 CDN shot_detail.damage 均缺失）`;
+          console.error(err, cfg);
+          throw new Error(err);
+        }
+        return v;
+      })(),
       // Core hit damage increment: (core_damage_rate/10000) - 1 - BASE_CORE_DAMAGE (which is 1.0).
       // e.g. core_damage_rate=25000 → ×2.5 total → coreDmgIncrement=0.5
-      coreDmgIncrement: cfg.coreDmgIncrement
-                        ?? (cfg._nikkeData?.shot_detail?.core_damage_rate != null ? (cfg._nikkeData.shot_detail.core_damage_rate / 10000) - 1 - 1 : 0),
+      coreDmgIncrement: (() => {
+        if (cfg.coreDmgIncrement != null) return cfg.coreDmgIncrement;
+        const rate = cfg._nikkeData?.shot_detail?.core_damage_rate;
+        if (rate == null) {
+          const err = `[initBattle] 角色「${cfg.name}」缺少 coreDmgIncrement（cfg 与 CDN shot_detail.core_damage_rate 均缺失）`;
+          console.error(err, cfg);
+          throw new Error(err);
+        }
+        return (rate / 10000) - 1 - 1;
+      })(),
       // Full charge damage value from shot_detail (10000 = ×1.0 baseline).
-      fullChargeDamage:         cfg.fullChargeDamage ?? 10000,
+      fullChargeDamage: (() => {
+        if (cfg.fullChargeDamage == null) {
+          const err = `[initBattle] 角色「${cfg.name}」缺少 fullChargeDamage`;
+          console.error(err, cfg);
+          throw new Error(err);
+        }
+        return cfg.fullChargeDamage;
+      })(),
       // Per-shot burst energy contribution to the shared state.burstGauge.
       // burstEnergyPerShot: energy when hitting cover/missing (burst_energy_pershot).
       // targetBurstEnergyPerShot: energy when hitting the enemy target (target_burst_energy_pershot).
       // All shots and skill hits in this simulator hit the target → use targetBurstEnergyPerShot
       // for the main shot loop and all skill-hit addBurstGauge calls.
       // Full-charge energy = targetBurstEnergyPerShot × (fullChargeDamage / 10000).
-      burstEnergyPerShot:       cfg.burstEnergyPerShot ?? 500,
+      burstEnergyPerShot: (() => {
+        if (cfg.burstEnergyPerShot == null) {
+          const err = `[initBattle] 角色「${cfg.name}」缺少 burstEnergyPerShot`;
+          console.error(err, cfg);
+          throw new Error(err);
+        }
+        return cfg.burstEnergyPerShot;
+      })(),
       targetBurstEnergyPerShot: (() => {
         const v = cfg.targetBurstEnergyPerShot
                   ?? cfg._nikkeData?.shot_detail?.target_burst_energy_pershot;
@@ -381,10 +440,16 @@ export function initBattle(config) {
       shotCount:                cfg.shotCount ?? (cfg._nikkeData?.shot_detail?.shot_count ?? 1),
       // 分段装填比例（reload_bullet / 10000）。每次装填动作恢复 round(maxAmmo × reloadFraction) 发。
       // 1.0 = 一次装满（默认）；< 1.0 = 分段装填（如 Drake = 0.33，3 段装满）。
-      reloadFraction:           cfg.reloadFraction
-                                ?? (cfg._nikkeData?.shot_detail?.reload_bullet != null
-                                    ? cfg._nikkeData.shot_detail.reload_bullet / 10000
-                                    : 1),
+      reloadFraction: (() => {
+        if (cfg.reloadFraction != null) return cfg.reloadFraction;
+        const rb = cfg._nikkeData?.shot_detail?.reload_bullet;
+        if (rb == null) {
+          const err = `[initBattle] 角色「${cfg.name}」缺少 reloadFraction（cfg 与 CDN shot_detail.reload_bullet 均缺失）`;
+          console.error(err, cfg);
+          throw new Error(err);
+        }
+        return rb / 10000;
+      })(),
       // false → unit fills gauge and participates in squad burst trigger, but never fires burst skill.
       // Useful for B3 units that are in the squad but excluded from the active rotation.
       canBurst:                 cfg.canBurst ?? true,
@@ -804,7 +869,13 @@ export function tick(state) {
         unit.reloadTick      = state.tick + dur;
         unit.reloadStartTick = state.tick;
       }
-      if (state.tick < unit.reloadTick) continue;
+      if (state.tick < unit.reloadTick) {
+        // 换弹期间枪管停转，MG ROF 衰减
+        if (unit.mgCurrentRof != null && unit.mgRofDecayPerTick > 0) {
+          unit.mgCurrentRof = Math.max(unit.mgStartRof, unit.mgCurrentRof - unit.mgRofDecayPerTick);
+        }
+        continue;
+      }
       const ammoMult       = (state.tick < unit.tempMaxAmmoEndTick) ? unit.tempMaxAmmoMult : 1;
       // maxAmmoFlat buff：来自技能的弹容量加成（如 Liter S1 T1、Noir S2、Grave 爆裂），
       // 所有来源通过 buff 系统叠加，由 getBuffSums 统一汇总。
@@ -830,7 +901,12 @@ export function tick(state) {
     }
 
     // HIDDEN 阶段跳过射击（上方装填仍然允许）。
-    if (state.currentPhaseZone === 'HIDDEN') continue;
+    if (state.currentPhaseZone === 'HIDDEN') {
+      if (unit.mgCurrentRof != null && unit.mgRofDecayPerTick > 0) {
+        unit.mgCurrentRof = Math.max(unit.mgStartRof, unit.mgCurrentRof - unit.mgRofDecayPerTick);
+      }
+      continue;
+    }
 
     // 决定本 tick 的射击数。
     // SR/RL（蓄力武器）：确定性 — chargeTick 到达时恰好打出 1 发。
@@ -863,16 +939,7 @@ export function tick(state) {
     } else {
       shotsThisTick = Math.random() < (ATTACK_SPEED[unit.weaponType] ?? 0.20) ? 1 : 0;
     }
-    // MG ramp decay: when not firing this tick, ROF decays toward start ROF.
-    if (shotsThisTick === 0) {
-      if (unit.mgCurrentRof != null && unit.mgRofDecayPerTick > 0) {
-        unit.mgCurrentRof = Math.max(
-          unit.mgStartRof,
-          unit.mgCurrentRof - unit.mgRofDecayPerTick
-        );
-      }
-      continue;
-    }
+    if (shotsThisTick === 0) continue;
 
     for (let _s = 0; _s < shotsThisTick; _s++) {
       if (unit.ammoLeft <= 0) break; // 本 tick 中途弹尽；下一 tick 开始装填
@@ -885,7 +952,7 @@ export function tick(state) {
         : unit.weaponType;
       const hitMult = weaponSwitchActive
         ? (unit.skillState.weaponSwitchHitMult ?? WEAPON_HIT_MULT[effectiveWeaponType] ?? 0.03)
-        : (unit.shotDamageMult ?? WEAPON_HIT_MULT[unit.weaponType] ?? 0.03);
+        : unit.shotDamageMult;
       const isCharged = ['SR', 'RL'].includes(effectiveWeaponType);
       // normalAttackCritRateBonus 适用于所有普通攻击（含蓄力），不区分蓄力与否
       const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRateBonus
@@ -913,7 +980,7 @@ export function tick(state) {
         isCrit,
         critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDmgBonus,
         isCore,
-        coreDmgIncrement:  (unit.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0),
+        coreDmgIncrement:  unit.coreDmgIncrement + (isCore ? (sums.coreDamagePct ?? 0) : 0),
         distanceZone:      state.distanceZone,
         isFullBurst:       state.fullBurstActive,
         attackerElement:   unit.element,
@@ -922,7 +989,7 @@ export function tick(state) {
         isCharged,
         fullChargeDamage:  weaponSwitchActive && unit.skillState.weaponSwitchFullChargeDamage != null
           ? unit.skillState.weaponSwitchFullChargeDamage
-          : (unit.fullChargeDamage ?? 10000),
+          : unit.fullChargeDamage,
         favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
         chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
         favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,

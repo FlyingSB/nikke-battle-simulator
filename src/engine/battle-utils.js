@@ -12,8 +12,13 @@ export const BURST_GAUGE_MAX = 1_000_000;  // 共享爆裂槽上限
 
 export function getBuffSums(state, unitId) {
   const unit = state.squad.find(u => u.id === unitId);
-  let atkPct  = unit?.equipAtkPct  ?? 0;
-  let atkFlat = unit?.equipAtkFlat ?? 0, defFlat = 0, defPct = 0, attackDamagePct = 0,
+  if (!unit) {
+    const err = `[getBuffSums] unitId=${unitId} 在 squad 中不存在`;
+    console.error(err, { unitId, squadIds: state.squad.map(u => u.id) });
+    throw new Error(err);
+  }
+  let atkPct  = unit.equipAtkPct  ?? 0;
+  let atkFlat = unit.equipAtkFlat ?? 0, defFlat = 0, defPct = 0, attackDamagePct = 0,
       normalAttackDamagePct = 0, critRateBonus = 0, normalAttackCritRateBonus = 0, critDmgBonus = 0, chargeDamagePct = 0,
       chargeSpeedPct = 0, reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
       chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0,
@@ -253,7 +258,7 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
     defenderElement:   state.enemyElement,
     elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantageBonus ?? 0),
     isCharged:         charged,
-    fullChargeDamage:  unit.fullChargeDamage ?? 10000,
+    fullChargeDamage:  unit.fullChargeDamage,
     chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
     isTrueDamage,
     extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projExplosionBonus,
@@ -317,7 +322,10 @@ export function fireDotPool(state) {
     if (dot.nextFireTick > dot.endTick) continue;
     dot.nextFireTick += dot.intervalTicks;
     const caster = state.squad.find(u => u.id === dot.casterId);
-    if (!caster) continue;
+    if (!caster) {
+      console.error(`[fireDotPool] dot.casterId=${dot.casterId} 在 squad 中不存在`, { dot, squadIds: state.squad.map(u => u.id) });
+      continue;
+    }
     const sums = getBuffSums(state, caster.id);
     fireSkillHit(state, caster, dot.multPerStack * dot.stacks, sums, false, dot.label,
       { sustainedDamage: dot.sustainedDamage !== false });

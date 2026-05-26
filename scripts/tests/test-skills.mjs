@@ -380,7 +380,19 @@ section('T11: Nayuta S2 stage thresholds — ≥2, ≥10, ≥30 (not >2, >10, >3
       squad: [{ id: unitId, equipAtkPct: 0,
         stats: { atk: 100000, hp: 500000 },
         unitHp: 500000,
-        rawSkill1: null, rawSkill2: null, rawBurst: null,
+        // S2 INTERVAL handler 内部也会读 rawSkill1（S1 Part2 buff 值）和 rawSkill2，故需提供最小 mock。
+        rawSkill1: { group_id: 'mock_nayuta_s1', description_value_list: [
+          null, null,
+          { description_value: ['0','0','0','0','0','0','0','0','0','0'] },
+          null,
+          { description_value: ['0','0','0','0','0','0','0','0','0','0'] },
+          null, null,
+          { description_value: ['0','0','0','0','0','0','0','0','0','0'] },
+        ] },
+        rawSkill2: { group_id: 'mock_nayuta_s2', description_value_list: Array.from({ length: 9 }, () =>
+          ({ description_value: ['0','0','0','0','0','0','0','0','0','0'] })
+        ) },
+        rawBurst: null,
         skillLevels: [10, 10, 10],
         skillState: { nayutaMemAbsStacks: 0 } }],
     };
@@ -468,7 +480,10 @@ section('T12: Memory Incineration — time-based FC count (duration÷chargeTime)
     squad: [{ id: unitId, equipAtkPct: 0,
       stats: { atk: 100000, critRate: 0.15, critDmg: 0.5 },
       totalDamage: 0,
-      rawSkill1: null, rawSkill2: null, rawBurst: null,
+      rawSkill1: null, rawSkill2: null,
+      rawBurst: { group_id: 'mock_nayuta_burst', description_value_list: Array.from({ length: 6 }, () =>
+        ({ description_value: ['0','0','0','0','0','0','0','0','0','0'] })
+      ) },
       skillLevels: [10, 10, 10],
       skillState: {} }],
   };

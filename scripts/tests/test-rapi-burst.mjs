@@ -49,14 +49,21 @@ function dummyUnit(burstStep, nativeBurstStep, overrides = {}) {
     _nikkeData:               {},
     _computedStats:           { ...STATS },
     targetBurstEnergyPerShot: 1_000_000,  // one shot fills the shared gauge
+    burstEnergyPerShot:       500,
     burstSkillCooltime:       0,
     baseAmmo:                 30,
     reloadTicks:              120,
     shotDamageMult:           1.0,
+    coreDmgIncrement:         0,
+    fullChargeDamage:         10000,
+    reloadFraction:           1.0,
     rateOfFire:               600,
     ...overrides,
   };
 }
+
+const _MOCK_VALS = Array(10).fill('100');
+const _MOCK_SKILL_N = n => ({ description_value_list: Array.from({ length: n }, () => ({ description_value: _MOCK_VALS })) });
 
 /** Rapi: Red Hood unit (characterId=16, SKILL_TRAITS entry active). */
 function rapiUnit(burstStep = 'Step3', nativeBurstStep = 'Step3', overrides = {}) {
@@ -67,13 +74,22 @@ function rapiUnit(burstStep = 'Step3', nativeBurstStep = 'Step3', overrides = {}
     weaponType:               'MG',
     burstStep,
     nativeBurstStep,
-    _nikkeData:               {},
+    // skill handlers 读取 rawSkill1/rawSkill2/rawBurst；提供最小 mock，值均为 '0'
+    _nikkeData: {
+      skill1_detail:     _MOCK_SKILL_N(10),
+      skill2_detail:     _MOCK_SKILL_N(6),
+      ulti_skill_detail: _MOCK_SKILL_N(6),
+    },
     _computedStats:           { ...STATS },
     targetBurstEnergyPerShot: 1_000_000,
+    burstEnergyPerShot:       500,
     burstSkillCooltime:       0,
     baseAmmo:                 30,
     reloadTicks:              120,
     shotDamageMult:           1.0,
+    coreDmgIncrement:         0,
+    fullChargeDamage:         10000,
+    reloadFraction:           1.0,
     rateOfFire:               600,
     ...overrides,
   };
