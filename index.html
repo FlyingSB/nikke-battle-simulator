@@ -524,9 +524,9 @@
                   </div>
                 </section>
 
-                <!-- 各角色技能伤害 -->
+                <!-- 各角色伤害 -->
                 <section class="card">
-                  <h3 class="sub-title">角色技能伤害</h3>
+                  <h3 class="sub-title">角色伤害</h3>
                   <template x-for="unit in $store.sim.result.units" :key="unit.id">
                     <div class="unit-block">
                       <div class="unit-header">
@@ -537,7 +537,10 @@
                       <div class="skill-breakdown">
                         <template x-for="row in $store.sim.skillDamageRows(unit)" :key="row.label">
                           <div class="skill-dmg-row">
-                            <span class="skill-dmg-label" x-text="row.label"></span>
+                            <span class="skill-dmg-label log-label--tip"
+                              @mouseenter="$store.sim.showSkillTooltip($event, row)"
+                              @mouseleave="$store.sim.hideSkillTooltip()"
+                              x-text="row.label"></span>
                             <div class="share-bar share-bar--sm">
                               <div class="share-fill"
                                 :style="'width:' + (row.share * 100).toFixed(1) + '%'">
@@ -557,7 +560,18 @@
               <div class="result-panel-log">
                 <section class="card card--log">
                   <div class="log-header">
-                    <h3 class="sub-title">战斗日志</h3>
+                    <h3 class="sub-title" style="white-space:nowrap">战斗日志</h3>
+                    <div class="log-filters" x-show="$store.sim.hitLogRows.length > 0">
+                      <template x-for="name in $store.sim.logUnitNames()" :key="name">
+                        <button class="log-filter-btn"
+                          :class="!$store.sim.logHiddenUnits.includes(name) ? 'log-filter-btn--active' : ''"
+                          @click="$store.sim.toggleLogUnit(name)"
+                          x-text="name"></button>
+                      </template>
+                      <button class="log-filter-btn"
+                        :class="$store.sim.showLogNormal ? 'log-filter-btn--active' : ''"
+                        @click="$store.sim.showLogNormal = !$store.sim.showLogNormal">普通攻击</button>
+                    </div>
                     <div class="log-mode-btns">
                       <button class="btn btn-sm"
                         :class="$store.sim.logMode === 'aggregate' ? 'btn-primary' : 'btn-ghost'"
@@ -582,7 +596,7 @@
                         </tr>
                       </thead>
                       <tbody>
-                        <template x-for="(row, ri) in $store.sim.hitLogRows" :key="ri">
+                        <template x-for="(row, ri) in $store.sim.filteredLogRows()" :key="ri">
                           <tr :class="row.kind === 'event'
                             ? ('log-row--event log-row--ev-' + row.eventType)
                             : (row.isCrit ? 'log-row--crit' : '')">

@@ -11,6 +11,7 @@ const TICK_RATE = 60;
 export function renderResults(container, result) {
   container.innerHTML = buildHTML(result);
   renderDamageChart(container, result);
+  initLogFilters(container);
 }
 
 function buildHTML(r) {
@@ -104,10 +105,16 @@ function buildHTML(r) {
 // ─── 战斗日志 ───────────────────────────────────────────────────────────────
 
 const LOG_LABELS = {
-  burst_i:    { label: 'Burst I',          cls: 'log-burst-i'   },
-  burst_ii:   { label: 'Burst II',         cls: 'log-burst-ii'  },
-  full_burst: { label: '⚡ Full Burst',    cls: 'log-full-burst' },
-  burst_end:  { label: 'Full Burst 结束', cls: 'log-burst-end' },
+  burst_i:       { label: 'Burst I',          cls: 'log-burst-i'    },
+  burst_ii:      { label: 'Burst II',         cls: 'log-burst-ii'   },
+  burst_iii:     { label: 'Burst III',        cls: 'log-burst-iii'  },
+  full_burst:    { label: '⚡ Full Burst',    cls: 'log-full-burst' },
+  burst_end:     { label: 'Full Burst 结束', cls: 'log-burst-end'  },
+  burst_timeout: { label: 'Full Burst 超时', cls: 'log-burst-end'  },
+  reload:        { label: 'Reload',           cls: 'log-reload'     },
+  hit:           { label: '普通攻击',         cls: 'log-hit'        },
+  phase_change:  { label: '阶段切换',        cls: 'log-phase'      },
+  skill_trigger: { label: '技能触发',        cls: 'log-skill'      },
 };
 
 function buildLogHTML(log, isAveraged) {
@@ -117,14 +124,37 @@ function buildLogHTML(log, isAveraged) {
 <p class="loading-text" style="padding:1rem">本次运行未发生爆裂事件。</p>`;
   }
 
-  const rows = log.map((e, i) => {
-    const meta  = LOG_LABELS[e.type] ?? { label: e.type, cls: '' };
-    const t     = e.tick / TICK_RATE;
-    const mm    = String(Math.floor(t / 60)).padStart(2, '0');
-    const ss    = String(Math.floor(t % 60)).padStart(2, '0');
-    const name  = e.unitName ? ` — ${e.unitName}` : '';
-    return `<div class="log-row ${meta.cls}">
-      <span class="log-line">${i + 1}</span>
+  // 收集按首次出现顺序排列的角色名（排除 hit，避免顺序被射击事件干扰）
+  const unitNames = [];
+  const seenUnits = new Set();
+  for (const e of log) {
+    if (e.unitName && e.type !== 'hit' && !seenUnits.has(e.unitName)) {
+      seenUnits.add(e.unitName);
+      unitNames.push(e.unitName);
+    }
+  }
+  const hasHits = log.some(e => e.type === 'hit');
+
+  const unitBtns = unitNames.map(n =>
+    `<button class="log-filter-btn log-filter-btn--active" data-filter-unit="${n}">${n}</button>`
+  ).join('');
+  const hitBtn = hasHits
+    ? `<button class="log-filter-btn" data-filter-hit>普通攻击</button>`
+    : '';
+
+  let lineNum = 0;
+  const rows = log.map(e => {
+    const meta    = LOG_LABELS[e.type] ?? { label: e.type, cls: '' };
+    const t       = e.tick / TICK_RATE;
+    const mm      = String(Math.floor(t / 60)).padStart(2, '0');
+    const ss      = String(Math.floor(t % 60)).padStart(2, '0');
+    const name    = e.unitName ? ` — ${e.unitName}` : '';
+    const isHit   = e.type === 'hit';
+    const hidden  = isHit ? ' log-hidden' : '';
+    const unitAttr = e.unitName ? ` data-unit="${e.unitName}"` : '';
+    if (!isHit) lineNum++;
+    return `<div class="log-row ${meta.cls}${hidden}" data-type="${e.type}"${unitAttr}>
+      <span class="log-line">${isHit ? '' : lineNum}</span>
       <span class="log-time">[${mm}:${ss}]</span>
       <span class="log-desc">${meta.label}${name}</span>
     </div>`;
@@ -133,7 +163,45 @@ function buildLogHTML(log, isAveraged) {
   const note = isAveraged ? ' <small>（取自第 1 次运行）</small>' : '';
   return `
 <h3>战斗日志${note}</h3>
+<div class="log-filters">${unitBtns}${hitBtn}</div>
 <div class="battle-log">${rows}</div>`;
+}
+
+function initLogFilters(container) {
+  const filterBar = container.querySelector('.log-filters');
+  if (!filterBar) return;
+
+  const allRows   = [...container.querySelectorAll('.log-row[data-type]')];
+  const activeUnits = new Set(
+    [...filterBar.querySelectorAll('[data-filter-unit]')].map(b => b.dataset.filterUnit)
+  );
+  let showHits = false;
+
+  function applyFilters() {
+    let n = 0;
+    for (const row of allRows) {
+      const unit  = row.dataset.unit;
+      const isHit = row.dataset.type === 'hit';
+      const show  = (!unit || activeUnits.has(unit)) && (!isHit || showHits);
+      row.classList.toggle('log-hidden', !show);
+      if (show) row.querySelector('.log-line').textContent = ++n;
+    }
+  }
+
+  filterBar.addEventListener('click', e => {
+    const btn = e.target.closest('.log-filter-btn');
+    if (!btn) return;
+    if ('filterHit' in btn.dataset) {
+      showHits = !showHits;
+      btn.classList.toggle('log-filter-btn--active', showHits);
+    } else if ('filterUnit' in btn.dataset) {
+      const unit = btn.dataset.filterUnit;
+      if (activeUnits.has(unit)) activeUnits.delete(unit);
+      else activeUnits.add(unit);
+      btn.classList.toggle('log-filter-btn--active', activeUnits.has(unit));
+    }
+    applyFilters();
+  });
 }
 
 // ─── 图表 ────────────────────────────────────────────────────────────────────

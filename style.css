@@ -369,9 +369,49 @@ select.input { cursor: pointer; }
   font-size: 0.62rem; font-family: var(--font-mono); color: var(--text-dim);
 }
 
+/* ── 战斗日志筛选 ────────────────────────────────────────── */
+.battle-log {
+  max-height: 340px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+  font-size: 0.65rem;
+}
+.log-row {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 3px 8px; border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.log-row:last-child { border-bottom: none; }
+.log-row:hover { background: var(--surface3); }
+.log-row .log-line { min-width: 22px; text-align: right; color: var(--text-muted); font-size: 0.6rem; flex-shrink: 0; }
+.log-row .log-time  { color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.log-row .log-desc  { color: var(--text-dim); }
+.log-burst-i .log-desc,
+.log-burst-ii .log-desc,
+.log-burst-iii .log-desc { color: var(--accent3); font-weight: 600; }
+.log-full-burst .log-desc { color: var(--accent3); font-weight: 700; }
+.log-burst-end .log-desc  { color: var(--text-muted); font-style: italic; }
+.log-skill .log-desc      { color: var(--accent); }
+.log-hit .log-desc        { color: var(--text-muted); font-size: 0.6rem; }
+.log-hidden { display: none !important; }
+
+.log-filters {
+  flex: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  margin: 0 6px;
+}
+.log-filter-btn {
+  padding: 2px 8px; border-radius: 99px; border: 1px solid var(--border2);
+  background: var(--surface2); color: var(--text-muted);
+  font-size: 0.62rem; cursor: pointer; line-height: 1.6;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.log-filter-btn:hover { border-color: var(--border2); color: var(--text-dim); background: var(--surface3); }
+.log-filter-btn--active { background: var(--accent-dim); border-color: var(--accent); color: var(--text); }
+.log-filter-btn--active:hover { background: var(--accent); }
+
 /* ── Battle log ──────────────────────────────────────────── */
 .log-header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center;
   margin-bottom: 7px;
 }
 .log-header .sub-title { margin-bottom: 0; }
@@ -413,10 +453,12 @@ select.input { cursor: pointer; }
 .log-row--event .log-buff  { color: var(--text-muted); font-style: italic; }
 .log-row--ev-full_burst .log-label,
 .log-row--ev-burst_i    .log-label,
-.log-row--ev-burst_ii   .log-label { color: var(--accent3); font-style: normal; font-weight: 600; }
+.log-row--ev-burst_ii   .log-label,
+.log-row--ev-burst_iii  .log-label { color: var(--accent3); font-style: normal; font-weight: 600; }
 .log-row--ev-full_burst .log-buff,
 .log-row--ev-burst_i    .log-buff,
-.log-row--ev-burst_ii   .log-buff  { color: var(--accent3); font-style: normal; font-weight: 600; }
+.log-row--ev-burst_ii   .log-buff,
+.log-row--ev-burst_iii  .log-buff  { color: var(--accent3); font-style: normal; font-weight: 600; }
 .log-row--ev-skill_trigger td:nth-child(2) { color: var(--text); }
 .log-row--ev-skill_trigger .log-label      { color: var(--accent); font-style: normal; }
 .log-row--ev-skill_trigger .log-buff       { color: var(--text-muted); font-style: italic; }

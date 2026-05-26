@@ -816,7 +816,8 @@ export function tick(state) {
       for (const u of state.squad) u.burstCount++;
       const fired = applyFullBurstSkills(state);
       state.fullBurstTick = state.tick + TICK_RATE * 10; // 10s burst window
-      events.push({ type: 'full_burst', tick: state.tick, unitName: fired?.name ?? null });
+      if (fired) events.push({ type: 'burst_iii', tick: state.tick, unitName: fired.name });
+      events.push({ type: 'full_burst', tick: state.tick });
     }
   }
 
@@ -1094,7 +1095,7 @@ export function tick(state) {
       if (sums.lifeStealPct > 0) {
         unit.unitHp = Math.min(unit.stats.hp, unit.unitHp + damage * sums.lifeStealPct);
       }
-      events.push({ type: 'hit', tick: state.tick, unitId: unit.id, damage, isCrit });
+      events.push({ type: 'hit', tick: state.tick, unitId: unit.id, unitName: unit.name, damage, isCrit });
 
       // ── 每发射击后的单位技能触发（声明式执行器） ────────────────
       onShotFired(state, unit, { sums, isCharged, isCore, ammoAfterShot: unit.ammoLeft });
@@ -1174,7 +1175,7 @@ export function simulateMonteCarlo(config, iterations = 100) {
 
 // ─── 结果构造 ──────────────────────────────────────────────────────────
 
-const LOG_EVENT_TYPES = new Set(['burst_i', 'burst_ii', 'full_burst', 'burst_end', 'reload', 'phase_change', 'skill_trigger']);
+const LOG_EVENT_TYPES = new Set(['burst_i', 'burst_ii', 'burst_iii', 'full_burst', 'burst_end', 'burst_timeout', 'reload', 'phase_change', 'skill_trigger']);
 
 function buildResult(state, events) {
   const timeSeconds = state.tick / TICK_RATE;

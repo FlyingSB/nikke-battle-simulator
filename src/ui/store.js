@@ -217,7 +217,7 @@ function _normalAttackTipHTML(unitData) {
 function _findSkillByRow(row, unitData) {
   if (!unitData) return null;
   // Burst 事件 → burst 技能
-  if (row.eventType === 'burst_i' || row.eventType === 'burst_ii' || row.eventType === 'full_burst') {
+  if (row.eventType === 'burst_i' || row.eventType === 'burst_ii' || row.eventType === 'burst_iii' || row.eventType === 'full_burst') {
     return { skill: unitData.rawBurst, level: unitData.skillLevels[2] ?? 10 };
   }
   // 剥离 " P1" " P2" 等后缀再匹配
@@ -258,7 +258,7 @@ const TICK_RATE = 60;
 function formatTick(tick) {
   const t  = tick / TICK_RATE;
   const mm = String(Math.floor(t / 60)).padStart(2, '0');
-  const ss = String((t % 60).toFixed(1)).padStart(4, '0');
+  const ss = String((t % 60).toFixed(2)).padStart(5, '0');
   return `${mm}:${ss}`;
 }
 
@@ -266,7 +266,8 @@ function formatTick(tick) {
 const BATTLE_EVENT_COLS = {
   burst_i:      e => ({ name: e.unitName ?? '', label: 'Burst',  desc: 'Burst I' }),
   burst_ii:     e => ({ name: e.unitName ?? '', label: 'Burst',  desc: 'Burst II' }),
-  full_burst:   e => ({ name: e.unitName ?? '', label: 'Burst',  desc: 'Full Burst' }),
+  burst_iii:    e => ({ name: e.unitName ?? '', label: 'Burst',  desc: 'Burst III' }),
+  full_burst:   () => ({ name: '',              label: 'Burst',  desc: 'Full Burst' }),
   burst_end:    () => ({ name: '',               label: '',       desc: 'Full Burst 结束' }),
   burst_timeout:() => ({ name: '',               label: '',       desc: 'Full Burst 超时' }),
   reload:       e => ({ name: e.unitName ?? '', label: '',       desc: '装填' }),
@@ -291,6 +292,22 @@ function formatHitLabel(label) {
   return label;
 }
 
+// 同 tick 内的行排序优先级：burst_i/ii/iii(0) → BURST_SKILL_USE 技能触发(1) → full_burst(2)
+// → ENTER_FULL_BURST 技能触发(3) → 其他事件(4) → 聚合命中行(5)
+function _logRowOrder(row) {
+  if (row.kind !== 'event') return 5;
+  switch (row.eventType) {
+    case 'burst_i':
+    case 'burst_ii':
+    case 'burst_iii':  return 0;
+    case 'full_burst': return 2;
+    default:
+      if (row.trigger === 'BURST_SKILL_USE')   return 1;
+      if (row.trigger === 'ENTER_FULL_BURST')  return 3;
+      return 4;
+  }
+}
+
 function buildEventRows(eventLog) {
   if (!eventLog?.length) return [];
   return eventLog.map(e => {
@@ -311,6 +328,7 @@ function buildEventRows(eventLog) {
       tickEnd:    e.tick,
       kind:       'event',
       eventType:  e.type,
+      trigger:    e.trigger ?? null,
       name,
       label,
       target,
@@ -538,6 +556,8 @@ export function createStore() {
     battleLogRaw:  null,
     simRunning:    false,
     logMode:       'aggregate',
+    logHiddenUnits: [],
+    showLogNormal:  false,
     _squadLookup:  null,
 
     // 常量（模板使用）
@@ -1116,12 +1136,40 @@ export function createStore() {
         ? buildDetailLog(this.hitLogRaw, unitNames)
         : buildAggregateLog(this.hitLogRaw, unitNames);
       const eventRows = buildEventRows(this.battleLogRaw);
-      this.hitLogRows = [...hitRows, ...eventRows].sort((a, b) => a.tickStart - b.tickStart);
+      this.hitLogRows = [...hitRows, ...eventRows].sort((a, b) => {
+        const dt = a.tickStart - b.tickStart;
+        if (dt !== 0) return dt;
+        return _logRowOrder(a) - _logRowOrder(b);
+      });
     },
 
     setLogMode(mode) {
       this.logMode = mode;
       this._rebuildLog();
+    },
+
+    logUnitNames() {
+      if (!this.result?.units) return [];
+      const inLog = new Set(this.hitLogRows.filter(r => r.name).map(r => r.name));
+      return this.result.units.map(u => u.name).filter(n => inLog.has(n));
+    },
+
+    filteredLogRows() {
+      const noUnitFilter  = this.logHiddenUnits.length === 0;
+      const showNormal    = this.showLogNormal;
+      if (noUnitFilter && showNormal) return this.hitLogRows;
+      const hiddenSet = new Set(this.logHiddenUnits);
+      return this.hitLogRows.filter(row => {
+        if (!showNormal && row.kind !== 'event' && row.label === '普通攻击') return false;
+        if (row.name && hiddenSet.has(row.name)) return false;
+        return true;
+      });
+    },
+
+    toggleLogUnit(name) {
+      const idx = this.logHiddenUnits.indexOf(name);
+      if (idx >= 0) this.logHiddenUnits.splice(idx, 1);
+      else this.logHiddenUnits.push(name);
     },
 
     showDmgTooltip(event, hitData) {
@@ -1190,8 +1238,9 @@ export function createStore() {
       if (!unit?.skillDamage) return [];
       return Object.entries(unit.skillDamage)
         .filter(([, dmg]) => dmg > 0)
-        .map(([label, dmg]) => ({
-          label,
+        .map(([rawLabel, dmg]) => ({
+          label:  formatHitLabel(rawLabel),
+          name:   unit.name,
           damage: dmg,
           share:  unit.totalDamage > 0 ? dmg / unit.totalDamage : 0,
         }))
