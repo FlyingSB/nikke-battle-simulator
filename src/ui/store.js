@@ -271,7 +271,14 @@ const BATTLE_EVENT_COLS = {
   burst_end:    () => ({ name: '',               label: '',       desc: 'Full Burst 结束' }),
   burst_timeout:() => ({ name: '',               label: '',       desc: 'Full Burst 超时' }),
   reload:       e => ({ name: e.unitName ?? '', label: '',       desc: '装填' }),
-  phase_change: e => ({ name: '',               label: '',       desc: `距离 → ${e.zone ?? ''}` }),
+  phase_change:       e => ({ name: '',              label: '敌人行动', desc: `位置 → ${{ NEAR:'近', MID:'中', FAR:'远', HIDDEN:'隐藏' }[e.zone] ?? e.zone}` }),
+  enemy_action:       e => {
+    const desc = e.actionType === 'def'
+      ? `DEF → ${e.value}`
+      : `核心 → ${{ EXPOSED:'暴露核心', PROTECTED:'保护核心', NONE:'无核心' }[e.value] ?? e.value}`;
+    return { name: '', label: '敌人行动', desc };
+  },
+  reload_interrupted: e => ({ name: e.unitName ?? '', label: '换弹中断',   desc: '敌人出现' }),
 };
 
 const TRIGGER_DESC = {
@@ -405,7 +412,7 @@ function buildDetailLog(hitLog, unitNames) {
     ammoLeft:   h.ammoLeft,
     maxAmmo:    h.maxAmmo,
     isFullBurst:h.isFullBurst,
-    charge:     h.isFullBurst ? '' : (h.ammoLeft != null ? `${h.ammoLeft}/${h.maxAmmo}` : '—'),
+    charge:     h.ammoLeft != null ? `${h.ammoLeft}/${h.maxAmmo}` : '—',
     _hit:       h,
   }));
 }
@@ -528,13 +535,16 @@ export function createStore() {
 
     // 敌人
     enemy: {
-      def:      500,
       element:  'Iron',
       type:     'Normal',
-      hasCore:  false,
-      distNear: 0,
-      distMid:  180,
-      distFar:  0,
+      // 行动阶段：前3条固定（时间=0，类型固定），后续可增删
+      // 默认值参考联盟射击场 BIGARMS
+      actions: [
+        { id: 1, startTimeS: 0, type: 'def',      value: 100 },
+        { id: 2, startTimeS: 0, type: 'core',     value: 'EXPOSED' },
+        { id: 3, startTimeS: 0, type: 'position', value: 'MID' },
+      ],
+      _nextId: 4,
     },
 
     // 模拟选项
@@ -692,13 +702,10 @@ export function createStore() {
         classResearch:   { ...this.classResearch },
         corpResearch:    { ...this.corpResearch },
         enemy: {
-          def:      this.enemy.def,
           element:  this.enemy.element,
           type:     this.enemy.type,
-          hasCore:  this.enemy.hasCore,
-          distNear: this.enemy.distNear,
-          distMid:  this.enemy.distMid,
-          distFar:  this.enemy.distFar,
+          actions:  this.enemy.actions.map(a => ({ ...a })),
+          _nextId:  this.enemy._nextId,
         },
         iterations:    this.iterations,
         burstStepSecs: this.burstStepSecs,
@@ -733,7 +740,30 @@ export function createStore() {
       if (state.generalResearch != null) this.generalResearch = state.generalResearch;
       if (state.classResearch)  Object.assign(this.classResearch, state.classResearch);
       if (state.corpResearch)   Object.assign(this.corpResearch,  state.corpResearch);
-      if (state.enemy)          Object.assign(this.enemy, state.enemy);
+      if (state.enemy) {
+        const e = state.enemy;
+        if (Array.isArray(e.actions)) {
+          // 新格式
+          this.enemy.element  = e.element  ?? this.enemy.element;
+          this.enemy.type     = e.type     ?? this.enemy.type;
+          this.enemy.actions  = e.actions.map(a => ({ ...a }));
+          this.enemy._nextId  = e._nextId  ?? (this.enemy.actions.reduce((m, a) => Math.max(m, a.id), 0) + 1);
+        } else {
+          // 旧格式迁移：def/hasCore/distNear/distMid/distFar → actions
+          this.enemy.element = e.element ?? this.enemy.element;
+          this.enemy.type    = e.type    ?? this.enemy.type;
+          const coreVal = e.hasCore ? 'EXPOSED' : 'NONE';
+          let posVal = 'MID';
+          if ((e.distNear ?? 0) > 0) posVal = 'NEAR';
+          else if ((e.distFar ?? 0) > 0) posVal = 'FAR';
+          this.enemy.actions = [
+            { id: 1, startTimeS: 0, type: 'def',      value: e.def ?? 500 },
+            { id: 2, startTimeS: 0, type: 'core',     value: coreVal },
+            { id: 3, startTimeS: 0, type: 'position', value: posVal },
+          ];
+          this.enemy._nextId = 4;
+        }
+      }
       if (state.iterations      != null) this.iterations      = state.iterations;
       if (state.burstStepSecs   != null) this.burstStepSecs   = state.burstStepSecs;
       if (!Array.isArray(state.team)) return;
@@ -842,6 +872,33 @@ export function createStore() {
     clampCore(i) {
       const slot = this.team[i];
       slot.core = Math.max(0, Math.min(7, Number(slot.core) || 0));
+    },
+
+    // ── 敌人行动 ──────────────────────────────────────────────────────────────
+
+    addEnemyAction() {
+      this.enemy.actions.push({ id: this.enemy._nextId++, startTimeS: 0, type: 'def', value: 500 });
+    },
+
+    sortEnemyActions() {
+      const fixed   = this.enemy.actions.slice(0, 3);
+      const dynamic = this.enemy.actions.slice(3).sort((a, b) => a.startTimeS - b.startTimeS);
+      this.enemy.actions = [...fixed, ...dynamic];
+    },
+
+    removeEnemyAction(id) {
+      this.enemy.actions = this.enemy.actions.filter(a => a.id !== id);
+    },
+
+    updateEnemyAction(id, field, val) {
+      const action = this.enemy.actions.find(a => a.id === id);
+      if (!action) return;
+      if (field === 'type') {
+        // 类型切换时重置值为合理默认
+        const defaults = { def: 500, core: 'NONE', position: 'MID' };
+        action.value = defaults[val] ?? 500;
+      }
+      action[field] = val;
     },
 
     // ── 魔方 ──────────────────────────────────────────────────────────────────
@@ -1103,20 +1160,38 @@ export function createStore() {
           };
         });
 
-        const distancePhases = [];
-        if (this.enemy.distNear > 0) distancePhases.push({ zone: 'NEAR', durationS: Number(this.enemy.distNear) });
-        if (this.enemy.distMid  > 0) distancePhases.push({ zone: 'MID',  durationS: Number(this.enemy.distMid)  });
-        if (this.enemy.distFar  > 0) distancePhases.push({ zone: 'FAR',  durationS: Number(this.enemy.distFar)  });
+        const ENEMY_TICK_RATE = 60;
+        const enemyActions = this.enemy.actions;
+
+        const initDefAction  = enemyActions.find(a => a.startTimeS === 0 && a.type === 'def');
+        const initCoreAction = enemyActions.find(a => a.startTimeS === 0 && a.type === 'core');
+        const initPosAction  = enemyActions.find(a => a.startTimeS === 0 && a.type === 'position');
+
+        const initCore = initCoreAction?.value ?? 'NONE';
+        const positionPhases = enemyActions
+          .filter(a => a.type === 'position')
+          .map(a => ({ startTick: Math.round(Number(a.startTimeS) * ENEMY_TICK_RATE), zone: a.value }))
+          .sort((x, y) => x.startTick - y.startTick);
+        const defActions = enemyActions
+          .filter(a => a.type === 'def' && a.startTimeS > 0)
+          .map(a => ({ startTick: Math.round(Number(a.startTimeS) * ENEMY_TICK_RATE), value: Number(a.value) || 0 }))
+          .sort((x, y) => x.startTick - y.startTick);
+        const coreActions = enemyActions
+          .filter(a => a.type === 'core' && a.startTimeS > 0)
+          .map(a => ({ startTick: Math.round(Number(a.startTimeS) * ENEMY_TICK_RATE), value: a.value }))
+          .sort((x, y) => x.startTick - y.startTick);
 
         const baseConfig = {
           squad:    squadConfig,
           enemy: {
-            def:     Number(this.enemy.def)  || 500,
-            element: this.enemy.element,
-            type:    this.enemy.type,
-            hasCore: this.enemy.hasCore,
-            distance: distancePhases[0]?.zone ?? null,
-            ...(distancePhases.length ? { distancePhases } : {}),
+            def:            Number(initDefAction?.value) || 100,
+            hasCore:        initCore !== 'NONE',
+            coreProtected:  initCore === 'PROTECTED',
+            element:        this.enemy.element,
+            type:           this.enemy.type,
+            phases:         positionPhases,
+            ...(defActions.length  ? { defActions  } : {}),
+            ...(coreActions.length ? { coreActions } : {}),
           },
           duration:      180,
           burstStepSecs: this.burstStepSecs,

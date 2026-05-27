@@ -62,15 +62,17 @@
           <!-- 同步器与研究 -->
           <section class="card">
             <h2 class="card-title">⚙️ 全局配置</h2>
-            <div class="field-group">
-              <label class="field-label">同步器等级</label>
-              <input class="input" type="number" min="1" max="1200"
-                x-model.number="$store.sim.synchroLevel">
-            </div>
-            <div class="field-group">
-              <label class="field-label">通用研究</label>
-              <input class="input" type="number" min="0" max="1200"
-                x-model.number="$store.sim.generalResearch">
+            <div class="row-2">
+              <div class="field-group">
+                <label class="field-label">同步器等级</label>
+                <input class="input" type="number" min="1" max="1200"
+                  x-model.number="$store.sim.synchroLevel">
+              </div>
+              <div class="field-group">
+                <label class="field-label">通用研究</label>
+                <input class="input" type="number" min="0" max="1200"
+                  x-model.number="$store.sim.generalResearch">
+              </div>
             </div>
             <div class="section-sub">职业研究</div>
             <div class="row-3">
@@ -84,7 +86,7 @@
               </template>
             </div>
             <div class="section-sub">厂商研究</div>
-            <div class="row-2">
+            <div class="row-3">
               <template x-for="corp in ['ELYSION','MISSILIS','TETRA','PILGRIM','ABNORMAL']" :key="corp">
                 <div class="field-group">
                   <label class="field-label" x-text="$store.sim.corpLabel(corp)"></label>
@@ -99,43 +101,90 @@
           <!-- 敌人配置 -->
           <section class="card">
             <h2 class="card-title">🎯 敌人配置</h2>
-            <div class="row-2">
-              <div class="field-group">
-                <label class="field-label">防御力</label>
-                <input class="input" type="number" min="0" step="50"
-                  x-model.number="$store.sim.enemy.def">
-              </div>
-              <div class="field-group">
-                <label class="field-label">代码</label>
-                <select class="input" @change="$store.sim.enemy.element = $event.target.value">
-                  <template x-for="el in ['Fire','Water','Wind','Electric','Iron']" :key="el">
-                    <option :value="el" :selected="el === $store.sim.enemy.element" x-text="$store.sim.elementLabel(el)"></option>
-                  </template>
-                </select>
-              </div>
+            <div class="field-group">
+              <label class="field-label">代码</label>
+              <select class="input" x-model="$store.sim.enemy.element">
+                <option value="Fire">燃烧</option>
+                <option value="Water">水冷</option>
+                <option value="Wind">风压</option>
+                <option value="Electric">电击</option>
+                <option value="Iron">铁甲</option>
+              </select>
             </div>
-            <label class="checkbox-row">
-              <input type="checkbox" x-model="$store.sim.enemy.hasCore">
-              <span>具有核心（命中核心 +100% 伤害）</span>
-            </label>
-            <div class="section-sub">距离阶段（总计固定 180 秒）</div>
-            <div class="row-3">
-              <div class="field-group">
-                <label class="field-label">近距离 (s)</label>
-                <input class="input" type="number" min="0" max="180"
-                  x-model.number="$store.sim.enemy.distNear">
-              </div>
-              <div class="field-group">
-                <label class="field-label">中距离 (s)</label>
-                <input class="input" type="number" min="0" max="180"
-                  x-model.number="$store.sim.enemy.distMid">
-              </div>
-              <div class="field-group">
-                <label class="field-label">远距离 (s)</label>
-                <input class="input" type="number" min="0" max="180"
-                  x-model.number="$store.sim.enemy.distFar">
-              </div>
-            </div>
+            <div class="section-sub mt-1">敌人行动阶段</div>
+            <table class="enemy-actions-table">
+              <thead>
+                <tr>
+                  <th>时间 (s)</th>
+                  <th>类型</th>
+                  <th>值</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(action, idx) in $store.sim.enemy.actions" :key="action.id">
+                  <tr>
+                    <td>
+                      <template x-if="idx < 3">
+                        <span class="action-fixed-cell">0</span>
+                      </template>
+                      <template x-if="idx >= 3">
+                        <input class="input input-sm no-spin" type="number" min="0" max="180"
+                          :value="action.startTimeS"
+                          @input="$store.sim.updateEnemyAction(action.id, 'startTimeS', +$event.target.value)"
+                          @blur="$store.sim.sortEnemyActions()">
+                      </template>
+                    </td>
+                    <td>
+                      <template x-if="idx < 3">
+                        <span class="action-fixed-cell" x-text="({def:'DEF',core:'核心',position:'位置'})[action.type]"></span>
+                      </template>
+                      <template x-if="idx >= 3">
+                        <select class="input input-sm"
+                          :value="action.type"
+                          @change="$store.sim.updateEnemyAction(action.id, 'type', $event.target.value)">
+                          <option value="def">DEF</option>
+                          <option value="core">核心</option>
+                          <option value="position">位置</option>
+                        </select>
+                      </template>
+                    </td>
+                    <td>
+                      <template x-if="action.type === 'def'">
+                        <input class="input input-sm no-spin" type="number" min="0"
+                          :value="action.value"
+                          @input="$store.sim.updateEnemyAction(action.id, 'value', +$event.target.value)">
+                      </template>
+                      <template x-if="action.type === 'core'">
+                        <select class="input input-sm"
+                          :value="action.value"
+                          @change="$store.sim.updateEnemyAction(action.id, 'value', $event.target.value)">
+                          <option value="EXPOSED">暴露核心</option>
+                          <option value="PROTECTED">保护核心</option>
+                          <option value="NONE">无核心</option>
+                        </select>
+                      </template>
+                      <template x-if="action.type === 'position'">
+                        <select class="input input-sm"
+                          :value="action.value"
+                          @change="$store.sim.updateEnemyAction(action.id, 'value', $event.target.value)">
+                          <option value="NEAR">近</option>
+                          <option value="MID">中</option>
+                          <option value="FAR">远</option>
+                          <option value="HIDDEN">隐藏</option>
+                        </select>
+                      </template>
+                    </td>
+                    <td>
+                      <template x-if="idx >= 3">
+                        <button class="btn-icon btn-remove-action" @click="$store.sim.removeEnemyAction(action.id)" title="删除">−</button>
+                      </template>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <button class="btn-add-action" @click="$store.sim.addEnemyAction()">＋ 添加行动</button>
           </section>
 
           <!-- 模拟选项 -->
@@ -530,7 +579,7 @@
                     <div class="result-kv">
                       <span class="result-label">Full Burst 次数</span>
                       <span class="result-value"
-                        x-text="($store.sim.result.burstCount ?? 0).toFixed(1)"></span>
+                        x-text="Math.round($store.sim.result.burstCount ?? 0)"></span>
                     </div>
                   </div>
                 </section>
