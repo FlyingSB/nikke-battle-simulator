@@ -25,6 +25,13 @@ document.addEventListener('alpine:initialized', () => {
       try { localStorage.setItem('nikke-sim-v1', JSON.stringify(snapshot)); } catch {}
     }, 500);
   });
+
+  // Live Server 热重载触发 beforeunload 时，防抖未触发导致数据丢失——在此强制同步保存
+  window.addEventListener('beforeunload', () => {
+    const sim = Alpine.store('sim');
+    if (sim.loading) return;
+    try { localStorage.setItem('nikke-sim-v1', JSON.stringify(sim._getSnapshot())); } catch {}
+  });
 });
 
 // ── echarts 懒加载 ────────────────────────────────────────────────────────────
