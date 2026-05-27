@@ -149,6 +149,26 @@ body {
 
 select.input { cursor: pointer; }
 
+.input-range {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px;
+  background: var(--border2); border-radius: 2px; cursor: pointer;
+  padding: 0; border: none; outline: none;
+}
+.input-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); cursor: pointer;
+}
+.input-range::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%; border: none;
+  background: var(--accent); cursor: pointer;
+}
+.range-labels {
+  display: flex; justify-content: space-between;
+  font-size: 0.6rem; color: var(--text-muted); margin-top: 2px;
+}
+
 .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .row-inline { display: flex; align-items: center; gap: 5px; }

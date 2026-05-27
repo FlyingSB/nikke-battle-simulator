@@ -83,7 +83,9 @@ const LOGGABLE_TRIGGERS = new Set([
 // 将 tdef.target 或 trigger 类型推导为目标显示字符串（effect-based trigger 的兜底逻辑）
 function resolveEventTarget(tdef, trigger, caster) {
   const raw = tdef?.target;
-  if (raw === 'ALL_ALLIES' || raw === 'BURST_CASTERS' || raw === 'NON_BURST_CASTERS') return '全体队友';
+  if (raw === 'ALL_ALLIES')         return '全体队友';
+  if (raw === 'BURST_CASTERS')      return '爆裂施放者';
+  if (raw === 'NON_BURST_CASTERS')  return '爆裂未施放者';
   if (raw === 'SELF') return caster.name;
   if (raw === 'ENEMY') return '敌人';
   // handler 类技能按触发类型推断（已被 logTargets 取代；此处保留作为无 logTargets 时的最终兜底）
@@ -523,8 +525,8 @@ export function onIntervalInBurst(state) {
 
         const intervalTicks = Math.round((tdef.opts?.seconds ?? 1) * TICK_RATE);
         const lastKey       = `intervalLast_${skillKey}`;
-        if (caster.skillState[lastKey] == null) {
-          // 初次触发：对齐到上一个步长，令本 tick 立即触发
+        // 每次全爆裂开始时重置，确保立即触发首次效果
+        if (caster.skillState[lastKey] == null || caster.skillState[lastKey] < state.fullBurstStartTick) {
           caster.skillState[lastKey] = state.tick - intervalTicks;
         }
         if (state.tick - caster.skillState[lastKey] < intervalTicks) continue;

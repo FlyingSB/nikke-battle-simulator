@@ -9,6 +9,7 @@ export default {
   // Focuses fire continuously.
   // ■ Activates when Full Burst ends. Affects all allies.
   // Cooldown of Burst Skill ▼ {description_value_01} sec.
+  // ■ [P1: Activates only when in Focusing status — not modeled in simulator]
   // ■ Activates when entering Full Burst. Affects all allies.
   // Attack Damage ▲ {description_value_02}% for {description_value_03} sec.
   // ■ Activates each time the total ammo expended by allies reaches {description_value_04}. Affects all allies.
@@ -20,17 +21,9 @@ export default {
   // p05: [23.12, 24.66, 26.2, 27.75, 29.29, 30.83, 32.37, 33.91, 35.46, 37]
   skill1: {
     groupId: 25131,
+    partOffset: 1,  // P1（Focusing status）不在模拟器中建模，从 P2 开始编号
     triggers: [
-      // S1 T1 Bubble Order：进入全爆裂 → 全员 Attack Damage ▲[S1 param1]% 10s
-      {
-        on: 'ENTER_FULL_BURST',
-        handler(state, caster) {
-          const attackDmgPct = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'lm_skill1_attackDmg', unitId: null,
-            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
-        },
-      },
-      // S1：全爆裂结束 → 全员爆裂冷却 ▼[S1 param0]s
+      // S1 P2：全爆裂结束 → 全员爆裂冷却 ▼[S1 param0]s
       {
         on: 'FULL_BURST_END',
         handler(state, caster) {
@@ -42,7 +35,16 @@ export default {
             state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'lm_s1_cdReduction', unitId: null, reductionTicks });
         },
       },
-      // S1：每 400 发全队弹药 → 共享爆裂槽 ▲[S1 param4]%
+      // S1 P3：进入全爆裂 → 全员 Attack Damage ▲[S1 param1]% 10s
+      {
+        on: 'ENTER_FULL_BURST',
+        handler(state, caster) {
+          const attackDmgPct = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
+          pushBuff(state, { name: 'lm_skill1_attackDmg', unitId: null,
+            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
+        },
+      },
+      // S1 P4：每 400 发全队弹药 → 共享爆裂槽 ▲[S1 param4]%
       {
         on: 'AMMO_MILESTONE',
         handler(state, caster, ctx) {
@@ -103,6 +105,7 @@ export default {
       {
         on: 'INTERVAL_IN_BURST',
         opts: { seconds: 1 },
+        logTargets: null,  // 伤害已由 fireSkillHit 写入日志，无需额外 skill_trigger 条目
         handler(state, caster, ctx) {
           const mult = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);

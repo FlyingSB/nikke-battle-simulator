@@ -538,7 +538,8 @@ export function createStore() {
     },
 
     // 模拟选项
-    iterations: 30,
+    iterations:    30,
+    burstStepSecs: 0.6,
 
     // 队伍
     activeSlot:   0,
@@ -690,8 +691,17 @@ export function createStore() {
         generalResearch: this.generalResearch,
         classResearch:   { ...this.classResearch },
         corpResearch:    { ...this.corpResearch },
-        enemy:           { ...this.enemy },
-        iterations:      this.iterations,
+        enemy: {
+          def:      this.enemy.def,
+          element:  this.enemy.element,
+          type:     this.enemy.type,
+          hasCore:  this.enemy.hasCore,
+          distNear: this.enemy.distNear,
+          distMid:  this.enemy.distMid,
+          distFar:  this.enemy.distFar,
+        },
+        iterations:    this.iterations,
+        burstStepSecs: this.burstStepSecs,
         team: this.team.map(slot => ({
           active:       slot.active,
           resourceId:   slot.resourceId,
@@ -724,7 +734,8 @@ export function createStore() {
       if (state.classResearch)  Object.assign(this.classResearch, state.classResearch);
       if (state.corpResearch)   Object.assign(this.corpResearch,  state.corpResearch);
       if (state.enemy)          Object.assign(this.enemy, state.enemy);
-      if (state.iterations      != null) this.iterations = state.iterations;
+      if (state.iterations      != null) this.iterations      = state.iterations;
+      if (state.burstStepSecs   != null) this.burstStepSecs   = state.burstStepSecs;
       if (!Array.isArray(state.team)) return;
       state.team.forEach((saved, i) => {
         if (i >= this.team.length || !saved) return;
@@ -1107,7 +1118,8 @@ export function createStore() {
             distance: distancePhases[0]?.zone ?? null,
             ...(distancePhases.length ? { distancePhases } : {}),
           },
-          duration: 180,
+          duration:      180,
+          burstStepSecs: this.burstStepSecs,
         };
 
         const iters     = Math.max(1, Math.min(100, Number(this.iterations) || 30));

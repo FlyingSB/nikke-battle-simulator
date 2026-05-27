@@ -1,5 +1,5 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, applyShield,
-         getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, applyShield,
+         TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 export default {
@@ -22,26 +22,27 @@ export default {
   skill1: {
     groupId: 23301,
     triggers: [
-      // S1（One for All）：进入全爆裂 → 按本轮爆裂施放状态分组 15s
-      //   施放者：ATK flat ▲64.51% Crown ATK + Reload Speed ▲44.35%
-      //   未施放者：DEF flat ▲37.44% Crown DEF + Reload Speed ▲44.35%
+      // P1：爆裂施放者 → ATK flat ▲ + Reload Speed ▲
       {
         on: 'ENTER_FULL_BURST',
-        handler(state, caster) {
-          const ids          = state.burstCastersThisRotation;
-          const endTick      = state.tick + TICK_RATE * 15;
-          const atkFlatPct   = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
-          const reloadSpdPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
-          const defFlatPct   = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
-          for (const u of state.squad) {
-            if (ids.has(u.id)) {
-              pushBuff(state, { name: 'crown_skill1_atkFlat',  unitId: u.id, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick });
-            } else {
-              pushBuff(state, { name: 'crown_skill1_defFlat',  unitId: u.id, defFlat: Math.round(caster.stats.def * defFlatPct), endTick });
-            }
-            pushBuff(state, { name: 'crown_skill1_reloadSpd', unitId: u.id, reloadSpeedPct: reloadSpdPct, endTick });
-          }
-        },
+        target: 'BURST_CASTERS',
+        effects: [
+          { type: 'BUFF', name: 'crown_skill1_atkFlat',  duration: 15,
+            stat: (caster) => ({ atkFlat: Math.round(caster.stats.atk * getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100) }) },
+          { type: 'BUFF', name: 'crown_skill1_reloadSpd', duration: 15,
+            stat: (caster) => ({ reloadSpeedPct: getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100 }) },
+        ],
+      },
+      // P2：爆裂未施放者 → DEF flat ▲ + Reload Speed ▲
+      {
+        on: 'ENTER_FULL_BURST',
+        target: 'NON_BURST_CASTERS',
+        effects: [
+          { type: 'BUFF', name: 'crown_skill1_defFlat',  duration: 15,
+            stat: (caster) => ({ defFlat: Math.round(caster.stats.def * getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100) }) },
+          { type: 'BUFF', name: 'crown_skill1_reloadSpd', duration: 15,
+            stat: (caster) => ({ reloadSpeedPct: getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100 }) },
+        ],
       },
     ],
   },

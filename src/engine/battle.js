@@ -213,6 +213,7 @@ function applyFullBurstSkills(state) {
 
   // 2. 所有 B3 施放完毕后，进入全爆裂状态
   state.fullBurstActive = true;
+  state.fullBurstStartTick = state.tick;
 
   // 3. ENTER_FULL_BURST 被动触发（此时 fullBurstActive 已为 true）
   const prePendingLenFull = state.pendingSkillHits.length;
