@@ -110,6 +110,7 @@ export default {
         on: 'ENTER_FULL_BURST',
         logTargets: 'ENEMY',
         handler(state, caster) {
+          if (!state.isStageTarget) return;
           const lv   = caster.skillLevels[1];
           const mult = getSkillValue(caster.rawSkill2, 6, lv) / 100;
           const end  = state.tick + TICK_RATE * 9;
@@ -175,9 +176,9 @@ export default {
           pushBuff(state, { name: 'dws_burst_dt', unitId: null,
             enemyDamageTakenPct: dtPct, endTick: dtEnd });
 
-          // 全体敌人 DoT p00%/sec + 舞台目标额外 DoT p05%/sec（单 Boss 场景合并），持续 9s
+          // 全体敌人 DoT p00%/sec + 舞台目标额外 DoT p05%/sec，持续 9s
           const dotAllMult   = getSkillValue(caster.rawBurst, 0, lv) / 100;
-          const dotStageMult = getSkillValue(caster.rawBurst, 5, lv) / 100;
+          const dotStageMult = state.isStageTarget ? getSkillValue(caster.rawBurst, 5, lv) / 100 : 0;
           const totalMult    = dotAllMult + dotStageMult;
           const dotEnd       = state.tick + TICK_RATE * 9;
           const existingDot  = state.dots.find(d => d.dotName === 'dws_burst_dot' && d.casterId === caster.id);

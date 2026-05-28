@@ -550,6 +550,7 @@ export function initBattle(config) {
     enemyHp:            config.enemy.hp ?? Infinity,
     enemyDef:           config.enemy.def ?? 0,
     enemyElement:       config.enemy.element ?? 'Iron',
+    isStageTarget:      true,
     enemyHasCore:       config.enemy.hasCore ?? false,
     enemyCoreProtected: config.enemy.coreProtected ?? false,
     // Active enemy zone for distance-based damage. Updated on each non-CANNOT_BE_AIMED phase entry.

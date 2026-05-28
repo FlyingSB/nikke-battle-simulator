@@ -9,7 +9,7 @@
  *   R4  — FULL_BURST_END re-evaluation: status stays consistent across multiple cycles
  *   R5  — Rapi B3, non-CA: burst fires 28.08× damage (skillDamage['burst'] > 0)
  *   R6  — Rapi B3, CA:     CA ATK-flat buff fires; no burst damage
- *   R7  — Rapi configured as B1: no burst damage; Scenario D buff fires on ENTER_FULL_BURST
+ *   R7  — Rapi CA mode (IS_COMBAT_ASSIST): Stage 1 burst fires (no Stage 3 damage); Scenario C fires
  *
  * Run: node scripts/tests/test-rapi-burst.mjs
  */
@@ -179,7 +179,7 @@ section('R4 — combatAssistStatus re-evaluated at FULL_BURST_END; consistent ac
   eq('R4.3  Scenario D never fires',            dCount === 0,                true);
 }
 
-// ─── R5: Rapi B3, non-CA → fires burst damage ───────────────────────────────
+// ─── R5: Rapi B3, non-CA → fires burst damage (0.1s delay, label 'Burst P4') ─
 
 section('R5 — Rapi B3, non-CA: burst fires 28.08× skill damage');
 {
@@ -189,8 +189,9 @@ section('R5 — Rapi B3, non-CA: burst fires 28.08× skill damage');
     rapiUnit('Step3', 'Step3'),
   ]));
   const rapi = rapiResult(r);
-  eq('R5.1  burst damage label exists',        'Burst P3' in (rapi.skillDamage ?? {}),      true);
-  eq('R5.2  burst damage > 0',                 (rapi.skillDamage?.['Burst P3'] ?? 0) > 0,   true);
+  // 爆裂伤害经 0.1s pendingSkillHit 延迟触发，partOverride:3 → label='Burst P4'
+  eq('R5.1  burst damage label exists',        'Burst P4' in (rapi.skillDamage ?? {}),      true);
+  eq('R5.2  burst damage > 0',                 (rapi.skillDamage?.['Burst P4'] ?? 0) > 0,   true);
 }
 
 // ─── R6: Rapi B3, CA → CA burst buff fires, no B3 damage ────────────────────
@@ -204,24 +205,27 @@ section('R6 — Rapi B3, Combat Assist: CA ATK-flat buff fires; burst damage abs
   ]));
   const rapi = rapiResult(r);
   eq('R6.1  CA burst buff fired',              buffFired(r.buffLog, 'rapi_burst_ca_atkFlat'),            true);
-  eq('R6.2  burst damage label absent',        'Burst P3' in (rapi.skillDamage ?? {}),                  false);
+  eq('R6.2  burst damage label absent',        'Burst P4' in (rapi.skillDamage ?? {}),                  false);
 }
 
-// ─── R7: Rapi configured as B1 → no burst damage; Scenario D fires ──────────
+// ─── R7: Rapi in CA mode → Stage 1 burst fires (no Stage 3 damage) ──────────
 
-section('R7 — Rapi as B1 slot: no B3 burst damage; Scenario D buff fires');
+section('R7 — Rapi CA mode (IS_COMBAT_ASSIST): Stage 1 burst fires, no Stage 3 damage');
 {
-  // Rapi fills B1 slot; her nativeBurstStep=Step3 means no native B1 → combatAssistStatus=false
+  // burst 技能描述："When used in Stage 1: Squad Support Action Style"→ CD 减少 + ATK flat，无伤害
+  // "When used in Stage 3: High-Mobility Close-Range Combat Weapon" → 有伤害
+  // IS_COMBAT_ASSIST = hasNativeB1(true) && combatAssist(true) → Stage 1 burst → 无伤害
   const r = simulate(mkConfig([
-    rapiUnit('Step1', 'Step3'),    // Rapi in B1 role
+    dummyUnit('Step1', 'Step1'),   // native B1 → hasNativeB1=true
     dummyUnit('Step2'),
-    dummyUnit('Step3'),
+    rapiUnit('Step3', 'Step3', { combatAssist: true }),
   ]));
   const rapi = rapiResult(r);
-  eq('R7.1  at least one burst fired',         r.burstCount > 0,                                         true);
-  eq('R7.2  Rapi fires burst damage as B1 caster', (rapi.skillDamage?.['Burst P3'] ?? 0) > 0,           true);
-  eq('R7.3  Scenario D ATK buff fired',        buffFired(r.buffLog, 'rapi_s1_enterBurst_atkPct'),        true);
-  eq('R7.4  Scenario C buff did NOT fire',     buffFired(r.buffLog, 'rapi_s1_ca_attackDmg'),             false);
+  eq('R7.1  at least one burst fired',                 r.burstCount > 0,                                         true);
+  eq('R7.2  Stage 3 burst damage absent in CA mode',   ('Burst P4' in (rapi.skillDamage ?? {})),                false);
+  eq('R7.3  Stage 1 CA ATK-flat buff fired',           buffFired(r.buffLog, 'rapi_burst_ca_atkFlat'),           true);
+  eq('R7.4  Scenario C ATK-dmg buff fired',            buffFired(r.buffLog, 'rapi_s1_ca_attackDmg'),            true);
+  eq('R7.5  Scenario D ATK buff did NOT fire',         buffFired(r.buffLog, 'rapi_s1_enterBurst_atkPct'),       false);
 }
 
 summary('Rapi: Red Hood burst-step & Combat Assist tests');

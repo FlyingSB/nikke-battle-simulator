@@ -28,12 +28,13 @@ export default {
       // [TODO] S1 P1（Healthy Body）：受到攻击且无 Healthy Body → 自身无敌 3s + 免疫 debuff 3s（5次/战）
       //   + Healthy Body: HP 回复效力 ▲10.26% 20s — 防御性技能，暂不建模
 
-      // S1 P2（Firepower Explosion）：全蓄力命中 Boss → 额外 437.98% final ATK
+      // S1 P2（Firepower Explosion）：全蓄力命中舞台目标 → 额外 437.98% final ATK
       //   Super Firepower 状态中追加 262.79% final ATK
       {
         on: 'FULL_CHARGE',
         logTargets: null,
         handler(state, caster, ctx) {
+          if (!state.isStageTarget) return;
           if (state.enemyHp <= 0) return;
           const sums     = ctx.sums ?? getBuffSums(state, caster.id);
           const baseMult = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;

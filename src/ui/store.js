@@ -557,7 +557,7 @@ export function createStore() {
     // 敌人
     enemy: {
       element:  'Iron',
-      type:     'Normal',
+      type:     'Boss',
       // 行动阶段：前3条固定（时间=0，类型固定），后续可增删
       // 默认值参考联盟射击场 BIGARMS
       actions: [

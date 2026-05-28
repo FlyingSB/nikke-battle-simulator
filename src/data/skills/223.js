@@ -37,16 +37,20 @@ export default {
           caster.skillState.nayutaIndomitabilityEndTick = state.tick + TICK_RATE * 9;
         },
       },
-      // S1 Part3: Memory Incineration 期间全蓄力攻击 → 额外 530.46%（150% 全员 + 380.46% boss）
+      // S1 Part3: Memory Incineration 期间全蓄力攻击 → 全体 p07% + 舞台目标额外 p10%
       {
         on: 'FULL_CHARGE',
         logTargets: null,
         handler(state, caster, ctx) {
           if ((caster.skillState.weaponSwitchEndTick ?? 0) <= 0 ||
               state.tick > caster.skillState.weaponSwitchEndTick) return;
-          const sums = ctx.sums ?? getBuffSums(state, caster.id);
-          if (state.enemyHp > 0)
-            fireSkillHit(state, caster, 5.3046, sums, false, 'S1');
+          const sums    = ctx.sums ?? getBuffSums(state, caster.id);
+          const allMult = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
+          if (state.enemyHp > 0) fireSkillHit(state, caster, allMult, sums, false, 'S1');
+          if (state.isStageTarget && state.enemyHp > 0) {
+            const stageMult = getSkillValue(caster.rawSkill1, 9, caster.skillLevels[0]) / 100;
+            fireSkillHit(state, caster, stageMult, sums, false, 'S1 Boss');
+          }
         },
       },
     ],

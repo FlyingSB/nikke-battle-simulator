@@ -525,7 +525,7 @@ section('T13: Nayuta S1 Part3 — FULL_CHARGE during Memory Incineration fires 5
   const totalBossMult  = allEnemiesMult + additionalMult;
   eq('150% + 380.46% = 530.46%', Math.round(totalBossMult * 10000) / 10000, 5.3046);
 
-  // Simulate: Memory Incineration active → handler fires hit with mult=5.3046
+  // Simulate: Memory Incineration active, stage target → two hits: 150% (all) + 380.46% (boss)
   const unitId = 223;
   const T = 500;
   const zeroSums = {
@@ -533,21 +533,33 @@ section('T13: Nayuta S1 Part3 — FULL_CHARGE during Memory Incineration fires 5
     critDmgBonus: 0, chargeDamagePct: 0, lifeStealPct: 0, distributedDamagePct: 0,
     coreDamagePct: 0,
   };
+  // rawSkill1 mock：index 6 = p07 (150%), index 9 = p10 (380.46%)，skillLevel=1 取 description_value[0]
+  const mockS1 = {
+    description_value_list: Object.assign(Array.from({ length: 10 }, () => ({})), {
+      6: { description_value: ['150'] },
+      9: { description_value: ['380.46'] },
+    }),
+  };
   const state = {
     tick: T, buffs: [], buffLog: null, hitLog: [],
     enemyHp: 1e9, enemyDef: 0, enemyDamageTakenPct: 0,
-    fullBurstActive: true,
+    fullBurstActive: true, isStageTarget: true,
     squad: [{ id: unitId, equipAtkPct: 0,
       stats: { atk: 100000, critRate: 1, critDmg: 0.5 },
       totalDamage: 0, skillDamage: {}, skillDamageCount: {} }],
   };
   const caster = state.squad[0];
+  caster.rawSkill1  = mockS1;
+  caster.skillLevels = [1, 1, 1];
   caster.skillState = { weaponSwitchEndTick: T + 600 }; // switch active
   fcTrigger.handler(state, caster, { sums: zeroSums });
 
-  const hitEntry = state.hitLog.find(h => h.label === 'S1');
-  eq('hitLog entry for S1 exists', !!hitEntry, true);
-  eq('hitMult = 5.3046', hitEntry?.hitMult, 5.3046);
+  const hitAll   = state.hitLog.find(h => h.label === 'S1');
+  const hitBoss  = state.hitLog.find(h => h.label === 'S1 Boss');
+  eq('hitLog entry for S1 (all enemies) exists', !!hitAll, true);
+  eq('S1 all-enemies hitMult = 1.5',             hitAll?.hitMult, 1.5);
+  eq('hitLog entry for S1 Boss (stage target) exists', !!hitBoss, true);
+  eq('S1 Boss hitMult = 3.8046',                 Math.round((hitBoss?.hitMult ?? 0) * 10000) / 10000, 3.8046);
 
   // When Memory Incineration is NOT active, handler must not fire
   const stateOff = {
@@ -651,6 +663,7 @@ section('T14: FC 追加技能伤害充能 — Helm · Maiden · Liberalio · Neo
     // 无 Super Firepower → 1 hit → +1×ENERGY
     {
       const state  = makeState(18);
+      state.isStageTarget = true;
       const caster = state.squad[0];
       caster.rawSkill1 = rawS1;
       fcTrigger.handler(state, caster, {});
@@ -660,6 +673,7 @@ section('T14: FC 追加技能伤害充能 — Helm · Maiden · Liberalio · Neo
     // Super Firepower 激活 → 2 hits → +2×ENERGY
     {
       const state  = makeState(18);
+      state.isStageTarget = true;
       const caster = state.squad[0];
       caster.rawSkill1 = rawS1;
       caster.skillState.nveSuperFirepowerEndTick = state.tick + 600;  // 10s 有效
