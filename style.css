@@ -16,7 +16,7 @@
   --green:       #2ec27e;
   --purple:      #9b59b6;
   --text:        #d4dbe8;
-  --text-dim:    #6e7d97;
+  --text-dim:    #b1b1b1;
   --text-muted:  #3d4d66;
   --skill-param: #FA8030;
   --font-mono:   'JetBrains Mono', 'Consolas', monospace;
@@ -454,8 +454,6 @@ select.input { cursor: pointer; }
 }
 .log-table tr:last-child td { border-bottom: none; }
 .log-table tr:hover td { background: var(--surface3); }
-.log-row--crit td { color: var(--text); }
-.log-row--crit .log-dmg { color: var(--accent3) !important; }
 .log-line     { color: var(--text-muted); text-align: right; white-space: nowrap; user-select: none; }
 .log-line-hd  { width: 28px; text-align: right; }
 .log-time  { color: var(--text-muted); white-space: nowrap; }
@@ -464,6 +462,10 @@ select.input { cursor: pointer; }
 .log-buff  { color: var(--text-muted); font-size: 0.6rem; max-width: 100px; }
 .log-dmg   { color: var(--text); text-align: right; white-space: nowrap; }
 .log-ammo  { color: var(--text-muted); text-align: right; }
+.hit-tag   { font-size: 0.6rem; font-weight: 600; margin-right: 3px; }
+.hit-tag--crit { color: #f29c15; }
+.hit-tag--core { color: #f19d89; }
+.hit-tag--dist { color: #1df7e3; }
 .log-empty { text-align: center; color: var(--text-muted); padding: 14px; }
 
 /* 事件行 */

@@ -428,6 +428,8 @@ function buildDetailLog(hitLog, unitNames) {
     damage:     h.damage,
     count:      1,
     isCrit:     h.isCrit,
+    isCore:     h.isCore,
+    distanceAdv: h.distanceAdv,
     ammoLeft:   h.ammoLeft,
     maxAmmo:    h.maxAmmo,
     isFullBurst:h.isFullBurst,

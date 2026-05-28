@@ -651,15 +651,15 @@
                           <th>技能</th>
                           <th>目标</th>
                           <th>Buff</th>
-                          <th>伤害</th>
-                          <th x-show="$store.sim.logMode === 'detail'">弹药</th>
+                          <th style="text-align:right">伤害</th>
+                          <th x-show="$store.sim.logMode === 'detail'" style="text-align:right">弹药</th>
                         </tr>
                       </thead>
                       <tbody>
                         <template x-for="(row, ri) in $store.sim.filteredLogRows()" :key="ri">
                           <tr :class="row.kind === 'event'
                             ? ('log-row--event log-row--ev-' + row.eventType)
-                            : (row.isCrit ? 'log-row--crit' : '')">
+                            : ''">
                             <td class="log-line" x-text="ri + 1"></td>
                             <td class="log-time mono" x-text="row.kind !== 'event' && row.tickEnd > row.tickStart ? $store.sim.formatTick(row.tickStart) + '~' + $store.sim.formatTick(row.tickEnd) : $store.sim.formatTick(row.tickStart)"></td>
                             <td x-text="row.name"></td>
@@ -670,7 +670,15 @@
                               <span class="log-count" x-show="row.count > 1" x-text="'×' + row.count"></span>
                             </td>
                             <td x-text="row.target ?? ''"></td>
-                            <td class="log-buff" x-text="row.buffDesc"></td>
+                            <td class="log-buff">
+                              <span class="hit-tag hit-tag--crit"
+                                x-show="row._hit && row.isCrit">暴击</span>
+                              <span class="hit-tag hit-tag--core"
+                                x-show="row._hit && row.isCore">命中核心</span>
+                              <span class="hit-tag hit-tag--dist"
+                                x-show="row._hit && row.distanceAdv">优势距离</span>
+                              <span x-text="row.buffDesc"></span>
+                            </td>
                             <td class="log-dmg mono"
                               :class="$store.sim.logMode === 'detail' && row._hit ? 'log-dmg--tip' : ''"
                               x-text="row.damage != null ? $store.sim.fmtNum(row.damage) : ''"
