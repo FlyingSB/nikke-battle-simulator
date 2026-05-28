@@ -1,6 +1,7 @@
 import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Diesel: Winter Sweets  (resource_id: 75)
 export default {
 
   // ── Ah Ah, Mic Test
