@@ -99,7 +99,7 @@ export default {
         opts: { seconds: 3 },
         handler(state, caster) {
           if (!caster.skillState.cinderellaDecoyActive) return false;
-          if ((caster.skillState.cinderellaBeautyStacks ?? 0) >= 12) return false;
+          if ((caster.skillState.cinderellaBeautyStacks ?? 0) >= 12) return;
           caster.skillState.cinderellaBeautyStacks = (caster.skillState.cinderellaBeautyStacks ?? 0) + 1;
           const stacks       = caster.skillState.cinderellaBeautyStacks;
           const maxHpPerStack = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;

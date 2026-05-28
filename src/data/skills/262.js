@@ -93,21 +93,24 @@ export default {
   skill2: {
     groupId: 22622,
     triggers: [
-      // S2 Part1：战斗开始 → 自身永久免疫蓄力速度增加/减少效果（技能来源；装备词条不受影响）
+      // S2 Part3：战斗开始 → 自身永久免疫蓄力速度增加/减少效果（技能来源；装备词条不受影响）
       {
         on: 'BATTLE_START',
+        partOverride: 2,
         logTargets: 'SELF',
         handler(state, caster) {
           caster.immuneSkillChargeSpeed = true;
         },
       },
-      // S2（Strange Currents）：首次全蓄力命中 → Raging Current：自身 Attack Damage ▲[S2 param0]% 永久
-      // "stage target" = Boss 战唯一目标，首发即激活
+      // S2 Part1（Strange Currents）：全蓄力命中舞台目标 → Raging Current：自身 Attack Damage ▲[S2 param0]% 永久
+      // 命中非舞台目标 Rapture → Gentle Current（蓄力时间固定为 1s）— 普通 Rapture 场景下触发，此处未建模
       {
         on: 'FULL_CHARGE',
+        partOverride: 0,
         logTargets: 'SELF',
         handler(state, caster) {
-          if (caster.skillState.libRagingCurrentActive) return false;
+          if (!state.isStageTarget) return;
+          if (caster.skillState.libRagingCurrentActive) return;
           caster.skillState.libRagingCurrentActive = true;
           const attackDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           pushBuff(state, { name: 'lib_s2_ragingCurrent', unitId: caster.id,

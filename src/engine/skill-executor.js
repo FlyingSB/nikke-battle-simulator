@@ -348,6 +348,9 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
         if (!checkConditions(state, caster, tdef, ctx)) continue;
 
         if (tdef.handler) {
+          // 约定：return false = 条件未满足，不记日志；return (void) = 技能触发但效果无变化（如永久buff已激活/已满层），仍记日志。
+          // TODO: 考虑方案B（conditions/guards 两层声明式拆分）或方案C（pushBuff 返回 isNew），
+          //       以在框架层杜绝此类误用，而非依赖 handler 内的 return 值约定。
           const result = tdef.handler(state, caster, ctx);
           if (result !== false) pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef, skill);
         } else {

@@ -53,7 +53,7 @@ export default {
         logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const count = caster.skillState.sfTicketCount ?? 0;
-          if (count >= 2) return false;
+          if (count >= 2) return;
           caster.skillState.sfTicketCount = count + 1;
           refreshTicketMaxHp(state, caster);
         },
