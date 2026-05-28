@@ -83,7 +83,7 @@ body {
 /* ── 3-column layout ─────────────────────────────────────── */
 .layout {
   display: grid;
-  grid-template-columns: 260px 640px 1fr;
+  grid-template-columns: 300px 640px 1fr;
   height: calc(100vh - 48px);
   overflow: hidden;
 }
@@ -586,6 +586,19 @@ select.input { cursor: pointer; }
 .skill-tip-desc .skill-val   { color: var(--text); font-weight: 600; }
 .skill-tip-desc .skill-param { color: #FA8030; }
 
+.skill-tip-part {
+  margin: 2px 0;
+  padding: 3px 5px;
+  border-radius: var(--r-sm);
+}
+.skill-tip-part--active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid var(--accent-dim);
+  border-radius: var(--r-sm);
+  padding: 3px 5px;
+  margin: 2px 0;
+}
+
 /* ── Modal / Char picker ─────────────────────────────────── */
 [x-cloak] { display: none; }
 .modal-overlay {
@@ -626,3 +639,48 @@ select.input { cursor: pointer; }
 .char-card-meta { font-size: 0.6rem; color: var(--text-dim); }
 .char-card--unmodeled { opacity: 0.35; cursor: not-allowed; }
 .char-card--unmodeled:hover { background: var(--surface2); border-color: var(--border); }
+
+/* ── 敌人行动阶段表格 ────────────────────────────────────── */
+.enemy-actions-table {
+  width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 0.72rem;
+}
+.enemy-actions-table th {
+  text-align: left; padding: 3px 6px; color: var(--text-muted);
+  border-bottom: 1px solid var(--border); font-weight: 600; font-size: 0.65rem;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.enemy-actions-table td {
+  padding: 3px 4px; vertical-align: middle;
+}
+.enemy-actions-table td:first-child,
+.enemy-actions-table th:first-child { width: 80px; white-space: nowrap; }
+.enemy-actions-table td:nth-child(2) { white-space: nowrap; }
+.enemy-actions-table td:nth-child(2) select.input-sm { min-width: 52px; width: 100%; }
+.enemy-actions-table td:nth-child(3) { min-width: 116px; }
+.enemy-actions-table td:last-child { width: 28px; text-align: center; }
+.enemy-actions-table .input-sm {
+  padding: 2px 5px; font-size: 0.7rem; height: 24px; width: 100%;
+}
+.action-fixed-cell {
+  display: inline-block; padding: 2px 6px;
+  color: var(--text-dim); font-size: 0.7rem;
+}
+.btn-remove-action {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0; border-radius: 50%;
+  background: transparent; border: 1px solid var(--border2);
+  color: var(--text-dim); font-size: 0.85rem; cursor: pointer;
+  line-height: 1; transition: all 0.1s;
+}
+.btn-remove-action:hover { background: #c0392b22; border-color: #c0392b; color: #e74c3c; }
+.btn-add-action {
+  margin-top: 7px; padding: 3px 10px; font-size: 0.7rem;
+  background: transparent; border: 1px dashed var(--border2);
+  color: var(--text-dim); border-radius: var(--r-sm); cursor: pointer;
+  transition: all 0.1s; display: inline-flex; align-items: center; gap: 4px;
+  font-family: inherit;
+}
+.btn-add-action:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.no-spin::-webkit-outer-spin-button,
+.no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.no-spin { -moz-appearance: textfield; }

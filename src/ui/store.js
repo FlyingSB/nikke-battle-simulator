@@ -237,16 +237,30 @@ function _findSkillByRow(row, unitData) {
   return null;
 }
 
-function _skillDescTipHTML(skill, level, renderFn) {
+function _skillDescTipHTML(skill, level, renderFn, partIdx = null) {
   if (!skill) return null;
   const name = skill.name_localkey ?? '';
-  const desc = renderFn(
-    skill.description_localkey ?? '',
-    skill.description_value_list ?? [],
-    level ?? 10
-  );
-  if (!desc && !name) return null;
+  const rawDesc = skill.description_localkey ?? '';
+  const valueList = skill.description_value_list ?? [];
+  const lv = level ?? 10;
+
   const nameHtml = name ? `<div class="skill-tip-name">${name}</div>` : '';
+
+  // 按 ■ 分割各段，逐段渲染并高亮 partIdx 对应段
+  const rawParts = rawDesc.split('■').filter(s => s.trim() !== '');
+  if (partIdx !== null && rawParts.length > 1) {
+    const parts = rawParts.map((raw, i) => {
+      const rendered = renderFn('■' + raw, valueList, lv);
+      const cls = i === partIdx ? 'skill-tip-part skill-tip-part--active' : 'skill-tip-part';
+      return `<div class="${cls}">${rendered}</div>`;
+    });
+    const descHtml = `<div class="skill-tip-desc">${parts.join('')}</div>`;
+    return nameHtml + descHtml;
+  }
+
+  // 无 P 后缀或描述无分隔符：整块渲染
+  const desc = renderFn(rawDesc, valueList, lv);
+  if (!desc && !name) return null;
   const descHtml = desc ? `<div class="skill-tip-desc">${desc}</div>` : '';
   return nameHtml + descHtml;
 }
@@ -1316,7 +1330,9 @@ export function createStore() {
       // 技能/事件行：匹配对应技能并显示描述
       const found = _findSkillByRow(row, unitData);
       if (!found?.skill) return null;
-      return _skillDescTipHTML(found.skill, found.level, renderSkillDesc);
+      const partMatch = row.label.match(/ P(\d+)$/);
+      const partIdx = partMatch ? parseInt(partMatch[1], 10) - 1 : null;
+      return _skillDescTipHTML(found.skill, found.level, renderSkillDesc, partIdx);
     },
 
     // ── 结果辅助 ─────────────────────────────────────────────────────────────
