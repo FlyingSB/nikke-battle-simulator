@@ -44,6 +44,7 @@ export default {
       // 战斗开始：Damage Taken ▲ p02% 永久施加（单体 Boss 下锁定目标始终存在）
       {
         on: 'BATTLE_START',
+        partOverride: 1,
         logTargets: 'ENEMY',
         handler(state, caster) {
           const p02 = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
@@ -56,7 +57,8 @@ export default {
       // FA 激活时额外推送 Charge Damage ▲（endTick+1 使其仅对本帧 isCharged=true 的 AoE 有效）。
       {
         on: 'FULL_CHARGE',
-        logTargets: ['SELF', 'ENEMY'],
+        partOverride: 2,
+        logTargets: null,
         handler(state, caster) {
           const s1Lv    = caster.skillLevels[0];
           const s2Lv    = caster.skillLevels[1];

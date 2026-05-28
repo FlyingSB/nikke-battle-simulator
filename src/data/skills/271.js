@@ -17,6 +17,7 @@ export default {
     triggers: [
       {
         on: 'BATTLE_START',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const pct     = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
           const atkFlat = Math.round(caster.stats.atk * pct);
@@ -44,6 +45,7 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const ammoFlat  = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]);
           const reloadPct = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
@@ -91,6 +93,7 @@ export default {
       // Part1：爆裂技能伤害（全敌）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: null,
         handler(state, caster) {
           const pct  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const sums = getBuffSums(state, caster.id);
@@ -100,6 +103,7 @@ export default {
       // Part2：霰弹枪友军 Hit Rate + Interruption Parts Dmg（10 sec）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const hitRatePct  = getSkillValue(caster.rawBurst, 1, caster.skillLevels[2]) / 100;
           const partsDmgPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
@@ -116,11 +120,12 @@ export default {
       // Part3：同小队友军存活 → 全员 Hit Rate + Interruption Parts Dmg（30 sec）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const hasSquadAlly = state.squad.some(
             u => u.id !== caster.id && u.squad === caster.squad && u.unitHp > 0,
           );
-          if (!hasSquadAlly) return;
+          if (!hasSquadAlly) return false;
           const hitRatePct  = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]) / 100;
           const partsDmgPct = getSkillValue(caster.rawBurst, 7, caster.skillLevels[2]) / 100;
           const end30       = state.tick + TICK_RATE * 30;

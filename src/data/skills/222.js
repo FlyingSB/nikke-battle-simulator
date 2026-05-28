@@ -71,6 +71,7 @@ export default {
       // Part2：战斗开始时检测初始 HP（通常满血不触发；安全起见保留）
       {
         on: 'BATTLE_START',
+        logTargets: null,
         handler: checkAndApplyS2P2,
       },
     ],
@@ -90,21 +91,25 @@ export default {
   burst: {
     groupId: 12223,
     triggers: [
+      // Burst P1：HP < 50% → 自身 Crit Rate ▲[p01]% 10s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
-          const lv = caster.skillLevels[2];
-
-          // Part1：HP < 50% → 自身 Crit Rate ▲[p01]% 10s
           const hpPct = (caster.unitHp ?? caster.stats.hp) / caster.stats.hp;
-          if (hpPct < 0.5) {
-            const crPct = getSkillValue(caster.rawBurst, 1, lv) / 100;
-            pushBuff(state, { name: 'sc_burst_critRate', unitId: caster.id,
-              critRateBonus: crPct, endTick: state.tick + TICK_RATE * 10 });
-          }
-
-          // Part2：延迟 1.38s 后触发爆裂伤害（默认结算）。
-          // sums 预捕获以排除 ENTER_FULL_BURST buff；全爆裂补正由引擎自动抑制（suppressFullBurst）。
+          if (hpPct >= 0.5) return false;
+          const lv    = caster.skillLevels[2];
+          const crPct = getSkillValue(caster.rawBurst, 1, lv) / 100;
+          pushBuff(state, { name: 'sc_burst_critRate', unitId: caster.id,
+            critRateBonus: crPct, endTick: state.tick + TICK_RATE * 10 });
+        },
+      },
+      // Burst P2：延迟 1.38s 后触发爆裂伤害（sums 在 P1 crit buff 生效后捕获）
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'ENEMY',
+        handler(state, caster) {
+          const lv        = caster.skillLevels[2];
           const burstMult = getSkillValue(caster.rawBurst, 3, lv) / 100;
           const sumsSnap  = getBuffSums(state, caster.id);
           state.pendingSkillHits.push({

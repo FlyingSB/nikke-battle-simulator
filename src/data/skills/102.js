@@ -18,6 +18,7 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv     = caster.skillLevels[0];
           const csPct  = getSkillValue(caster.rawSkill1, 0, lv) / 100;
@@ -55,9 +56,10 @@ export default {
     triggers: [
       {
         on: 'BATTLE_START',
+        logTargets: null,
         handler(state, caster) {
           const enemyCount = state.enemyCount ?? 1;
-          if (enemyCount <= 5) return;
+          if (enemyCount <= 5) return false;
 
           const lv    = caster.skillLevels[1];
           const crPct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
@@ -88,6 +90,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const bLv             = caster.skillLevels[2];
           const hitMult         = getSkillValue(caster.rawBurst, 0, bLv) / 100;

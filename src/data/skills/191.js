@@ -21,6 +21,7 @@ export default {
       //   Charge Damage ▲[S1 param3]% 10s
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const sorted          = [...state.squad].sort((a, b) => b.stats.atk - a.stats.atk);
           const targets         = sorted.slice(0, 2);
@@ -57,6 +58,7 @@ export default {
       // [TODO] S2 Part2：HP < 80% → 攻击时回复 8.12% ATK 量 HP（生命偷取）
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           caster.skillState.pierceActive = true;
         },
@@ -80,6 +82,7 @@ export default {
       // 启用快速攻击模式（40次/10s，由 battle.js 判定）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const end10      = state.tick + TICK_RATE * 10;
           const chargeSpd  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;

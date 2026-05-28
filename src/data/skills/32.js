@@ -63,10 +63,11 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           // [TODO 基础技能] 进入全爆裂 → 全员CritDmg▲p01% 10s（base group_id 20322）
           const favS2 = caster.ssrFavSkills?.skill2;
-          if (!favS2) return;
+          if (!favS2) return false;
           const lv    = favS2._activeSkillLevel ?? 10;
           const end10 = state.tick + TICK_RATE * 10;
 
@@ -112,10 +113,11 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           // [TODO 基础技能] 最高ATK友军(除自身)×1 ATK▲p02%(idx=2) + CritDmg▲p04%(idx=4) 10s（base group_id 10323）
           const favBurst = caster.ssrFavSkills?.burst;
-          if (!favBurst) return;
+          if (!favBurst) return false;
           const lv    = favBurst._activeSkillLevel ?? 10;
           const end10 = state.tick + TICK_RATE * 10;
 

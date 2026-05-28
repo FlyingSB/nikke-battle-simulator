@@ -33,6 +33,7 @@ export default {
       //   有原生 B1 友军 → combatAssistStatus = configuredCombatAssist（玩家显式配置）
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           const hasNativeB1 = state.squad.some(u => u.id !== caster.id && u.nativeBurstStep === 'Step1');
           caster.combatAssistStatus = hasNativeB1 && (caster.configuredCombatAssist ?? false);
@@ -40,6 +41,8 @@ export default {
       },
       {
         on: 'FULL_BURST_END',
+        partOverride: 0,
+        logTargets: 'SELF',
         handler(state, caster) {
           const hasNativeB1 = state.squad.some(u => u.id !== caster.id && u.nativeBurstStep === 'Step1');
           caster.combatAssistStatus = hasNativeB1 && (caster.configuredCombatAssist ?? false);
@@ -49,8 +52,10 @@ export default {
       //   全员爆裂冷却 ▼[S1 param1]s（lv10=7.48） + 全员 Attack Damage ▲[S1 param6]%（lv10=8.02%）10s
       {
         on: 'ENTER_FULL_BURST',
+        conditions: [{ type: 'IS_COMBAT_ASSIST' }],
+        partOverride: 1,
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
-          if (!caster.combatAssistStatus) return;
           const cdSec        = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]);
           const attackDmgPct = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
           const reductionTicks = Math.round(TICK_RATE * cdSec);
@@ -68,8 +73,10 @@ export default {
       //   注：Interruption Parts 伤害系统当前未建模，interruptionPartsDamagePct 字段已记录但不计入伤害输出。
       {
         on: 'ENTER_FULL_BURST',
+        conditions: [{ type: 'NOT_COMBAT_ASSIST' }],
+        partOverride: 2,
+        logTargets: 'SELF',
         handler(state, caster) {
-          if (caster.combatAssistStatus) return;
           const atkPct      = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           const partsDmgPct = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
           const endTick     = state.tick + TICK_RATE * 10;
@@ -103,6 +110,7 @@ export default {
       // S2 被动：战斗开始时初始化 attach/explode 倍率及所有弹丸计数器
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           const attachBonus    = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const explosionBonus = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
@@ -130,12 +138,12 @@ export default {
           const hitMult = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           fireSkillHit(state, caster, hitMult, sums, false, 'S2 P1', {
             isCore: state.enemyHasCore, coreDmgIncrement: caster.coreDmgIncrement ?? 0,
-            extraAttackDamagePct: am - 1,
+            extraAttackDamagePct: am - 1, applyDistanceAdv: true,
           });
           if (state.fullBurstActive) {
             // 全爆裂期间立即爆炸（不需等待，触发 projectileExplosion 加成）
             fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2', {
-              isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true,
+              isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true, applyDistanceAdv: true,
             });
           } else {
             caster.skillState.rapiPendingProjectileCount++;
@@ -145,16 +153,18 @@ export default {
       // 待定 projectile 在进入全爆裂时爆炸（享受 ENTER_FULL_BURST buff 加成，按累计数量各爆一次）
       {
         on: 'ENTER_FULL_BURST',
+        partOverride: 1,
+        logTargets: null,
         handler(state, caster) {
           const count = caster.skillState.rapiPendingProjectileCount;
-          if (count <= 0) return;
+          if (count <= 0) return false;
           caster.skillState.rapiPendingProjectileCount = 0;
           const sums    = getBuffSums(state, caster.id);
           const em      = caster.skillState.rapiProjectileExplosionMult;
           const hitMult = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           for (let i = 0; i < count; i++) {
             fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2', {
-              isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true,
+              isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true, applyDistanceAdv: true,
             });
           }
         },
@@ -188,41 +198,60 @@ export default {
   burst: {
     groupId: 10163,
     triggers: [
-      // Burst（Combat Assist → Stage 1）：全员 ATK flat ▲[Burst param2]%（lv10=18.01%）Rapi ATK 10s
+      // ■ P1（Stage 1 / CA）：自身爆裂冷却 ▼20s
+      // [TODO: Explosion Radius ▲[Burst param0]% — 未建模]
       {
         on: 'BURST_SKILL_USE',
+        conditions: [{ type: 'IS_COMBAT_ASSIST' }],
+        partOverride: 0,
+        logTargets: 'SELF',
         handler(state, caster) {
-          if (!caster.combatAssistStatus) return;
-          const end10    = state.tick + TICK_RATE * 10;
-          const atkPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'rapi_burst_ca_atkFlat', unitId: null,
-            atkFlat: Math.round(caster.stats.atk * atkPct), endTick: end10 });
-          // [TODO: Explosion Radius ▲[Burst param0]% — 未建模]
+          caster.burstCdRemaining = Math.max(0, caster.burstCdRemaining - TICK_RATE * 20);
         },
       },
-      // Burst（Stage 3）：[Burst param4]% ATK 伤害（FIRE_IN_FULL_BURST）+ 激活增强 S2 projectile 参数 10s
-      // burst 期间 attach mult = 1 + S2 param[4]/100 + Burst param[5]/100
-      // 若 rapiShotCount >= 60：扣除 60，不发射 projectile
+      // ■ P2（Stage 1 / CA）：全员 ATK flat ▲[Burst param2]%（lv10=18.01%）Rapi ATK 10s
       {
         on: 'BURST_SKILL_USE',
+        conditions: [{ type: 'IS_COMBAT_ASSIST' }],
+        partOverride: 1,
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
-          if (caster.combatAssistStatus) return;
-          // 若计数 ≥ 60，消耗计数（代替 projectile 发射）
+          const atkPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
+          pushBuff(state, { name: 'rapi_burst_ca_atkFlat', unitId: null,
+            atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
+        },
+      },
+      // ■ P3（Stage 3 / 非 CA）：[Burst param4]% ATK 伤害（lv10=2808%）
+      // 延迟 0.1s，受全爆裂 +50% 及 ENTER_FULL_BURST buff 加成；rapiShotCount ≥60 时消耗计数代替 projectile
+      {
+        on: 'BURST_SKILL_USE',
+        conditions: [{ type: 'NOT_COMBAT_ASSIST' }],
+        partOverride: 2,
+        logTargets: null,
+        handler(state, caster) {
           if (caster.skillState.rapiShotCount >= 60) {
             caster.skillState.rapiShotCount -= 60;
           }
-          // [Burst param4]% 命中（lv10=2808%）— 延迟 0.1s，【已实测】非默认：受全爆裂补正（+50%）和 ENTER_FULL_BURST buff 影响
-          // sums 不预捕获，在命中时重新计算以获取 ENTER_FULL_BURST buff 加成；affectedByFullBurst:true 以获取全爆裂 50% 加成
           const burstMult = caster.rawBurst
             ? getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100
             : 28.08;
           state.pendingSkillHits.push({
             fireTick: state.tick + Math.round(0.1 * TICK_RATE),
-            caster, mult: burstMult, isCharged: false, label: 'Burst',
+            caster, mult: burstMult, isCharged: false, label: 'Burst P3',
             opts: { affectedByFullBurst: true },
           });
+        },
+      },
+      // ■ P4（Stage 3 / 非 CA）：自身 Projectile Attachment ▲ + S2 触发阈值 ▼60 发（10s）
+      // burst 期间 attach mult = 1 + S2被动(150.72%) + Burst增益(421.2%)
+      // [TODO: Explosion Radius ▲[Burst param0]% — 未建模]
+      {
+        on: 'BURST_SKILL_USE',
+        conditions: [{ type: 'NOT_COMBAT_ASSIST' }],
+        partOverride: 3,
+        logTargets: 'SELF',
+        handler(state, caster) {
           const end10 = state.tick + TICK_RATE * 10;
-          // burst 期间 attach mult = 1 + S2被动(150.72%) + Burst增益(421.2%) = 6.7192
           const s2AttachPassive  = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const burstAttachBonus = getSkillValue(caster.rawBurst,  5, caster.skillLevels[2]) / 100;
           caster.skillState.rapiProjectileThreshold    = 60;
@@ -230,13 +259,13 @@ export default {
           caster.skillState.rapiProjectileBuffEndTick  = end10;
         },
       },
-      // 全爆裂结束：若 buff 已过期则恢复 S2 非全爆裂默认参数
+      // 全爆裂结束：若 buff 已过期则恢复 S2 非全爆裂默认参数（实现内部逻辑，不记日志）
       {
         on: 'FULL_BURST_END',
+        logTargets: null,
         handler(state, caster) {
           if (state.tick < caster.skillState.rapiProjectileBuffEndTick) return;
           caster.skillState.rapiProjectileThreshold  = 120;
-          // 恢复被动 attach mult = 1 + S2 param[4]/100（lv10=150.72%）
           caster.skillState.rapiProjectileAttachMult = 1 + getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
         },
       },

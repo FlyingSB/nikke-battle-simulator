@@ -40,6 +40,7 @@ export default {
       // Part1：战斗开始 → 发放第 1 张票，应用 MaxHP buff
       {
         on: 'BATTLE_START',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           caster.skillState.sfTicketCount = 1;
           refreshTicketMaxHp(state, caster);
@@ -48,17 +49,20 @@ export default {
       // Part1：Soline 使用爆裂技能 → 再发放 1 张票（最多 2 张）
       {
         on: 'BURST_SKILL_USE',
+        partOverride: 0,
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const count = caster.skillState.sfTicketCount ?? 0;
-          if (count < 2) {
-            caster.skillState.sfTicketCount = count + 1;
-            refreshTicketMaxHp(state, caster);
-          }
+          if (count >= 2) return false;
+          caster.skillState.sfTicketCount = count + 1;
+          refreshTicketMaxHp(state, caster);
         },
       },
       // Part2：进入全爆裂 → 全队爆裂技能冷却缩减
       {
         on: 'ENTER_FULL_BURST',
+        partOverride: 1,
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv      = caster.skillLevels[0];
           const cdTicks = Math.round(getSkillValue(caster.rawSkill1, 2, lv) * TICK_RATE);
@@ -70,6 +74,8 @@ export default {
       // Part3：进入全爆裂 → 移除 First Train Discount
       {
         on: 'ENTER_FULL_BURST',
+        partOverride: 2,
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.sfFirstTrainDiscountEndTick = 0;
         },
@@ -96,6 +102,7 @@ export default {
       // Part2：战斗开始 → 激活 First Train Discount（6 秒内 S2 不消耗票）
       {
         on: 'BATTLE_START',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.sfFirstTrainDiscountEndTick = state.tick + TICK_RATE * 6;
         },
@@ -104,15 +111,16 @@ export default {
       {
         on: 'INTERVAL',
         opts: { seconds: 1 },
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const tickets = caster.skillState.sfTicketCount ?? 0;
-          if (tickets <= 0) return;
+          if (tickets <= 0) return false;
 
           const threshold = 0.15;
           const eligible  = state.squad
             .filter(u => u.unitHp / u.stats.hp < threshold)
             .sort((a, b) => (a.unitHp / a.stats.hp) - (b.unitHp / b.stats.hp));
-          if (eligible.length === 0) return;
+          if (eligible.length === 0) return false;
 
           const lv      = caster.skillLevels[1];
           const healPct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
@@ -144,6 +152,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv      = caster.skillLevels[2];
           const healPct = getSkillValue(caster.rawBurst, 0, lv) / 100;

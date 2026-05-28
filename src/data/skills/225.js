@@ -72,6 +72,7 @@ export default {
       // S2（Fleetly Fading: Asura）：进入全爆裂 → 弹匣 ×(1+[S2 param0]%) 10s + 立即补满
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'SELF',
         handler(state, caster) {
           const mult       = 1 + getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           const seconds    = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]);
@@ -108,6 +109,7 @@ export default {
       //        激活 S1 Burst 充能模式（每发 +3 步）10s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const end10       = state.tick + TICK_RATE * 10;
           const atkPct      = getSkillValue(caster.rawBurst, 1, caster.skillLevels[2]) / 100;

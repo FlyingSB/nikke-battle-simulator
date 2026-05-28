@@ -24,6 +24,7 @@ export default {
       // S1 Part1：战斗开始 → 自身暴击率永久 ▲ p00%
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           const critRatePct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
           pushBuff(state, { name: 'eve_s1_critRate', unitId: caster.id,
@@ -92,6 +93,7 @@ export default {
       // S2 Part1：战斗开始 → 自身永久 ATK ▲ p00% + Max Ammo ▲ p01%（flat 值，取整）
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           const lv       = caster.skillLevels[1];
           const atkPct   = getSkillValue(caster.rawSkill2, 0, lv) / 100;
@@ -154,6 +156,8 @@ export default {
       //   S2 Part1 永久 buff 不变；Mk2 buff 到期后总效果恢复到 S2 Part1 基准。
       {
         on: 'BURST_SKILL_USE',
+        partOverride: 0,
+        logTargets: 'SELF',
         handler(state, caster) {
           const burstLv    = caster.skillLevels[2];
           const mk2Sec     = getSkillValue(caster.rawBurst, 2, burstLv);

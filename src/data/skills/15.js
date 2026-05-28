@@ -19,6 +19,7 @@ export default {
       //   ATK flat ▲[S1 param0]% Anis ATK + Reload Speed ▲[S1 param2]% 10s
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const atkPct    = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
           const reloadPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
@@ -47,13 +48,22 @@ export default {
     triggers: [
       // S2（Sparkling Missile）：末弹 → [S2 param0]% ATK 技能伤害
       //   自身 Damage to Interruption Parts ▲[S2 param1]% 10s（不计入伤害输出）
+      // S2 P1：末弹 → 追加技能伤害
       {
         on: 'LAST_BULLET',
+        logTargets: null,
         handler(state, caster) {
-          const skillDmg  = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          const partsDmg  = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
-          const sums = getBuffSums(state, caster.id);
+          const skillDmg = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
+          const sums     = getBuffSums(state, caster.id);
           fireSkillHit(state, caster, skillDmg, sums, false, 'S2');
+        },
+      },
+      // S2 P2：自身 Damage to Interruption Parts ▲ p01% 10s
+      {
+        on: 'LAST_BULLET',
+        logTargets: 'SELF',
+        handler(state, caster) {
+          const partsDmg = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           pushBuff(state, { name: 'anisss_s2_partsDmg', unitId: caster.id,
             interruptionPartsDamagePct: partsDmg, endTick: state.tick + TICK_RATE * 10 });
         },
@@ -78,6 +88,7 @@ export default {
       //   Max Ammo ▼[Burst param0]% 10s + Reload Speed ▲[Burst param2]% 10s + Elem Adv ATK Dmg ▲[Burst param4]% 10s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const end10       = state.tick + TICK_RATE * 10;
           // Max Ammo ▼X%：T33 per-effect round，mult = 1 - X/100

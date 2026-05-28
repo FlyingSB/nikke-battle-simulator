@@ -47,6 +47,7 @@ export default {
       // Part1：全爆裂结束 → 全员 HoT（p01% MaxHP/s × 5s）
       {
         on: 'FULL_BURST_END',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const pct    = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           const amount = Math.round(caster.stats.hp * pct);
@@ -61,11 +62,12 @@ export default {
       // Part2：全爆裂结束且同小队友军存活 → 自身爆裂 CD ▼40.76s
       {
         on: 'FULL_BURST_END',
+        logTargets: 'SELF',
         handler(state, caster) {
           const hasSquadAlly = state.squad.some(
             u => u.id !== caster.id && u.squad === caster.squad && u.unitHp > 0,
           );
-          if (!hasSquadAlly) return;
+          if (!hasSquadAlly) return false;
           const reductionTicks = Math.round(40.76 * TICK_RATE);
           caster.burstCdRemaining = Math.max(0, caster.burstCdRemaining - reductionTicks);
         },
@@ -102,6 +104,7 @@ export default {
       // Part1：全员 HoT（p01% MaxHP/s × 8s）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const pct    = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const amount = Math.round(caster.stats.hp * pct);
@@ -116,6 +119,7 @@ export default {
       // Part3：Damage Taken ▲ p07% for 10 sec
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ENEMY',
         handler(state, caster) {
           const pct = getSkillValue(caster.rawBurst, 6, caster.skillLevels[2]) / 100;
           const end = state.tick + TICK_RATE * 10;

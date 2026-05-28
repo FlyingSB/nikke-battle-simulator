@@ -20,10 +20,11 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           // [TODO 基础技能] 进入全爆裂 → 全员ATK▲p00% + Reload▲p02% + MaxAmmo▼p04% 10s（base group_id 21701）
           const favS1 = caster.ssrFavSkills?.skill1;
-          if (!favS1) return;
+          if (!favS1) return false;
           const lv      = favS1._activeSkillLevel ?? 10;
           const endTick = state.tick + TICK_RATE * 10;
 
@@ -66,31 +67,35 @@ export default {
   skill2: {
     groupId: 121702,
     triggers: [
+      // S2 P1（SSR）：末弹 → 追加伤害 p00% + 敌人承伤 ▲ p02% 10s
       {
         on: 'LAST_BULLET',
+        logTargets: null,
         handler(state, caster) {
-          // [TODO 基础技能] 末弹 → p00% ATK 追加；眩晕时额外 p01% ATK（base group_id 21702）
           const favS2 = caster.ssrFavSkills?.skill2;
-          if (!favS2) return;
+          if (!favS2) return false;
           const lv   = favS2._activeSkillLevel ?? 10;
           const sums = getBuffSums(state, caster.id);
-
-          // 常规追加伤害 p00%
           const dmgPct = getSkillValue(favS2, 0, lv) / 100;
           fireSkillHit(state, caster, dmgPct, sums, false, 'S2 P1');
-
-          // Damage Taken ▲ p02% for 10s
           const dtPct   = getSkillValue(favS2, 2, lv) / 100;
           const endTick = state.tick + TICK_RATE * 10;
           state.enemyDamageTakenPct += dtPct;
-          pushBuff(state, { name: 'pv_s2_dmgTaken', unitId: null,
-            enemyDamageTakenPct: dtPct, endTick });
-
-          // 目标处于 Designated Target 状态时的额外追加伤害 p01%
-          if ((state.pvDesignatedTargetEndTick ?? 0) > state.tick) {
-            const desDmgPct = getSkillValue(favS2, 1, lv) / 100;
-            fireSkillHit(state, caster, desDmgPct, sums, false, 'S2 P2');
-          }
+          pushBuff(state, { name: 'pv_s2_dmgTaken', unitId: null, enemyDamageTakenPct: dtPct, endTick });
+        },
+      },
+      // S2 P2（SSR）：Designated Target 状态下额外追加伤害 p01%
+      {
+        on: 'LAST_BULLET',
+        logTargets: null,
+        handler(state, caster) {
+          const favS2 = caster.ssrFavSkills?.skill2;
+          if (!favS2) return false;
+          if (!((state.pvDesignatedTargetEndTick ?? 0) > state.tick)) return false;
+          const lv        = favS2._activeSkillLevel ?? 10;
+          const sums      = getBuffSums(state, caster.id);
+          const desDmgPct = getSkillValue(favS2, 1, lv) / 100;
+          fireSkillHit(state, caster, desDmgPct, sums, false, 'S2 P2');
         },
       },
     ],
@@ -110,29 +115,31 @@ export default {
   burst: {
     groupId: 111703,
     triggers: [
+      // Burst P1（SSR）：对所有敌人造成爆裂技能伤害 p00%
       {
         on: 'BURST_SKILL_USE',
+        logTargets: null,
         handler(state, caster) {
-          // [TODO 基础技能] 爆裂 → Burst伤害 p00%(270.56%@lv10)，眩晕3s（base group_id 11703）
-          // [TODO 基础技能] state.pvStunEndTick 赋值供 base S2 眩晕检查，base S2 未建模
           const favBurst = caster.ssrFavSkills?.burst;
-          if (!favBurst) return;
-          const lv   = favBurst._activeSkillLevel ?? 10;
-          const sums = getBuffSums(state, caster.id);
-
-          // [TODO] 实际为3段分段伤害；合计等效于单次命中，此处不区分建模
-          // Burst 伤害 p00%（对所有敌人，单 Boss 场景 = 1 次命中）
+          if (!favBurst) return false;
+          const lv     = favBurst._activeSkillLevel ?? 10;
+          const sums   = getBuffSums(state, caster.id);
           const dmgPct = getSkillValue(favBurst, 0, lv) / 100;
           fireSkillHit(state, caster, dmgPct, sums, false, 'Burst');
-
-          const endTick = state.tick + TICK_RATE * 10;
-
-          // 自身 Elemental Advantage ATK Damage ▲ p04% for 10s
+        },
+      },
+      // Burst P2（SSR）：自身 Elemental Advantage ATK Damage ▲ p04% 10s + 标记 Designated Target
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
+        handler(state, caster) {
+          const favBurst = caster.ssrFavSkills?.burst;
+          if (!favBurst) return false;
+          const lv        = favBurst._activeSkillLevel ?? 10;
+          const endTick   = state.tick + TICK_RATE * 10;
           const elemADPct = getSkillValue(favBurst, 4, lv) / 100;
           pushBuff(state, { name: 'pv_burst_elemAD', unitId: caster.id,
             elementAdvantageBonus: elemADPct, endTick });
-
-          // 标记 Designated Target 状态（10s，供 S2 追加伤害判断）
           state.pvDesignatedTargetEndTick = endTick;
         },
       },

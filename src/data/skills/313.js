@@ -110,6 +110,7 @@ export default {
       // 全爆裂结束 → 重置弹丸计数器（ATK 各层自然到期）
       {
         on: 'FULL_BURST_END',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.pum_s2_burstPellets = 0;
         },
@@ -133,28 +134,29 @@ export default {
   burst: {
     groupId: 13133,
     triggers: [
+      // Burst P1：自身 Attack Damage ▲ p00% + Crit Damage ▲ p02% 10s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
-          const lv    = caster.skillLevels[2];
-          const end10 = state.tick + TICK_RATE * 10;
-
-          // 自身：攻击伤害 ▲ p00% 10s
-          const atkDmgPct = getSkillValue(caster.rawBurst, 0, lv) / 100;
-          pushBuff(state, { name: 'pum_burst_atkDmg', unitId: caster.id,
-            attackDamagePct: atkDmgPct, endTick: end10 });
-
-          // 自身：暴击伤害 ▲ p02% 10s
+          const lv         = caster.skillLevels[2];
+          const end10      = state.tick + TICK_RATE * 10;
+          const atkDmgPct  = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const critDmgPct = getSkillValue(caster.rawBurst, 2, lv) / 100;
-          pushBuff(state, { name: 'pum_burst_critDmg', unitId: caster.id,
-            critDmgBonus: critDmgPct, endTick: end10 });
-
-          // 所有敌人：爆裂技能伤害 × p04%（默认结算，不受全爆裂 +50% 补正影响）
-          if (state.enemyHp > 0) {
-            const burstMult = getSkillValue(caster.rawBurst, 4, lv) / 100;
-            const sums      = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, burstMult, sums, false, 'Burst');
-          }
+          pushBuff(state, { name: 'pum_burst_atkDmg',  unitId: caster.id, attackDamagePct: atkDmgPct,  endTick: end10 });
+          pushBuff(state, { name: 'pum_burst_critDmg', unitId: caster.id, critDmgBonus:    critDmgPct, endTick: end10 });
+        },
+      },
+      // Burst P2：对所有敌人造成爆裂技能伤害 p04%
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: null,
+        handler(state, caster) {
+          if (state.enemyHp <= 0) return false;
+          const lv        = caster.skillLevels[2];
+          const burstMult = getSkillValue(caster.rawBurst, 4, lv) / 100;
+          const sums      = getBuffSums(state, caster.id);
+          fireSkillHit(state, caster, burstMult, sums, false, 'Burst');
         },
       },
     ],

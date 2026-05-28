@@ -19,10 +19,11 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           // [TODO 基础技能] 进入全爆裂 → 全员HitRate▲p01% + ATK▲p03% 10s（base group_id 21011）
           const favS1 = caster.ssrFavSkills?.skill1;
-          if (!favS1) return;
+          if (!favS1) return false;
           const favLv = favS1._activeSkillLevel ?? 10;
           const end10 = state.tick + TICK_RATE * 10;
 
@@ -99,24 +100,31 @@ export default {
   burst: {
     groupId: 11013,
     triggers: [
+      // Burst P1（SSR）：范围伤害 p01%
       {
         on: 'BURST_SKILL_USE',
+        logTargets: null,
         handler(state, caster) {
-          // [TODO 基础技能] 范围伤害 p01%(1254%@lv10) + 自身MaxAmmo▲p02%(72.18%) 10s（base group_id 11013）
           const favBurst = caster.ssrFavSkills?.burst;
           const favLv    = favBurst?._activeSkillLevel ?? 0;
-          if (!favBurst || favLv <= 0) return;
-          const end10 = state.tick + TICK_RATE * 10;
-          const sums  = getBuffSums(state, caster.id);
-
-          // SSR：范围伤害 [p01]%（lv10=3009.6%）
-          const dmgPct    = getSkillValue(favBurst, 0, favLv) / 100;
+          if (!favBurst || favLv <= 0) return false;
+          const sums   = getBuffSums(state, caster.id);
+          const dmgPct = getSkillValue(favBurst, 0, favLv) / 100;
           fireSkillHit(state, caster, dmgPct, sums, false, 'Burst');
-          // 自身 Max Ammo ▲[p02]%（lv10=72.18%）
+        },
+      },
+      // Burst P2（SSR）：自身 Max Ammo ▲ + Attack Damage ▲ 10s
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
+        handler(state, caster) {
+          const favBurst = caster.ssrFavSkills?.burst;
+          const favLv    = favBurst?._activeSkillLevel ?? 0;
+          if (!favBurst || favLv <= 0) return false;
+          const end10     = state.tick + TICK_RATE * 10;
           const ammoPct   = getSkillValue(favBurst, 1, favLv) / 100;
-          pushBuff(state, { name: 'drake_burst_ammo',   unitId: caster.id, maxAmmoPct: ammoPct, endTick: end10 });
-          // 自身 Attack Damage ▲[p04]%（lv10=31.68%）
           const atkDmgPct = getSkillValue(favBurst, 3, favLv) / 100;
+          pushBuff(state, { name: 'drake_burst_ammo',   unitId: caster.id, maxAmmoPct: ammoPct,        endTick: end10 });
           pushBuff(state, { name: 'drake_burst_atkDmg', unitId: caster.id, attackDamagePct: atkDmgPct, endTick: end10 });
         },
       },

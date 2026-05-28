@@ -26,6 +26,7 @@ export default {
       // S1 T2: 命中核心 → 全员 Pierce Damage ▲ p02% 10s
       {
         on: 'CORE_HIT',
+        partOverride: 1,
         handler(state, caster) {
           const lv  = caster.skillLevels[0];
           const pct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
@@ -55,22 +56,28 @@ export default {
       // S2：每 10s 自动触发（首次于 t+10s，等效战斗开始进入 10s 冷却）
       //   自身: 穿透 5s + ATK ▲ p03% 5s
       //   全员: ATK flat ▲ p01% × Mari.ATK 5s
+      // S2 P1：自身 Pierce 5s + ATK ▲ p03% 5s
       {
         on: 'INTERVAL',
         opts: { seconds: S2_INTERVAL_SEC },
+        logTargets: 'SELF',
         handler(state, caster) {
           const lv   = caster.skillLevels[1];
           const end5 = state.tick + TICK_RATE * 5;
-
-          // 自身 Pierce 5s（时间制）
           caster.skillState.pierceEndTick = end5;
-
-          // 自身 ATK ▲ p03% 5s
           const selfAtkPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
           pushBuff(state, { name: 'mari_s2_selfAtk', unitId: caster.id,
             atkPct: selfAtkPct, endTick: end5 });
-
-          // 全员 ATK flat ▲ p01% × Mari.ATK 5s
+        },
+      },
+      // S2 P2：全员 ATK flat ▲ p01% × Mari.ATK 5s
+      {
+        on: 'INTERVAL',
+        opts: { seconds: S2_INTERVAL_SEC },
+        logTargets: 'ALL_ALLIES',
+        handler(state, caster) {
+          const lv          = caster.skillLevels[1];
+          const end5        = state.tick + TICK_RATE * 5;
           const allyAtkPct  = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const allyAtkFlat = Math.round(caster.stats.atk * allyAtkPct);
           pushBuff(state, { name: 'mari_s2_allyAtkFlat', unitId: null,
@@ -94,17 +101,24 @@ export default {
     groupId: 18323,
     triggers: [
       // Burst: p00% 爆裂技能伤害（默认结算）+ 全员攻击伤害 ▲ p01% 10s
+      // Burst P1：对所有敌人造成爆裂技能伤害
       {
         on: 'BURST_SKILL_USE',
+        logTargets: null,
         handler(state, caster) {
-          const lv   = caster.skillLevels[2];
-          const sums = getBuffSums(state, caster.id);
-
-          if (state.enemyHp > 0) {
-            const hitMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
-            fireSkillHit(state, caster, hitMult, sums, false, 'Burst');
-          }
-
+          if (state.enemyHp <= 0) return false;
+          const lv      = caster.skillLevels[2];
+          const sums    = getBuffSums(state, caster.id);
+          const hitMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
+          fireSkillHit(state, caster, hitMult, sums, false, 'Burst');
+        },
+      },
+      // Burst P2：全员攻击伤害 ▲ p01% 10s
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
+        handler(state, caster) {
+          const lv           = caster.skillLevels[2];
           const attackDmgPct = getSkillValue(caster.rawBurst, 1, lv) / 100;
           pushBuff(state, { name: 'mari_burst_attackDmg', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });

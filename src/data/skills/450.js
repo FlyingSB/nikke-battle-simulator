@@ -104,23 +104,32 @@ export default {
   burst: {
     groupId: 14503,
     triggers: [
-      // Part1+2：爆裂技能施放 → 自身 Pierce 10s + 全员 ATK flat ▲（p01% Naga ATK）10s
+      // Burst P1：自身获得穿透 10s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
-          const lv      = caster.skillLevels[2];
-          const atkPct  = getSkillValue(caster.rawBurst, 1, lv) / 100;
-          const endTick = state.tick + TICK_RATE * 10;
-          caster.skillState.pierceEndTick = endTick;
+          caster.skillState.pierceEndTick = state.tick + TICK_RATE * 10;
+        },
+      },
+      // Burst P2：全员 ATK flat ▲（p01% Naga ATK）10s
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
+        handler(state, caster) {
+          const lv     = caster.skillLevels[2];
+          const atkPct = getSkillValue(caster.rawBurst, 1, lv) / 100;
           pushBuff(state, { name: 'naga_burst_atk', unitId: null,
-            atkFlat: Math.round(caster.stats.atk * atkPct), endTick });
+            atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },
       // Part3：施放爆裂技能时自身有生效护盾 → 全员 ATK flat ▲（p03% Naga ATK）10s
       {
         on: 'BURST_SKILL_USE',
+        partOverride: 2,
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
-          if (!(caster.shieldHp > 0 && caster.shieldEndTick > state.tick)) return;
+          if (!(caster.shieldHp > 0 && caster.shieldEndTick > state.tick)) return false;
           const lv     = caster.skillLevels[2];
           const atkPct = getSkillValue(caster.rawBurst, 3, lv) / 100;
           pushBuff(state, { name: 'naga_burst_shield_atk', unitId: null,

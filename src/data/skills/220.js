@@ -49,25 +49,34 @@ export default {
       // 战斗开始 → S2 立即进入 15s 冷却（不能在首次全爆裂时发动）
       {
         on: 'BATTLE_START',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.swS2CooldownEndTick = state.tick + S2_COOLDOWN_TICKS;
         },
       },
-      // 进入全爆裂 → 若 S2 冷却完毕则发动：技能伤害 [p01]% + 自身 Crit Rate ▲[p02]% 10s
+      // S2 P1：若冷却完毕 → 技能伤害 [p01]%（同时重置冷却）
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: null,
         handler(state, caster) {
-          if (state.tick < (caster.skillState.swS2CooldownEndTick ?? 0)) return;
-          caster.skillState.swS2CooldownEndTick = state.tick + S2_COOLDOWN_TICKS;
-
+          if (state.tick < (caster.skillState.swS2CooldownEndTick ?? 0)) return false;
           const s2Lv   = caster.skillLevels[1];
           const sums   = getBuffSums(state, caster.id);
           const dmgPct = getSkillValue(caster.rawSkill2, 0, s2Lv) / 100;
           fireSkillHit(state, caster, dmgPct, sums, false, 'S2');
-
+        },
+      },
+      // S2 P2：若冷却完毕 → 自身 Crit Rate ▲ [p02]% 10s（P2 里重置冷却，避免 P1 重置后 P2 看到新冷却）
+      {
+        on: 'ENTER_FULL_BURST',
+        logTargets: 'SELF',
+        handler(state, caster) {
+          if (state.tick < (caster.skillState.swS2CooldownEndTick ?? 0)) return false;
+          caster.skillState.swS2CooldownEndTick = state.tick + S2_COOLDOWN_TICKS;
+          const s2Lv  = caster.skillLevels[1];
           const crPct = getSkillValue(caster.rawSkill2, 1, s2Lv) / 100;
-          const end10 = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'sw_s2_critRate', unitId: caster.id, critRateBonus: crPct, endTick: end10 });
+          pushBuff(state, { name: 'sw_s2_critRate', unitId: caster.id,
+            critRateBonus: crPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
     ],
@@ -94,6 +103,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const bLv             = caster.skillLevels[2];
           const hitMult         = getSkillValue(caster.rawBurst, 0, bLv) / 100;

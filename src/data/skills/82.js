@@ -29,6 +29,7 @@ export default {
     triggers: [
       {
         on: 'PROGRAM_INIT',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.literFbCount       = 0;
           caster.skillState.literBurstUseCount = 0;
@@ -38,6 +39,8 @@ export default {
       //   爆裂冷却累进减少：1st ▼2.34s; 2nd +▼2.70s; 3rd+ +▼3.17s
       {
         on: 'ENTER_FULL_BURST',
+        partOverride: 0,
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           caster.skillState.literFbCount++;
           const cnt = caster.skillState.literFbCount;
@@ -59,6 +62,8 @@ export default {
       //   第 3 次+：全员 ATK ▲[S1 param7]% 5s
       {
         on: 'BURST_SKILL_USE',
+        partOverride: 1,
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const cnt         = ++caster.skillState.literBurstUseCount;
           const end5        = state.tick + TICK_RATE * 5;
@@ -103,6 +108,7 @@ export default {
       // Burst（Double Boost）：全员 ATK ▲[Burst param0]% 5s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const atkPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           pushBuff(state, { name: 'liter_burst_atkPct', unitId: null, atkPct,

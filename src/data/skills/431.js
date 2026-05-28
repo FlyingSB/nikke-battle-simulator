@@ -39,6 +39,7 @@ export default {
     triggers: [
       {
         on: 'PROGRAM_INIT',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.volumeFbCount       = 0;
           caster.skillState.volumeBurstUseCount = 0;
@@ -48,6 +49,8 @@ export default {
       //   1st ▼2.34s; 2nd +▼2.70s; 3rd+ +▼3.17s
       {
         on: 'ENTER_FULL_BURST',
+        partOverride: 0,
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           caster.skillState.volumeFbCount++;
           const cnt = caster.skillState.volumeFbCount;
@@ -69,6 +72,8 @@ export default {
       //   第 3 次+：全员 CritDmg ▲[p08]% 5s
       {
         on: 'BURST_SKILL_USE',
+        partOverride: 1,
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const cnt         = ++caster.skillState.volumeBurstUseCount;
           const end5        = state.tick + TICK_RATE * 5;
@@ -94,6 +99,7 @@ export default {
       // Burst（Turn up the volume!）：全员 Crit Rate ▲[p00]% 5s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const critRatePct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           pushBuff(state, { name: 'volume_burst_critRate', unitId: null,

@@ -25,6 +25,7 @@ export default {
     triggers: [
       {
         on: 'PROGRAM_INIT',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.anchorFbCount = 0;
         },
@@ -36,6 +37,8 @@ export default {
       // 同一部队条件（Anchor + Mast 同队）在当前阵容中恒满足，注释保留
       {
         on: 'ENTER_FULL_BURST',
+        partOverride: 0,
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           caster.skillState.anchorFbCount++;
           const cnt = caster.skillState.anchorFbCount;
@@ -58,12 +61,14 @@ export default {
       // 条件读取 CHARACTER_TRAITS.squad 字段（CDN squad 字段）
       {
         on: 'ENTER_FULL_BURST',
+        partOverride: 1,
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const mySquad = getCharacterTraits(caster.id)?.squad;
-          if (!mySquad) return;
+          if (!mySquad) return false;
           const hasSquadMate = state.squad.some(u =>
             u.id !== caster.id && getCharacterTraits(u.id)?.squad === mySquad);
-          if (!hasSquadMate) return;
+          if (!hasSquadMate) return false;
           const ticksPerSec = TICK_RATE;
           const hotHealPct  = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
           const amount      = Math.round(caster.stats.hp * hotHealPct);
@@ -97,6 +102,7 @@ export default {
       //   第 3 次+：Reload Speed ▲40.04% 15s（全员）
       {
         on: 'FULL_BURST_END',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const cnt        = caster.skillState.anchorFbCount;
           const end10      = state.tick + TICK_RATE * 10;
@@ -130,6 +136,7 @@ export default {
       //   [TODO: 过量治疗储存 60.19%×MaxHP 25s 未建模]
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const atkFlatPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
           const healPct    = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;

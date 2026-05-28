@@ -135,7 +135,7 @@ export default {
         logTargets: 'SELF',
         handler(state, caster) {
           const isRedWolf = caster.burstStep === 'Step3' || caster.burstStep === 'StepFull';
-          if (!isRedWolf) return;
+          if (!isRedWolf) return false;
           const end10            = state.tick + TICK_RATE * 10;
           // S2 Part4：自身 ATK ▲[S2 param4]% 10s（仅 Red Wolf）
           const s2AtkPct         = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
@@ -165,7 +165,7 @@ export default {
       // 全爆裂结束：恢复普通武器弹药 + 重算 CS 转化
       {
         on: 'FULL_BURST_END',
-        logTargets: 'SELF',
+        logTargets: null,
         handler(state, caster) {
           if ((caster.skillState.weaponSwitchEndTick ?? 0) <= state.tick)
             caster.skillState.weaponSwitchEndTick = 0;

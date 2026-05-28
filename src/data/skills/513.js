@@ -26,6 +26,7 @@ export default {
       // S1 P2：全爆裂结束 → 全员爆裂冷却 ▼[S1 param0]s
       {
         on: 'FULL_BURST_END',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const cdSec          = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]);
           const reductionTicks = Math.round(TICK_RATE * cdSec);
@@ -38,6 +39,7 @@ export default {
       // S1 P3：进入全爆裂 → 全员 Attack Damage ▲[S1 param1]% 10s
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
           pushBuff(state, { name: 'lm_skill1_attackDmg', unitId: null,
@@ -147,13 +149,14 @@ export default {
       //   全员 Attack Damage ▲10.13% 10s
       //   全员补弹 33.26% maxAmmo（补满时取消装填）
       //   自身 ATK flat ▲17.28% LM.atk 10s
+      // Burst P1：全员 Attack Damage ▲ + 补弹
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const end10         = state.tick + TICK_RATE * 10;
           const attackDmgPct  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const ammoReloadPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          const atkFlatPct    = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
           pushBuff(state, { name: 'lm_burst_attackDmg', unitId: null, attackDamagePct: attackDmgPct, endTick: end10 });
           for (const u of state.squad) {
             const ammoBefore = u.ammoLeft;
@@ -163,8 +166,16 @@ export default {
               state.ammoLog.push({ tick: state.tick, unitId: u.id, unitName: u.name,
                 delta: u.ammoLeft - ammoBefore, ammoAfter: u.ammoLeft, maxAmmo: u.maxAmmo, source: 'lm_burst_reload' });
           }
+        },
+      },
+      // Burst P2：自身 ATK flat ▲
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
+        handler(state, caster) {
+          const atkFlatPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
           pushBuff(state, { name: 'lm_burst_atkFlat', unitId: caster.id,
-            atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: end10 });
+            atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },
     ],

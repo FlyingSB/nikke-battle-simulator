@@ -37,11 +37,11 @@ export default {
       // Prediction 到期 → 激活 Heat Emission
       {
         on: 'INTERVAL',
-        logTargets: ['SELF', 'ALL_ALLIES'],
+        logTargets: 'SELF',
         opts: { seconds: 1 },
         handler(state, caster) {
           const predEnd = caster.skillState.grave_predictionEndTick ?? 0;
-          if (!predEnd || state.tick < predEnd) return;
+          if (!predEnd || state.tick < predEnd) return false;
 
           caster.skillState.grave_predictionEndTick = 0;
           caster.skillState.grave_predShotCount     = 0;
@@ -80,6 +80,7 @@ export default {
       // Heat Emission 解除条件 a：普通攻击命中
       {
         on: 'SHOT_COUNT',
+        logTargets: null,
         opts: { every: 1, counterKey: 'grave_s1_heShot' },
         handler(state, caster) {
           if (!state.buffs.some(b => b.name === 'grave_s1_reloadPenalty' && b.unitId === caster.id)) return;
@@ -89,7 +90,7 @@ export default {
       // Heat Emission 解除条件 b：弹匣填满（RELOAD_END）
       {
         on: 'RELOAD_END',
-        logTargets: 'SELF',
+        logTargets: null,
         handler(state, caster) {
           clearHeatEmission(state);
         },
@@ -158,7 +159,7 @@ export default {
       // 注：无限弹药期间弹药不消耗，不会触发 RELOAD_END，故 Overheat I 在 Prediction 期间自然保留
       {
         on: 'RELOAD_END',
-        logTargets: 'SELF',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.grave_s2_shot15 = 0;
           state.buffs = state.buffs.filter(
@@ -191,48 +192,46 @@ export default {
   burst: {
     groupId: 15143,
     triggers: [
+      // Burst P1（自身）：Prediction 激活 + 无限弹药 + Pierce + 自身 Pierce Damage + Crit Rate 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: ['SELF', 'ALL_ALLIES'],
+        logTargets: 'SELF',
         handler(state, caster) {
           const lv  = caster.skillLevels[2];
           const end = state.tick + TICK_RATE * 10;
 
-          // 解除条件 c：爆裂技能发动 → 清除上一轮 Heat Emission（若有）
           clearHeatEmission(state);
 
-          // 记录 Prediction 到期 tick（S1 INTERVAL 据此触发 Heat Emission）
           caster.skillState.grave_predictionEndTick = end;
-          // 新 Prediction 周期重置 Prediction 期间命中计数
-          caster.skillState.grave_predShotCount = 0;
+          caster.skillState.grave_predShotCount     = 0;
+          caster.skillState.unlimitedAmmoEndTick    = end;
+          caster.skillState.pierceEndTick           = end;
 
-          // 自身：无限弹药 10s（通过 skillState.unlimitedAmmoEndTick 通知引擎跳过弹药消耗）
-          caster.skillState.unlimitedAmmoEndTick = end;
-
-          // 自身：Pierce 类型激活 10s（使 pierceDamagePct buff 生效）
-          caster.skillState.pierceEndTick = end;
-
-          // 自身：Pierce Damage ▲ p01% 10s
           const selfPiercePct = getSkillValue(caster.rawBurst, 1, lv) / 100;
           pushBuff(state, { name: 'grave_burst_selfPierce', unitId: caster.id,
             pierceDamagePct: selfPiercePct, endTick: end });
 
-          // 自身：Crit Rate ▲ p05% 10s
           const critRatePct = getSkillValue(caster.rawBurst, 5, lv) / 100;
           pushBuff(state, { name: 'grave_burst_critRate', unitId: caster.id,
             critRateBonus: critRatePct, endTick: end });
+        },
+      },
+      // Burst P2（全员）：Attack Damage + Pierce Damage + Max Ammo ▲ 10s
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
+        handler(state, caster) {
+          const lv  = caster.skillLevels[2];
+          const end = state.tick + TICK_RATE * 10;
 
-          // 全员：Attack Damage ▲ p02% 10s
           const atkDmgPct = getSkillValue(caster.rawBurst, 2, lv) / 100;
           pushBuff(state, { name: 'grave_burst_atkDmg', unitId: null,
             attackDamagePct: atkDmgPct, endTick: end });
 
-          // 全员：Pierce Damage ▲ p03% 10s
           const allPiercePct = getSkillValue(caster.rawBurst, 3, lv) / 100;
           pushBuff(state, { name: 'grave_burst_allPierce', unitId: null,
             pierceDamagePct: allPiercePct, endTick: end });
 
-          // 全员：Max Ammunition Capacity ▲ 3 round(s) 10s
           pushBuff(state, { name: 'grave_burst_maxAmmo', unitId: null,
             maxAmmoFlat: 3, endTick: end });
         },

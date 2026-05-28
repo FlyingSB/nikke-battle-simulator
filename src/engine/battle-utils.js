@@ -3,7 +3,7 @@
  * 被 battle.js 和 skill-executor.js 同时引用，避免循环依赖。
  */
 
-import { calcDamage, rollCrit } from './damage.js';
+import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
 
 export const TICK_RATE       = 60;         // 每秒 tick 数
 export const BURST_GAUGE_MAX = 1_000_000;  // 共享爆裂槽上限
@@ -210,6 +210,7 @@ export function applyCoverHeal(state) {
  *   projectileExplosion      {boolean}  Projectile Explosion 命中（受 projectileExplosionDamagePct 影响）
  *   affectedByFullBurst      {boolean}  非默认：该命中受全爆裂补正影响（仅 Rapi: Red Hood、Liberellio）
  *   suppressFullBurst        {boolean}  [引擎内部] 由引擎自动标记延迟爆裂技能命中，抑制全爆裂补正
+ *   applyDistanceAdv         {boolean}  该技能命中受距离优势影响（默认仅普通攻击；Rapi S2 P1/P2 需显式开启）
  */
 function resolveSkillLabel(unit, label) {
   if (!label || label === 'normal_shot') return label;
@@ -238,6 +239,7 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
   // Projectile Explosion 伤害：受 projectileExplosionDamagePct 加成（累加至 extraAtkDmgPct）
   const projExplosionBonus = opts.projectileExplosion ? (sums.projectileExplosionDamagePct ?? 0) : 0;
   const isTrueDamage       = opts.isTrueDamage ?? false;
+  const distanceZoneForHit = opts.applyDistanceAdv ? (state.distanceZone ?? null) : null;
   // B3 爆裂技能施放时 fullBurstActive 尚未置为 true，直接命中自然不受 +50% 补正。
   // 延迟命中（pendingSkillHits）由引擎统一标记 suppressFullBurst:true（affectedByFullBurst 的除外）。
   const isFullBurst = state.fullBurstActive &&
@@ -253,6 +255,7 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
     critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDmgBonus,
     isCore,
     coreDmgIncrement,
+    distanceZone:      distanceZoneForHit,
     isFullBurst,
     attackerElement:   unit.element,
     defenderElement:   state.enemyElement,
@@ -293,7 +296,7 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
       elementDmgPct: unit.stats.elementDmgPct ?? 0,
       elemMult: bd.elemMult,
       chargeMult: bd.chargeMult,
-      distanceAdv: false,
+      distanceAdv: distanceZoneForHit !== null && hasDistanceAdvantage(unit.weaponType, distanceZoneForHit),
       buffBreakdown: state.buffs
         .filter(b => b.unitId === null || b.unitId === unit.id)
         .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: b.attackDamagePct ?? 0 }))

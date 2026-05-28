@@ -86,7 +86,9 @@ export default {
       // 同步执行 S1 Part2 ally buffs（每次生效均刷新，含满层后）
       {
         on: 'INTERVAL',
+        partOverride: 0,
         opts: { seconds: 3 },
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           // S1 Part2：每次 Memory Absorption 生效 → 全员 5s buff + 自身治疗
           const end5        = state.tick + TICK_RATE * 5;
@@ -167,29 +169,40 @@ export default {
       //   2. 645.33% ATK 直击（Burst Skill Damage）
       //   3. Memory Incineration 10s：武器切换为蓄力武器（1.8s/FC，275.18%×250%）
       //      + S1 Part3 由 FULL_CHARGE 触发器追加 530.46%
+      // Burst P1（全员）：Attack Damage ▲ 15s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           pushBuff(state, { name: 'nayuta_burst_attackDmg', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 15 });
-
+        },
+      },
+      // Burst P2（敌人）：爆裂技能伤害（ATK Dmg buff 已在 P1 生效）
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: null,
+        handler(state, caster) {
+          if (state.enemyHp <= 0) return false;
           const sums         = getBuffSums(state, caster.id);
           const burstHitMult = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
-          if (state.enemyHp > 0)
-            fireSkillHit(state, caster, burstHitMult, sums, false, 'Burst');
-
-          // Memory Incineration 武器切换：SMG → 蓄力武器（1.8s/FC，275.18% × 250%）
-          // duration=10s, chargeTime=1.8s → floor(10/1.8)=5 FCs；第 6 次 t=10.8s 超出窗口丢失
-          const chargeTimeTicks          = Math.round(1.8 * TICK_RATE);
-          const weaponSwitchHitMult      = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          caster.skillState.weaponSwitchHitMult          = weaponSwitchHitMult;   // 275.18%
+          fireSkillHit(state, caster, burstHitMult, sums, false, 'Burst');
+        },
+      },
+      // Burst P3（自身）：Memory Incineration 武器切换（1.8s/FC，275.18% × 250%）10s
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
+        handler(state, caster) {
+          const chargeTimeTicks     = Math.round(1.8 * TICK_RATE);
+          const weaponSwitchHitMult = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
+          caster.skillState.weaponSwitchHitMult          = weaponSwitchHitMult;
           caster.skillState.weaponSwitchType             = 'SR';
           caster.skillState.weaponSwitchEndTick          = state.tick + TICK_RATE * 10;
           caster.skillState.weaponSwitchChargeTimeTicks  = chargeTimeTicks;
-          caster.skillState.weaponSwitchFullChargeDamage = 25000;    // 250% FC = ×2.5
+          caster.skillState.weaponSwitchFullChargeDamage = 25000;
           caster.skillState.weaponSwitchUnlimitedAmmo    = true;
-          // Full magazine on switch: begin charging immediately, first FC fires at t+1.8s
           caster.chargeTick = state.tick + chargeTimeTicks;
         },
       },

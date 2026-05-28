@@ -36,6 +36,7 @@ export default {
       // S1 Part 2: 进入全爆裂 → 队内所有 SR 友军 Pierce Damage ▲ p01% 10s
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv  = caster.skillLevels[0];
           const pct = getSkillValue(caster.rawSkill1, 1, lv) / 100;

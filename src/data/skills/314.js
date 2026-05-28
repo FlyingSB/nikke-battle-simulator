@@ -39,6 +39,7 @@ export default {
       // S1 Part1: 战斗开始 → Golden Chip 层数初始化（同时建立暴击伤害 buff）
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           const lv = caster.skillLevels[0];
           const initStacks = getSkillValue(caster.rawSkill1, 0, lv);
@@ -153,6 +154,7 @@ export default {
       // S2 清理: 全爆裂结束 → 重置 Time Extension 状态
       {
         on: 'FULL_BURST_END',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.soda_timeExtI  = false;
           caster.skillState.soda_timeExtII = false;
@@ -184,6 +186,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: null,
         handler(state, caster) {
           const lv     = caster.skillLevels[2];
           const stacks = caster.skillState.soda_goldenChipStacks ?? 0;

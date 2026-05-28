@@ -30,6 +30,7 @@ export default {
       // Part1：进入爆裂阶段 2（B1 施放后、B2 施放前）→ 弹药袋充满至 6000
       {
         on: 'ENTER_BURST_II',
+        partOverride: 0,
         handler(state, caster) {
           caster.skillState.velvetAmmoPouch = 6000;
         },
@@ -38,11 +39,12 @@ export default {
       // 弹药袋消耗计入全队弹药里程碑（供 LM 等统计），但不视作攻击命中。
       {
         on: 'FULL_CHARGE',
+        partOverride: 1,
         logTargets: 'SELF',
         handler(state, caster) {
-          if (state.fullBurstActive) return;
+          if (state.fullBurstActive) return false;
           const pouch = caster.skillState.velvetAmmoPouch ?? 0;
-          if (pouch < 100) return;
+          if (pouch < 100) return false;
           caster.skillState.velvetAmmoPouch = pouch - 100;
           state.totalAmmoFired += 100;
 
@@ -83,7 +85,7 @@ export default {
         conditions: [{ type: 'IN_FULL_BURST' }],
         handler(state, caster) {
           const pouch = caster.skillState.velvetAmmoPouch ?? 0;
-          if (pouch < 300) return;
+          if (pouch < 300) return false;
           caster.skillState.velvetAmmoPouch = pouch - 300;
           state.totalAmmoFired += 300;
 

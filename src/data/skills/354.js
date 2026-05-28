@@ -75,9 +75,10 @@ export default {
       // S2 Hangover：全爆裂结束，stacks = 3 → 眩晕自身 10s + 层数归零 + S1 被动移除
       {
         on: 'FULL_BURST_END',
+        logTargets: 'SELF',
         handler(state, caster) {
           const drunken = state.buffs.find(b => b.name === 'mast_drunken');
-          if ((drunken?.stackCount ?? 0) < 3) return;
+          if ((drunken?.stackCount ?? 0) < 3) return false;
           caster.skillState.stunnedUntilTick = state.tick + TICK_RATE * 10;
           state.buffs = state.buffs.filter(b => b.name !== 'mast_drunken' && b.derivedFrom !== 'mast_drunken');
         },
@@ -105,6 +106,7 @@ export default {
       //   若 Drunken ≥1：全员 ATK flat ▲20.06%×stacks×Mast.atk 10s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const end10          = state.tick + TICK_RATE * 10;
           const critDmgBonus   = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;

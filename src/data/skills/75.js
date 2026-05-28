@@ -163,6 +163,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ENEMY',
         handler(state, caster) {
           const lv = caster.skillLevels[2];
 

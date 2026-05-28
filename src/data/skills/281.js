@@ -26,7 +26,8 @@ export default {
         partOverride: 2,
         logTargets: 'SELF',
         handler(state, caster) {
-          if (caster.ssrFavSkills?.skill1) caster.skillState.moranFervorActive = true;
+          if (!caster.ssrFavSkills?.skill1) return false;
+          caster.skillState.moranFervorActive = true;
         },
       },
       // S1 T2：武器替换期间每 5 发普通攻击 → X% ATK 技能伤害（lv10=47.18%）
@@ -70,19 +71,20 @@ export default {
   // p10: [5.34, 5.58, 5.82, 6.05, 6.29, 6.53, 6.77, 7, 7.24, 7.48]
   skill2: {
     groupId: 22812,
-    partOffset: 2,
+    partOffset: 2,  // P1（末弹嘲讽）和 P2（HP 分阶段）均未建模，从 P3 开始编号
     triggers: [
-      // [TODO] S2 T1：末弹 → 最高 ATK 3 名敌人嘲讽 4s（无敌人选择/嘲讽模型）
-      // [TODO] S2 T2-4：HP 低于 91% 时分阶段提升 MaxHP（无 HP 受伤模型）
+      // [TODO] S2 P1：末弹 → 最高 ATK 3 名敌人嘲讽 4s（无敌人选择/嘲讽模型）
+      // [TODO] S2 P2：HP 低于 91% 时分阶段（Once/Twice/Three Times）提升 MaxHP（无 HP 受伤模型）
       //
       // S2 SSR Fervor：进入全爆裂时，Fervor 状态下 → 全员爆裂冷却 ▼X s（lv10=7.48s）
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
-          if (!caster.skillState.moranFervorActive) return;
+          if (!caster.skillState.moranFervorActive) return false;
           const s2 = caster.ssrFavSkills?.skill2;
           const lv = s2?._activeSkillLevel ?? 0;
-          if (!s2 || lv <= 0) return;
+          if (!s2 || lv <= 0) return false;
           const sec = getSkillValue(s2, 9, lv);
           const reductionTicks = Math.round(TICK_RATE * sec);
           for (const u of state.squad)
@@ -128,34 +130,27 @@ export default {
       // 全员（SSR）：ATK flat ▲ X% Moran ATK 10s（lv10=42.57%）
       // 全员（未建模）：承伤 ▼X% 10s；DEF ▲X% Moran DEF 10s（防御性，对 DPS 无影响）
       // [TODO 基础技能] 爆裂技能基础版（group_id 12813）武器替换/无限弹/生命偷取/承伤/DEF 加成数值未建模
+      // Burst P1（自身）：武器切换 10s + 生命偷取 + S1 Fervor CD 减少
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const burstSkill = caster.ssrFavSkills?.burst;
           const lv         = burstSkill?._activeSkillLevel ?? 0;
-          if (!burstSkill || lv <= 0) return;
+          if (!burstSkill || lv <= 0) return false;
           const hitMult = getSkillValue(burstSkill, 0, lv) / 100;
           const lsPct   = getSkillValue(burstSkill, 1, lv) / 100;
-          const atkPct  = getSkillValue(burstSkill, 8, lv) / 100;
           const end10   = state.tick + TICK_RATE * 10;
 
-          // 武器替换 + 无限弹药（直接写入 skillState，与 WEAPON_SWITCH effect 等价）
           caster.skillState.weaponSwitchHitMult       = hitMult;
           caster.skillState.weaponSwitchType          = null;
           caster.skillState.weaponSwitchEndTick       = end10;
           caster.skillState.weaponSwitchRoundsLeft    = 0;
           caster.skillState.weaponSwitchUnlimitedAmmo = true;
 
-          // 生命偷取（自身）
           pushBuff(state, { name: 'moran_burst_lifeSteal', unitId: caster.id,
             lifeStealPct: lsPct, endTick: end10 });
 
-          // 全员 ATK flat 加成（SSR 专属；无 SSR 时 atkPct=0 不推送）
-          if (atkPct > 0)
-            pushBuff(state, { name: 'moran_burst_atkFlat', unitId: null,
-              atkFlat: Math.round(caster.stats.atk * atkPct), endTick: end10 });
-
-          // S1 Fervor：爆裂使用后立即减少自身冷却 20s（param[3] 常量）
           const s1   = caster.ssrFavSkills?.skill1;
           const s1Lv = s1?._activeSkillLevel ?? 0;
           if (s1 && s1Lv > 0 && caster.skillState.moranFervorActive) {
@@ -166,6 +161,20 @@ export default {
               state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
                 name: 'moran_s1_fervor_cdReduction', unitId: caster.id, reductionTicks: fervorTicks });
           }
+        },
+      },
+      // Burst P2（全员）：ATK flat ▲（SSR 专属）
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
+        handler(state, caster) {
+          const burstSkill = caster.ssrFavSkills?.burst;
+          const lv         = burstSkill?._activeSkillLevel ?? 0;
+          if (!burstSkill || lv <= 0) return false;
+          const atkPct = getSkillValue(burstSkill, 8, lv) / 100;
+          if (atkPct <= 0) return false;
+          pushBuff(state, { name: 'moran_burst_atkFlat', unitId: null,
+            atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },
     ],

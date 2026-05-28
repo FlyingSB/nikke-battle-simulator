@@ -83,6 +83,7 @@ export default {
       // Part1：战斗开始 → 自身 Pierce damage ▲ p00% 永久
       {
         on: 'BATTLE_START',
+        logTargets: 'SELF',
         handler(state, caster) {
           const pct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           pushBuff(state, { name: 'dorothy234_s2_pierceDmg', unitId: caster.id,
@@ -93,6 +94,7 @@ export default {
       // Part2：进入全爆裂 → 自身 ATK ▲ p01% + Hit Rate ▲ p02%（全爆裂 10s 内）
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'SELF',
         handler(state, caster) {
           const atkPct = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           const hrPct  = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
@@ -125,6 +127,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const atkSpdPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const atkPct    = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;

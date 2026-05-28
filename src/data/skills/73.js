@@ -100,6 +100,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv      = caster.skillLevels[2];
           const atkPct  = getSkillValue(caster.rawBurst, 0, lv) / 100;

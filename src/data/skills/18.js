@@ -23,13 +23,12 @@ export default {
   // p08: [155.28, 167.23, 179.17, 191.12, 203.06, 215.01, 226.95, 238.9, 250.84, 262.79]
   skill1: {
     groupId: 20181,
-    partOffset: 1,
+    partOffset: 1,  // P1（Healthy Body）不在模拟器中建模，从 P2 开始编号
     triggers: [
-      // S1 Part1（Healthy Body）：受到攻击且无 Healthy Body → 自身无敌 3s + 免疫 debuff 3s（5次/战）
+      // [TODO] S1 P1（Healthy Body）：受到攻击且无 Healthy Body → 自身无敌 3s + 免疫 debuff 3s（5次/战）
       //   + Healthy Body: HP 回复效力 ▲10.26% 20s — 防御性技能，暂不建模
-      // [TODO] S1 Part1
 
-      // S1 Part2（Firepower Explosion）：全蓄力命中 Boss → 额外 437.98% final ATK
+      // S1 P2（Firepower Explosion）：全蓄力命中 Boss → 额外 437.98% final ATK
       //   Super Firepower 状态中追加 262.79% final ATK
       {
         on: 'FULL_CHARGE',
@@ -112,7 +111,7 @@ export default {
         logTargets: 'SELF',
         handler(state, caster) {
           const gauge = caster.skillState.nveGauge ?? 0;
-          if (gauge <= 0) return;
+          if (gauge <= 0) return false;
           const rate          = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           const duration      = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]);
           const flatIncrement = Math.round(caster.burstEnergyPerShot * rate * gauge);
@@ -168,6 +167,7 @@ export default {
       //   常驻：Attack Damage ▲110.21% 10s（Explosion Radius ▲200% 未建模）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const end10 = state.tick + TICK_RATE * 10;
           const gauge = caster.skillState.nveGauge ?? 0;

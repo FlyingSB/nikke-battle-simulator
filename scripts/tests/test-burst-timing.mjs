@@ -205,8 +205,9 @@ section('Helm SSR fav (352) — 延迟 1.05s，默认（无标记，sums 预捕�
 
 section('Scarlet (222) — 延迟 1.38s，默认（无标记，sums 预捕获，引擎自动 suppressFullBurst）');
 {
+  // Burst P2 contains pendingSkillHits（P1 是 HP<50% 的 Crit Rate buff）
   const burstTrigger = SKILL_TRAITS[222]?.burst?.triggers
-    .find(t => t.on === 'BURST_SKILL_USE');
+    .find(t => t.on === 'BURST_SKILL_USE' && t.handler?.toString().includes('pendingSkillHits'));
 
   eq('有 BURST_SKILL_USE handler', !!burstTrigger, true);
 

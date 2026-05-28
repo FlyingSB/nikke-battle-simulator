@@ -139,7 +139,7 @@ export default {
         on: 'ENTER_FULL_BURST',
         logTargets: 'SELF',
         handler(state, caster) {
-          if (state.tick > (caster.skillState.annihilationStateEndTick ?? 0)) return;
+          if (state.tick > (caster.skillState.annihilationStateEndTick ?? 0)) return false;
           const atkDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           pushBuff(state, { name: 'asuka_w_s2_p1_atkDmg', unitId: caster.id,
             attackDamagePct: atkDmgPct, endTick: state.tick + TICK_RATE * 10 });
@@ -149,7 +149,7 @@ export default {
       // 固定换弹速度清除：本次装填完成后 fixedReloadSpeedPct 失效
       {
         on: 'RELOAD_END',
-        logTargets: 'SELF',
+        logTargets: null,
         handler(state, caster, ctx) {
           if (ctx.unit.id !== caster.id) return;
           caster.skillState.fixedReloadSpeedPct = null;
@@ -209,16 +209,20 @@ export default {
       // Annihilation 到期检查 + MG 过热恢复检查（每 1s 轮询）
       {
         on: 'INTERVAL',
-        logTargets: 'ENEMY',
+        logTargets: null,
         opts: { seconds: 1 },
         handler(state, caster) {
+          const asEnd     = caster.skillState.annihilationStateEndTick ?? 0;
+          const mgHeatEnd = caster.skillState.asukaW_mgHeatEndTick ?? 0;
+          const willFire  = (asEnd > 0 && state.tick >= asEnd && !caster.skillState.annihilationFired)
+                         || (mgHeatEnd > 0 && state.tick >= mgHeatEnd);
+          if (!willFire) return false;
+
           // Annihilation State 结束 → 发动 Annihilation（含 S2 Part2）
-          const asEnd = caster.skillState.annihilationStateEndTick ?? 0;
           if (asEnd > 0 && state.tick >= asEnd && !caster.skillState.annihilationFired) {
             fireAnnihilation(state, caster);
           }
           // MG 过热速度恢复（3s 后还原 mgRofChangePerShot）
-          const mgHeatEnd = caster.skillState.asukaW_mgHeatEndTick ?? 0;
           if (mgHeatEnd > 0 && state.tick >= mgHeatEnd) {
             if (caster.asukaW_mgHeatOrig != null) {
               caster.mgRofChangePerShot = caster.asukaW_mgHeatOrig;

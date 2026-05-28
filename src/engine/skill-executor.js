@@ -107,9 +107,10 @@ function resolveEventTarget(tdef, trigger, caster) {
 
 // 将 logTargets 关键字解析为显示字符串
 function resolveLogTarget(key, caster) {
-  if (key === 'ALL_ALLIES') return '全体队友';
-  if (key === 'SELF')       return caster.name;
-  if (key === 'ENEMY')      return '敌人';
+  if (key === 'ALL_ALLIES')    return '全体队友';
+  if (key === 'SELF')          return caster.name;
+  if (key === 'ENEMY')         return '敌人';
+  if (key === 'BURST_CASTERS') return '爆裂施放者';
   return key;
 }
 
@@ -139,6 +140,8 @@ function pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef, skill) 
 
 function checkOne(state, caster, cond, ctx) {
   switch (cond.type) {
+    case 'IS_COMBAT_ASSIST':
+      return !!caster.combatAssistStatus;
     case 'NOT_COMBAT_ASSIST':
       return !caster.combatAssistStatus;
     case 'SQUAD_HAS_BUFF':
@@ -345,12 +348,13 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
         if (!checkConditions(state, caster, tdef, ctx)) continue;
 
         if (tdef.handler) {
-          tdef.handler(state, caster, ctx);
+          const result = tdef.handler(state, caster, ctx);
+          if (result !== false) pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef, skill);
         } else {
           const targets = resolveTargets(state, caster, tdef.target, tdef.targetOpts);
           applyEffects(state, caster, targets, tdef.effects ?? [], ctx);
+          pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef, skill);
         }
-        pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef, skill);
       }
     }
   }

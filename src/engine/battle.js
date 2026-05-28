@@ -558,6 +558,9 @@ export function initBattle(config) {
     // Phase schedule and current zone tracker.
     enemyPhases,
     currentPhaseZone:   initialZone,
+    // 防御力/核心状态的定时行动（startTick 升序，不含初始值）
+    enemyDefActions:    config.enemy.defActions  ?? [],
+    enemyCoreActions:   config.enemy.coreActions ?? [],
     tick:               0,
     burstStepTicks,
     fullBurstActive:    false,
@@ -669,6 +672,7 @@ export function tick(state) {
           if (u.ammoBeforeHidden > 0) {
             if (u.reloadTick > 0 && state.tick < u.reloadTick) {
               // 装填仍在进行 — 恢复原弹药并取消装填。
+              events.push({ type: 'reload_interrupted', tick: state.tick, unitId: u.id, unitName: u.name, ammoRestored: u.ammoBeforeHidden });
               u.ammoLeft   = u.ammoBeforeHidden;
               u.reloadTick = 0;
             }
@@ -677,6 +681,25 @@ export function tick(state) {
         }
       }
       events.push({ type: 'phase_change', tick: state.tick, zone: newZone });
+    }
+  }
+
+  // ── 敌人防御力行动 ──────────────────────────────────────────────────────────
+  for (const a of state.enemyDefActions) {
+    if (a.startTick === state.tick) {
+      events.push({ type: 'enemy_action', tick: state.tick, actionType: 'def', value: a.value });
+      state.enemyDef = a.value;
+      break;
+    }
+  }
+
+  // ── 敌人核心状态行动 ────────────────────────────────────────────────────────
+  for (const a of state.enemyCoreActions) {
+    if (a.startTick === state.tick) {
+      events.push({ type: 'enemy_action', tick: state.tick, actionType: 'core', value: a.value });
+      state.enemyHasCore       = a.value !== 'NONE';
+      state.enemyCoreProtected = a.value === 'PROTECTED';
+      break;
     }
   }
 
@@ -1176,7 +1199,7 @@ export function simulateMonteCarlo(config, iterations = 100) {
 
 // ─── 结果构造 ──────────────────────────────────────────────────────────
 
-const LOG_EVENT_TYPES = new Set(['burst_i', 'burst_ii', 'burst_iii', 'full_burst', 'burst_end', 'burst_timeout', 'reload', 'phase_change', 'skill_trigger']);
+const LOG_EVENT_TYPES = new Set(['burst_i', 'burst_ii', 'burst_iii', 'full_burst', 'burst_end', 'burst_timeout', 'reload', 'phase_change', 'skill_trigger', 'enemy_action', 'reload_interrupted']);
 
 function buildResult(state, events) {
   const timeSeconds = state.tick / TICK_RATE;

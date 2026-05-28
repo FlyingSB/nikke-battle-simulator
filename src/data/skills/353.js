@@ -38,6 +38,7 @@ export default {
       // 1次: 1.82s / 2次: 1.82+2.2=4.02s / 3次+: 1.82+2.2+2.6=6.62s
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv    = caster.skillLevels[0];
           const count = (caster.skillState.helm353S1Activations ?? 0) + 1;
@@ -75,6 +76,7 @@ export default {
       {
         on: 'INTERVAL',
         opts: { seconds: 4 },
+        logTargets: null,
         handler(state, caster) {
           if (state.enemyHp <= 0) return;
           const lv   = caster.skillLevels[1];
@@ -118,8 +120,9 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: null,
         handler(state, caster) {
-          if (state.enemyHp <= 0) return;
+          if (state.enemyHp <= 0) return false;
           const lv        = caster.skillLevels[2];
           const burstMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const sums      = getBuffSums(state, caster.id);

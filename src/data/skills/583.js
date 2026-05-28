@@ -25,6 +25,7 @@ export default {
       //   Part3：移除 Making Memories 相关 buff，移除 Snapshots of Youth
       {
         on: 'FULL_BURST_END',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv      = caster.skillLevels[0];
           const atkPct  = getSkillValue(caster.rawSkill1, 0, lv) / 100;
@@ -136,6 +137,7 @@ export default {
       // S2 Part2：使用爆裂技能时，给所有 SG 友军（不含自身）附加 Attack Damage ▲ p05% 10s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv        = caster.skillLevels[1];
           const atkDmgPct = getSkillValue(caster.rawSkill2, 5, lv) / 100;
@@ -184,6 +186,8 @@ export default {
       // Burst：施加 Making Memories（暴击率 + 补弹 + Attack Damage ▲，持续到 Full Burst 结束）
       {
         on: 'BURST_SKILL_USE',
+        partOverride: 0,
+        logTargets: 'SELF',
         handler(state, caster) {
           const lv           = caster.skillLevels[2];
           const critRatePct  = getSkillValue(caster.rawBurst, 0, lv) / 100;

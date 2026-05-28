@@ -28,6 +28,7 @@ export default {
       // S1 Part1：初始化幽灵计数与窗口基准
       {
         on: 'PROGRAM_INIT',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.ebs_ghostCount     = 0;
           caster.skillState.ebs_windowShotBase = 0;
@@ -42,6 +43,7 @@ export default {
       //   满载（13幽灵）时溢出捕获：触发 S2 Part2 伤害
       {
         on: 'SQUAD_SHOT_COUNT',
+        partOverride: 0,
         handler(state, caster) {
           if (caster.skillState.ebs_windowSettled) return;
           const shotsThisWindow = (state.squadShotCount ?? 0) - (caster.skillState.ebs_windowShotBase ?? 0);
@@ -93,7 +95,9 @@ export default {
       // S1 Part3：每 6 秒固定重置窗口基准，与本轮是否达标无关
       {
         on: 'INTERVAL',
+        partOverride: 0,
         opts: { seconds: 6 },
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.ebs_windowShotBase = state.squadShotCount ?? 0;
           caster.skillState.ebs_windowSettled  = false;
@@ -118,6 +122,7 @@ export default {
       // S2 Part1：使用爆裂技能时 → 自身 ATK ▲ p00% 10s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const lv     = caster.skillLevels[1];
           const atkPct = getSkillValue(caster.rawSkill2, 0, lv) / 100;
@@ -150,6 +155,7 @@ export default {
       //   首击延迟 0.2s（12 tick），后续每击间隔 0.2s；默认结算：sums 预捕获，全爆裂补正由引擎自动抑制
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ENEMY',
         handler(state, caster) {
           const lv      = caster.skillLevels[2];
           const ghosts  = caster.skillState.ebs_ghostCount ?? 0;

@@ -189,8 +189,8 @@ section('R5 — Rapi B3, non-CA: burst fires 28.08× skill damage');
     rapiUnit('Step3', 'Step3'),
   ]));
   const rapi = rapiResult(r);
-  eq('R5.1  burst damage label exists',        'Burst' in (rapi.skillDamage ?? {}),        true);
-  eq('R5.2  burst damage > 0',                 (rapi.skillDamage?.Burst ?? 0) > 0,          true);
+  eq('R5.1  burst damage label exists',        'Burst P3' in (rapi.skillDamage ?? {}),      true);
+  eq('R5.2  burst damage > 0',                 (rapi.skillDamage?.['Burst P3'] ?? 0) > 0,   true);
 }
 
 // ─── R6: Rapi B3, CA → CA burst buff fires, no B3 damage ────────────────────
@@ -204,7 +204,7 @@ section('R6 — Rapi B3, Combat Assist: CA ATK-flat buff fires; burst damage abs
   ]));
   const rapi = rapiResult(r);
   eq('R6.1  CA burst buff fired',              buffFired(r.buffLog, 'rapi_burst_ca_atkFlat'),            true);
-  eq('R6.2  burst damage label absent',        'Burst' in (rapi.skillDamage ?? {}),                     false);
+  eq('R6.2  burst damage label absent',        'Burst P3' in (rapi.skillDamage ?? {}),                  false);
 }
 
 // ─── R7: Rapi configured as B1 → no burst damage; Scenario D fires ──────────
@@ -219,7 +219,7 @@ section('R7 — Rapi as B1 slot: no B3 burst damage; Scenario D buff fires');
   ]));
   const rapi = rapiResult(r);
   eq('R7.1  at least one burst fired',         r.burstCount > 0,                                         true);
-  eq('R7.2  Rapi fires burst damage as B1 caster', (rapi.skillDamage?.Burst ?? 0) > 0,                  true);
+  eq('R7.2  Rapi fires burst damage as B1 caster', (rapi.skillDamage?.['Burst P3'] ?? 0) > 0,           true);
   eq('R7.3  Scenario D ATK buff fired',        buffFired(r.buffLog, 'rapi_s1_enterBurst_atkPct'),        true);
   eq('R7.4  Scenario C buff did NOT fire',     buffFired(r.buffLog, 'rapi_s1_ca_attackDmg'),             false);
 }

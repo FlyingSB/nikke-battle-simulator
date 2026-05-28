@@ -123,16 +123,17 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const favBurst = caster.ssrFavSkills?.burst;
-          if (!favBurst) return;
+          if (!favBurst) return false;
           const lv      = favBurst._activeSkillLevel ?? 10;
           const allPct  = getSkillValue(favBurst, 0, lv) / 100;
           const sgPct   = getSkillValue(favBurst, 2, lv) / 100;
           const endTick = state.tick + TICK_RATE * 15;
 
           const stacks = caster.skillState.tvTempModStacks ?? 0;
-          if (stacks <= 0) return;
+          if (stacks <= 0) return false;
 
           const casterAtk  = caster.stats.atk;
           const allAtkFlat = casterAtk * allPct * stacks;

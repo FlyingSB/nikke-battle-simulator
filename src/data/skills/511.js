@@ -44,7 +44,7 @@ export default {
       },
       {
         on: 'RELOAD_END',
-        logTargets: 'SELF',
+        logTargets: null,
         handler(state, caster) {
           state.buffs = state.buffs.filter(b =>
             !(b.name === 'cinderella_s1_chargeSpd' && b.unitId === caster.id));
@@ -87,17 +87,19 @@ export default {
       },
       {
         on: 'ENTER_BURST_III',
+        partOverride: 0,
         handler(state, caster) { caster.skillState.cinderellaDecoyActive = true; },
       },
       // 每 3s Beautiful +1 层（上限 12），每层永久 MaxHP ▲1.6%
       // Beautiful 层数存于 cinderellaBeautyStacks；maxHpPct 写入 buff 使 getBuffSums 可聚合
       {
         on: 'INTERVAL',
+        partOverride: 1,
         logTargets: 'SELF',
         opts: { seconds: 3 },
         handler(state, caster) {
-          if (!caster.skillState.cinderellaDecoyActive) return;
-          if ((caster.skillState.cinderellaBeautyStacks ?? 0) >= 12) return;
+          if (!caster.skillState.cinderellaDecoyActive) return false;
+          if ((caster.skillState.cinderellaBeautyStacks ?? 0) >= 12) return false;
           caster.skillState.cinderellaBeautyStacks = (caster.skillState.cinderellaBeautyStacks ?? 0) + 1;
           const stacks       = caster.skillState.cinderellaBeautyStacks;
           const maxHpPerStack = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
@@ -126,6 +128,7 @@ export default {
       //   S3 Part2：每次 Part1 命中后触发 Beautiful层数 × 28.9% 附加伤害（【已实测】非默认：sums:null，ENTER_FULL_BURST 后重算，享受全爆裂补正）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ENEMY',
         handler(state, caster) {
           const stacks         = caster.skillState.cinderellaBeautyStacks ?? 0;
           const burstHitMult   = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;

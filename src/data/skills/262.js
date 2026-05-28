@@ -37,10 +37,11 @@ export default {
       // S1 T4：进入全爆裂 → ATK 最低的 B3 友军（排除 Lib 自身）蓄力速度减少 [S1 param5]% 10s
       {
         on: 'ENTER_FULL_BURST',
+        partOverride: 3,
         logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const b3Units = state.squad.filter(u => u.burstStep === 'Step3');
-          if (!b3Units.length) return;
+          if (!b3Units.length) return false;
           const target = b3Units.reduce((a, b) => a.stats.atk < b.stats.atk ? a : b);
           const chargeTimeReductionPct = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
           pushBuff(state, { name: 'lib_s1_t4_chargeSpd', unitId: target.id,
@@ -51,6 +52,7 @@ export default {
       // S1 T2：全蓄力命中核心 → 自身 Attack Damage ▲[S1 param2]% 60s（刷新）
       {
         on: 'FULL_CHARGE',
+        partOverride: 1,
         conditions: [{ type: 'IS_CORE_HIT' }],
         logTargets: 'SELF',
         handler(state, caster) {
@@ -62,6 +64,7 @@ export default {
       // S1 T3：全蓄力命中 → 5×[S1 param4]% ATK 技能伤害 + 为 Lib 补充爆裂槽
       {
         on: 'FULL_CHARGE',
+        partOverride: 2,
         logTargets: null,
         handler(state, caster, ctx) {
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
@@ -104,7 +107,7 @@ export default {
         on: 'FULL_CHARGE',
         logTargets: 'SELF',
         handler(state, caster) {
-          if (caster.skillState.libRagingCurrentActive) return;
+          if (caster.skillState.libRagingCurrentActive) return false;
           caster.skillState.libRagingCurrentActive = true;
           const attackDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           pushBuff(state, { name: 'lib_s2_ragingCurrent', unitId: caster.id,
@@ -127,13 +130,22 @@ export default {
     triggers: [
       // Burst（Submerged World）：自身 Attack Damage ▲[Burst param0]% 10s
       //   + 延迟 0.97s 后 [Burst param2]% ATK 技能伤害（【已实测】非默认：受全爆裂补正，sums 在命中时重算获取 ENTER_FULL_BURST buff）
+      // Burst P1：自身 Attack Damage ▲ p00% 10s
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
-          const burstMult    = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           pushBuff(state, { name: 'lib_burst_attackDmg', unitId: caster.id,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
+        },
+      },
+      // Burst P2：额外技能伤害（延迟 0.97s，受全爆裂加成）
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'ENEMY',
+        handler(state, caster) {
+          const burstMult = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           state.pendingSkillHits.push({
             fireTick: state.tick + Math.round(0.97 * TICK_RATE),
             caster, mult: burstMult, isCharged: false, label: 'Burst', opts: { affectedByFullBurst: true },

@@ -87,6 +87,7 @@ export default {
       // 与满层触发共用 buff name；pushBuff 刷新语义保证不叠加
       {
         on: 'HEAL_RECEIVED',
+        partOverride: 2,
         conditions: [{ type: 'HEALED_UNIT_IS_SELF' }],
         logTargets: 'ALL_ALLIES',
         handler(state, caster) {
@@ -114,6 +115,7 @@ export default {
       //   全员护盾 10.45% Crown HP 15s（刷新取 max(旧, 新)）
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const shieldPct    = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;

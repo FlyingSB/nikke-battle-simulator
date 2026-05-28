@@ -199,7 +199,9 @@ section('T8: Helm burst uses round-based charge damage buff');
   };
   caster.skillState = { helmChargeShots: 0, helmChargeDmgBuff: 0 };
 
-  burstUseTrigger.handler(state, caster, {});
+  // Run all BURST_SKILL_USE handlers (burst is now split into P1/P2/P3)
+  for (const t of burstTriggers.filter(t => t.on === 'BURST_SKILL_USE'))
+    t.handler(state, caster, {});
 
   const chargeBuff = state.buffs.find(b => b.name === 'helm_burst_chargeDmg');
   eq('helm_burst_chargeDmg buff pushed',     !!chargeBuff,             true);
@@ -277,7 +279,9 @@ section('T9: Moran SSR burst — handler sets weaponSwitch + lifeSteal + ATK buf
     },
   };
 
-  burstUseTrigger.handler(state, caster, {});
+  // Run all BURST_SKILL_USE handlers (P1 SELF + P2 ALL_ALLIES)
+  for (const t of burstTriggers.filter(t => t.on === 'BURST_SKILL_USE'))
+    t.handler(state, caster, {});
 
   // Weapon switch state written directly (equivalent to WEAPON_SWITCH effect)
   eq('weaponSwitchHitMult = lv10 value',     caster.skillState.weaponSwitchHitMult,       parseFloat('14.7') / 100);
@@ -463,9 +467,10 @@ section('T12: Memory Incineration — time-based FC count (duration÷chargeTime)
   const sixthFcTick = (fcCount + 1) * CHARGE_TIME_S * TICK_RATE_VAL;
   eq('6th FC tick (648) > window end (600)', sixthFcTick > windowEndTick, true);
 
-  // Burst handler must use weapon switch, not pendingSkillHits
+  // Burst P3 (SELF) handles weapon switch; find by presence of weaponSwitchEndTick
   const nayutaTraits = SKILL_TRAITS[223];
-  const burstTrigger = nayutaTraits?.burst?.triggers?.find(t => t.on === 'BURST_SKILL_USE');
+  const burstTrigger = nayutaTraits?.burst?.triggers?.find(
+    t => t.on === 'BURST_SKILL_USE' && t.handler?.toString().includes('weaponSwitchEndTick'));
   const handlerSrc   = burstTrigger?.handler?.toString() ?? '';
   eq('burst handler writes weaponSwitchEndTick',   handlerSrc.includes('weaponSwitchEndTick'), true);
   eq('burst handler does not use pendingSkillHits', handlerSrc.includes('pendingSkillHits'), false);
@@ -878,7 +883,9 @@ section('T16: B3 直接伤害默认/非默认结算配置审计');
 
   // ── Liberalio (262): 非默认 — affectedByFullBurst:true，sums 不预捕获 ────────
   {
-    const trigger = SKILL_TRAITS[262]?.burst?.triggers?.find(t => t.on === 'BURST_SKILL_USE');
+    // P2 contains pendingSkillHits（P1 is the self attackDmgPct buff）
+    const trigger = SKILL_TRAITS[262]?.burst?.triggers?.find(
+      t => t.on === 'BURST_SKILL_USE' && t.handler?.toString().includes('pendingSkillHits'));
     const state   = makeState(262);
     const caster  = state.squad[0];
     caster.rawBurst = rawSkill([29.54, 10, 925]);

@@ -42,8 +42,9 @@ export default {
       //   S2 Part1：ElemAdv ATK Dmg ▲[S2 param0]% + ATK ▲[S2 param2]% caster ATK flat 10s
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
-          if ((caster.skillState.iceroseMP ?? 0) < 1) return;
+          if ((caster.skillState.iceroseMP ?? 0) < 1) return false;
           caster.skillState.iceroseMP = Math.min(12, caster.skillState.iceroseMP + 1);
           const end10       = state.tick + TICK_RATE * 10;
           const elemAdvPct  = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
@@ -62,7 +63,7 @@ export default {
         logTargets: 'SELF',
         handler(state, caster) {
           caster.skillState.iceroseChargeCount = (caster.skillState.iceroseChargeCount ?? 0) + 1;
-          if (caster.skillState.iceroseChargeCount < 6) return;
+          if (caster.skillState.iceroseChargeCount < 6) return false;
           caster.skillState.iceroseChargeCount = 0;
           const maxHpPctPerStack = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           const existing = state.buffs.find(b => b.name === 'icr_s1_maxHp' && b.unitId === caster.id);
@@ -108,6 +109,7 @@ export default {
       // S2 Part1 inline 于 S1 触发器；S2 Part2 inline 于 Burst 触发器
       {
         on: 'FULL_CHARGE',
+        partOverride: 2,
         logTargets: null,
         handler(state, caster, ctx) {
           const skillDmg = getSkillValue(caster.rawSkill2, 9, caster.skillLevels[1]) / 100;
@@ -133,27 +135,34 @@ export default {
       //   S2 Part2（MP 消耗时）先推：自身 Elem Adv ATK Dmg ▲[S2 param4]% + ATK ▲[S2 param6]% buffed MaxHP flat 10s
       //   主体：消耗全部 MP，每点 MP 发动 1 次 [Burst param2]% × (10% buffed MaxHP + buffed ATK)
       //   extraAtkFlat = round(buffedMaxHP × 10%)，不受 ATK% 缩放，hitMult 正确还原公式
+      // Burst P1（敌人）：消耗全部 MP，每点 MP 发动 1 次 (buffedMaxHP + buffedATK) × Burst_param2
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'ENEMY',
         handler(state, caster) {
-          const preSums       = getBuffSums(state, caster.id);
-          const buffedMaxHp   = Math.round(caster.stats.hp * (1 + preSums.maxHpPct));
-          // 公式：(buffedMaxHP + buffedATK) × Burst_param2；不受全爆裂加成
-          const burstMult = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          const mp        = caster.skillState.iceroseMP ?? 0;
-          // 首击延迟 0.73s（44 tick），后续每击间隔 0.1s（6 tick）；预捕获 sums，屏蔽 S2 Part2 及 ENTER_FULL_BURST buff
+          const preSums     = getBuffSums(state, caster.id);
+          const buffedMaxHp = Math.round(caster.stats.hp * (1 + preSums.maxHpPct));
+          const burstMult   = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
+          const mp          = caster.skillState.iceroseMP ?? 0;
           const firstHitDelay = Math.round(0.73 * TICK_RATE);
           const intervalTicks = Math.round(0.1 * TICK_RATE);
           for (let i = 0; i < mp; i++) {
             state.pendingSkillHits.push({
               fireTick: state.tick + firstHitDelay + i * intervalTicks, caster, mult: burstMult,
-              sums: preSums,
-              isCharged: false, label: 'Burst',
+              sums: preSums, isCharged: false, label: 'Burst',
               opts: { extraAtkFlat: buffedMaxHp },
             });
           }
-          // 先调度命中，再消耗 MP 并触发 S2 Part2（爆裂技能不受 S2 Part2 效果影响）
           caster.skillState.iceroseMP = 0;
+          caster.skillState.icrBurstBuffedMaxHp = buffedMaxHp;
+        },
+      },
+      // Burst P2（自身）：S2 Part2 — 消耗 MP 后自身 ElemAdv ATK Dmg ▲ + ATK flat ▲ 10s
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
+        handler(state, caster) {
+          const buffedMaxHp  = caster.skillState.icrBurstBuffedMaxHp ?? 0;
           const end10        = state.tick + TICK_RATE * 10;
           const selfElemAdv  = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const selfHpAtkPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;

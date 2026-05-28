@@ -95,25 +95,26 @@ export default {
   burst: {
     groupId: 18513,
     triggers: [
+      // Burst P1：全体爆裂技能伤害（延迟 1s）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: ['ENEMY', 'SELF'],
+        logTargets: 'ENEMY',
         handler(state, caster) {
-          const lv = caster.skillLevels[2];
-
-          // Part1: 全体爆裂技能伤害（延迟 1s，默认结算：sums 预捕获，全爆裂补正由引擎自动抑制）
+          const lv        = caster.skillLevels[2];
           const burstMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const sumsSnap  = getBuffSums(state, caster.id);
           state.pendingSkillHits.push({
-            fireTick:  state.tick + TICK_RATE,
-            caster,
-            mult:      burstMult,
-            sums:      sumsSnap,
-            isCharged: false,
-            label:     'Burst',
+            fireTick: state.tick + TICK_RATE, caster,
+            mult: burstMult, sums: sumsSnap, isCharged: false, label: 'Burst',
           });
-
-          // Part2: A.N. Mode — 自身持续伤害倍率▲ p01% 10s
+        },
+      },
+      // Burst P2：A.N. Mode — 自身持续伤害倍率▲ p01% 10s
+      {
+        on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
+        handler(state, caster) {
+          const lv     = caster.skillLevels[2];
           const sdMult = getSkillValue(caster.rawBurst, 1, lv) / 100;
           pushBuff(state, { name: 'rv_burst_sustainedDmg', unitId: caster.id,
             sustainedDamagePct: sdMult, endTick: state.tick + TICK_RATE * 10 });

@@ -22,6 +22,7 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
+        logTargets: 'BURST_CASTERS',
         handler(state, caster) {
           const lv          = caster.skillLevels[0];
           const end10       = state.tick + TICK_RATE * 10;
@@ -59,6 +60,8 @@ export default {
       // S2 Part2：使用爆裂技能时 → 记录加速截止 tick（10 秒内间隔 ▼1s）
       {
         on: 'BURST_SKILL_USE',
+        partOverride: 1,
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.ada_s2_accelEnd = state.tick + TICK_RATE * 10;
         },
@@ -66,6 +69,8 @@ export default {
       // S2 Part1：全爆裂期间每秒轮询，按实际间隔（1s 或 2s）触发闪光弹
       {
         on: 'INTERVAL_IN_BURST',
+        partOverride: 0,
+        logTargets: null,
         opts: { seconds: 1 },
         handler(state, caster) {
           const lastFire      = caster.skillState.ada_s2_lastFireTick;
@@ -85,6 +90,7 @@ export default {
       // 全爆裂结束时重置上次触发记录
       {
         on: 'FULL_BURST_END',
+        logTargets: null,
         handler(state, caster) {
           caster.skillState.ada_s2_lastFireTick = undefined;
         },
@@ -113,6 +119,7 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
+        logTargets: 'SELF',
         handler(state, caster) {
           const lv    = caster.skillLevels[2];
           const end10 = state.tick + TICK_RATE * 10;
