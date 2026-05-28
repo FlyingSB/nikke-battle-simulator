@@ -112,7 +112,7 @@ export default {
           const mult = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
           for (let h = 0; h < 4 && state.enemyHp > 0; h++) {
-            fireSkillHit(state, caster, mult, sums, false, 'S2_bubble_wave');
+            fireSkillHit(state, caster, mult, sums, false, 'S2 P3');
           }
         },
       },
@@ -124,7 +124,7 @@ export default {
           const sums    = getBuffSums(state, caster.id);
           const barrageMult = getSkillValue(caster.rawSkill2, 7, caster.skillLevels[1]) / 100;
           for (let h = 0; h < 10 && state.enemyHp > 0; h++) {
-            fireSkillHit(state, caster, barrageMult, sums, false, 'S2_barrage');
+            fireSkillHit(state, caster, barrageMult, sums, false, 'S2 P4');
           }
         },
       },

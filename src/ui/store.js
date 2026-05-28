@@ -310,6 +310,9 @@ const TRIGGER_DESC = {
 
 function formatHitLabel(label) {
   if (label === 'normal_shot') return '普通攻击';
+  // "S2 P2 Projectile Attachment" → "Projectile Attachment"（原始 label 保留在 skillKey 供 tooltip 使用）
+  const subMatch = label.match(/^(?:S\d+|Burst)(?: P\d+)? (.+)$/);
+  if (subMatch) return subMatch[1];
   return label;
 }
 
@@ -396,6 +399,7 @@ function buildAggregateLog(hitLog, unitNames) {
         unitId:    h.unitId,
         name,
         label:     formatHitLabel(h.label),
+        skillKey:  h.label,
         target:    '敌人',
         bufKey,
         buffDesc:  (h.buffBreakdown ?? []).map(b => b.name).join(' / ') || '—',
@@ -417,6 +421,7 @@ function buildDetailLog(hitLog, unitNames) {
     unitId:     h.unitId,
     name:       unitNames[h.unitId] ?? String(h.unitId),
     label:      formatHitLabel(h.label),
+    skillKey:   h.label,
     target:     '敌人',
     bufKey:     '',
     buffDesc:   (h.buffBreakdown ?? []).map(b => b.name).join(' / ') || '—',
@@ -1327,10 +1332,13 @@ export function createStore() {
         return unitData ? _normalAttackTipHTML(unitData) : null;
       }
 
-      // 技能/事件行：匹配对应技能并显示描述
-      const found = _findSkillByRow(row, unitData);
+      // 技能/事件行：skillKey 含子标签时（如 "S2 P2 Projectile Attachment"）规范化为 "S2 P2" 后再查找
+      const rawKey = row.skillKey ?? row.label;
+      const canonLabel = rawKey.replace(/^((?:S\d+|Burst)(?: P\d+)?) .+$/, '$1');
+      const lookupRow = canonLabel !== rawKey ? { ...row, label: canonLabel } : row;
+      const found = _findSkillByRow(lookupRow, unitData);
       if (!found?.skill) return null;
-      const partMatch = row.label.match(/ P(\d+)$/);
+      const partMatch = canonLabel.match(/ P(\d+)$/);
       const partIdx = partMatch ? parseInt(partMatch[1], 10) - 1 : null;
       return _skillDescTipHTML(found.skill, found.level, renderSkillDesc, partIdx);
     },
@@ -1342,10 +1350,11 @@ export function createStore() {
       return Object.entries(unit.skillDamage)
         .filter(([, dmg]) => dmg > 0)
         .map(([rawLabel, dmg]) => ({
-          label:  formatHitLabel(rawLabel),
-          name:   unit.name,
-          damage: dmg,
-          share:  unit.totalDamage > 0 ? dmg / unit.totalDamage : 0,
+          label:    formatHitLabel(rawLabel),
+          skillKey: rawLabel,
+          name:     unit.name,
+          damage:   dmg,
+          share:    unit.totalDamage > 0 ? dmg / unit.totalDamage : 0,
         }))
         .sort((a, b) => b.damage - a.damage);
     },

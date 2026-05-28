@@ -1049,6 +1049,15 @@ export function tick(state) {
       unit.skillDamageCount[normalLabel] = (unit.skillDamageCount[normalLabel] ?? 0) + 1;
       // 普通射击的逐发详细日志
       if (state.hitLog) {
+        // 射击时刻的有效最大弹匣 — 与装填处公式保持一致，同时考虑 tempMaxAmmoMult 和 maxAmmoFlat
+        const _hitLogAmmoMult  = (state.tick < unit.tempMaxAmmoEndTick) ? unit.tempMaxAmmoMult : 1;
+        const _hitLogFlatBoost = sums.maxAmmoFlat ?? 0;
+        const effectiveMaxAmmo = _hitLogFlatBoost > 0
+          ? unit.maxAmmo + _hitLogFlatBoost
+          : (_hitLogAmmoMult !== 1
+            ? Math.max(1, unit.baseAmmo + Math.round(unit.baseAmmo * (_hitLogAmmoMult - 1)))
+              + Math.round(unit.baseAmmo * (unit.stats.bonusAmmo ?? 0)) + unit.favAmmoBonus
+            : unit.maxAmmo);
         state.hitLog.push({
           tick: state.tick, unitId: unit.id, label: normalLabel,
           atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
@@ -1065,8 +1074,7 @@ export function tick(state) {
           distanceAdv: hasDistanceAdvantage(unit.weaponType, state.distanceZone)
                        || (unit.skillState.extraDistZones?.includes(state.distanceZone) ?? false),
           ammoLeft: unit.ammoLeft,
-          // 射击时刻的有效最大弹匣 — 包含当前生效的容量加成（如 Liter S1T1、Noir S2）
-          maxAmmo: unit.maxAmmo + (sums.maxAmmoFlat ?? 0),
+          maxAmmo: effectiveMaxAmmo,
           buffBreakdown: state.buffs
             .filter(b => b.unitId === null || b.unitId === unit.id)
             .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0) }))

@@ -136,13 +136,13 @@ export default {
           const em      = caster.skillState.rapiProjectileExplosionMult;
           // 弹丸命中伤害：[S2 param1]% ATK（lv10=88.11%）
           const hitMult = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
-          fireSkillHit(state, caster, hitMult, sums, false, 'S2 P1', {
+          fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2 Projectile Attachment', {
             isCore: state.enemyHasCore, coreDmgIncrement: caster.coreDmgIncrement ?? 0,
             extraAttackDamagePct: am - 1, applyDistanceAdv: true,
           });
           if (state.fullBurstActive) {
             // 全爆裂期间立即爆炸（不需等待，触发 projectileExplosion 加成）
-            fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2', {
+            fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2 Projectile Explosion', {
               isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true, applyDistanceAdv: true,
             });
           } else {
@@ -163,7 +163,7 @@ export default {
           const em      = caster.skillState.rapiProjectileExplosionMult;
           const hitMult = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           for (let i = 0; i < count; i++) {
-            fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2', {
+            fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2 Projectile Explosion', {
               isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true, applyDistanceAdv: true,
             });
           }
@@ -221,12 +221,13 @@ export default {
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },
-      // ■ P3（Stage 3 / 非 CA）：[Burst param4]% ATK 伤害（lv10=2808%）
+      // ■ P3（Stage 3 / 非 CA）：[TODO: Explosion Radius ▲[Burst param0]% — 未建模]
+      // ■ P4（Stage 3 / 非 CA）：[Burst param4]% ATK 伤害（lv10=2808%）
       // 延迟 0.1s，受全爆裂 +50% 及 ENTER_FULL_BURST buff 加成；rapiShotCount ≥60 时消耗计数代替 projectile
       {
         on: 'BURST_SKILL_USE',
         conditions: [{ type: 'NOT_COMBAT_ASSIST' }],
-        partOverride: 2,
+        partOverride: 3,
         logTargets: null,
         handler(state, caster) {
           if (caster.skillState.rapiShotCount >= 60) {
@@ -237,18 +238,17 @@ export default {
             : 28.08;
           state.pendingSkillHits.push({
             fireTick: state.tick + Math.round(0.1 * TICK_RATE),
-            caster, mult: burstMult, isCharged: false, label: 'Burst P3',
+            caster, mult: burstMult, isCharged: false, label: 'Burst P4',
             opts: { affectedByFullBurst: true },
           });
         },
       },
-      // ■ P4（Stage 3 / 非 CA）：自身 Projectile Attachment ▲ + S2 触发阈值 ▼60 发（10s）
+      // ■ P5（Stage 3 / 非 CA）：自身 Projectile Attachment ▲ + S2 触发阈值 ▼60 发（10s）
       // burst 期间 attach mult = 1 + S2被动(150.72%) + Burst增益(421.2%)
-      // [TODO: Explosion Radius ▲[Burst param0]% — 未建模]
       {
         on: 'BURST_SKILL_USE',
         conditions: [{ type: 'NOT_COMBAT_ASSIST' }],
-        partOverride: 3,
+        partOverride: 4,
         logTargets: 'SELF',
         handler(state, caster) {
           const end10 = state.tick + TICK_RATE * 10;
