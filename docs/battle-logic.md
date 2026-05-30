@@ -205,11 +205,109 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 
 ### 4.3 SR/RL 蓄力模式
 
-- 每次射击结束后，设置 `chargeTick = tick + backswing + foreswing + effectiveCharge`。
-- 下一发须等到 `tick >= chargeTick` 才打出（确定性，非概率）。
-- `chargeSpeedPct` 仅缩短**蓄力（瞄准）阶段**，不影响 fore/backswing。
-- `chargeTimeTicks > 0` 的 buff：先应用 `chargeSpeedPct` 百分比缩短，再应用 `chargeTimeReductionTicks` 固定 tick 减少。
-- 蓄力武器的爆裂能量：`baseEnergy × (fullChargeDamage / 10000)`（全蓄力加成）。
+#### 4.3.1 类型区分（input_type）
+
+CDN `shot_detail.input_type` 决定发射机制，影响发间计算的所有路径：
+
+| 类型 | 代表角色 | 触发方式 | 发间构成 |
+|------|---------|---------|---------|
+| `UP` | 绝大多数 SR/RL | 按下蓄力，**松手**触发 | backswing + foreswing + effectiveCharge |
+| `DOWN_Charge` | Liberalio（SR）、Cinderella 等（RL） | 持续**按住**，满蓄自动连射 | 仅 effectiveCharge |
+| `DOWN` | Pascal（RL） | charge_time=0，按下即发 | 由 rateOfFire RPM 累加器控制（不走蓄力路径） |
+
+`isDownCharge = (input_type === 'DOWN_Charge')`；DOWN 型按普通武器处理，本节不适用。
+
+#### 4.3.2 前摇 / 后摇来源
+
+均来自 CDN `shot_detail`，单位百分之一秒（÷100×60 换算为 tick）：
+
+| CDN 字段 | 引擎变量 | 含义 | 已知值 |
+|---------|---------|------|--------|
+| `spot_first_delay` | `foreswingTicks` | 前摇：重新按下/对准耗时 | 全角色固定 20 cs = 12 t |
+| `spot_last_delay` | `backswingTicks`（maintain=0 时使用） | 后摇：松手/恢复耗时 | 全角色固定 20 cs = 12 t |
+| `maintain_fire_stance` | 覆盖 `backswingTicks`（>0 时替换） | 持续火力姿态后摇 | 如 Scarlet:BS = 23 cs = 14 t |
+
+#### 4.3.3 effectiveCharge（实际蓄力时长）
+
+基础值：CDN `shot_detail.charge_time`（百分之一秒）÷100×60 = `chargeTimeTicks`（tick）。
+
+```
+afterPct        = round(chargeTimeTicks × (1 − min(0.99, stats.chargeSpeedPct + csFromBuff)))
+effectiveCharge = max(0, afterPct − flatReductionTicks)
+```
+
+| 来源 | 变量 | 是否受 immuneSkillChargeSpeed 屏蔽 |
+|------|------|---------------------------------|
+| 装备词条 / 魔方 | `stats.chargeSpeedPct` | **不受屏蔽，始终生效** |
+| 技能 / buff | `sums.chargeSpeedPct` | 受屏蔽时归零 |
+| 技能 flat 减少 | `sums.chargeTimeReductionTicks` | 受屏蔽时归零 |
+
+总折减上限 99%，不允许 effectiveCharge 降为 0。
+
+#### 4.3.4 初始化（战斗开始）
+
+```
+chargeTick = foreswingTicks + chargeTimeTicks   // 使用基础值，不应用蓄速
+```
+
+UP / DOWN_Charge 均以**基础** `chargeTimeTicks`（不折减蓄速）作为首发等待。DOWN_Charge 首发含前摇（初次对准目标）；首发后进入持续按住状态，之后发间不再含前后摇。
+
+#### 4.3.5 每次射击后（chargeTick 重置）
+
+**UP 型：**
+```
+chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
+```
+
+**DOWN_Charge 型：**
+```
+chargeTick = now + effectiveCharge
+```
+
+**特殊情况（按优先级）：**
+
+1. **武器切换期间**（`WEAPON_SWITCH` 效果激活）：使用 `weaponSwitchChargeTimeTicks`，不加前后摇。
+2. **固定蓄力覆盖**（`fixedChargeTimeTicks`，如 Anis:Star 爆裂期间）：忽略技能类蓄速 buff，仅保留 `stats.chargeSpeedPct`（装备/魔方加成）。
+3. **Alice Wonderland 快速攻击**：当 `effectiveCharge ≤ round(chargeTimeTicks × 0.0048)`（99.52% 蓄速阈值）时，跳过前后摇，以固定 15 t（= round(60×10/40)）连射。
+
+#### 4.3.6 换弹后（DOWN_Charge 专属重置）
+
+DOWN_Charge 型换弹完成后立即重置：
+```
+chargeTick = reloadEndTick + effectiveCharge
+```
+
+UP 型换弹后不需特殊处理：若换弹完成时 `chargeTick` 已到期，下一 tick 直接开火（普通发间逻辑自然覆盖）。
+
+#### 4.3.7 HIDDEN 退出后（chargeTick 重置）
+
+进入 HIDDEN 时 `chargeTick` **不改变**。退出 HIDDEN（进入 NEAR / MID / FAR）时：
+
+**DOWN_Charge 型：**
+```
+chargeTick = now + effectiveCharge
+```
+
+**UP 型：**
+```
+chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
+```
+即完整发间重置。物理含义：HIDDEN 时角色放弃瞄准（等价后摇动作），再次可见时需重新前摇＋蓄力，合计等于一次完整射击周期。
+
+若不重置，每次 HIDDEN 过渡约多出 1 发（4 次 HIDDEN ≈ 多 4 发）。
+
+实测依据（BIGARMS 模式1，4 次 HIDDEN）：
+
+| 角色 | 完整发间 | 不重置预测 | 完整发间重置预测 | 实测 |
+|------|---------|-----------|----------------|------|
+| Helm（SR） | 84 t | 125 | **121** | 121 ✓ |
+| Scarlet: BS（RL） | 44 t | 236 | **232** | 233（±1）✓ |
+
+#### 4.3.8 其他
+
+- 下一发须等 `state.tick >= unit.chargeTick` 才打出（确定性，每蓄力周期恰好 1 发）。
+- `chargeSpeedPct` 仅缩短蓄力阶段，前后摇不受影响。
+- 蓄力武器爆裂充能：`baseEnergy × (fullChargeDamage / 10000)`（全蓄力加成）。
 
 ### 4.4 MG 起速模型
 
@@ -273,6 +371,7 @@ maxAmmo = baseAmmo
 - 进入 HIDDEN：仍有弹药的单位保存 `ammoBeforeHidden`，将 `ammoLeft` 置 0，触发装填（下一 tick 开始）。
 - 离开 HIDDEN：若装填仍在进行，恢复 `ammoBeforeHidden`，取消装填（自愿装填被打断）。
 - 已在装填中的单位：装填继续不中断。
+- SR/RL 蓄力 `chargeTick` 在 HIDDEN 退出时同步重置，见 §4.3.7。
 
 ---
 
@@ -554,7 +653,7 @@ burstPhase = 0（充能中）
 - 配置为 `{ startTick, zone }` 数组，按 startTick 升序。
 - 支持区间：`NEAR` / `MID` / `FAR` / `HIDDEN`（不可瞄准）。
 - `HIDDEN` 阶段：所有单位停止射击，触发装填（ammoLeft → 0）。
-- 离开 HIDDEN：恢复被中断的自愿装填（原弹药恢复）。
+- 离开 HIDDEN：恢复被中断的自愿装填（原弹药恢复）；SR/RL 蓄力 `chargeTick` 同步重置（见 §4.3.7）。
 
 ### 11.3 属性克制关系
 

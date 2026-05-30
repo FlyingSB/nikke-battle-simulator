@@ -144,17 +144,12 @@ function applyEnterBurst3Passives(state) {
   flushHealReceived(state);
 }
 
-/** Step1 burst：若冷却结束则释放。返回释放的单位，或 null。 */
+/** Step1 burst：若冷却结束则释放。返回释放的单位，或 null。
+ * §6.4：不存在 Step1 单位，或 Step1 单位冷却中，均返回 null（阶段无法推进，等待 §6.3 超时）。
+ */
 function applyBurstISkills(state) {
   const b1 = selectBurstUnit(state, 'Step1');
-  if (!b1) {
-    // 队伍中完全没有 Step1 单位 → 立即推进阶段且不触发任何技能效果。
-    //（若存在 Step1 单位但冷却中，返回 null 继续等待。）
-    if (!state.squad.some(u => u.burstStep === 'Step1' && u.canBurst !== false)) {
-      return { name: null };
-    }
-    return null;
-  }
+  if (!b1) return null;
 
   b1.burstCdRemaining = b1.burstSkillCooltime;
   state.burstCastersThisRotation?.add(b1.id);
@@ -303,12 +298,15 @@ export function initBattle(config) {
     const favAmmoBonus = collFx?.ammoPct ? Math.round(baseAmmo * collFx.ammoPct) : 0;
     const maxAmmo = baseAmmo + Math.round(baseAmmo * (stats.bonusAmmo ?? 0)) + favAmmoBonus;
     // FORESWING/BACKSWING for SR/RL weapons: time before and after each charge shot.
-    // Default 10 ticks each; per-unit overrides via cfg.foreswingTicks / cfg.backswingTicks.
-    // Note: maintain_fire_stance==0 in CDN also uses defaults; explicit overrides win.
+    // store.js 从 CDN spot_first_delay / spot_last_delay / maintain_fire_stance 计算并传入。
+    // 默认 10t（≈16.67 百分秒）仅在无 CDN 数据时兜底；通常 CDN 值为 12t（20 百分秒）。
     const isChargWeapon = ['SR', 'RL'].includes(wt);
     const foreswingTicks = isChargWeapon ? (cfg.foreswingTicks ?? 10) : 0;
     const backswingTicks = isChargWeapon ? (cfg.backswingTicks ?? 10) : 0;
     const chargeTimeTicks = cfg.chargeTimeTicks ?? 0;
+    // DOWN_Charge 型（持续按住自动连发，如 Liberalio）：发间无前后摇，只计蓄力时长。
+    // UP 型（松手触发）：每次发射需重新瞄准（前摇）和恢复（后摇），前后摇正常计入。
+    const isDownCharge = cfg.isDownCharge ?? false;
     const ssrFavSkills = cfg._favItemData
       ? getSsrFavSkills(cfg._favItemData, cfg.favoriteItem?.level ?? 0, cfg.ssrFavSkillLevel)
       : null;
@@ -348,12 +346,15 @@ export function initBattle(config) {
       // Per-unit reload duration (ticks). 必须由调用方提供（validateUnitConfig 已校验）。
       reloadTicks:      cfg.reloadTicks,
       // Charge time gating for SR/RL weapons (ticks between shots due to hold-to-charge).
-      // 0 for non-charge weapons (AR/SMG/MG/SG). After each shot, chargeTick is set to
-      // state.tick + foreswingTicks + chargeTimeTicks + backswingTicks.
+      // 0 for non-charge weapons (AR/SMG/MG/SG).
+      // UP 型（松手触发）：发间 = foreswingTicks + effectiveCharge + backswingTicks。
+      // DOWN_Charge 型（持续按住，如 Liberalio）：发间 = effectiveCharge 仅蓄力，不含前后摇。
       chargeTimeTicks,
       foreswingTicks,
       backswingTicks,
+      isDownCharge,
       // Initial chargeTick: foreswing + charge only (no backswing before first shot).
+      // DOWN_Charge 型第 1 发仍含前摇（初次对准目标）。
       chargeTick:       foreswingTicks + chargeTimeTicks,
       // Permanent equipment ATK% multiplier (item "Increase ATK" + option ATK%).
       // Added to atkPct in getBuffSums so it stacks additively with skill ATK% buffs.
@@ -455,8 +456,8 @@ export function initBattle(config) {
       // Useful for B3 units that are in the squad but excluded from the active rotation.
       canBurst:                 cfg.canBurst ?? true,
       // true → skill-based Charge Speed buffs (chargeSpeedPct on buff objects) do not apply to this unit.
-      // Equipment chargeSpeedPct from stats always applies regardless.
-      // Used for Liberalio whose S1 grants immunity to skill-based CS effects.
+      // Equipment and cube chargeSpeedPct from stats always applies regardless.
+      // Used for Liberalio whose S2 P3 grants immunity to skill/buff-based CS effects.
       immuneSkillChargeSpeed:   cfg.immuneSkillChargeSpeed ?? false,
       // true → unit is in Combat Assist status (filling a burst step that is not its native step).
       // Set explicitly via cfg.combatAssist; re-evaluated at BATTLE_START and FULL_BURST_END
@@ -680,6 +681,28 @@ export function tick(state) {
             u.ammoBeforeHidden = 0;
           }
         }
+        // DOWN_Charge 型（持续按住）：HIDDEN 结束后需重新蓄力，chargeTick 重置。
+        // 无论 HIDDEN 期间是否发生换弹，出 HIDDEN 的第一发都要等完整 effectiveCharge。
+        for (const u of state.squad) {
+          if (!u.isDownCharge || u.chargeTimeTicks <= 0) continue;
+          const sums       = getBuffSums(state, u.id);
+          const csFromBuff = u.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
+          const flatRed    = u.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
+          const afterPct   = Math.round(u.chargeTimeTicks * (1 - Math.min(0.99, (u.stats.chargeSpeedPct ?? 0) + csFromBuff)));
+          u.chargeTick     = state.tick + Math.max(0, afterPct - flatRed);
+        }
+        // UP 型（松手触发）：HIDDEN 结束后同样重置为完整发间（后摇+前摇+蓄力）。
+        // 实测：Helm 180s=121发，完整发间重置(84t)预测精确匹配；不重置则预测125（每次HIDDEN多1发）。
+        // Scarlet:BS 233发同模型误差≤1发。
+        for (const u of state.squad) {
+          if (u.isDownCharge || u.chargeTimeTicks <= 0) continue;
+          const sums       = getBuffSums(state, u.id);
+          const csFromBuff = u.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
+          const flatRed    = u.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
+          const afterPct   = Math.round(u.chargeTimeTicks * (1 - Math.min(0.99, (u.stats.chargeSpeedPct ?? 0) + csFromBuff)));
+          const effCharge  = Math.max(0, afterPct - flatRed);
+          u.chargeTick     = state.tick + u.backswingTicks + u.foreswingTicks + effCharge;
+        }
       }
       events.push({ type: 'phase_change', tick: state.tick, zone: newZone });
     }
@@ -796,7 +819,11 @@ export function tick(state) {
       // 进入 B2 被动在 B1 施放后立即触发，然后才开始延迟
       applyEnterBurst2Passives(state);
       state.burstPhaseTick = state.tick + state.burstStepTicks;
-      events.push({ type: 'burst_i', tick: state.tick, unitName: fired.name });
+      if (fired.name != null) {
+        const bev = { type: 'burst_i', tick: state.tick, unitName: fired.name };
+        if (fired.combatAssistStatus != null) bev.isCA = !!fired.combatAssistStatus;
+        events.push(bev);
+      }
       if (fired.name === 'Liter') events.push({ type: 'heal_cover', tick: state.tick });
     }
   }
@@ -841,7 +868,11 @@ export function tick(state) {
       for (const u of state.squad) u.burstCount++;
       const fired = applyFullBurstSkills(state);
       state.fullBurstTick = state.tick + TICK_RATE * 10; // 10s burst window
-      if (fired) events.push({ type: 'burst_iii', tick: state.tick, unitName: fired.name });
+      if (fired) {
+        const bev = { type: 'burst_iii', tick: state.tick, unitName: fired.name };
+        if (fired.combatAssistStatus != null) bev.isCA = !!fired.combatAssistStatus;
+        events.push(bev);
+      }
       events.push({ type: 'full_burst', tick: state.tick });
     }
   }
@@ -859,7 +890,11 @@ export function tick(state) {
       // 进入 B2 被动在 B1 施放后立即触发，然后才开始延迟
       applyEnterBurst2Passives(state);
       state.burstPhaseTick = state.tick + state.burstStepTicks;
-      events.push({ type: 'burst_i', tick: state.tick, unitName: fired.name });
+      if (fired.name != null) {
+        const bev = { type: 'burst_i', tick: state.tick, unitName: fired.name };
+        if (fired.combatAssistStatus != null) bev.isCA = !!fired.combatAssistStatus;
+        events.push(bev);
+      }
       if (fired.name === 'Liter') events.push({ type: 'heal_cover', tick: state.tick });
     }
   }
@@ -923,6 +958,14 @@ export function tick(state) {
       unit.reloadTick      = 0;
       events.push({ type: 'reload', tick: state.tick, unitId: unit.id, unitName: unit.name, ammoRefilled: unit.ammoLeft, maxAmmo: unit.maxAmmo });
       unit.shotAccumulator = 0; // 装填后射击周期重新开始
+      // DOWN_Charge 型（持续按住）：换弹完成后需重新蓄力，不立即开火。
+      // 与发间逻辑一致：effectiveCharge 经装备蓄速折减，不含前后摇。
+      if (unit.isDownCharge && unit.chargeTimeTicks > 0) {
+        const csFromBuff = unit.immuneSkillChargeSpeed ? 0 : rSums.chargeSpeedPct;
+        const flatRed    = unit.immuneSkillChargeSpeed ? 0 : (rSums.chargeTimeReductionTicks ?? 0);
+        const afterPct   = Math.round(unit.chargeTimeTicks * (1 - Math.min(0.99, (unit.stats.chargeSpeedPct ?? 0) + csFromBuff)));
+        unit.chargeTick  = state.tick + Math.max(0, afterPct - flatRed);
+      }
       onReloadEnd(state, unit);
     }
 
@@ -942,6 +985,22 @@ export function tick(state) {
     // 武器切换（WEAPON_SWITCH 效果）：覆盖 hitMult / isCharged，以及蓄力模式（hoisted）
     const weaponSwitchActive = (unit.skillState?.weaponSwitchEndTick ?? 0) > 0
       && state.tick <= unit.skillState.weaponSwitchEndTick;
+
+    // 武器切换刚结束：将原始武器弹匣填满（文档 §4.6）
+    // _weaponSwitchAmmoFilled 记录已处理的 endTick，避免每 tick 重复执行
+    if (!weaponSwitchActive
+        && (unit.skillState.weaponSwitchEndTick ?? 0) > 0
+        && unit.skillState._weaponSwitchAmmoFilled !== unit.skillState.weaponSwitchEndTick) {
+      unit.skillState._weaponSwitchAmmoFilled = unit.skillState.weaponSwitchEndTick;
+      const beforeFill = unit.ammoLeft;
+      unit.ammoLeft = unit.maxAmmo;
+      unit.reloadTick = 0;
+      if (state.ammoLog && unit.ammoLeft !== beforeFill)
+        state.ammoLog.push({ tick: state.tick, unitId: unit.id, unitName: unit.name,
+          delta: unit.ammoLeft - beforeFill, ammoAfter: unit.ammoLeft, maxAmmo: unit.maxAmmo,
+          source: 'weapon_switch_end' });
+    }
+
     let shotsThisTick;
     // 武器切换时允许非蓄力武器（如 SMG）临时以蓄力模式开火。
     const weaponSwitchChargeTimeTicks = weaponSwitchActive
@@ -990,7 +1049,10 @@ export function tick(state) {
       const isPierce = (weaponSwitchActive && unit.skillState.weaponSwitchPierce)
         || unit.skillState.pierceActive
         || (unit.skillState.pierceEndTick ?? 0) > state.tick;
-      const coreHitRateMult = unit.coreHitRateMult ?? 1;
+      const coreHitRateMult = weaponSwitchActive && unit.skillState.weaponSwitchType
+        ? (unit.skillState.weaponSwitchType === 'SMG' ? 0.033
+          : unit.skillState.weaponSwitchType === 'SG' ? 0.20 : 1.0)
+        : (unit.coreHitRateMult ?? 1);
       const coreRoll = coreHitRateMult >= 1 || Math.random() < coreHitRateMult;
       const isCore = state.enemyHasCore && (
         state.enemyCoreProtected ? (isPierce && coreRoll) : coreRoll
@@ -1066,7 +1128,9 @@ export function tick(state) {
           favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
           attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct, isFullBurst: state.fullBurstActive,
           damageTakenPct: state.enemyDamageTakenPct, enemyDef: state.enemyDef,
-          ammoBeforeShot, isCore, coreDmgIncrement: unit.coreDmgIncrement ?? 0, damage,
+          ammoBeforeShot, isCore,
+          coreDmgIncrement: (unit.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0),
+          damage,
           elementDmgPct: unit.stats.elementDmgPct ?? 0,
           elemMult: bd.elemMult,
           chargeMult: bd.chargeMult,
@@ -1076,6 +1140,7 @@ export function tick(state) {
                        || (unit.skillState.extraDistZones?.includes(state.distanceZone) ?? false),
           ammoLeft: unit.ammoLeft,
           maxAmmo: effectiveMaxAmmo,
+          isUnlimitedAmmo: isUnlimitedAmmoShot,
           buffBreakdown: state.buffs
             .filter(b => b.unitId === null || b.unitId === unit.id)
             .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0) }))
@@ -1092,9 +1157,12 @@ export function tick(state) {
         ? Math.round(baseEnergy * unit.fullChargeDamage / 10000)
         : baseEnergy;
       addBurstGauge(state, unit.name, isCharged ? 'fc_shot' : 'shot', burstEnergy);
-      // 为下一发设置蓄力冷却（SR/RL）：backswing + foreswing + 蓄力时长。
+      // 为下一发设置蓄力冷却（SR/RL）。
+      // UP 型：backswing + foreswing + effectiveCharge（每次松手后需重新按下/瞄准）。
+      // DOWN_Charge 型：仅 effectiveCharge（持续按住，无前后摇；第 1 发前摇已在初始 chargeTick 计入）。
       // chargeSpeedPct 只缩短蓄力（瞄准）阶段，不影响 fore/backswing。
-      // 对拥有 immuneSkillChargeSpeed 的单位（如 Liberalio），基于 buff 的 chargeSpeedPct 被屏蔽。
+      // immuneSkillChargeSpeed 只屏蔽技能/buff 来源的 chargeSpeedPct 与 chargeTimeReductionTicks；
+      // 装备词条与魔方技能带来的 unit.stats.chargeSpeedPct 始终生效，不受屏蔽。
       if (effectiveChargeTimeTicks > 0) {
         if (weaponSwitchChargeTimeTicks > 0) {
           // 武器切换期间：直接使用切换武器的蓄力时长，不应用 fore/backswing
@@ -1120,7 +1188,9 @@ export function tick(state) {
             // Alice Wonderland 快速攻击：蓄力段（% + flat 减少后）≤ 99.52% 蓄速等价 ticks → 40次/10s（fore/backswing 被规避）
             unit.chargeTick = state.tick + aliceFastAttackTicks;
           } else {
-            unit.chargeTick = state.tick + unit.backswingTicks + unit.foreswingTicks + effectiveCharge;
+            unit.chargeTick = state.tick
+              + (unit.isDownCharge ? 0 : unit.backswingTicks + unit.foreswingTicks)
+              + effectiveCharge;
           }
         }
       }
