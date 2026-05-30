@@ -236,7 +236,7 @@ select.input { cursor: pointer; }
   display: flex; align-items: flex-start; justify-content: space-between;
   padding: 10px 12px; gap: 8px;
   background: var(--surface2); border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+  flex-shrink: 0; margin-bottom: 8px;
 }
 .char-info   { flex: 1; min-width: 0; }
 .char-name   { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
@@ -252,15 +252,10 @@ select.input { cursor: pointer; }
 .tag-dim   { color: var(--text-muted); }
 
 /* ── Grade buttons ───────────────────────────────────────── */
-.grade-row { display: flex; gap: 5px; }
-.grade-btn {
-  flex: 1; padding: 4px; background: var(--bg);
-  border: 1px solid var(--border2); border-radius: var(--r-sm);
-  color: var(--text-dim); font-size: 0.68rem; cursor: pointer;
-  transition: all 0.12s;
-}
-.grade-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
-.grade-btn--active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.grade-all-row { display: flex; align-items: center; gap: 5px; }
+.grade-field { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.grade-field-label { font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; }
+.grade-field .input { width: 46px; padding: 3px 5px; }
 
 /* ── Section toggle ──────────────────────────────────────── */
 .section-toggle {
@@ -384,6 +379,10 @@ select.input { cursor: pointer; }
   font-family: var(--font-mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.skill-dmg-count {
+  font-size: 0.58rem; font-family: var(--font-mono); color: var(--text-muted);
+  min-width: 28px; text-align: right;
+}
 .skill-dmg-val {
   min-width: 46px; text-align: right;
   font-size: 0.62rem; font-family: var(--font-mono); color: var(--text-dim);
@@ -484,6 +483,7 @@ select.input { cursor: pointer; }
 .log-row--ev-skill_trigger td:nth-child(2) { color: var(--text); }
 .log-row--ev-skill_trigger .log-label      { color: var(--accent); font-style: normal; }
 .log-row--ev-skill_trigger .log-buff       { color: var(--text-muted); font-style: italic; }
+.log-row--in-fb td:first-child { border-left: 2px solid var(--accent3); }
 
 /* ── 伤害分解 tooltip ────────────────────────────────────────── */
 .log-dmg--tip { cursor: help; text-decoration: underline dotted var(--text-dim); }

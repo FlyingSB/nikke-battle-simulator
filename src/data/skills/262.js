@@ -34,15 +34,20 @@ export default {
             atkPct, endTick: state.tick + TICK_RATE * 3 });
         },
       },
-      // S1 T4：进入全爆裂 → ATK 最低的 B3 友军（排除 Lib 自身）蓄力速度减少 [S1 param5]% 10s
+      // S1 T4：进入全爆裂 → ATK 最低的 B3 友军蓄力速度减少 [S1 param5]% 10s
       {
         on: 'ENTER_FULL_BURST',
         partOverride: 3,
-        logTargets: 'ALL_ALLIES',
+        logTargets: (caster) => caster.skillState.libS1T4Target ?? '',
         handler(state, caster) {
           const b3Units = state.squad.filter(u => u.burstStep === 'Step3');
           if (!b3Units.length) return false;
-          const target = b3Units.reduce((a, b) => a.stats.atk < b.stats.atk ? a : b);
+          const withFinalAtk = b3Units.map(u => {
+            const sums = getBuffSums(state, u.id);
+            return { u, finalAtk: u.stats.atk * (1 + sums.atkPct) + sums.atkFlat };
+          });
+          const target = withFinalAtk.reduce((a, b) => a.finalAtk < b.finalAtk ? a : b).u;
+          caster.skillState.libS1T4Target = target.name;
           const chargeTimeReductionPct = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
           pushBuff(state, { name: 'lib_s1_t4_chargeSpd', unitId: target.id,
             chargeTimeReductionTicks: Math.round(caster.chargeTimeTicks * chargeTimeReductionPct),
@@ -93,7 +98,7 @@ export default {
   skill2: {
     groupId: 22622,
     triggers: [
-      // S2 Part3：战斗开始 → 自身永久免疫蓄力速度增加/减少效果（技能来源；装备词条不受影响）
+      // S2 Part3：战斗开始 → 自身永久免疫蓄力速度增加/减少效果（技能/buff 来源；装备词条与魔方技能不受影响）
       {
         on: 'BATTLE_START',
         partOverride: 2,
@@ -109,8 +114,8 @@ export default {
         partOverride: 0,
         logTargets: 'SELF',
         handler(state, caster) {
-          if (!state.isStageTarget) return;
-          if (caster.skillState.libRagingCurrentActive) return;
+          if (!state.isStageTarget) return false;
+          if (caster.skillState.libRagingCurrentActive) return false;
           caster.skillState.libRagingCurrentActive = true;
           const attackDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           pushBuff(state, { name: 'lib_s2_ragingCurrent', unitId: caster.id,
@@ -146,7 +151,7 @@ export default {
       // Burst P2：额外技能伤害（延迟 0.97s，受全爆裂加成）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ENEMY',
+        logTargets: null,
         handler(state, caster) {
           const burstMult = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           state.pendingSkillHits.push({

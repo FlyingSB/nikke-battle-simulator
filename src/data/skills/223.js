@@ -127,6 +127,10 @@ export default {
             const stage1AtkPct = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
             pushBuff(state, { name: 'nayuta_s2_stage1_atkPct', unitId: caster.id,
               atkPct: stage1AtkPct, endTick: Infinity });
+            state.pendingSkillEvents?.push({ type: 'skill_trigger', tick: state.tick,
+              unitName: caster.name,
+              skillLabel: `${caster.rawSkill2?.name_localkey ?? 'S2'} Stage 1`,
+              partIdx: 1, target: caster.name });
           }
 
           // Stage 2: s=10（≥10 层）→ 自身 Attack Damage ▲[S2 param7]%（永久）
@@ -134,6 +138,10 @@ export default {
             const stage2AtkDmgPct = getSkillValue(caster.rawSkill2, 7, caster.skillLevels[1]) / 100;
             pushBuff(state, { name: 'nayuta_s2_stage2_attackDmg', unitId: caster.id,
               attackDamagePct: stage2AtkDmgPct, endTick: Infinity });
+            state.pendingSkillEvents?.push({ type: 'skill_trigger', tick: state.tick,
+              unitName: caster.name,
+              skillLabel: `${caster.rawSkill2?.name_localkey ?? 'S2'} Stage 2`,
+              partIdx: 1, target: caster.name });
           }
 
           // Stage 3: s=30（=30 层）→ 自身 Core Damage ▲[S2 param3]%（永久）
@@ -141,6 +149,10 @@ export default {
             const stage3CoreDmgPct = getSkillValue(caster.rawSkill2, 3, caster.skillLevels[1]) / 100;
             pushBuff(state, { name: 'nayuta_s2_stage3_coreDmg', unitId: caster.id,
               coreDamagePct: stage3CoreDmgPct, endTick: Infinity });
+            state.pendingSkillEvents?.push({ type: 'skill_trigger', tick: state.tick,
+              unitName: caster.name,
+              skillLabel: `${caster.rawSkill2?.name_localkey ?? 'S2'} Stage 3`,
+              partIdx: 1, target: caster.name });
           }
         },
       },

@@ -231,7 +231,7 @@
                 'slot-tab--filled':  !!slot.resourceId,
                 'slot-tab--disabled': !slot.active && !slot.resourceId
               }"
-              @click="$store.sim.activeSlot = i">
+              @click="$store.sim.handleSlotClick(i)">
               <span class="slot-tab-num" x-text="i + 1"></span>
               <span class="slot-tab-name" x-text="slot.resourceId ? slot.name : '空'"></span>
               <span class="slot-tab-burst" x-show="slot.resourceId"
@@ -281,34 +281,24 @@
 
               <!-- 极限突破 / 核心加强 / 好感度 -->
               <section class="card">
-                <h3 class="sub-title">极限突破 / 核心加强 / 好感度</h3>
-                <div class="grade-row">
-                  <template x-for="g in [0,1,2,3]" :key="g">
-                    <button class="grade-btn"
-                      :class="{ 'grade-btn--active': $store.sim.activeSlotData.grade === g }"
-                      @click="$store.sim.setGrade($store.sim.activeSlot, g)"
-                      x-text="'突破 ' + g">
-                    </button>
-                  </template>
-                </div>
-                <div class="row-2 mt-1">
-                  <div class="field-group">
-                    <label class="field-label">
-                      核心加强等级
-                      <span class="field-hint">（极限突破 3 解锁）</span>
-                    </label>
+                <div class="grade-all-row">
+                  <div class="grade-field">
+                    <label class="grade-field-label">突破</label>
+                    <input class="input" type="number" min="0" max="3"
+                      x-model.number="$store.sim.activeSlotData.grade"
+                      @change="$store.sim.setGrade($store.sim.activeSlot, $store.sim.activeSlotData.grade)">
+                  </div>
+                  <div class="grade-field">
+                    <label class="grade-field-label"
+                      :title="$store.sim.activeSlotData.grade < 3 ? '极限突破 3 解锁' : '核心加强等级'">核心</label>
                     <input class="input" type="number" min="0" max="7"
                       :disabled="$store.sim.activeSlotData.grade < 3"
                       x-model.number="$store.sim.activeSlotData.core"
                       @change="$store.sim.clampCore($store.sim.activeSlot)">
                   </div>
-                  <div class="field-group">
-                    <label class="field-label">
-                      好感度等级
-                      <span class="field-hint"
-                        x-text="'（上限 ' + $store.sim.maxBond($store.sim.activeSlotData.grade, $store.sim.activeSlotData.corporation) + '）'">
-                      </span>
-                    </label>
+                  <div class="grade-field">
+                    <label class="grade-field-label"
+                      :title="'好感度上限 ' + $store.sim.maxBond($store.sim.activeSlotData.grade, $store.sim.activeSlotData.corporation)">好感</label>
                     <input class="input" type="number" min="1"
                       :max="$store.sim.maxBond($store.sim.activeSlotData.grade, $store.sim.activeSlotData.corporation)"
                       x-model.number="$store.sim.activeSlotData.bondLevel"
@@ -607,6 +597,8 @@
                                 :style="'width:' + (row.share * 100).toFixed(1) + '%'">
                               </div>
                             </div>
+                            <span class="skill-dmg-count" x-show="row.count > 0"
+                              x-text="'×' + Math.round(row.count)"></span>
                             <span class="skill-dmg-val" x-text="$store.sim.fmtNum(row.damage)"></span>
                           </div>
                         </template>
@@ -658,9 +650,7 @@
                       </thead>
                       <tbody>
                         <template x-for="(row, ri) in $store.sim.filteredLogRows()" :key="ri">
-                          <tr :class="row.kind === 'event'
-                            ? ('log-row--event log-row--ev-' + row.eventType)
-                            : ''">
+                          <tr :class="(row.kind === 'event' ? 'log-row--event log-row--ev-' + row.eventType : '') + (row.inFullBurst ? ' log-row--in-fb' : '')">
                             <td class="log-line" x-text="ri + 1"></td>
                             <td class="log-time mono" x-text="row.kind !== 'event' && row.tickEnd > row.tickStart ? $store.sim.formatTick(row.tickStart) + '~' + $store.sim.formatTick(row.tickEnd) : $store.sim.formatTick(row.tickStart)"></td>
                             <td x-text="row.name"></td>

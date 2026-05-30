@@ -128,7 +128,9 @@ function pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef, skill) 
                  skillLabel: skLabel, partIdx, trigger };
 
   if ('logTargets' in tdef) {
-    const keys = Array.isArray(tdef.logTargets) ? tdef.logTargets : [tdef.logTargets];
+    // logTargets 支持函数形式：(caster, state) => string，用于动态目标名
+    const resolved = typeof tdef.logTargets === 'function' ? tdef.logTargets(caster, state) : tdef.logTargets;
+    const keys = Array.isArray(resolved) ? resolved : [resolved];
     for (const k of keys)
       state.pendingSkillEvents.push({ ...base, target: resolveLogTarget(k, caster) });
   } else {
@@ -418,21 +420,23 @@ export function onShotFired(state, unit, shotCtx) {
           break;
         }
 
-        case 'LAST_BULLET':
+        case 'LAST_BULLET': {
           if (shotCtx.ammoAfterShot !== 0) break;
           if (!checkConditions(state, unit, tdef, ctx)) break;
-          if (tdef.handler) tdef.handler(state, unit, ctx);
-          else applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
-          pushSkillEvent(state, 'LAST_BULLET', unit, skillKey, tdefIdx, tdef, skill);
+          const llResult = tdef.handler ? tdef.handler(state, unit, ctx)
+            : (applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx), undefined);
+          if (llResult !== false) pushSkillEvent(state, 'LAST_BULLET', unit, skillKey, tdefIdx, tdef, skill);
           break;
+        }
 
-        case 'FULL_CHARGE':
+        case 'FULL_CHARGE': {
           if (!shotCtx.isCharged) break;
           if (!checkConditions(state, unit, tdef, ctx)) break;
-          if (tdef.handler) tdef.handler(state, unit, ctx);
-          else applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
-          pushSkillEvent(state, 'FULL_CHARGE', unit, skillKey, tdefIdx, tdef, skill);
+          const fcResult = tdef.handler ? tdef.handler(state, unit, ctx)
+            : (applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx), undefined);
+          if (fcResult !== false) pushSkillEvent(state, 'FULL_CHARGE', unit, skillKey, tdefIdx, tdef, skill);
           break;
+        }
 
         case 'CORE_HIT':
           if (!shotCtx.isCore) break;

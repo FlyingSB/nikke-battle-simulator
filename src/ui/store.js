@@ -216,12 +216,13 @@ function _normalAttackTipHTML(unitData) {
 // 对 skill_trigger 和技能伤害行则按 label 匹配三个技能槽。
 function _findSkillByRow(row, unitData) {
   if (!unitData) return null;
-  // Burst 事件 → burst 技能
+  // Burst 事件 → burst 技能；isCA 决定高亮哪一段：true=Part0(Stage1)，false=Part1(Stage3)
   if (row.eventType === 'burst_i' || row.eventType === 'burst_ii' || row.eventType === 'burst_iii' || row.eventType === 'full_burst') {
-    return { skill: unitData.rawBurst, level: unitData.skillLevels[2] ?? 10 };
+    const partIdx = row.isCA === true ? 0 : row.isCA === false ? 1 : null;
+    return { skill: unitData.rawBurst, level: unitData.skillLevels[2] ?? 10, partIdx };
   }
-  // 剥离 " P1" " P2" 等后缀再匹配
-  const base = row.label.replace(/ P\d+$/, '');
+  // 剥离 " P1" " P2" 等后缀，以及 " Stage N" 中间标记（如 "Impermanence Stage 1 P2"）再匹配
+  const base = row.label.replace(/ P\d+$/, '').replace(/ Stage \d+$/, '');
   // 从 label 推断所属技能槽：S1_xxx / S2_xxx / Burst_xxx 前缀，或 xxx_s2_yyy 形式（如 velvet_s2_bonusHit）
   const tier = (base === 'S1' || base.startsWith('S1_')) ? 'S1'
              : (base === 'S2' || base.startsWith('S2_') || /_s2_/i.test(base)) ? 'S2'
@@ -247,11 +248,16 @@ function _skillDescTipHTML(skill, level, renderFn, partIdx = null) {
   const nameHtml = name ? `<div class="skill-tip-name">${name}</div>` : '';
 
   // 按 ■ 分割各段，逐段渲染并高亮 partIdx 对应段
+  const startsWithBlock = rawDesc.trimStart().startsWith('■');
   const rawParts = rawDesc.split('■').filter(s => s.trim() !== '');
   if (partIdx !== null && rawParts.length > 1) {
+    // 描述不以 ■ 开头时，index 0 是无 ■ 的标题段，■ 段从 index 1 起；partIdx 基于 ■ 段计数，需 +1 对齐
+    const highlightIdx = startsWithBlock ? partIdx : partIdx + 1;
     const parts = rawParts.map((raw, i) => {
-      const rendered = renderFn('■' + raw, valueList, lv);
-      const cls = i === partIdx ? 'skill-tip-part skill-tip-part--active' : 'skill-tip-part';
+      // 第 0 段只有在原文以 ■ 开头时才补 ■，否则该段本身无 ■ 前缀
+      const prefix = (startsWithBlock || i > 0) ? '■' : '';
+      const rendered = renderFn(prefix + raw, valueList, lv);
+      const cls = i === highlightIdx ? 'skill-tip-part skill-tip-part--active' : 'skill-tip-part';
       return `<div class="${cls}">${rendered}</div>`;
     });
     const descHtml = `<div class="skill-tip-desc">${parts.join('')}</div>`;
@@ -335,6 +341,8 @@ function _logRowOrder(row) {
 function buildEventRows(eventLog) {
   if (!eventLog?.length) return [];
   return eventLog.map(e => {
+    // burst_i with no caster = 队伍无 B1 单位时的跳过占位事件，不显示
+    if (e.type === 'burst_i' && !e.unitName) return null;
     let name = '', label = '', target = '';
     if (e.type === 'skill_trigger') {
       const part = e.partIdx != null ? ` P${e.partIdx + 1}` : '';
@@ -360,8 +368,9 @@ function buildEventRows(eventLog) {
       damage:     null,
       count:      1,
       isCrit:     false,
+      isCA:       e.isCA,  // 透传 Combat Assist 标志（用于 tooltip partIdx 定位）
     };
-  });
+  }).filter(Boolean);
 }
 
 function buildAggregateLog(hitLog, unitNames) {
@@ -433,7 +442,7 @@ function buildDetailLog(hitLog, unitNames) {
     ammoLeft:   h.ammoLeft,
     maxAmmo:    h.maxAmmo,
     isFullBurst:h.isFullBurst,
-    charge:     h.ammoLeft != null ? `${h.ammoLeft}/${h.maxAmmo}` : '—',
+    charge:     h.isUnlimitedAmmo ? '-' : (h.ammoLeft != null ? `${h.ammoLeft}/${h.maxAmmo}` : '—'),
     _hit:       h,
   }));
 }
@@ -824,6 +833,18 @@ export function createStore() {
 
     // ── 角色选择 ──────────────────────────────────────────────────────────────
 
+    handleSlotClick(i) {
+      const slot = this.team[i];
+      if (!slot.resourceId) {
+        this.activeSlot = i;
+        this.openCharPicker(i);
+      } else if (this.activeSlot === i) {
+        this.openCharPicker(i);
+      } else {
+        this.activeSlot = i;
+      }
+    },
+
     openCharPicker(slotIdx) {
       this.charPickerSlot = slotIdx;
       this.charQuery = '';
@@ -1158,6 +1179,19 @@ export function createStore() {
             burstEnergyPerShot:    nd?.shot_detail?.burst_energy_pershot,
             fullChargeBurstEnergy: nd?.shot_detail?.full_charge_burst_energy ?? 0,
             chargeTimeTicks:       isChargeWeapon ? Math.round((nd?.shot_detail?.charge_time ?? 0) / 100 * 60) : 0,
+            // DOWN_Charge 型（持续按住自动连发）：发间无前后摇，只计蓄力时长。
+            // 当前库中仅 Liberalio（SR）及少数 RL（Cinderella 等）为此类型。
+            // UP 型（松手触发）每次发射需重新瞄准（前摇）和恢复（后摇），前后摇照常计入。
+            isDownCharge:          isChargeWeapon && nd?.shot_detail?.input_type === 'DOWN_Charge',
+            // 前后摇从 CDN 读取（单位：百分之一秒，/100*60 换算为 tick）。
+            // maintain_fire_stance > 0 时覆盖后摇（如 Scarlet:BS=23→14t），否则用 spot_last_delay（通常 20→12t）。
+            // 无 CDN 数据时默认 16.67→10t，保持原行为。
+            foreswingTicks:        isChargeWeapon ? Math.round((nd?.shot_detail?.spot_first_delay  ?? 16.67) / 100 * 60) : 0,
+            backswingTicks:        isChargeWeapon
+              ? Math.round(((nd?.shot_detail?.maintain_fire_stance > 0
+                  ? nd.shot_detail.maintain_fire_stance
+                  : (nd?.shot_detail?.spot_last_delay ?? 16.67))) / 100 * 60)
+              : 0,
             burstSkillCooltime:    nd ? Math.round(
               ((nd.ulti_skill_detail?.skill_cooltime_list?.[(slot.skills[2] >= 1 ? slot.skills[2] : 1) - 1]
                 ?? nd.ulti_skill_detail?.skill_cooltime
@@ -1249,6 +1283,13 @@ export function createStore() {
         if (dt !== 0) return dt;
         return _logRowOrder(a) - _logRowOrder(b);
       });
+      // 标记 Full Burst 区间内的行（从 full_burst 事件到 burst_end/burst_timeout，含首尾）
+      let inFB = false;
+      for (const row of this.hitLogRows) {
+        if (row.kind === 'event' && row.eventType === 'full_burst') inFB = true;
+        row.inFullBurst = inFB;
+        if (row.kind === 'event' && (row.eventType === 'burst_end' || row.eventType === 'burst_timeout')) inFB = false;
+      }
     },
 
     setLogMode(mode) {
@@ -1341,7 +1382,7 @@ export function createStore() {
       const found = _findSkillByRow(lookupRow, unitData);
       if (!found?.skill) return null;
       const partMatch = canonLabel.match(/ P(\d+)$/);
-      const partIdx = partMatch ? parseInt(partMatch[1], 10) - 1 : null;
+      const partIdx = partMatch ? parseInt(partMatch[1], 10) - 1 : (found.partIdx ?? null);
       return _skillDescTipHTML(found.skill, found.level, renderSkillDesc, partIdx);
     },
 
@@ -1356,6 +1397,7 @@ export function createStore() {
           skillKey: rawLabel,
           name:     unit.name,
           damage:   dmg,
+          count:    unit.skillDamageCount?.[rawLabel] ?? 0,
           share:    unit.totalDamage > 0 ? dmg / unit.totalDamage : 0,
         }))
         .sort((a, b) => b.damage - a.damage);

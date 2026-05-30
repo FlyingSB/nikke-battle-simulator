@@ -29,14 +29,15 @@ export default {
     groupId: 20161,
     triggers: [
       // S1（Battlefield Assessment）— Combat Assist 状态在战斗开始和全爆裂结束时结算：
-      //   无原生 B1 友军 → combatAssistStatus = false（切换为 B1）
-      //   有原生 B1 友军 → combatAssistStatus = configuredCombatAssist（玩家显式配置）
+      //   无原生 B1 友军 → combatAssistStatus = true，burstStep = 'Step1'（Rapi 代补 B1）
+      //   有原生 B1 友军 → combatAssistStatus = false，burstStep = nativeBurstStep（恢复 B3）
       {
         on: 'BATTLE_START',
         logTargets: 'SELF',
         handler(state, caster) {
           const hasNativeB1 = state.squad.some(u => u.id !== caster.id && u.nativeBurstStep === 'Step1');
-          caster.combatAssistStatus = hasNativeB1 && (caster.configuredCombatAssist ?? false);
+          caster.combatAssistStatus = !hasNativeB1;
+          caster.burstStep = caster.combatAssistStatus ? 'Step1' : caster.nativeBurstStep;
         },
       },
       {
@@ -45,7 +46,10 @@ export default {
         logTargets: 'SELF',
         handler(state, caster) {
           const hasNativeB1 = state.squad.some(u => u.id !== caster.id && u.nativeBurstStep === 'Step1');
-          caster.combatAssistStatus = hasNativeB1 && (caster.configuredCombatAssist ?? false);
+          const newStatus = !hasNativeB1;
+          if (newStatus === caster.combatAssistStatus) return false;
+          caster.combatAssistStatus = newStatus;
+          caster.burstStep = caster.combatAssistStatus ? 'Step1' : caster.nativeBurstStep;
         },
       },
       // Scenario C（Combat Assist + 进入全爆裂）：
@@ -221,13 +225,12 @@ export default {
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },
-      // ■ P3（Stage 3 / 非 CA）：[TODO: Explosion Radius ▲[Burst param0]% — 未建模]
-      // ■ P4（Stage 3 / 非 CA）：[Burst param4]% ATK 伤害（lv10=2808%）
+      // ■ P3（Stage 3 / 非 CA）：[Burst param4]% ATK 伤害（lv10=2808%）
       // 延迟 0.1s，受全爆裂 +50% 及 ENTER_FULL_BURST buff 加成；rapiShotCount ≥60 时消耗计数代替 projectile
       {
         on: 'BURST_SKILL_USE',
         conditions: [{ type: 'NOT_COMBAT_ASSIST' }],
-        partOverride: 3,
+        partOverride: 2,
         logTargets: null,
         handler(state, caster) {
           if (caster.skillState.rapiShotCount >= 60) {
@@ -238,17 +241,17 @@ export default {
             : 28.08;
           state.pendingSkillHits.push({
             fireTick: state.tick + Math.round(0.1 * TICK_RATE),
-            caster, mult: burstMult, isCharged: false, label: 'Burst P4',
+            caster, mult: burstMult, isCharged: false, label: 'Burst P3',
             opts: { affectedByFullBurst: true },
           });
         },
       },
-      // ■ P5（Stage 3 / 非 CA）：自身 Projectile Attachment ▲ + S2 触发阈值 ▼60 发（10s）
+      // ■ P4（Stage 3 / 非 CA）：自身 Projectile Attachment ▲ + S2 触发阈值 ▼60 发（10s）
       // burst 期间 attach mult = 1 + S2被动(150.72%) + Burst增益(421.2%)
       {
         on: 'BURST_SKILL_USE',
         conditions: [{ type: 'NOT_COMBAT_ASSIST' }],
-        partOverride: 4,
+        partOverride: 3,
         logTargets: 'SELF',
         handler(state, caster) {
           const end10 = state.tick + TICK_RATE * 10;
