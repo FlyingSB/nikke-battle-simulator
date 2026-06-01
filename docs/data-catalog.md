@@ -183,3 +183,4 @@ SSR 专属珍藏品与角色绑定，提升全部三个技能等级。
 | Ada | [`840.json`](../src/data/static/nikke/840.json) | [`840.js`](../src/data/skills/840.js) |
 | Soline: Frost Ticket | [`74.json`](../src/data/static/nikke/74.json) | [`74.js`](../src/data/skills/74.js) |
 | Velvet | [`316.json`](../src/data/static/nikke/316.json) | [`316.js`](../src/data/skills/316.js) |
+| Ludmilla: Winter Owner | [`194.json`](../src/data/static/nikke/194.json) | [`194.js`](../src/data/skills/194.js) |
