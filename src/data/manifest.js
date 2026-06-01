@@ -111,4 +111,4 @@ export const FAVORITE_ITEM_URLS = {
 };
 
 /** manifest 变更时递增此版本号，以使 localStorage 缓存失效 */
-export const MANIFEST_VERSION = '20260424';
+export const MANIFEST_VERSION = '20260601';

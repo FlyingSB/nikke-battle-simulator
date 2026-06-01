@@ -266,4 +266,64 @@ export function getCdnUrl(path, cdnBase = DEFAULT_CDN_BASE) {
   return `${cdnBase}/${obfuscatePath(path)}`;
 }
 
+// ---------- Character image URLs ----------
+// Source: index-D5dy8iIY.js  MI_CHARACTER_URL / SM_CHARACTER_URL / FULL_CHARACTER_URL
+//
+// skin_index = costume_index of the equipped costume (0 = base skin, no costume).
+// resource_id = the character's resource_id field (not name_code).
+//
+// Example: Rapi: Red Hood  resource_id=16, costume 130005 → costume_index=3
+//   getSmCharacterUrl(16, 3)
+//   // => 'https://sg-tools-cdn.blablalink.com/cn-45/zf-83/82830231c70562b5e080bb3d04c6d67c.webp'
+//   getMiCharacterUrl(16, 3)
+//   // => 'https://sg-tools-cdn.blablalink.com/uo-41/qs-83/6d37d62eee2050b18a3b858045c679e5.webp'
+//   getFullCharacterUrl(16, 3)
+//   // => 'https://sg-tools-cdn.blablalink.com/fw-15/lh-83/d35cefe811ed872a3ea1de6e488457ce.webp'
+
+function pad(n, len) {
+  return String(n).padStart(len, '0');
+}
+
+/**
+ * Small character image (used as card thumbnail on the shiftyspad page).
+ * Path template: character/si/si_c{resource_id:3}_{skin_index:2}_s.webp
+ *
+ * @param {number} resourceId
+ * @param {number} [skinIndex=0]  costume_index of the equipped costume; 0 = base skin.
+ * @param {string} [cdnBase]
+ * @returns {string}
+ */
+export function getSmCharacterUrl(resourceId, skinIndex = 0, cdnBase = DEFAULT_CDN_BASE) {
+  const path = `character/si/si_c${pad(resourceId, 3)}_${pad(skinIndex, 2)}_s.webp`;
+  return `${cdnBase}/${obfuscatePath(path)}`;
+}
+
+/**
+ * Medium character image.
+ * Path template: character/mi/mi_c{resource_id:3}_{skin_index:2}_s.webp
+ *
+ * @param {number} resourceId
+ * @param {number} [skinIndex=0]
+ * @param {string} [cdnBase]
+ * @returns {string}
+ */
+export function getMiCharacterUrl(resourceId, skinIndex = 0, cdnBase = DEFAULT_CDN_BASE) {
+  const path = `character/mi/mi_c${pad(resourceId, 3)}_${pad(skinIndex, 2)}_s.webp`;
+  return `${cdnBase}/${obfuscatePath(path)}`;
+}
+
+/**
+ * Full character image.
+ * Path template: character/full/c{resource_id:3}_{skin_index:2}.webp
+ *
+ * @param {number} resourceId
+ * @param {number} [skinIndex=0]
+ * @param {string} [cdnBase]
+ * @returns {string}
+ */
+export function getFullCharacterUrl(resourceId, skinIndex = 0, cdnBase = DEFAULT_CDN_BASE) {
+  const path = `character/full/c${pad(resourceId, 3)}_${pad(skinIndex, 2)}.webp`;
+  return `${cdnBase}/${obfuscatePath(path)}`;
+}
+
 export { DEFAULT_CDN_BASE };

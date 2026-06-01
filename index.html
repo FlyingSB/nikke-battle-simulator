@@ -717,13 +717,13 @@
           <button class="char-card"
             :class="{ 'char-card--unmodeled': !char.modeled }"
             :disabled="!char.modeled"
-            :title="char.modeled ? '' : '技能未建模'"
+            :title="char.modeled ? char.name : `${char.name}（技能未建模）`"
             @click="$store.sim.selectChar(char.resourceId)">
+            <img class="char-card-img"
+              :src="`src/data/static/images/sm/${String(char.resourceId).padStart(3,'0')}_00.webp`"
+              :alt="char.name"
+              @error="$el.style.display='none'">
             <span class="char-card-name" x-text="char.name"></span>
-            <span class="char-card-meta">
-              <span x-text="$store.sim.classLabel(char.classType)"></span>
-              · <span x-text="char.weaponType"></span>
-            </span>
           </button>
         </template>
       </div>
