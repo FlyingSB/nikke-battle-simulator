@@ -244,6 +244,29 @@
 | CORE_HIT | 核心命中时 | |
 | RELOAD_END | 装弹完成时 | |
 
+### 游戏描述原文 → 触发器对照
+
+建模时，将技能描述中的触发条件文本对应到以下触发器：
+
+| 游戏描述原文（英文） | 触发器 |
+|---------------------|--------|
+| Activates at the beginning of battle. | `BATTLE_START` |
+| Activates when entering Burst Stage 1. | `ENTER_BURST_I` |
+| Activates when entering Burst Stage 2. | `ENTER_BURST_II` |
+| Activates when entering Burst Stage 3. | `ENTER_BURST_III` |
+| Activates at the beginning of Full Burst. / Activates when entering Full Burst. | `ENTER_FULL_BURST` |
+| Activates at the end of Full Burst. | `FULL_BURST_END` |
+| Activates when using Burst Skill. | `BURST_SKILL_USE` |
+| Activates when attacking with Full Charge. | `FULL_CHARGE` |
+| Activates when landing X normal attack(s). | `SHOT_COUNT`（opts.every = X） |
+| Activates when any ally fires X shot(s). | `SQUAD_SHOT_COUNT`（opts.every = X） |
+| Activates after the last round is fired. | `LAST_BULLET` |
+| Activates after reloading. | `RELOAD_END` |
+| Activates when hitting the Core. | `CORE_HIT` |
+| Activates every X sec(s) during Full Burst. | `INTERVAL_IN_BURST`（opts.every = X） |
+| Activates every X sec(s). | `INTERVAL`（opts.every = X） |
+| Activates when an ally receives healing. | `HEAL_RECEIVED` |
+
 ---
 
 ## 10. 技能效果目标
