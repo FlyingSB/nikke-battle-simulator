@@ -17,8 +17,8 @@ import { computeFinalStats } from './stats.js';
 import { WEAPON_AMMO, WEAPON_HIT_MULT } from './constants.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool } from './battle-utils.js';
-import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd } from './skill-executor.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs } from './battle-utils.js';
+import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
 const MAX_TICKS = TICK_RATE * 180; // 战斗上限 3 分钟
@@ -1087,6 +1087,53 @@ export function tick(state) {
         damageTakenMult:   state.enemyDamageTakenPct,
       });
 
+      // ── Zwei 爆裂双重命中（游戏实机特性/bug）──────────────────────────────
+      // weaponSwitchDoubleHit=true 时，武器切换后的一次射击产生两次独立伤害：
+      //   ① 第一次命中：使用当前 buff（含 pierce1r）；
+      //      命中后立即消耗回合制 buff（decrementRoundBuffs），pierce1r roundsLeft 1→0；
+      //      然后触发 SHOT_COUNT（S1 P2 添加 pierce_stack，roundsLeft=1）。
+      //   ② 第二次命中：使用更新后的 buff（pierce_stack 已存在，pierce1r 已消耗）；
+      //      暴击与第一次独立判定；pierce_stack 在本次射击结束后保留（不被 onShotFired 再次递减）。
+      const isDoubleHit = weaponSwitchActive && (unit.skillState.weaponSwitchDoubleHit ?? false);
+      let damage2 = 0, isCrit2 = false;
+      if (isDoubleHit) {
+        // 消耗回合制 buff（pierce1r roundsLeft 1→0），然后让 S1 P2 添加 pierce_stack。
+        decrementRoundBuffs(state, unit.id);
+        fireShotCountTriggers(state, unit, { sums, isCharged, isCore, ammoAfterShot: unit.ammoLeft - 1 });
+        const sums2 = getBuffSums(state, unit.id);
+        const eCritRate2 = Math.min(1,
+          (unit.stats.critRate ?? 0.15) + sums2.critRateBonus + (sums2.normalAttackCritRateBonus ?? 0));
+        isCrit2 = rollCrit(eCritRate2);
+        ({ damage: damage2 } = calcDamage({
+          atk:               unit.stats.atk,
+          atkMultiplier:     1 + sums2.atkPct,
+          otherAtkIncrement: sums2.atkFlat,
+          enemyDef:          state.enemyDef,
+          hitMultiplier:     hitMult,
+          weaponType:        effectiveWeaponType,
+          isCrit:            isCrit2,
+          critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums2.critDmgBonus,
+          isCore,
+          coreDmgIncrement:  unit.coreDmgIncrement + (isCore ? (sums2.coreDamagePct ?? 0) : 0),
+          distanceZone:      state.distanceZone,
+          isFullBurst:       state.fullBurstActive,
+          attackerElement:   unit.element,
+          defenderElement:   state.enemyElement,
+          elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums2.elementAdvantageBonus ?? 0),
+          isCharged,
+          fullChargeDamage:  weaponSwitchActive && unit.skillState.weaponSwitchFullChargeDamage != null
+            ? unit.skillState.weaponSwitchFullChargeDamage
+            : unit.fullChargeDamage,
+          favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
+          chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums2.chargeDamagePct,
+          favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
+          extra:             { attackDamageMult: sums2.attackDamagePct + sums2.normalAttackDamagePct
+                               + (effectiveWeaponType === 'RL' ? sums2.projectileExplosionDamagePct : 0),
+                               ...(isPierce ? { pierceDamageMult: sums2.pierceDamagePct } : {}) },
+          damageTakenMult:   state.enemyDamageTakenPct,
+        }));
+      }
+
       const ammoBeforeShot = unit.ammoLeft;
       // 武器替换期间无限弹药（如 Moran burst），或 skillState.unlimitedAmmoEndTick 激活期间（如 Grave Prediction）
       const isUnlimitedAmmoShot = (weaponSwitchActive && unit.skillState.weaponSwitchUnlimitedAmmo)
@@ -1101,15 +1148,16 @@ export function tick(state) {
           if (--b.roundsLeft <= 0) state.buffs.splice(bi, 1);
         }
       }
-      unit.hitCount++;
+      unit.hitCount += isDoubleHit ? 2 : 1;
       if (isCrit) unit.critCount++;
-      unit.totalDamage += damage;
+      if (isDoubleHit && isCrit2) unit.critCount++;
+      unit.totalDamage += damage + damage2;
       // 调试：按单位记录普通射击伤害
       unit.skillDamage        ??= {};
       unit.skillDamageCount   ??= {};
       const normalLabel = 'normal_shot';
-      unit.skillDamage[normalLabel]      = (unit.skillDamage[normalLabel]      ?? 0) + damage;
-      unit.skillDamageCount[normalLabel] = (unit.skillDamageCount[normalLabel] ?? 0) + 1;
+      unit.skillDamage[normalLabel]      = (unit.skillDamage[normalLabel]      ?? 0) + damage + damage2;
+      unit.skillDamageCount[normalLabel] = (unit.skillDamageCount[normalLabel] ?? 0) + (isDoubleHit ? 2 : 1);
       // 普通射击的逐发详细日志
       if (state.hitLog) {
         // 射击时刻的有效最大弹匣 — 与装填处公式保持一致，同时考虑 tempMaxAmmoMult 和 maxAmmoFlat
@@ -1146,6 +1194,31 @@ export function tick(state) {
             .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0) }))
             .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct),
         });
+        // 双重命中第二次伤害单独记录，label='normal_shot_2' 以便测试区分两次命中
+        if (isDoubleHit) {
+          const sums2log = getBuffSums(state, unit.id);
+          state.hitLog.push({
+            tick: state.tick, unitId: unit.id, label: 'normal_shot_2',
+            atk: unit.stats.atk, atkPct: sums2log.atkPct, atkFlat: sums2log.atkFlat,
+            hitMult, isCrit: isCrit2, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50,
+            favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
+            attackDamagePct: sums2log.attackDamagePct + sums2log.normalAttackDamagePct,
+            isFullBurst: state.fullBurstActive,
+            damageTakenPct: state.enemyDamageTakenPct, enemyDef: state.enemyDef,
+            ammoBeforeShot, isCore,
+            coreDmgIncrement: (unit.coreDmgIncrement ?? 0) + (isCore ? (sums2log.coreDamagePct ?? 0) : 0),
+            damage: damage2,
+            elementDmgPct: unit.stats.elementDmgPct ?? 0,
+            elemMult: bd.elemMult,
+            chargeMult: bd.chargeMult,
+            distanceAdv: hasDistanceAdvantage(unit.weaponType, state.distanceZone)
+                         || (unit.skillState.extraDistZones?.includes(state.distanceZone) ?? false),
+            ammoLeft: unit.ammoLeft,
+            maxAmmo: effectiveMaxAmmo,
+            isUnlimitedAmmo: isUnlimitedAmmoShot,
+            pierceDamagePct: sums2log.pierceDamagePct,
+          });
+        }
       }
       // 全蓄力能量 = (targetBurstEnergyPerShot + burstGaugeFlat) × (fullChargeDamage / 10000)。
       // 模拟器中所有攻击均命中目标，故使用 target_burst_energy_pershot（非掩体/未命中值）。
@@ -1199,9 +1272,13 @@ export function tick(state) {
         unit.unitHp = Math.min(unit.stats.hp, unit.unitHp + damage * sums.lifeStealPct);
       }
       events.push({ type: 'hit', tick: state.tick, unitId: unit.id, unitName: unit.name, damage, isCrit });
+      if (isDoubleHit)
+        events.push({ type: 'hit', tick: state.tick, unitId: unit.id, unitName: unit.name, damage: damage2, isCrit: isCrit2 });
 
       // ── 每发射击后的单位技能触发（声明式执行器） ────────────────
-      onShotFired(state, unit, { sums, isCharged, isCore, ammoAfterShot: unit.ammoLeft });
+      // 双重命中：SHOT_COUNT 已由 fireShotCountTriggers 处理，decrementRoundBuffs 已在第一次命中后调用，均跳过。
+      onShotFired(state, unit, { sums, isCharged, isCore, ammoAfterShot: unit.ammoLeft },
+        isDoubleHit ? { skipShotCount: true, skipRoundDecrement: true } : undefined);
       flushHealReceived(state);
       flushShieldReceived(state);
       flushCoverHeal(state);

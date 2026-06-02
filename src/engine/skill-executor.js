@@ -366,14 +366,49 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
 }
 
 /**
+ * 仅触发当前单位的 SHOT_COUNT 技能（不递减回合 buff、不处理 LAST_BULLET 等）。
+ *
+ * 专用于 Zwei 爆裂双重命中机制：第一次命中后、第二次命中前触发一次普通攻击计数，
+ * 让 S1 P2 在第一次和第二次命中之间生效，同时不对回合制 buff 进行额外消耗。
+ *
+ * @param {object} state
+ * @param {object} unit      射击单位
+ * @param {object} shotCtx   { sums, isCharged, isCore, ammoAfterShot }
+ */
+export function fireShotCountTriggers(state, unit, shotCtx) {
+  const rid = String(unit.id);
+  const charSkills = SKILL_TRAITS[rid];
+  if (!charSkills) return;
+  const ctx = { unit, ...shotCtx };
+  for (const skillKey of ['skill1', 'skill2', 'burst']) {
+    const skill = charSkills[skillKey];
+    if (!skill?.triggers) continue;
+    for (const tdef of skill.triggers) {
+      if (tdef.on !== 'SHOT_COUNT') continue;
+      const counterKey = tdef.opts?.counterKey ?? `shotCount_${skillKey}`;
+      unit.skillState[counterKey] = (unit.skillState[counterKey] ?? 0) + 1;
+      const every = tdef.opts?.every ?? 1;
+      if (unit.skillState[counterKey] < every) continue;
+      unit.skillState[counterKey] -= every;
+      if (!checkConditions(state, unit, tdef, ctx)) continue;
+      if (tdef.handler) tdef.handler(state, unit, ctx);
+      else applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
+    }
+  }
+}
+
+/**
  * 每发射击后调用。处理 SHOT_COUNT 触发（溢出保留），以及
  * LAST_BULLET / FULL_CHARGE / CORE_HIT 触发。
  *
  * @param {object} state
  * @param {object} unit      射击单位
  * @param {object} shotCtx   { sums, isCharged, isCore, ammoAfterShot }
+ * @param {object} [opts]    可选标志
+ *   skipShotCount      {boolean}  跳过 SHOT_COUNT 触发（已由 fireShotCountTriggers 处理）
+ *   skipRoundDecrement {boolean}  跳过 decrementRoundBuffs（已在双重命中第一次命中后手动调用）
  */
-export function onShotFired(state, unit, shotCtx) {
+export function onShotFired(state, unit, shotCtx, opts = {}) {
   // 全队命中计数（供依赖全队命中数的技能使用，如 Elegg: Boom and Shock S1）
   state.squadShotCount = (state.squadShotCount ?? 0) + 1;
 
@@ -405,6 +440,8 @@ export function onShotFired(state, unit, shotCtx) {
       switch (tdef.on) {
 
         case 'SHOT_COUNT': {
+          // skipShotCount：双重命中已通过 fireShotCountTriggers 处理，跳过以避免重复触发。
+          if (opts.skipShotCount) break;
           const counterKey = tdef.opts?.counterKey ?? `shotCount_${skillKey}`;
           unit.skillState[counterKey] = (unit.skillState[counterKey] ?? 0) + 1;
           const every = tdef.opts?.every ?? 1;
@@ -447,7 +484,8 @@ export function onShotFired(state, unit, shotCtx) {
       }
     }
   }
-  decrementRoundBuffs(state, unit.id);
+  // skipRoundDecrement：双重命中已在第一次命中后手动调用 decrementRoundBuffs，跳过以避免重复消耗。
+  if (!opts.skipRoundDecrement) decrementRoundBuffs(state, unit.id);
   // Weapon switch round-based expiry: decrement per shot, deactivate on exhaustion
   if ((unit.skillState?.weaponSwitchRoundsLeft ?? 0) > 0) {
     unit.skillState.weaponSwitchRoundsLeft--;

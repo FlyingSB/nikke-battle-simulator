@@ -30,6 +30,7 @@ const SUITES = [
   { name: 'Stats',      file: 'test-stats.mjs',      note: 'may fetch from CDN'                      },
   { name: 'RedHoodBurst', file: 'test-red-hood-burst.mjs', note: 'Red Hood weapon switch shot count' },
   { name: 'BurstTiming', file: 'test-burst-timing.mjs',   note: 'B3 burst direct damage delay & bonus behavior' },
+  { name: 'ZweiDoubleHit', file: 'test-zwei-double-hit.mjs', note: 'Zwei burst weapon-switch double-hit mechanic' },
 ];
 
 const LINE = '═'.repeat(62);

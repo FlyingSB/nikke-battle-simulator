@@ -191,6 +191,11 @@ export default {
           // backswing 实测推算：burst 击发至首发 SG = 67 帧；SG spot_first_delay=20→12 ticks 前摇；67−12=55。
           caster.skillState.weaponSwitchBackswingTicks   = 55;
           caster.skillState.weaponSwitchPierce           = true;
+          // 游戏实机特性（可视为 bug）：武器切换后的一击造成两次独立伤害。
+          // 第一次命中触发 S1 P2（消耗掉 S1 P1 的一发穿透 buff），
+          // 第二次命中受 S1 P2 本次叠加的 pierce_stack 加成，但不消耗它。
+          // 战斗引擎识别此标志并执行双重命中逻辑（见 battle.js）。
+          caster.skillState.weaponSwitchDoubleHit        = true;
           // 立即开始蓄力
           caster.chargeTick = state.tick + chargeTimeTicks;
         },
