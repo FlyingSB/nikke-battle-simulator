@@ -123,6 +123,7 @@ SSR 专属珍藏品与角色绑定，提升全部三个技能等级。
 | [`201701.json`](../src/data/static/favorites/201701.json) | Moran 专属珍藏品 | SSR |
 | [`201101.json`](../src/data/static/favorites/201101.json) | Fire Starter（Tove SSR） | SSR |
 | [`201401.json`](../src/data/static/favorites/201401.json) | Central Government Special Medal（Privaty SSR） | SSR |
+| [`201501.json`](../src/data/static/favorites/201501.json) | Four-Leaf Clover Bookmark（Zwei SSR） | SSR |
 
 ---
 
@@ -186,3 +187,4 @@ SSR 专属珍藏品与角色绑定，提升全部三个技能等级。
 | Ludmilla: Winter Owner | [`194.json`](../src/data/static/nikke/194.json) | [`194.js`](../src/data/skills/194.js) |
 | Mint | [`600.json`](../src/data/static/nikke/600.json) | [`600.js`](../src/data/skills/600.js) |
 | Prika | [`601.json`](../src/data/static/nikke/601.json) | [`601.js`](../src/data/skills/601.js) |
+| Zwei（SSR：Four-Leaf Clover Bookmark） | [`390.json`](../src/data/static/nikke/390.json) | [`390.js`](../src/data/skills/390.js) |
