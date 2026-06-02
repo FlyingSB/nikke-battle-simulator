@@ -73,31 +73,33 @@ option_id = state_effect_id_prefix × 100 + level   (level 1–15)
 
 ### 魔方详情数据
 
-存储路径：[`src/data/static/cubes/`](../src/data/static/cubes/)（文件名为 `resource_id.json`）  
-加载器优先读取本地文件，缺失时回退 CDN。名称与 ID 映射见 [`src/data/manifest.js`](../src/data/manifest.js) → `CUBE_NAMES`。
+存储路径：[`src/data/static/cubes/`](../src/data/static/cubes/)（文件名为 `{resource_id}.json`）  
+加载器优先读取本地文件，缺失时回退 CDN；CDN URL 由 [`blablalink-url.js`](../src/data/blablalink-url.js) `getCubeUrl(id)` 生成。名称与 resource_id 映射见 [`src/data/manifest.js`](../src/data/manifest.js) → `CUBE_NAMES`。
 
-| 文件 | 魔方名称 |
-|------|---------|
-| [`10001.json`](../src/data/static/cubes/10001.json) | Assault Cube |
-| [`10002.json`](../src/data/static/cubes/10002.json) | Onslaught Cube |
-| [`10003.json`](../src/data/static/cubes/10003.json) | Resilience Cube |
-| [`10004.json`](../src/data/static/cubes/10004.json) | Bastion Cube |
-| [`10005.json`](../src/data/static/cubes/10005.json) | Adjutant Cube |
-| [`10006.json`](../src/data/static/cubes/10006.json) | Wingman Cube |
-| [`10007.json`](../src/data/static/cubes/10007.json) | Destruction Cube |
-| [`10008.json`](../src/data/static/cubes/10008.json) | Piercing Cube |
-| [`10009.json`](../src/data/static/cubes/10009.json) | Assist Cube |
-| [`10010.json`](../src/data/static/cubes/10010.json) | Rupture Cube |
-| [`11001.json`](../src/data/static/cubes/11001.json) | Quantum Cube |
-| [`12001.json`](../src/data/static/cubes/12001.json) | Endurance Cube |
-| [`12002.json`](../src/data/static/cubes/12002.json) | Tempering Cube |
-| [`13001.json`](../src/data/static/cubes/13001.json) | Vigor Cube |
-| [`13002.json`](../src/data/static/cubes/13002.json) | Healing Cube |
+`id` 为 JSON 内 `"id"` 字段（传给 `getCubeUrl`），`文件` 为本地缓存文件名（resource_id）。
+
+| id | 文件 | 魔方名称 |
+|----|------|---------|
+| 1000301 | [`10001.json`](../src/data/static/cubes/10001.json) | Assault Cube |
+| 1000302 | [`10002.json`](../src/data/static/cubes/10002.json) | Onslaught Cube |
+| 1000303 | [`10003.json`](../src/data/static/cubes/10003.json) | Resilience Cube |
+| 1000304 | [`10004.json`](../src/data/static/cubes/10004.json) | Bastion Cube |
+| 1000305 | [`10005.json`](../src/data/static/cubes/10005.json) | Adjutant Cube |
+| 1000306 | [`10006.json`](../src/data/static/cubes/10006.json) | Wingman Cube |
+| 1000307 | [`11001.json`](../src/data/static/cubes/11001.json) | Quantum Cube |
+| 1000308 | [`13001.json`](../src/data/static/cubes/13001.json) | Vigor Cube |
+| 1000309 | [`12001.json`](../src/data/static/cubes/12001.json) | Endurance Cube |
+| 1000310 | [`13002.json`](../src/data/static/cubes/13002.json) | Healing Cube |
+| 1000311 | [`12002.json`](../src/data/static/cubes/12002.json) | Tempering Cube |
+| 1000312 | [`10009.json`](../src/data/static/cubes/10009.json) | Assist Cube |
+| 1000313 | [`10007.json`](../src/data/static/cubes/10007.json) | Destruction Cube |
+| 1000314 | [`10008.json`](../src/data/static/cubes/10008.json) | Piercing Cube |
+| 1000315 | [`10010.json`](../src/data/static/cubes/10010.json) | Rupture Cube |
 
 ### 珍藏品数据
 
 存储路径：[`src/data/static/favorites/`](../src/data/static/favorites/)  
-加载器优先读取本地文件，缺失时回退 CDN（CDN URL 见 `manifest.js` → `FAVORITE_ITEM_URLS`）。  
+加载器优先读取本地文件，缺失时回退 CDN；CDN URL 由 [`blablalink-url.js`](../src/data/blablalink-url.js) `getFavoriteItemUrl(id)` 生成。  
 SSR 专属珍藏品（ID 以 `2` 开头）仅有本地文件，无 CDN URL 记录。
 
 ID 规则：`100XYY`，X = 武器类型（1=AR / 2=MG / 3=RL / 4=SG / 5=SMG / 6=SR），YY = `01`（R）/ `02`（SR）。  
