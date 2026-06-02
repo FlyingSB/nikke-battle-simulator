@@ -100,10 +100,10 @@ option_id = state_effect_id_prefix × 100 + level   (level 1–15)
 
 存储路径：[`src/data/static/favorites/`](../src/data/static/favorites/)  
 加载器优先读取本地文件，缺失时回退 CDN；CDN URL 由 [`blablalink-url.js`](../src/data/blablalink-url.js) `getFavoriteItemUrl(id)` 生成。  
-SSR 专属珍藏品（ID 以 `2` 开头）仅有本地文件，无 CDN URL 记录。
+全部珍藏品（含 SSR）均已本地缓存。
 
 ID 规则：`100XYY`，X = 武器类型（1=AR / 2=MG / 3=RL / 4=SG / 5=SMG / 6=SR），YY = `01`（R）/ `02`（SR）。  
-SSR 专属珍藏品与角色绑定，提升全部三个技能等级。
+SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个技能等级。
 
 | 文件 | 珍藏品名称 | 类型 |
 |------|-----------|------|
@@ -119,13 +119,23 @@ SSR 专属珍藏品与角色绑定，提升全部三个技能等级。
 | [`100502.json`](../src/data/static/favorites/100502.json) | Coffee Commander Doll Ltd. | SMG · SR |
 | [`100601.json`](../src/data/static/favorites/100601.json) | Napping Commander Doll | SR-weapon · R |
 | [`100602.json`](../src/data/static/favorites/100602.json) | Napping Commander Doll Ltd. | SR-weapon · SR |
-| [`200601.json`](../src/data/static/favorites/200601.json) | Miranda 专属珍藏品 | SSR |
+| [`200101.json`](../src/data/static/favorites/200101.json) | Toy Train Set（Diesel SSR） | SSR |
+| [`200201.json`](../src/data/static/favorites/200201.json) | Gamekid Evolution（Exia SSR） | SSR |
+| [`200301.json`](../src/data/static/favorites/200301.json) | Beloved Pillow（Frima SSR） | SSR |
+| [`200401.json`](../src/data/static/favorites/200401.json) | Hero Trilogy BD（Laplace SSR） | SSR |
+| [`200501.json`](../src/data/static/favorites/200501.json) | First Phone and Phone Book（Viper SSR） | SSR |
+| [`200601.json`](../src/data/static/favorites/200601.json) | Sheet of Paper（Miranda SSR） | SSR |
 | [`200701.json`](../src/data/static/favorites/200701.json) | Antique Compass（Helm SSR） | SSR |
 | [`200801.json`](../src/data/static/favorites/200801.json) | Villain Figurine（Drake SSR） | SSR |
-| [`201701.json`](../src/data/static/favorites/201701.json) | Moran 专属珍藏品 | SSR |
+| [`200901.json`](../src/data/static/favorites/200901.json) | Lover Mug（Milk SSR） | SSR |
+| [`201001.json`](../src/data/static/favorites/201001.json) | Police Notebook（Poli SSR） | SSR |
 | [`201101.json`](../src/data/static/favorites/201101.json) | Fire Starter（Tove SSR） | SSR |
+| [`201201.json`](../src/data/static/favorites/201201.json) | Music Notebook（Julia SSR） | SSR |
+| [`201301.json`](../src/data/static/favorites/201301.json) | Practice Shoes（Bay SSR） | SSR |
 | [`201401.json`](../src/data/static/favorites/201401.json) | Central Government Special Medal（Privaty SSR） | SSR |
 | [`201501.json`](../src/data/static/favorites/201501.json) | Four-Leaf Clover Bookmark（Zwei SSR） | SSR |
+| [`201601.json`](../src/data/static/favorites/201601.json) | Metal Pendant（Centi SSR） | SSR |
+| [`201701.json`](../src/data/static/favorites/201701.json) | Peony Hairpin（Moran SSR） | SSR |
 
 ---
 
