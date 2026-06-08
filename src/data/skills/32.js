@@ -32,14 +32,14 @@ export default {
 
           const hr1 = getSkillValue(favS1, 1, lv) / 100;
           const hr2 = getSkillValue(favS1, 4, lv) / 100;
-          pushBuff(state, { name: 'Health Up! P1 L2', unitId: null,
-            hitRatePct: hr1, endTick: end5 });
-          pushBuff(state, { name: 'Health Up! P2 L2', unitId: null,
-            hitRatePct: hr2, endTick: end5, weaponFilter: 'SMG' });
+          pushBuff(state, { name: 'Health Up! P1', unitId: null,
+            hitRatePct: hr1, endTick: end5 }, { ...state._logCtx, partIdx: 0 });
+          pushBuff(state, { name: 'Health Up! P2', unitId: null,
+            hitRatePct: hr2, endTick: end5, weaponFilter: 'SMG' }, { ...state._logCtx, partIdx: 1 });
 
           const atkPct = getSkillValue(favS1, 7, lv) / 100;
-          pushBuff(state, { name: 'Health Up! P3 L2', unitId: caster.id,
-            atkPct, endTick: end5 });
+          pushBuff(state, { name: 'Health Up! P3', unitId: caster.id,
+            atkPct, endTick: end5 }, { ...state._logCtx, partIdx: 2 });
         },
       },
     ],
@@ -72,13 +72,14 @@ export default {
           const end10 = state.tick + TICK_RATE * 10;
 
           const critDamagePct = getSkillValue(favS2, 0, lv) / 100;
-          pushBuff(state, { name: 'Wake Up! P1 L2', unitId: null,
-            critDamagePct: critDamagePct, endTick: end10 });
+          pushBuff(state, { name: 'Wake Up! P1', unitId: null,
+            critDamagePct: critDamagePct, endTick: end10 }, { ...state._logCtx, partIdx: 0 });
 
           const critRateSelf  = getSkillValue(favS2, 2, lv) / 100;
           const attackDmgSelf = getSkillValue(favS2, 4, lv) / 100;
           pushBuff(state, { name: 'Wake Up! P2', unitId: caster.id,
-            critRatePct: critRateSelf, attackDamagePct: attackDmgSelf, endTick: end10 });
+            critRatePct: critRateSelf, attackDamagePct: attackDmgSelf, endTick: end10 }, 
+            { ...state._logCtx, partIdx: 1 });
 
           // 最高 ATK 友军（除自身）Crit Rate ▲ 持续 1 round
           // 无限弹角色（Moran/Nayuta burst 中）不消耗 roundsLeft，直到无限弹结束后首次实弹命中才消耗
@@ -87,8 +88,9 @@ export default {
             .sort((a, b) => b.stats.atk - a.stats.atk)[0];
           if (topAlly) {
             const crBonus = getSkillValue(favS2, 7, lv) / 100;
-            pushBuff(state, { name: 'Wake Up! P3 L2', unitId: topAlly.id,
-              critRatePct: crBonus, roundsLeft: 1, endTick: Infinity });
+            pushBuff(state, { name: 'Wake Up! P3', unitId: topAlly.id,
+              critRatePct: crBonus, roundsLeft: 1, endTick: Infinity }, 
+              { ...state._logCtx, partIdx: 2 });
           }
         },
       },

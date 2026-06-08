@@ -73,6 +73,7 @@ export default {
     groupId: 13532,
     triggers: [
       // Part1：每 4s 自动触发（首次于 t+4s，等效战斗开始进入 4s 冷却）→ 对 1 随机敌人造成伤害
+      // Part2：S2 攻击命中 Electric Code 目标时叠加 Damage Taken▲
       {
         on: 'INTERVAL',
         opts: { seconds: 4 },
@@ -83,22 +84,14 @@ export default {
           const sums = getBuffSums(state, caster.id);
           fireSkillHit(state, caster, mult, sums, 'S2');
           addBurstGauge(state, caster.name, 'helm353_s2_suppFire', caster.targetBurstEnergyPerShot);
-        },
-      },
-      // Part2：每发普攻命中 Electric Code 敌人 → Damage Taken ▲，最多 5 层，每层持续 5 秒
-      {
-        on: 'SHOT_COUNT',
-        opts: { every: 1, counterKey: 'helm353S2DtTracker' },
-        handler(state, caster) {
-          if (state.enemyElement !== 'Electric') return;
-          if (state.enemyHp <= 0) return;
-          const lv        = caster.skillLevels[1];
-          const dtPct     = getSkillValue(caster.rawSkill2, 2, lv) / 100;
-          const maxStacks = getSkillValue(caster.rawSkill2, 3, lv);
-          const dur       = getSkillValue(caster.rawSkill2, 4, lv);
-          pushBuff(state, { name: 'Aegis Cannon Suppression Fire', unitId: '__enemy__', isDebuff: true,
-            enemyDamageTakenPct: dtPct, stackLimit: maxStacks,
-            endTick: state.tick + TICK_RATE * dur });
+          if (state.enemyElement === 'Electric') {
+            const dtPct     = getSkillValue(caster.rawSkill2, 2, lv) / 100;
+            const maxStacks = getSkillValue(caster.rawSkill2, 3, lv);
+            const dur       = getSkillValue(caster.rawSkill2, 4, lv);
+            pushBuff(state, { name: 'Aegis Cannon Suppression Fire', unitId: '__enemy__', isDebuff: true,
+              enemyDamageTakenPct: dtPct, stackLimit: maxStacks,
+              endTick: state.tick + TICK_RATE * dur });
+          }
         },
       },
     ],

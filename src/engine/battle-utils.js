@@ -86,6 +86,7 @@ export function getBuffSums(state, unitId) {
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
     if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
+    if (b.weaponFilter && unit.weaponType !== b.weaponFilter) continue;
     // 可叠加 buff（stacks > 1）：各字段按层数等比累加
     const k = b.stacks ?? 1;
     for (const f of BUFF_NUMERIC_FIELDS) sums[f] += (b[f] ?? 0) * k;
@@ -145,7 +146,9 @@ export function getEnemyDebuffBreakdown(state) {
 function _emitBuffEvent(state, buffObj, logCtx) {
   if (!state.pendingSkillEvents) return;
   const targetName = buffObj.unitId === null
-    ? '全体队友'
+    ? (buffObj.weaponFilter && state.squad
+        ? (state.squad.filter(u => u.weaponType === buffObj.weaponFilter).map(u => u.name).join('、') || `${buffObj.weaponFilter} 友军`)
+        : '全体队友')
     : buffObj.unitId === ENEMY_UNIT_ID
     ? '敌人'
     : (state.squad?.find(u => u.id === buffObj.unitId)?.name ?? '?');
@@ -290,6 +293,7 @@ function _emitSkillEvent(state, target, override = null) {
   const ctx = override ? { ...base, ...override } : base;
   state.pendingSkillEvents.push({
     type: 'skill_trigger', tick: state.tick,
+    _seq: state._logSeq++,
     unitName: ctx.unitName, skillLabel: ctx.skillLabel, slot: ctx.slot,
     partIdx: ctx.partIdx, trigger: ctx.trigger ?? '',
     lineIdx: ctx.lineIdx ?? null,

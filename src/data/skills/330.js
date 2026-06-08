@@ -28,10 +28,11 @@ export default {
         on: 'ENTER_FULL_BURST',
         target: 'BURST_CASTERS',
         effects: [
-          { type: 'BUFF', name: 'One for All P1 L1',  duration: 15,
-            stat: (caster) => ({ atkFlat: Math.round(caster.stats.atk * getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100) }) },
-          { type: 'BUFF', name: 'One for All P1 L2', duration: 15,
-            stat: (caster) => ({ reloadSpeedPct: getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100 }) },
+          { type: 'BUFF', name: 'One for All P1', duration: 15,
+            stat: (caster) => ({
+              atkFlat:        Math.round(caster.stats.atk * getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100),
+              reloadSpeedPct: getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100,
+            }) },
         ],
       },
       // P2：爆裂未施放者 → DEF flat ▲ + Reload Speed ▲
@@ -39,10 +40,11 @@ export default {
         on: 'ENTER_FULL_BURST',
         target: 'NON_BURST_CASTERS',
         effects: [
-          { type: 'BUFF', name: 'One for All P2 L1',  duration: 15,
-            stat: (caster) => ({ defFlat: Math.round(caster.stats.def * getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100) }) },
-          { type: 'BUFF', name: 'One for All P2 L2', duration: 15,
-            stat: (caster) => ({ reloadSpeedPct: getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100 }) },
+          { type: 'BUFF', name: 'One for All P2', duration: 15,
+            stat: (caster) => ({
+              defFlat:        Math.round(caster.stats.def * getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100),
+              reloadSpeedPct: getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100,
+            }) },
         ],
       },
     ],
@@ -68,32 +70,31 @@ export default {
   skill2: {
     groupId: 23302,
     triggers: [
-      // S2（Guardian / Relax）：每 43 发 +1 层（上限 20）
-      // 满 20 层：Crown 自身回复 5.23% HP；全员 Attack Damage ▲20.99% 7s
+      // S2 P1（Relax）：每 43 发 +1 层（上限 20），满层清除后触发治疗
+      // 满层时直接 pushBuff（partIdx:2）保证日志顺序：heal(1) 先于 buff(2)
+      // HEAL_RECEIVED（tdefIdx=2）仍负责其他来源治疗触发
       {
         on: 'SHOT_COUNT',
         opts: { every: 43, counterKey: 'crownShotCount' },
         handler(state, caster) {
-          caster.skillState.crownRelaxStacks = (caster.skillState.crownRelaxStacks ?? 0) + 1;
-          if (caster.skillState.crownRelaxStacks < 20) return;
-          caster.skillState.crownRelaxStacks = 0;
+          pushBuff(state, { name: 'Relax', unitId: caster.id, endTick: Infinity, stackLimit: 20 }, false);
+          const relax = state.buffs.find(b => b.name === 'Relax' && b.unitId === caster.id);
+          if (!relax || relax.stacks < 20) return;
+          state.buffs = state.buffs.filter(b => !(b.name === 'Relax' && b.unitId === caster.id));
           const healPct      = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
           const attackDmgPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
-          applyHeal(state, caster, Math.round(caster.stats.hp * healPct));
-          pushBuff(state, { name: 'Royal Attire P2 L7', unitId: null,
-            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 7 });
+          applyHeal(state, caster, Math.round(caster.stats.hp * healPct), { ...state.logCtx, partIdx: 1 });
         },
       },
       // tdefIdx=1：■段1(Relax满层 Invulnerable/Taunt)防御性效果未建模，占位
       {},
-      // S2 HEAL_RECEIVED：Crown 自身受到治疗时 → 全员 Attack Damage ▲[S2 param6]% 7s
-      // 与满层触发共用 buff name；pushBuff 刷新语义保证不叠加
+      // S2 P3（HEAL_RECEIVED）：Crown 自身受到任意治疗时 → 全员 Attack Damage ▲[p07]% 7s
       {
         on: 'HEAL_RECEIVED',
         conditions: [{ type: 'HEALED_UNIT_IS_SELF' }],
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'Royal Attire P2 L7', unitId: null,
+          pushBuff(state, { name: 'Royal Attire P3', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 7 });
         },
       },
