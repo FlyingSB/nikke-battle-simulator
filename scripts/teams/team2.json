@@ -35,7 +35,7 @@
       "cubeId": 10003, "cubeLevel": 15,
       "favItemId": 100302, "favLevel": 5,
       "equipPct": {
-        "ammoPct": 1.3786, "hitRatePct": 0.1181, "critRatePct": 0.1142, "critDmgPct": 0.3288
+        "ammoPct": 1.3786, "hitRatePct": 0.1181, "critRatePct": 0.1142, "critDamagePct": 0.3288
       }
     },
     {

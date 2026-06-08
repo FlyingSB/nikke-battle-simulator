@@ -13,7 +13,7 @@
       "equipPct": {
         "elementDmgPct": 0.2356, "ammoPct": 0.6893,
         "chargeSpeedPct": 0.0492, "hitRatePct": 0.1181,
-        "critRatePct": 0.1142, "critDmgPct": 0.1644
+        "critRatePct": 0.1142, "critDamagePct": 0.1644
       }
     },
     {
@@ -37,7 +37,7 @@
       "favItemId": 100302, "favLevel": 15,
       "equipPct": {
         "elementDmgPct": 0.9282, "atkPct": 0.4021, "ammoPct": 1.2554,
-        "critDmgPct": 0.0762
+        "critDamagePct": 0.0762
       }
     },
     {
@@ -49,7 +49,7 @@
       "favItemId": 100402, "favLevel": 15,
       "equipPct": {
         "elementDmgPct": 0.9421, "atkPct": 0.1587, "hitRatePct": 0.1799,
-        "critRatePct": 0.0537, "critDmgPct": 0.1252
+        "critRatePct": 0.0537, "critDamagePct": 0.1252
       }
     },
     {

@@ -24,7 +24,7 @@
       "favItemId": 100202, "favLevel": 15,
       "equipPct": {
         "elementDmgPct": 0.1655, "atkPct": 0.2151, "ammoPct": 1.1321,
-        "chargeSpeedPct": 0.0925, "critRatePct": 0.0571, "critDmgPct": 0.27
+        "chargeSpeedPct": 0.0925, "critRatePct": 0.0571, "critDamagePct": 0.27
       }
     },
     {
@@ -36,7 +36,7 @@
       "favItemId": 100202, "favLevel": 15,
       "equipPct": {
         "elementDmgPct": 0.9842, "atkPct": 0.5289, "ammoPct": 1.8625,
-        "critDmgPct": 0.0664
+        "critDamagePct": 0.0664
       }
     },
     {
