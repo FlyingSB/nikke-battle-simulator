@@ -6,7 +6,6 @@
  * 生成后非必要不再访问 CDN。
  */
 import { DATA_URLS, CUBE_URLS, FAVORITE_ITEM_URLS, BATTLE_DATA_KEYS, MANIFEST_VERSION } from './manifest.js';
-import { getRoleDataUrl } from './blablalink-url.js';
 
 const CACHE_PREFIX = `nikke_sim_${MANIFEST_VERSION}_`;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 小时
@@ -46,16 +45,15 @@ export function setData(key, value) {
 
 /**
  * 按新花名册 resource_id 加载单个角色的详情 JSON。
- * 优先读取本地静态快照，缺失时回退 CDN。
- * TODO: 多语言支持只实现了 'en'，其他语言留待后续扩展。
+ * 只读取本地静态快照（src/data/static/nikke/<id>.json），文件缺失时抛出错误。
+ * 如需添加新角色，请先运行 scripts/download-all-static.mjs 下载对应快照。
  * @param {number|string} resourceId   新花名册 resource_id（例如 Little Mermaid 为 513）
  * @returns {Promise<object>}
  */
 export async function loadNikke(resourceId) {
-  const id       = Number(resourceId);
-  const url      = getRoleDataUrl(id, 'en');
-  const local    = `${LOCAL_BASE}/nikke/${id}.json`;
-  return _loadByUrl('nikke', id, url, local);
+  const id    = Number(resourceId);
+  const local = `${LOCAL_BASE}/nikke/${id}.json`;
+  return _loadByUrl('nikke', id, null, local);
 }
 
 /**

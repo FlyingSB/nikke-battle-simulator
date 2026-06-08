@@ -12,7 +12,7 @@ import { getData } from './loader.js';
  * @property {string} name           // 显示名（来自 CDN 的繁体中文）
  * @property {'Attacker'|'Defender'|'Supporter'} classType
  * @property {'Fire'|'Water'|'Wind'|'Electric'|'Iron'} element
- * @property {'AR'|'SMG'|'SR'|'MG'|'SG'|'RL'} weaponType
+ * @property {'AR'|'SMG'|'SR'|'MG'|'SG'|'RL'|'Charged'} weaponType
  * @property {'Metal'|'Energy'|'Bio'} damageType
  * @property {'ELYSION'|'MISSILIS'|'TETRA'|'PILGRIM'|'ABNORMAL'} corporation
  * @property {'SSR'|'SR'|'R'} rarity
@@ -328,10 +328,10 @@ export function getBaseStats(nikkeData, level) {
  * @property {string}  corporation          'ELYSION'|'MISSILIS'|'TETRA'|'PILGRIM'|'ABNORMAL'
  * @property {boolean} isOverspec           true → 好感度上限 Lv.40（corporation_sub_type=OVERSPEC）
  * @property {number}  baseCritRate         基础暴击率（critical_ratio / 10000）。多数 = 0.15。
- * @property {number}  baseCritDmgBonus     暴击时相对 1× 的加成（critical_damage/10000 - 1）。多数 = 0.50。
+ * @property {number}  baseCritDamagePct    暴击时相对 1× 的加成（critical_damage/10000 - 1）。多数 = 0.50。
  * @property {string}  element              NIKKE 属性
  * @property {number}  weaponMultiplier     damage / 10000。例如 557 → 0.0557（5.57%）
- * @property {number}  coreDmgBonus         命中核心时相对 1× 的加成（core_damage_rate/10000 - 1）。多数 = 1.0。
+ * @property {number}  coreDamagePct        命中核心时相对 1× 的加成（core_damage_rate/10000 - 1）。多数 = 1.0。
  *   TODO: 精度字段（accuracy_change_pershot、accuracy_change_speed、
  *         start/end_accuracy_circle_scale）影响命中核心的概率 — 稍后建模。
  * @property {number}  maxAmmo              基础弹匣容量（未计入加成前）
@@ -420,13 +420,13 @@ export function parseNikkeDetail(raw) {
     isOverspec:  raw.corporation_sub_type === 'OVERSPEC',
 
     baseCritRate:     req(raw, 'critical_ratio', 'raw') / 10000,
-    baseCritDmgBonus: req(raw, 'critical_damage', 'raw') / 10000 - 1.0,
+    baseCritDamagePct: req(raw, 'critical_damage', 'raw') / 10000 - 1.0,
 
     element: elem,
 
     // 武器
     weaponMultiplier: req(sd, 'damage', 'shot_detail') / 10000,
-    coreDmgBonus:     req(sd, 'core_damage_rate', 'shot_detail') / 10000 - 1.0,
+    coreDamagePct:    req(sd, 'core_damage_rate', 'shot_detail') / 10000 - 1.0,
     maxAmmo:          req(sd, 'max_ammo', 'shot_detail'),
     reloadFraction:   req(sd, 'reload_bullet', 'shot_detail') / 10000,
     reloadTime:       (sd.reload_time ?? 0) / 100,              // 部分 CDN 记录可能不含此字段
