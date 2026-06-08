@@ -60,7 +60,7 @@
 
 - **装备词条 atkPct**（"Increase ATK %"）：不计入 `stats.atk`，单独存为 `equipAtkPct`，与技能 ATK% buff **加法**叠加后一起乘。
 - **critRate**：基础 0.15 + 装备 critRatePct。
-- **critDmg**：基础 0.50 + 装备 critDmgPct（传入 `calcDamage` 的 `critDmgIncrement`）。
+- **critDmg**：基础 0.50 + 装备 critDamagePct（传入 `calcDamage` 的 `critDmgIncrement`）。
 - **chargeSpeedPct**：装备词条 + 魔方 Adjutant 被动之和。
 - **reloadSpeedPct**：仅来自魔方（Resilience Quick Reload HC），不叠加装备词条。
 - **elementDmgPct**：装备词条 + 魔方 Anti Code HC 之和。
@@ -133,14 +133,17 @@ ExtraMult = 1 + Σ(以下各项，生效时才加）
 | 加成来源 | 字段 | 适用场景 |
 |----------|------|----------|
 | 攻击伤害% | `attackDamagePct` | 普通攻击和技能均受益 |
-| 普通攻击伤害% | `normalAttackDamagePct` | 仅普通攻击 |
-| 子弹爆炸伤害% | `projectileExplosionDamagePct` | 仅 RL 普攻或标记了 projectileExplosion 的技能命中 |
+| 普通攻击伤害% | `normalAttackDamagePct` | 仅普通攻击（倍率，待验证） |
+| 发射体爆炸伤害% | `projectileExplosionDamagePct` | 仅 RL 普攻或标记了 projectileExplosion 的技能命中 |
 | 穿透伤害% | `pierceDamagePct` | 仅穿透命中 |
+| 依次攻击伤害% | `sequentialAttackDamageMult` | 仅 CDN `skill_type: InstantSequentialAttack` 的技能命中（见下注） |
+| 零件伤害% | `damageToPartsMult` | 仅命中零件（Parts）时适用（见 §11.3） |
 | 持续伤害% | `sustainedDamagePct` | 仅 DoT |
-| 真实伤害% | `trueDamagePct` | 仅 isTrueDamage 命中 |
-| 其他类型 | `damageToPartsMult` 等 | 各自对应场景 |
+| 无视防御力伤害伤害% | `trueDamagePct` | 仅 isTrueDamage 命中 |
 
 所有加成为**加法叠加**，再统一 +1 作为乘法项。
+
+> **依次攻击（InstantSequentialAttack）**：CDN `skill_type` 为 `InstantSequentialAttack` 的技能会触发一系列连续打击，每次打击均为独立命中。技能文件通过 `pushBuff({ sequentialAttackDamagePct })` 施加该加成，`getBuffSums` 汇总后由 `fireSkillHit` 以 `opts.isSequentialAttack: true` 传入 `calcDamage`，与 `attackDamagePct` 机制完全对称。
 
 ### 3.6 DamageTakenLikeMultiplier
 
@@ -153,9 +156,9 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 
 ### 3.7 暴击判定
 
-- 普通攻击有效暴击率 = `min(1, stats.critRate + sums.critRateBonus + sums.normalAttackCritRateBonus)`。
-  - `normalAttackCritRateBonus`：游戏内"普通攻击暴击率"加成，**不区分蓄力与否**，仅适用于普通攻击（不含技能伤害或爆裂技能）。
-- 爆裂技能命中暴击率 = `min(1, stats.critRate + sums.critRateBonus)`（不含 normalAttackCritRateBonus）。
+- 普通攻击有效暴击率 = `min(1, stats.critRate + sums.critRatePct + sums.normalAttackCritRatePct)`。
+  - `normalAttackCritRatePct`：游戏内"普通攻击暴击率"加成，**不区分蓄力与否**，仅适用于普通攻击（不含技能伤害或爆裂技能）。
+- 爆裂技能命中暴击率 = `min(1, stats.critRate + sums.critRatePct)`（不含 normalAttackCritRatePct）。
 
 ### 3.8 核心命中判定
 
@@ -202,6 +205,8 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 | MID  | AR, MG  |
 | FAR  | SR      |
 | RL   | 无距离优势 |
+
+> **武器切换期间**：距离优势判定始终基于角色的**原始武器类型**（`unit.weaponType`），切换武器（`weaponSwitchType`）不影响距离加成区间。
 
 ### 4.3 SR/RL 蓄力模式
 
@@ -308,6 +313,7 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 - 下一发须等 `state.tick >= unit.chargeTick` 才打出（确定性，每蓄力周期恰好 1 发）。
 - `chargeSpeedPct` 仅缩短蓄力阶段，前后摇不受影响。
 - 蓄力武器爆裂充能：`baseEnergy × (fullChargeDamage / 10000)`（全蓄力加成）。
+- **部分蓄力击发（游戏实际 vs 模拟器假设）：** 实际游戏中，SR/RL 无需蓄满即可击发；伤害与爆裂充能按实际蓄力程度等比缩减，仅限全蓄力触发的效果（`FULL_CHARGE` 技能触发、全蓄力专属增益）在未满蓄时不生效。模拟器默认所有 SR/RL 普通攻击均在全蓄力时击发（`isCharged=true`），不建模中途击发场景。
 
 ### 4.4 MG 起速模型
 
@@ -335,26 +341,52 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 
 ### 5.1 最大弹匣计算
 
+#### 5.1.1 计算公式
+
+最大弹匣由以下所有来源**累加**后统一取下限：
+
 ```
-maxAmmo = baseAmmo
-        + Math.round(baseAmmo × bonusAmmoPct_OL)   （装备词条，grouped-ROUND）
-        + Math.round(baseAmmo × favAmmoPct)         （珍藏品 ammoPct）
+rawMax = baseAmmo
+       + Math.round(baseAmmo × bonusAmmoPct_OL)      （装备词条，grouped-ROUND）
+       + Math.round(baseAmmo × favAmmoPct)            （珍藏品 ammoPct）
+       + 技能/Buff 的百分比效果（maxAmmoPct / tempMaxAmmoMult 路径）
+       + 技能/Buff 的固定值效果（maxAmmoFlat）
+
+finalMaxAmmo = Math.max(1, rawMax)
 ```
 
-> `baseAmmo`：CDN `shot_detail` 对应的初始弹数（或武器类型默认值）。
+- 中间计算步骤**不做** `≥1` 保护；仅对 `rawMax` 做一次 `Math.max(1, …)` 。
+- `baseAmmo`：CDN `shot_detail` 对应的初始弹数（或武器类型默认值）。
+
+#### 5.1.2 重新计算的时机
+
+`finalMaxAmmo` 只在以下时机重新计算，其余时间读取缓存值：
+
+1. **战斗初始化**：`initBattle` 时确定初始 `maxAmmo`。
+2. **推入 Buff 时**：`pushBuff` 时若该 buff 含 `maxAmmoPct` 或 `maxAmmoFlat` 字段，立即对受影响单位重新计算。
+3. **Buff 过期时**：过期 buff 含 `maxAmmoPct` 或 `maxAmmoFlat` 字段时，对受影响单位重新计算。
+4. **`tempMaxAmmoMult` 写入时**（技能文件直接设置该字段的情况）：设置后立即重新计算。
+
+#### 5.1.3 最大装弹数下降时的行为
+
+当 `finalMaxAmmo` 减小时（扩充效果过期，或缩减效果开始生效），默认行为：
+
+- **保持当前 `ammoLeft` 不变**，但若 `ammoLeft > finalMaxAmmo`，截断至 `finalMaxAmmo`。
+- 除非技能描述中显式说明会"立即装填"（Reload）或"清空弹药"。
+
+#### 5.1.4 增减效果同时生效
+
+当最大装弹数的增加效果和减少效果同时生效时，游戏并未明确规定结算顺序，实际测试表明各效果间可能存在某种固定顺序，但模拟器中不做规定：**任何结算顺序均视为合法，不算错误（Undefined 行为）。**
 
 ### 5.2 装填流程
 
 1. `ammoLeft <= 0`（且无限装弹未激活）时进入装填。
 2. 有效换弹速度：`fixedReloadSpeedPct`（若存在）覆盖所有其他加成；否则使用 `sums.reloadSpeedPct`。
 3. 装填时长：`Math.round(reloadTicks / (1 + effectiveReloadSpeed))`。
-4. 装填完成后恢复弹药：
+4. **装填完成时**计算本次应恢复的弹药量（不在装填开始时计算）：
    - 分段装填（`reloadFraction < 1`）：`Math.min(effectiveMax, Math.round(maxAmmo × reloadFraction))`。
    - 默认一次装满：`effectiveMax`。
-5. `effectiveMax` 计算：
-   - 若有 `maxAmmoFlat` buff（如 Liter S1）：`maxAmmo + flatBoost`。
-   - 若有 `tempMaxAmmoMult`（如 SBS S2）：`Math.max(1, baseAmmo + Math.round(baseAmmo × (mult - 1))) + bonusAmmo + favAmmoBonus`。
-   - 否则：`maxAmmo`。
+5. `effectiveMax` 即 `unit.maxAmmo`（已含所有 buff 和技能效果的缓存值，由 5.1.2 的时机维护）。
 
 ### 5.3 Bastion 魔方（Reload Up HC）
 
@@ -457,9 +489,9 @@ burstPhase = 0（充能中）
 | `atkFlat` | ATK 固定加成 |
 | `attackDamagePct` | 攻击伤害%（ExtraMultiplier 加法） |
 | `normalAttackDamagePct` | 普通攻击伤害% |
-| `critRateBonus` | 暴击率加成 |
-| `normalAttackCritRateBonus` | 普通攻击暴击率加成（不区分蓄力） |
-| `critDmgBonus` | 暴击伤害加成（增量） |
+| `critRatePct` | 暴击率加成 |
+| `normalAttackCritRatePct` | 普通攻击暴击率加成（不区分蓄力） |
+| `critDamagePct` | 暴击伤害加成（增量） |
 | `chargeDamagePct` | 蓄力伤害加成（加到 chargeMult） |
 | `chargeSpeedPct` | 蓄力速度% |
 | `reloadSpeedPct` | 换弹速度% |
@@ -655,7 +687,24 @@ burstPhase = 0（充能中）
 - `HIDDEN` 阶段：所有单位停止射击，触发装填（ammoLeft → 0）。
 - 离开 HIDDEN：恢复被中断的自愿装填（原弹药恢复）；SR/RL 蓄力 `chargeTick` 同步重置（见 §4.3.7）。
 
-### 11.3 属性克制关系
+### 11.3 可攻击部位
+
+敌人身上可被攻击的部分共 4 种：
+
+| 部位 | 英文 | 说明 |
+|------|------|------|
+| 本体 | Body | 敌人主体，所有攻击默认命中本体 |
+| 核心 | Core | 暴露时可命中，受 CommonMultiplier 核心加成（+100%）；逻辑见 §3.8 |
+| 零件 | Parts | 可独立受到"零件伤害增加"加成；见下方实现说明 |
+| 阻止部位 | Intercept Parts | 可独立受到"阻止部位伤害增加"加成；当前**未实现**（见附录） |
+
+**关键规则：** 部位特定伤害增加效果（如"对零件伤害增加"、"对阻止部位伤害增加"）**仅在攻击命中对应部位时生效**，不适用于攻击本体或核心的命中。因此，若技能描述为"零件伤害增加 X%"，将其建模为无限制的 `attackDamagePct` 是错误的。
+
+**实现方式（`hitPart` 参数）：** 普通攻击与技能伤害计算均通过 `hitPart`（`'body'` | `'core'` | `'parts'` | `'intercept_parts'`）标识命中部位，默认为 `'body'`（本体）。`damageToPartsPct` buff 仅在 `hitPart === 'parts'` 时计入 `ExtraMultiplier`。技能文件中，"零件伤害增加"效果应建模为 `damageToPartsPct`（而非 `attackDamagePct`）。当前 Boss 战场景中不产生 `hitPart === 'parts'` 的命中，该加成实际不生效，但建模正确，不再错误叠加到本体/核心命中。
+
+> 当前模拟器中，阻止部位未建模，含有"阻止部位伤害增加"的技能效果暂时忽略。
+
+### 11.4 属性克制关系
 
 ```
 Fire（燃烧）→ Wind（风压）→ Iron（铁甲）→ Electric（电击）→ Water（水冷）→ Fire（循环克制）
@@ -674,3 +723,5 @@ Fire（燃烧）→ Wind（风压）→ Iron（铁甲）→ Electric（电击）
 | AR 核心命中率 | 默认 1.0（所有攻击必中核心），实际应有命中率判定 |
 | 掩体 HP | 仅建模事件，不追踪掩体数值 |
 | 命中率（Hit Rate）| `hitRatePct` 仅记录，默认必定命中 |
+| 零件（Parts）命中 | `hitPart='parts'` 已建模；Boss 战场景不实际产生此命中，相关加成正确建模但不生效 |
+| 阻止部位（Intercept Parts）命中 | 未建模；含"阻止部位伤害增加"的技能效果暂时忽略 |

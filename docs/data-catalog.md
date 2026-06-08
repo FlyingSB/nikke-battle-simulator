@@ -61,7 +61,7 @@ option_id = state_effect_id_prefix × 100 + level   (level 1–15)
 | `StatChargeDamage` | `chargeDmgPct` | 70009 | 4.77% | 14.63% |
 | `StatChargeTime` | `chargeSpeedPct` | 70010 | 1.98% | 6.09% |
 | `StatCritical` | `critRatePct` | 70011 | 2.30% | 7.07% |
-| `StatCriticalDamage` | `critDmgPct` | 70012 | 6.64% | 20.36% |
+| `StatCriticalDamage` | `critDamagePct` | 70012 | 6.64% | 20.36% |
 | `StatDef` | `defFlat` | 70013 | 4.77% | 14.63% |
 
 > **引擎特殊处理**  

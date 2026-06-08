@@ -89,7 +89,7 @@ group_id: S1=20821  S2=10822  Burst=10823
 **BURST_SKILL_USE — S1 Part 2（handler）**
 - `lmS1BurstUseCount++`（Liter 自身 skillState）
 - 全员临时弹匣 ▲45.17% baseAmmo，5s（下次装填时生效）
-- 第 2 次+：全员 `critDmgBonus +0.1246`，5s
+- 第 2 次+：全员 `critDamagePct +0.1246`，5s
 - 第 3 次+：全员 `atkPct +0.1442`，5s
 
 **BURST_SKILL_USE — Burst (Double Boost)**
@@ -104,7 +104,7 @@ group_id: S1=23541  S2=23542  Burst=13543
 
 **ENTER_BURST_I — S1 A Pirate's Heart（handler）**
 - `mastDrunkenStacks +1`（上限 3）
-- 首层时推送全员永久 buff：`critRateBonus +0.2005`、`atkFlat +35.02% Mast.atk`
+- 首层时推送全员永久 buff：`critRatePct +0.2005`、`atkFlat +35.02% Mast.atk`
 - 同步维护 `mast_drunken` 叠层 buff（stackCount 追踪）
 
 **ENTER_BURST_III — S2 A Pirate's Spirit（handler）**
@@ -114,7 +114,7 @@ group_id: S1=23541  S2=23542  Burst=13543
 - 注：触发时机为 B3 施放前（旧审计为 `applyFullBurstSkills`，现已修正为 `ENTER_BURST_III`）
 
 **BURST_SKILL_USE — Burst (A Pirate's Romance)**
-- 全员 `critDmgBonus +0.4004` + `attackDamagePct +0.1504`，10s
+- 全员 `critDamagePct +0.4004` + `attackDamagePct +0.1504`，10s
 - 若 Drunken ≥1 层：全员 `atkFlat +20.06%×stacks×Mast.atk`，10s
 
 **FULL_BURST_END — S2 Hangover**
@@ -141,7 +141,7 @@ group_id: S1=23551  S2=23552  Burst=13553
 
 **FULL_BURST_END — S2 Sea Anemone Pasta（handler）**
 - 基于 `anchorFbCount`：
-  - 第 1 次+：全员 `hitRateBonus +0.1013`，10s  ⚠️ 见"待检查"#1
+  - 第 1 次+：全员 `hitRatePct +0.1013`，10s  ⚠️ 见"待检查"#1
   - 第 2 次+：全员 `atkFlat +35.02% Anchor.atk`，10s
   - 第 3 次+：全员 `reloadSpeedPct +0.4004`，15s
 
@@ -269,7 +269,7 @@ group_id: S1=23521  S2=23522  Burst=13523
 > 所有技能数值从 SSR 收藏品 Antique Compass（`unit.ssrFavSkills`）动态读取，含回退默认值。
 
 **LAST_BULLET — S1 Frontline Command（handler）**
-- 全员 `critRateBonus`，5s（dvl[0]，回退 14.64%）
+- 全员 `critRatePct`，5s（dvl[0]，回退 14.64%）
 
 **FULL_CHARGE — S1 SSR（handler）**
 - 若 s1Lv > 0：全员 HP 回复（dvl[2]%）；触发 HEAL_RECEIVED → Crown S2
@@ -343,7 +343,7 @@ group_id: S1=20151  S2=20152  Burst=10153
 - 对队中每个 Electric 单位：`atkFlat +55.31% Anis.atk` + `reloadSpeedPct +0.4928`，10s（per unit）
 
 **BURST_SKILL_USE — Burst (Sparkling Wave)**
-- 自身 `reloadSpeedPct +0.2772` + `elementAdvantageBonus +0.4224`，10s
+- 自身 `reloadSpeedPct +0.2772` + `elementAdvantagePct +0.4224`，10s
 - 弹匣容量变更未建模
 
 **未建模：** S2 末弹 382.42% ATK
@@ -406,7 +406,7 @@ group_id: S1=21831  S2=21832  Burst=11833
 
 ## 已解决问题记录
 
-1. **✅ Anchor S2 T1 字段已确认正确**：CDN `skill2_detail`（group_id 23552）文本为 "Hit Rate ▲10.13% for 10 sec"，`hitRateBonus: 0.1013` 正确，无需修改。
+1. **✅ Anchor S2 T1 字段已确认正确**：CDN `skill2_detail`（group_id 23552）文本为 "Hit Rate ▲10.13% for 10 sec"，`hitRatePct: 0.1013` 正确，无需修改。
 
 2. **✅ 命名已修正**：`lmS1FbCount` → `literFbCount`，`lmS1BurstUseCount` → `literBurstUseCount`，battle.js 初始化块与 skill-traits.js handler 同步更新。
 
