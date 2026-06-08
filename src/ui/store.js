@@ -48,15 +48,14 @@ const EQUIP_SLOT_LABELS = { head: '头部', torso: '躯干', arms: '手臂', leg
 // vals 以整数厘百分比存储（954 表示 9.54%），与 account-loader._OPTION_GROUPS 保持一致
 export const EQUIP_OPTION_TYPES = [
   { key: '',               label: '（无）',             unit: '',  vals: [] },
-  { key: 'atkPct',         label: '攻击力增加',          unit: '%', vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
-  { key: 'atkFlat',        label: '攻击力增加（固定值）', unit: '',  vals: [] },
-  { key: 'critRatePct',    label: '暴击率增加',          unit: '%', vals: [230,264,298,332,366,400,435,469,503,537,570,605,639,673,707] },
-  { key: 'critDmgPct',     label: '暴击伤害增加',        unit: '%', vals: [664,762,860,958,1056,1154,1252,1350,1448,1546,1644,1742,1840,1938,2036] },
-  { key: 'hitRatePct',     label: '命中率增加',          unit: '%', vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
   { key: 'elementDmgPct',  label: '优越代码伤害增加',    unit: '%', vals: [954,1094,1234,1375,1515,1655,1795,1935,2075,2215,2356,2496,2636,2776,2916] },
-  { key: 'bonusAmmo',      label: '最大装弹数增加',      unit: '%', vals: [2784,3195,3606,4017,4428,4839,5250,5660,6071,6482,6893,7304,7715,8126,8537] },
+  { key: 'hitRatePct',     label: '命中率增加',          unit: '%', vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
+  { key: 'equipMaxAmmoPct', label: '最大装弹数增加',      unit: '%', vals: [2784,3195,3606,4017,4428,4839,5250,5660,6071,6482,6893,7304,7715,8126,8537] },
+  { key: 'atkPct',         label: '攻击力增加',          unit: '%', vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
   { key: 'chargeDmgPct',   label: '蓄力伤害增加',        unit: '%', vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
   { key: 'chargeSpeedPct', label: '蓄力速度增加',        unit: '%', vals: [198,228,257,286,316,345,375,404,433,463,492,521,551,580,609] },
+  { key: 'critRatePct',    label: '暴击率增加',          unit: '%', vals: [230,264,298,332,366,400,435,469,503,537,570,605,639,673,707] },
+  { key: 'critDamagePct',  label: '暴击伤害增加',        unit: '%', vals: [664,762,860,958,1056,1154,1252,1350,1448,1546,1644,1742,1840,1938,2036] },
   { key: 'defFlat',        label: '防御力增加',          unit: '%', vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
 ];
 
@@ -77,6 +76,8 @@ const FAV_ITEMS_RS = [
 
 // SSR 珍藏品：角色 resourceId → SSR 珍藏品 resourceId
 // 通过读取本地 favorites/*.json 的 name_code 与 characters.json 对照得出
+// 规则：此表中的角色技能仅建模 SSR 版本，模拟时必须持有对应满级（Lv15）SSR 珍藏品。
+// 详见 docs/ssr-collectible-rules.md
 const SSR_FAV_BY_CHAR = {
    32: 200601, // Miranda   → Sheet of Paper
   101: 200801, // Drake     → Villain Figurine
@@ -84,7 +85,11 @@ const SSR_FAV_BY_CHAR = {
   192: 201101, // Tove      → Fire Starter
   281: 201701, // Moran     → Peony Hairpin
   352: 200701, // Helm      → Antique Compass
+  390: 201501, // Zwei      → Four-Leaf Clover Bookmark
 };
+
+// SSR 珍藏品满级对应的 favLevel 档位（0=Lv5 / 1=Lv10 / 2=Lv15）
+const SSR_FAV_MAX_ITEM_LEVEL = 2;
 
 const DEFAULT_FAV_SR = { AR: 100102, MG: 100202, RL: 100302, SG: 100402, SMG: 100502, SR: 100602 };
 
@@ -143,8 +148,8 @@ function defaultSlot(active = false) {
 
 // opt.value 以整数厘百分比存储（954 表示 9.54%），传引擎前除以 10000 得小数
 const _PCT_OPT_KEYS = new Set([
-  'elementDmgPct', 'hitRatePct', 'bonusAmmo', 'atkPct',
-  'chargeDmgPct', 'chargeSpeedPct', 'critRatePct', 'critDmgPct', 'defFlat',
+  'elementDmgPct', 'hitRatePct', 'equipMaxAmmoPct', 'atkPct',
+  'chargeDmgPct', 'chargeSpeedPct', 'critRatePct', 'critDamagePct', 'defFlat',
 ]);
 
 function aggregateEquipOptions(equipment) {
@@ -191,7 +196,7 @@ function fmtTime(sec) {
 
 // ─── 技能 tooltip 辅助 ───────────────────────────────────────────────────────
 
-const CHARGE_WEAPONS = new Set(['SR', 'RL']);
+const CHARGE_WEAPONS = new Set(['SR', 'RL', 'Charged']);
 
 function _normalAttackTipHTML(unitData) {
   const sd = unitData.nd?.shot_detail;
@@ -238,7 +243,7 @@ function _findSkillByRow(row, unitData) {
   return null;
 }
 
-function _skillDescTipHTML(skill, level, renderFn, partIdx = null) {
+function _skillDescTipHTML(skill, level, renderFn, partIdx = null, lineIdx = null) {
   if (!skill) return null;
   const name = skill.name_localkey ?? '';
   const rawDesc = skill.description_localkey ?? '';
@@ -256,11 +261,35 @@ function _skillDescTipHTML(skill, level, renderFn, partIdx = null) {
     const parts = rawParts.map((raw, i) => {
       // 第 0 段只有在原文以 ■ 开头时才补 ■，否则该段本身无 ■ 前缀
       const prefix = (startsWithBlock || i > 0) ? '■' : '';
-      const rendered = renderFn(prefix + raw, valueList, lv);
-      const cls = i === highlightIdx ? 'skill-tip-part skill-tip-part--active' : 'skill-tip-part';
-      return `<div class="${cls}">${rendered}</div>`;
+      const isActivePart = i === highlightIdx;
+      let content;
+      if (isActivePart && lineIdx !== null) {
+        // 先整体渲染（保证 <color> 跨行标签正确处理），再按 <br> 切行包裹高亮
+        const fullRendered = renderFn(prefix + raw, valueList, lv);
+        const renderedLines = fullRendered.split('<br>');
+        content = renderedLines.map((rl, li) =>
+          li === lineIdx ? `<span class="skill-tip-line--active">${rl}</span>` : rl
+        ).join('<br>');
+      } else {
+        content = renderFn(prefix + raw, valueList, lv);
+      }
+      const cls = isActivePart ? 'skill-tip-part skill-tip-part--active' : 'skill-tip-part';
+      return `<div class="${cls}">${content}</div>`;
     });
     const descHtml = `<div class="skill-tip-desc">${parts.join('')}</div>`;
+    return nameHtml + descHtml;
+  }
+
+  // 单段描述（无 ■ 分隔符）但指定了 lineIdx：仅做行高亮，不做段高亮
+  if (lineIdx !== null && rawParts.length > 0) {
+    const raw = rawParts[0];
+    const prefix = startsWithBlock ? '■' : '';
+    const fullRendered = renderFn(prefix + raw, valueList, lv);
+    const renderedLines = fullRendered.split('<br>');
+    const content = renderedLines.map((rl, li) =>
+      li === lineIdx ? `<span class="skill-tip-line--active">${rl}</span>` : rl
+    ).join('<br>');
+    const descHtml = `<div class="skill-tip-desc">${content}</div>`;
     return nameHtml + descHtml;
   }
 
@@ -269,6 +298,17 @@ function _skillDescTipHTML(skill, level, renderFn, partIdx = null) {
   if (!desc && !name) return null;
   const descHtml = desc ? `<div class="skill-tip-desc">${desc}</div>` : '';
   return nameHtml + descHtml;
+}
+
+function _buffFallbackTipHTML(buff) {
+  const rows = [];
+  if (buff.atkPct)          rows.push(`<tr><td>ATK ▲</td><td>+${(buff.atkPct * 100).toFixed(1)}%</td></tr>`);
+  if (buff.atkFlat)         rows.push(`<tr><td>ATK ▲</td><td>+${buff.atkFlat}</td></tr>`);
+  if (buff.attackDamagePct) rows.push(`<tr><td>伤害 ▲</td><td>+${(buff.attackDamagePct * 100).toFixed(1)}%</td></tr>`);
+  if (buff.damageTakenPct)  rows.push(`<tr><td>受到伤害 ▲</td><td>+${(buff.damageTakenPct * 100).toFixed(1)}%</td></tr>`);
+  if (buff.stacks > 1)      rows.push(`<tr><td>当前叠层</td><td>${buff.stacks}</td></tr>`);
+  if (!rows.length) return null;
+  return `<div class="skill-tip-name">${buff.name}</div><table class="skill-tip-table">${rows.join('')}</table>`;
 }
 
 // ─── 战斗日志聚合 ─────────────────────────────────────────────────────────────
@@ -318,12 +358,13 @@ function formatHitLabel(label) {
   if (label === 'normal_shot') return '普通攻击';
   // "S2 P2 Projectile Attachment" → "Projectile Attachment"（原始 label 保留在 skillKey 供 tooltip 使用）
   const subMatch = label.match(/^(?:S\d+|Burst)(?: P\d+)? (.+)$/);
-  if (subMatch) return subMatch[1];
+  // 捕获组为纯 L 行号（如 "S2 P4 L3"→"L3"）时保留完整标签，避免丢失段号信息
+  if (subMatch && !/^L\d+$/.test(subMatch[1])) return subMatch[1];
   return label;
 }
 
 // 同 tick 内的行排序优先级：burst_i/ii/iii(0) → BURST_SKILL_USE 技能触发(1) → full_burst(2)
-// → ENTER_FULL_BURST 技能触发(3) → 其他事件(4) → 聚合命中行(5)
+// → ENTER_FULL_BURST 技能触发(3) → 其他事件(4) → 聚合命中行(5) → 射击触发效果(6)
 function _logRowOrder(row) {
   if (row.kind !== 'event') return 5;
   switch (row.eventType) {
@@ -334,6 +375,12 @@ function _logRowOrder(row) {
     default:
       if (row.trigger === 'BURST_SKILL_USE')   return 1;
       if (row.trigger === 'ENTER_FULL_BURST')  return 3;
+      // 射击触发的效果（伤害命中后引发），应排在伤害行之后
+      if (row.trigger === 'SHOT_COUNT'       ||
+          row.trigger === 'FULL_CHARGE'      ||
+          row.trigger === 'LAST_BULLET'      ||
+          row.trigger === 'SQUAD_SHOT_COUNT' ||
+          row.trigger === 'AMMO_MILESTONE')   return 6;
       return 4;
   }
 }
@@ -345,9 +392,16 @@ function buildEventRows(eventLog) {
     if (e.type === 'burst_i' && !e.unitName) return null;
     let name = '', label = '', target = '';
     if (e.type === 'skill_trigger') {
+      const slot = e.slot ?? '';
       const part = e.partIdx != null ? ` P${e.partIdx + 1}` : '';
+      const ln   = e.lineIdx != null ? ` L${e.lineIdx + 1}` : '';
       name   = e.unitName;
-      label  = `${e.skillLabel}${part}`;
+      // 有 L 时补充 slot（技能名 S2 L3 或 技能名 S2 P2 L3），否则保持原格式
+      if (ln && slot && e.skillLabel !== slot) {
+        label = `${e.skillLabel} ${slot}${part}${ln}`;
+      } else {
+        label = `${e.skillLabel}${part}${ln}`;
+      }
       target = e.target ?? '';
     } else {
       const fn = BATTLE_EVENT_COLS[e.type];
@@ -361,14 +415,24 @@ function buildEventRows(eventLog) {
       kind:       'event',
       eventType:  e.type,
       trigger:    e.trigger ?? null,
+      isDamage:   e.isDamage ?? false,
       name,
       label,
+      // skillKey 存原始 skillLabel（不含 P/L），供 tooltip 查找技能用
+      skillKey:   e.skillLabel ?? null,
+      // 结构化数据，供 tooltip 直接使用，无需从 label 字符串重新解析
+      partIdx:    e.partIdx ?? null,
+      lineIdx:    e.lineIdx ?? null,
       target,
-      buffDesc:   '',
+      buffDesc:   e.buffName ?? '',
+      buffArr:    e.buffName && e.unitName
+        ? [{ name: e.buffName, sourceCaster: e.unitName, sourceSkillLabel: e.skillLabel ?? null, sourcePartIdx: e.partIdx ?? null, sourceLineIdx: e.lineIdx ?? null }]
+        : [],
       damage:     null,
       count:      1,
       isCrit:     false,
       isCA:       e.isCA,  // 透传 Combat Assist 标志（用于 tooltip partIdx 定位）
+      _seq:       e._seq ?? null,
     };
   }).filter(Boolean);
 }
@@ -412,9 +476,11 @@ function buildAggregateLog(hitLog, unitNames) {
         target:    '敌人',
         bufKey,
         buffDesc:  (h.buffBreakdown ?? []).map(b => b.name).join(' / ') || '—',
+        buffArr:   h.buffBreakdown ?? [],
         damage:    h.damage,
         count:     1,
         isCrit:    h.isCrit,
+        _seq:      h._seq ?? null,
       });
     }
   }
@@ -434,6 +500,7 @@ function buildDetailLog(hitLog, unitNames) {
     target:     '敌人',
     bufKey:     '',
     buffDesc:   (h.buffBreakdown ?? []).map(b => b.name).join(' / ') || '—',
+    buffArr:    h.buffBreakdown ?? [],
     damage:     h.damage,
     count:      1,
     isCrit:     h.isCrit,
@@ -444,6 +511,7 @@ function buildDetailLog(hitLog, unitNames) {
     isFullBurst:h.isFullBurst,
     charge:     h.isUnlimitedAmmo ? '-' : (h.ammoLeft != null ? `${h.ammoLeft}/${h.maxAmmo}` : '—'),
     _hit:       h,
+    _seq:       h._seq ?? null,
   }));
 }
 
@@ -479,8 +547,12 @@ function buildDmgTooltipHTML(h) {
   const isFB      = h.isFullBurst ?? false;
   const elemMult  = h.elemMult ?? 1;
   const chargeMult= h.chargeMult ?? 1;
-  const atkDmgPct = h.attackDamagePct ?? 0;
-  const dmgTaken  = h.damageTakenPct ?? 0;
+  const atkDmgPct    = h.attackDamagePct ?? 0;
+  const dmgTaken     = h.damageTakenPct ?? 0;
+  const piercePct    = h.pierceDamagePct ?? 0;
+  const sustainedPct = h.sustainedDamagePct ?? 0;
+  const truePct      = h.trueDamagePct ?? 0;
+  const isTrueDmg    = h.isTrueDamage ?? false;
 
   // 基础攻击段
   r('基础攻击力', `(${_numFmt(h.atk ?? 0)}`);
@@ -491,7 +563,7 @@ function buildDmgTooltipHTML(h) {
   if (atkFlat !== 0) {
     r('攻击力增加（固定）', `+${_numFmt(atkFlat)}`);
   }
-  r('敌人防御力', `-${_numFmt(enemyDef)})`);
+  r('敌人防御力', isTrueDmg ? `-0（真实伤害，无视防御）)` : `-${_numFmt(enemyDef)})`);
   r('武器伤害系数', `*${_pct(hitMult)}`);
   if (favMult !== 1) {
     r('普通攻击倍率（珍藏品）', `*${_pct(favMult)}`);
@@ -527,10 +599,18 @@ function buildDmgTooltipHTML(h) {
     r('蓄力伤害系数', `*${_pct(chargeMult)}`);
   }
 
-  // ExtraMultiplier
-  if (Math.abs(atkDmgPct) > 0.0001) {
+  // ExtraMultiplier（§3.5）
+  const seqAtkPct = h.sequentialAttackDamagePct ?? 0;
+  const extraLines = [];
+  if (Math.abs(atkDmgPct)    > 0.0001) extraLines.push(['攻击伤害增加',      _pct(atkDmgPct)]);
+  if (Math.abs(piercePct)    > 0.0001) extraLines.push(['穿透伤害增加',      _pct(piercePct)]);
+  if (Math.abs(seqAtkPct)    > 0.0001) extraLines.push(['依次攻击伤害增加',  _pct(seqAtkPct)]);
+  if (Math.abs(sustainedPct) > 0.0001) extraLines.push(['持续伤害增加',      _pct(sustainedPct)]);
+  if (Math.abs(truePct)      > 0.0001) extraLines.push(['无视防御力伤害增加', _pct(truePct)]);
+  if (extraLines.length > 0) {
     r('—', '*(100%');
-    r('攻击伤害增加', `+${_pct(atkDmgPct)})`);
+    extraLines.forEach(([name, val], i) =>
+      r(name, `+${val}${i === extraLines.length - 1 ? ')' : ''}`));
   }
 
   // DamageTakenLikeMultiplier
@@ -613,6 +693,17 @@ export function createStore() {
     corpLabel(c)    { return CORP_LABEL[c]    ?? c; },
     elementLabel(e) { return ELEMENT_LABEL[e] ?? e; },
     burstLabel(b)   { return ({ Step1: 'B-I', Step2: 'B-II', Step3: 'B-III' })[b] ?? b; },
+    equipTypeOptions() {
+      return EQUIP_OPTION_TYPES.map(ot =>
+        `<option value="${ot.key}">${ot.label}</option>`
+      ).join('');
+    },
+    equipValOptions(currentType) {
+      const vals = EQUIP_OPTION_TYPES.find(t => t.key === currentType)?.vals ?? [];
+      return vals.map(v =>
+        `<option value="${v}">${(v / 100).toFixed(2)}%</option>`
+      ).join('');
+    },
     fmtNum,
     fmtStat,
     fmtPct,
@@ -1136,6 +1227,23 @@ export function createStore() {
         return;
       }
 
+      // SSR 珍藏品强制校验：技能已按 SSR 版本建模的角色必须持有对应满级（Lv15）SSR 珍藏品
+      const ssrErrors = [];
+      for (const slot of activeSlots) {
+        const requiredSsrId = SSR_FAV_BY_CHAR[slot.resourceId];
+        if (!requiredSsrId) continue;
+        const charLabel = slot.name || `角色 ${slot.resourceId}`;
+        if (slot.favoriteItem.resourceId !== requiredSsrId) {
+          ssrErrors.push(`${charLabel}：技能已按 SSR 珍藏品建模，必须持有其专属 SSR 珍藏品（id: ${requiredSsrId}）。`);
+        } else if ((slot.favoriteItem.level ?? 0) < SSR_FAV_MAX_ITEM_LEVEL) {
+          ssrErrors.push(`${charLabel}：SSR 珍藏品须升至满级（Lv15），当前为 Lv${['5','10','15'][slot.favoriteItem.level ?? 0] ?? slot.favoriteItem.level}。`);
+        }
+      }
+      if (ssrErrors.length) {
+        alert('配置错误——无法开始模拟：\n\n' + ssrErrors.join('\n'));
+        return;
+      }
+
       this.simRunning   = true;
       this.result       = null;
       this.hitLogRows   = [];
@@ -1281,6 +1389,10 @@ export function createStore() {
       this.hitLogRows = [...hitRows, ...eventRows].sort((a, b) => {
         const dt = a.tickStart - b.tickStart;
         if (dt !== 0) return dt;
+        // 同 tick 内：_seq 还原真实执行顺序（burst_iii/skill_trigger/full_burst/hit 均带 _seq）
+        const sa = a._seq ?? Infinity;
+        const sb = b._seq ?? Infinity;
+        if (sa !== sb) return sa - sb;
         return _logRowOrder(a) - _logRowOrder(b);
       });
       // 标记 Full Burst 区间内的行（从 full_burst 事件到 burst_end/burst_timeout，含首尾）
@@ -1367,6 +1479,51 @@ export function createStore() {
       if (tip) tip.style.display = 'none';
     },
 
+    // ── Buff tooltip ──────────────────────────────────────────────────────────
+
+    showBuffTooltip(event, buff) {
+      const tip = document.getElementById('buff-tooltip');
+      if (!tip) return;
+      const html = this._buildBuffTipHTML(buff);
+      if (!html) { tip.style.display = 'none'; return; }
+      tip.innerHTML = html;
+      tip.style.left = '-9999px';
+      tip.style.top  = '0px';
+      tip.style.display = 'block';
+      const rect = tip.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let x = event.clientX + 16, y = event.clientY + 8;
+      if (x + rect.width  > vw) x = event.clientX - rect.width  - 8;
+      if (y + rect.height > vh) y = event.clientY - rect.height - 8;
+      tip.style.left = x + 'px';
+      tip.style.top  = y + 'px';
+    },
+
+    hideBuffTooltip() {
+      const tip = document.getElementById('buff-tooltip');
+      if (tip) tip.style.display = 'none';
+    },
+
+    _buildBuffTipHTML(buff) {
+      if (!buff.sourceCaster || !buff.sourceSkillLabel) {
+        return _buffFallbackTipHTML(buff);
+      }
+      const unitData = this._squadLookup?.[buff.sourceCaster];
+      const fakeRow = { name: buff.sourceCaster, label: buff.sourceSkillLabel, skillKey: buff.sourceSkillLabel };
+      const found = _findSkillByRow(fakeRow, unitData);
+      if (!found?.skill) return _buffFallbackTipHTML(buff);
+
+      // buff.name 编码了 P/L（如 "Tighten Up P4 L2"）作为 lineIdx 的兜底来源
+      const nameMatch = buff.name.match(/ P(\d+)(?: L(\d+))?$/);
+      const partIdxFromName = nameMatch ? parseInt(nameMatch[1], 10) - 1 : null;
+      const lineIdxFromName = nameMatch?.[2] != null ? parseInt(nameMatch[2], 10) - 1 : null;
+
+      const partIdx = buff.sourcePartIdx ?? partIdxFromName ?? found.partIdx ?? null;
+      const lineIdx = buff.sourceLineIdx ?? lineIdxFromName ?? null;
+      const casterHtml = `<div class="skill-tip-title">${buff.sourceCaster}</div>`;
+      return casterHtml + _skillDescTipHTML(found.skill, found.level, renderSkillDesc, partIdx, lineIdx);
+    },
+
     _buildSkillTipHTML(row) {
       const unitData = this._squadLookup?.[row.name];
 
@@ -1375,21 +1532,38 @@ export function createStore() {
         return unitData ? _normalAttackTipHTML(unitData) : null;
       }
 
-      // 技能/事件行：skillKey 含子标签时（如 "S2 P2 Projectile Attachment"）规范化为 "S2 P2" 后再查找
+      // 事件行 row.skillKey 存的是纯 skillLabel（无 P/L），命中日志 row.skillKey 是原始 label
       const rawKey = row.skillKey ?? row.label;
-      const canonLabel = rawKey.replace(/^((?:S\d+|Burst)(?: P\d+)?) .+$/, '$1');
-      const lookupRow = canonLabel !== rawKey ? { ...row, label: canonLabel } : row;
-      const found = _findSkillByRow(lookupRow, unitData);
+
+      // lineIdx：事件行直接从 row.lineIdx 取；命中日志行从 rawKey 解析
+      const lineIdx = row.lineIdx !== undefined
+        ? row.lineIdx
+        : (() => { const m = rawKey.match(/ L(\d+)(?=\s|$)/); return m ? parseInt(m[1], 10) - 1 : null; })();
+
+      // 剥离 L 后缀后做技能查找
+      const keyWithoutL = rawKey.replace(/ L\d+(?=\s|$)/, '').trim();
+      const canonLabel = keyWithoutL.replace(/^((?:S\d+|Burst)(?: P\d+)?) .+$/, '$1');
+      const lookupLabel = canonLabel !== keyWithoutL ? canonLabel : keyWithoutL;
+      const found = _findSkillByRow({ ...row, label: lookupLabel }, unitData);
       if (!found?.skill) return null;
-      const partMatch = canonLabel.match(/ P(\d+)$/);
-      const partIdx = partMatch ? parseInt(partMatch[1], 10) - 1 : (found.partIdx ?? null);
-      return _skillDescTipHTML(found.skill, found.level, renderSkillDesc, partIdx);
+
+      // partIdx：事件行直接从 row.partIdx 取；命中日志行从 canonLabel 解析
+      const partIdx = row.partIdx !== undefined
+        ? row.partIdx
+        : (() => { const m = canonLabel.match(/ P(\d+)$/); return m ? parseInt(m[1], 10) - 1 : (found.partIdx ?? null); })();
+
+      return _skillDescTipHTML(found.skill, found.level, renderSkillDesc, partIdx, lineIdx);
     },
 
     // ── 结果辅助 ─────────────────────────────────────────────────────────────
 
     skillDamageRows(unit) {
       if (!unit?.skillDamage) return [];
+      const allUnits = this.result?.units ?? [];
+      const maxSubDmg = Math.max(
+        0,
+        ...allUnits.flatMap(u => Object.values(u.skillDamage ?? {}).filter(v => v > 0))
+      );
       return Object.entries(unit.skillDamage)
         .filter(([, dmg]) => dmg > 0)
         .map(([rawLabel, dmg]) => ({
@@ -1398,7 +1572,7 @@ export function createStore() {
           name:     unit.name,
           damage:   dmg,
           count:    unit.skillDamageCount?.[rawLabel] ?? 0,
-          share:    unit.totalDamage > 0 ? dmg / unit.totalDamage : 0,
+          share:    maxSubDmg > 0 ? dmg / maxSubDmg : 0,
         }))
         .sort((a, b) => b.damage - a.damage);
     },

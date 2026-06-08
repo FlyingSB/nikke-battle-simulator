@@ -30,14 +30,17 @@ export function renderSkillDesc(desc, valueList, skillLevel) {
   });
 
   // <word_group=N>text</word_group> → 橙色参数
-  out = out.replace(/<word_group[^>]*>([\s\S]*?)<\/word_group>/g,
-    (_, inner) => `<span class="skill-param">${inner}</span>`
-  );
+  // 若内容含 \n，在每个换行处分别开/关 span，避免 <br> 分割时打断标签
+  out = out.replace(/<word_group[^>]*>([\s\S]*?)<\/word_group>/g, (_, inner) => {
+    const segs = inner.split('\n');
+    return segs.map(s => `<span class="skill-param">${s}</span>`).join('\n');
+  });
 
-  // <color=#XXXXXX>text</color> → 着色
-  out = out.replace(/<color=(#[0-9A-Fa-f]{6})>([\s\S]*?)<\/color>/g,
-    (_, color, inner) => `<span style="color:${color}">${inner}</span>`
-  );
+  // <color=#XXXXXX>text</color> → 着色（同上，跨行时逐行包裹）
+  out = out.replace(/<color=(#[0-9A-Fa-f]{6})>([\s\S]*?)<\/color>/g, (_, color, inner) => {
+    const segs = inner.split('\n');
+    return segs.map(s => `<span style="color:${color}">${s}</span>`).join('\n');
+  });
 
   // 换行
   out = out.replace(/\n/g, '<br>');

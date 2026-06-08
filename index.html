@@ -200,9 +200,9 @@
             <div class="field-group">
               <label class="field-label">
                 爆裂延迟
-                <span class="field-hint" x-text="'（' + $store.sim.burstStepSecs.toFixed(1) + 's）'"></span>
+                <span class="field-hint" x-text="'（' + $store.sim.burstStepSecs.toFixed(2) + 's）'"></span>
               </label>
-              <input type="range" class="input-range" min="0.1" max="0.6" step="0.1"
+              <input type="range" class="input-range" min="0.1" max="0.6" step="0.05"
                 x-model.number="$store.sim.burstStepSecs">
               <div class="range-labels">
                 <span>0.1s</span><span>0.6s</span>
@@ -232,10 +232,11 @@
                 'slot-tab--disabled': !slot.active && !slot.resourceId
               }"
               @click="$store.sim.handleSlotClick(i)">
-              <span class="slot-tab-num" x-text="i + 1"></span>
+              <div class="slot-tab-avatar"
+                x-show="slot.resourceId"
+                :style="slot.resourceId ? 'background-image:url(src/data/static/images/sm/' + String(slot.resourceId).padStart(3,'0') + '_00.webp)' : ''">
+              </div>
               <span class="slot-tab-name" x-text="slot.resourceId ? slot.name : '空'"></span>
-              <span class="slot-tab-burst" x-show="slot.resourceId"
-                x-text="$store.sim.burstLabel(slot.burstStep)"></span>
             </button>
           </template>
         </div>
@@ -307,6 +308,68 @@
                 </div>
               </section>
 
+              <!-- 最终属性 -->
+              <section class="card"
+                x-data="{ get stats() { return $store.sim.computedStats($store.sim.activeSlot); } }">
+                <h3 class="sub-title">最终属性</h3>
+                <template x-if="stats">
+                  <div>
+                    <div class="stats-grid">
+                      <div class="stat-item">
+                        <span class="stat-label">HP</span>
+                        <span class="stat-value" x-text="$store.sim.fmtStat(stats.hp)"></span>
+                      </div>
+                      <div class="stat-item">
+                        <span class="stat-label">ATK</span>
+                        <span class="stat-value"
+                          x-text="$store.sim.fmtStat(stats.atk)"
+                          :title="stats.equipAtkPct > 0 ? '基础值（不含词条 ATK% 乘法）；词条 ATK% = ' + (stats.equipAtkPct * 100).toFixed(2) + '%' : ''">
+                        </span>
+                      </div>
+                      <div class="stat-item">
+                        <span class="stat-label">DEF</span>
+                        <span class="stat-value" x-text="$store.sim.fmtStat(stats.def)"></span>
+                      </div>
+                    </div>
+                    <div class="stats-extras">
+                      <template x-if="stats.equipElementDmgPct > 0">
+                        <span class="stat-badge">优越代码伤害增加 +<b x-text="$store.sim.fmtPct(stats.equipElementDmgPct)"></b></span>
+                      </template>
+                      <template x-if="stats.hitRatePct > 0">
+                        <span class="stat-badge">命中率增加 +<b x-text="$store.sim.fmtPct(stats.hitRatePct)"></b></span>
+                      </template>
+                      <template x-if="stats.equipMaxAmmoPct > 0">
+                        <span class="stat-badge">最大装弹数增加 +<b x-text="$store.sim.fmtPct(stats.equipMaxAmmoPct)"></b></span>
+                      </template>
+                      <template x-if="stats.equipAtkPct > 0">
+                        <span class="stat-badge">攻击力增加 +<b x-text="$store.sim.fmtPct(stats.equipAtkPct)"></b></span>
+                      </template>
+                      <template x-if="stats.equipAtkFlat > 0">
+                        <span class="stat-badge">攻击力增加（固定值） +<b x-text="$store.sim.fmtStat(stats.equipAtkFlat)"></b></span>
+                      </template>
+                      <template x-if="stats.chargeDmgPct > 0">
+                        <span class="stat-badge">蓄力伤害增加 +<b x-text="$store.sim.fmtPct(stats.chargeDmgPct)"></b></span>
+                      </template>
+                      <template x-if="stats.chargeSpeedPct > 0">
+                        <span class="stat-badge">蓄力速度增加 +<b x-text="$store.sim.fmtPct(stats.chargeSpeedPct)"></b></span>
+                      </template>
+                      <template x-if="stats.critRate > 0.15">
+                        <span class="stat-badge">暴击率增加 +<b x-text="$store.sim.fmtPct(stats.critRate - 0.15)"></b></span>
+                      </template>
+                      <template x-if="stats.critDmg > 0.50">
+                        <span class="stat-badge">暴击伤害增加 +<b x-text="$store.sim.fmtPct(stats.critDmg - 0.50)"></b></span>
+                      </template>
+                      <template x-if="stats.equipDefPct > 0">
+                        <span class="stat-badge">防御力增加 +<b x-text="$store.sim.fmtPct(stats.equipDefPct)"></b></span>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+                <template x-if="!stats">
+                  <p class="hint">角色 CDN 数据加载完成后显示</p>
+                </template>
+              </section>
+
               <!-- 技能 -->
               <section class="card">
                 <div class="section-toggle" @click="showSkills = !showSkills">
@@ -314,10 +377,12 @@
                   <span class="toggle-icon" x-text="showSkills ? '▲' : '▼'"></span>
                 </div>
                 <div x-show="showSkills">
-                  <template x-for="(label, j) in ['技能 1','技能 2','Burst']" :key="j">
+                  <template x-for="j in [0,1,2]" :key="j">
                     <div class="skill-row">
                       <div class="skill-meta">
-                        <span class="skill-slot-label" x-text="label"></span>
+                        <span class="skill-name-row"
+                          x-show="!!$store.sim.activeSlotData._nikkeData"
+                          x-text="$store.sim.effectiveSkillDetail($store.sim.activeSlot, j)?.name_localkey ?? ''"></span>
                         <div class="skill-lv-ctrl">
                           <button class="lv-btn"
                             @click="if ($store.sim.activeSlotData.skills[j] > 1) $store.sim.activeSlotData.skills[j]--">−</button>
@@ -327,17 +392,12 @@
                         </div>
                       </div>
                       <template x-if="$store.sim.activeSlotData._nikkeData">
-                        <div class="skill-desc-block">
-                          <div class="skill-name-row"
-                            x-text="$store.sim.effectiveSkillDetail($store.sim.activeSlot, j)?.name_localkey ?? ''">
-                          </div>
-                          <p class="skill-desc"
-                            x-html="$store.sim.renderSkillHtml(
-                              $store.sim.effectiveSkillDetail($store.sim.activeSlot, j),
-                              $store.sim.activeSlotData.skills[j]
-                            )">
-                          </p>
-                        </div>
+                        <p class="skill-desc"
+                          x-html="$store.sim.renderSkillHtml(
+                            $store.sim.effectiveSkillDetail($store.sim.activeSlot, j),
+                            $store.sim.activeSlotData.skills[j]
+                          )">
+                        </p>
                       </template>
                     </div>
                   </template>
@@ -370,18 +430,12 @@
                         <template x-for="(opt, oi) in $store.sim.activeSlotData.equipment[key].opts" :key="oi">
                           <div class="opt-row">
                             <select class="input input-sm opt-type"
-                              @change="opt.type = $event.target.value">
-                              <template x-for="ot in $store.sim.EQUIP_OPTION_TYPES" :key="ot.key">
-                                <option :value="ot.key" :selected="ot.key === opt.type" x-text="ot.label"></option>
-                              </template>
-                            </select>
+                              x-init="$el.innerHTML = $store.sim.equipTypeOptions()"
+                              x-model="opt.type"></select>
                             <select class="input input-sm opt-val"
                               x-show="opt.type && $store.sim.EQUIP_OPTION_TYPES.find(t => t.key === opt.type)?.vals?.length"
-                              @change="opt.value = parseFloat($event.target.value) || 0">
-                              <template x-for="v in ($store.sim.EQUIP_OPTION_TYPES.find(t => t.key === opt.type)?.vals ?? [])" :key="v">
-                                <option :value="v" :selected="v === opt.value" x-text="(v / 100).toFixed(2) + '%'"></option>
-                              </template>
-                            </select>
+                              x-effect="$el.innerHTML = $store.sim.equipValOptions(opt.type); $el.value = opt.value"
+                              @change="opt.value = parseFloat($event.target.value) || 0"></select>
                             <input class="input input-sm opt-val"
                               x-show="opt.type && !$store.sim.EQUIP_OPTION_TYPES.find(t => t.key === opt.type)?.vals?.length"
                               x-model.number="opt.value"
@@ -464,68 +518,6 @@
                     </div>
                   </template>
                 </div>
-              </section>
-
-              <!-- 最终属性 -->
-              <section class="card"
-                x-data="{ get stats() { return $store.sim.computedStats($store.sim.activeSlot); } }">
-                <h3 class="sub-title">最终属性</h3>
-                <template x-if="stats">
-                  <div>
-                    <div class="stats-grid">
-                      <div class="stat-item">
-                        <span class="stat-label">HP</span>
-                        <span class="stat-value" x-text="$store.sim.fmtStat(stats.hp)"></span>
-                      </div>
-                      <div class="stat-item">
-                        <span class="stat-label">ATK</span>
-                        <span class="stat-value"
-                          x-text="$store.sim.fmtStat(stats.atk)"
-                          :title="stats.equipAtkPct > 0 ? '基础值（不含词条 ATK% 乘法）；词条 ATK% = ' + (stats.equipAtkPct * 100).toFixed(2) + '%' : ''">
-                        </span>
-                      </div>
-                      <div class="stat-item">
-                        <span class="stat-label">DEF</span>
-                        <span class="stat-value" x-text="$store.sim.fmtStat(stats.def)"></span>
-                      </div>
-                    </div>
-                    <div class="stats-extras">
-                      <template x-if="stats.elementDmgPct > 0">
-                        <span class="stat-badge">优越代码伤害增加 +<b x-text="$store.sim.fmtPct(stats.elementDmgPct)"></b></span>
-                      </template>
-                      <template x-if="stats.hitRatePct > 0">
-                        <span class="stat-badge">命中率增加 +<b x-text="$store.sim.fmtPct(stats.hitRatePct)"></b></span>
-                      </template>
-                      <template x-if="stats.bonusAmmo > 0">
-                        <span class="stat-badge">最大装弹数增加 +<b x-text="$store.sim.fmtPct(stats.bonusAmmo)"></b></span>
-                      </template>
-                      <template x-if="stats.equipAtkPct > 0">
-                        <span class="stat-badge">攻击力增加 +<b x-text="$store.sim.fmtPct(stats.equipAtkPct)"></b></span>
-                      </template>
-                      <template x-if="stats.equipAtkFlat > 0">
-                        <span class="stat-badge">攻击力增加（固定值） +<b x-text="$store.sim.fmtStat(stats.equipAtkFlat)"></b></span>
-                      </template>
-                      <template x-if="stats.chargeDmgPct > 0">
-                        <span class="stat-badge">蓄力伤害增加 +<b x-text="$store.sim.fmtPct(stats.chargeDmgPct)"></b></span>
-                      </template>
-                      <template x-if="stats.chargeSpeedPct > 0">
-                        <span class="stat-badge">蓄力速度增加 +<b x-text="$store.sim.fmtPct(stats.chargeSpeedPct)"></b></span>
-                      </template>
-                      <template x-if="stats.critRate > 0.15">
-                        <span class="stat-badge">暴击率增加 +<b x-text="$store.sim.fmtPct(stats.critRate - 0.15)"></b></span>
-                      </template>
-                      <template x-if="stats.critDmg > 0.50">
-                        <span class="stat-badge">暴击伤害增加 +<b x-text="$store.sim.fmtPct(stats.critDmg - 0.50)"></b></span>
-                      </template>
-                      <template x-if="stats.equipDefPct > 0">
-                        <span class="stat-badge">防御力增加 +<b x-text="$store.sim.fmtPct(stats.equipDefPct)"></b></span>
-                      </template>
-                    </div>
-                  </div>
-                </template>
-                <template x-if="!stats">
-                  <p class="hint">角色 CDN 数据加载完成后显示</p>
-                </template>
               </section>
 
             </div>
@@ -650,7 +642,7 @@
                       </thead>
                       <tbody>
                         <template x-for="(row, ri) in $store.sim.filteredLogRows()" :key="ri">
-                          <tr :class="(row.kind === 'event' ? 'log-row--event log-row--ev-' + row.eventType : '') + (row.inFullBurst ? ' log-row--in-fb' : '')">
+                          <tr :class="(row.kind === 'event' ? 'log-row--event log-row--ev-' + row.eventType + (row.isDamage ? ' log-row--ev-skill-damage' : '') : '') + (row.inFullBurst ? ' log-row--in-fb' : '')">
                             <td class="log-line" x-text="ri + 1"></td>
                             <td class="log-time mono" x-text="row.kind !== 'event' && row.tickEnd > row.tickStart ? $store.sim.formatTick(row.tickStart) + '~' + $store.sim.formatTick(row.tickEnd) : $store.sim.formatTick(row.tickStart)"></td>
                             <td x-text="row.name"></td>
@@ -668,7 +660,13 @@
                                 x-show="row._hit && row.isCore">命中核心</span>
                               <span class="hit-tag hit-tag--dist"
                                 x-show="row._hit && row.distanceAdv">优势距离</span>
-                              <span x-text="row.buffDesc"></span>
+                              <template x-for="(buff, bi) in (row.buffArr ?? [])" :key="bi">
+                                <span class="buff-tag"
+                                  @mouseenter="$store.sim.showBuffTooltip($event, buff)"
+                                  @mouseleave="$store.sim.hideBuffTooltip()"
+                                  x-text="(bi > 0 ? ' / ' : '') + buff.name"></span>
+                              </template>
+                              <span x-show="!(row.buffArr && row.buffArr.length)" x-text="row.buffDesc"></span>
                             </td>
                             <td class="log-dmg mono"
                               :class="$store.sim.logMode === 'detail' && row._hit ? 'log-dmg--tip' : ''"
@@ -732,6 +730,7 @@
 
   <div id="dmg-tooltip"   class="dmg-tooltip"   style="display:none"></div>
   <div id="skill-tooltip" class="skill-tooltip" style="display:none"></div>
+  <div id="buff-tooltip"  class="skill-tooltip" style="display:none"></div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
