@@ -1,4 +1,4 @@
-import { pushBuff, applyHeal, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, getBuffSums, TICK_RATE, pushHoT, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Mint  (resource_id: 600)
@@ -20,36 +20,23 @@ export default {
     groupId: 26001,
     triggers: [
       {
-        on: 'PROGRAM_INIT',
-        handler(state, caster) {
-          caster.skillState.mint_isSinging        = false;
-          caster.skillState.mint_isDancing        = false;
-          caster.skillState.mint_singAlongEndTick = 0;
-        },
-      },
-      {
         on: 'FULL_CHARGE',
         handler(state, caster) {
-          const ss = caster.skillState;
           const lv = caster.skillLevels[0];
+          const isSinging = state.buffs.some(b => b.name === 'Assigned Part: Singing' && b.unitId === caster.id && b.endTick > state.tick);
+          const isDancing = state.buffs.some(b => b.name === 'Assigned Part: Dancing' && b.unitId === caster.id && b.endTick > state.tick);
 
-          if (ss.mint_isSinging) {
+          if (isSinging) {
             // Singing：全队 ATK ▲（按 Mint 自身 ATK 的 p00% 换算为 flat 值）3s
             const atkPct  = getSkillValue(caster.rawSkill1, 0, lv) / 100;
             const atkFlat = Math.round(caster.stats.atk * atkPct);
             const endTick = state.tick + TICK_RATE * 3;
-            for (const u of state.squad) {
-              pushBuff(state, { name: `mint_s1_singing_atk_${u.id}`, unitId: u.id, atkFlat, endTick });
-            }
-          } else if (ss.mint_isDancing) {
+            pushBuff(state, { name: 'Here I Go! P1 L1', unitId: null, atkFlat, endTick });
+          } else if (isDancing) {
             // Dancing：全队持续 HP 回复（p02% × caster MaxHP / s × 3s）
             const pct    = getSkillValue(caster.rawSkill1, 2, lv) / 100;
             const amount = Math.round(caster.stats.hp * pct);
-            for (const u of state.squad) {
-              for (let i = 1; i <= 3; i++) {
-                state.pendingHoTs.push({ fireTick: state.tick + i * TICK_RATE, targetId: u.id, amount });
-              }
-            }
+            pushHoT(state, ALL_ALLIES, amount, 3, { partIdx: 1 });
           }
         },
       },
@@ -81,20 +68,19 @@ export default {
     triggers: [
       {
         on: 'ENTER_BURST_III',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
-          const ss = caster.skillState;
+          const singAlongActive = state.buffs.some(b => b.name === "Sing Along" && b.unitId === null && b.endTick > state.tick);
 
-          // Branch 1：Sing Along 未激活时清除 Singing/Dancing（容错重置）
-          const singAlongActive = (ss.mint_singAlongEndTick ?? 0) > state.tick;
-          if (!singAlongActive && !ss.mint_isSinging) {
-            ss.mint_isSinging = false;
-            ss.mint_isDancing = false;
-            return false;
+          // P1: Sing Along 未激活 → 取消自身所有 Assigned Part（容错清零）
+          if (!singAlongActive) {
+            state.buffs = state.buffs.filter(b =>
+              !(b.unitId === caster.id && (b.name === 'Assigned Part: Singing' || b.name === 'Assigned Part: Dancing')));
+            return;
           }
 
-          // Branch 2：Singing 状态 → 全队 Crit Rate ▲ + Projectile Explosion Damage ▲ + Pierce Damage ▲
-          if (!ss.mint_isSinging) return false;
+          // P2: Assigned Part: Singing 激活 → 全队 Crit Rate ▲ + Projectile Explosion Damage ▲ + Pierce Damage ▲
+          const isSinging = state.buffs.some(b => b.name === 'Assigned Part: Singing' && b.unitId === caster.id && b.endTick > state.tick);
+          if (!isSinging) return false;
 
           const lv      = caster.skillLevels[1];
           const endTick = state.tick + TICK_RATE * 10;
@@ -103,9 +89,9 @@ export default {
           const projExp  = getSkillValue(caster.rawSkill2, 2, lv) / 100;
           const pierce   = getSkillValue(caster.rawSkill2, 4, lv) / 100;
 
-          pushBuff(state, { name: 'mint_s2_critRate', unitId: null, critRateBonus: critRate, endTick });
-          pushBuff(state, { name: 'mint_s2_projExp',  unitId: null, projectileExplosionDamagePct: projExp, endTick });
-          pushBuff(state, { name: 'mint_s2_pierce',   unitId: null, pierceDamagePct: pierce, endTick });
+          pushBuff(state, { name: 'Fantastic Performance!', unitId: null,
+            critRatePct: critRate, projectileExplosionDamagePct: projExp, pierceDamagePct: pierce, endTick },
+            { ...state._logCtx, partIdx: 1 });
         },
       },
     ],
@@ -132,42 +118,26 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
-          const ss      = caster.skillState;
           const lv      = caster.skillLevels[2];
           const endTick = state.tick + TICK_RATE * 10;
 
-          // 切换 Singing/Dancing 状态（Dancing → Singing；其他 → Dancing）
-          if (ss.mint_isDancing) {
-            ss.mint_isDancing = false;
-            ss.mint_isSinging = true;
+          // 切换 Singing/Dancing（Dancing → Singing；其他 → Dancing）
+          const isDancing = state.buffs.some(b => b.name === 'Assigned Part: Dancing' && b.unitId === caster.id && b.endTick > state.tick);
+          if (isDancing) {
+            state.buffs = state.buffs.filter(b => !(b.name === 'Assigned Part: Dancing' && b.unitId === caster.id));
+            pushBuff(state, { name: 'Assigned Part: Singing', unitId: caster.id, endTick: Infinity });
           } else {
-            ss.mint_isSinging = false;
-            ss.mint_isDancing = true;
+            state.buffs = state.buffs.filter(b => !(b.name === 'Assigned Part: Singing' && b.unitId === caster.id));
+            pushBuff(state, { name: 'Assigned Part: Dancing', unitId: caster.id, endTick: Infinity });
           }
-          ss.mint_singAlongEndTick = endTick;
-
-          // Sing Along：全队 Attack Damage ▲ p00% + Crit Damage ▲ p04% 10s
-          const atkDmgPct  = getSkillValue(caster.rawBurst, 0, lv) / 100;
-          const critDmgPct = getSkillValue(caster.rawBurst, 4, lv) / 100;
-          pushBuff(state, { name: 'mint_burst_atkDmg',  unitId: null, attackDamagePct: atkDmgPct,  endTick });
-          pushBuff(state, { name: 'mint_burst_critDmg', unitId: null, critDmgBonus:    critDmgPct, endTick });
-
-          // Max Ammunition Capacity ▲ p02% 10s：逐人扩充并立即补满至新上限
-          const ammoPct = getSkillValue(caster.rawBurst, 2, lv) / 100;
-          for (const u of state.squad) {
-            const ammoFlat   = Math.round(u.baseAmmo * ammoPct);
-            const ammoBefore = u.ammoLeft;
-            pushBuff(state, { name: `mint_burst_maxAmmo_${u.id}`, unitId: u.id, maxAmmoFlat: ammoFlat, endTick });
-            const expandedMax = u.maxAmmo + ammoFlat;
-            u.ammoLeft        = expandedMax;
-            u.reloadTick      = 0;
-            if (state.ammoLog && u.ammoLeft !== ammoBefore)
-              state.ammoLog.push({ tick: state.tick, unitId: u.id, unitName: u.name,
-                delta: u.ammoLeft - ammoBefore, ammoAfter: u.ammoLeft, maxAmmo: expandedMax,
-                source: 'mint_burst_maxAmmo' });
-          }
+          // Sing Along：全队 Attack Damage ▲ p00% + Crit Damage ▲ p04% + Max Ammo ▲ p02%，10s
+          // partIdx:1 对应描述第二段 ■（Sing Along 全队效果）
+          const atkDmgPct     = getSkillValue(caster.rawBurst, 0, lv) / 100;
+          const ammoPct       = getSkillValue(caster.rawBurst, 2, lv) / 100;
+          const critDamagePct = getSkillValue(caster.rawBurst, 4, lv) / 100;
+          pushBuff(state, { name: 'Sing Along', unitId: null, attackDamagePct: atkDmgPct, critDamagePct, maxAmmoPct: ammoPct, endTick },
+            { ...state._logCtx, partIdx: 1 });
         },
       },
     ],

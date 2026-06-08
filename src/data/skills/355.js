@@ -1,8 +1,9 @@
 import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
+         getBuffSums, TICK_RATE, BURST_GAUGE_MAX, pushHoT, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 import { getCharacterTraits } from '../../data/character-traits.js';
 
+// Character: Anchor: Innocent Maid  (resource_id: 355)
 export default {
 
   // ── Starfish (Shaped) Omurice
@@ -25,7 +26,6 @@ export default {
     triggers: [
       {
         on: 'PROGRAM_INIT',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.anchorFbCount = 0;
         },
@@ -35,16 +35,15 @@ export default {
       //   第 2 次+：Distributed Damage ▲30.40% 10s（全员）
       //   第 3 次+：移除 1 层 Mast Drunken（防 Hangover；仅移除 isDebuff:true 且 stackLimit>1 的堆叠 buff）
       // 同一部队条件（Anchor + Mast 同队）在当前阵容中恒满足，注释保留
+      // 注：属■段0，但因 PROGRAM_INIT 占用 tdefIdx=0，此触发器 tdefIdx=1（partIdx=1），接受偏移
       {
         on: 'ENTER_FULL_BURST',
-        partOverride: 0,
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           caster.skillState.anchorFbCount++;
           const cnt = caster.skillState.anchorFbCount;
           if (cnt >= 2) {
             const distDmgPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
-            pushBuff(state, { name: 'anchor_s1_t2_distributedDmg', unitId: null,
+            pushBuff(state, { name: 'Starfish (Shaped) Omurice P1 L3', unitId: null,
               distributedDamagePct: distDmgPct, endTick: state.tick + TICK_RATE * 10 });
           }
           if (cnt >= 3) {
@@ -59,23 +58,18 @@ export default {
       },
       // S1 Part 2：进入全爆裂，同 squad 队员在阵时 → 自身 HP 回复 3.04%/s × 8s（8 次 HoT）
       // 条件读取 CHARACTER_TRAITS.squad 字段（CDN squad 字段）
+      // 注：属■段1，但因 PROGRAM_INIT+■段0 占用 tdefIdx=0,1，此触发器 tdefIdx=2（partIdx=2），接受偏移
       {
         on: 'ENTER_FULL_BURST',
-        partOverride: 1,
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const mySquad = getCharacterTraits(caster.id)?.squad;
           if (!mySquad) return false;
           const hasSquadMate = state.squad.some(u =>
             u.id !== caster.id && getCharacterTraits(u.id)?.squad === mySquad);
           if (!hasSquadMate) return false;
-          const ticksPerSec = TICK_RATE;
-          const hotHealPct  = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
-          const amount      = Math.round(caster.stats.hp * hotHealPct);
-          for (let i = 1; i <= 8; i++) {
-            for (const ally of state.squad)
-              state.pendingHoTs.push({ fireTick: state.tick + i * ticksPerSec, targetId: ally.id, amount });
-          }
+          const hotHealPct = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
+          const amount     = Math.round(caster.stats.hp * hotHealPct);
+          pushHoT(state, ALL_ALLIES, amount, 8);
         },
       },
     ],
@@ -102,7 +96,6 @@ export default {
       //   第 3 次+：Reload Speed ▲40.04% 15s（全员）
       {
         on: 'FULL_BURST_END',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const cnt        = caster.skillState.anchorFbCount;
           const end10      = state.tick + TICK_RATE * 10;
@@ -110,9 +103,9 @@ export default {
           const hitRatePct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           const atkFlatPct = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
           const reloadPct  = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
-          if (cnt >= 1) pushBuff(state, { name: 'anchor_s2_t1_hitRate',   unitId: null, hitRateBonus: hitRatePct, endTick: end10 });
-          if (cnt >= 2) pushBuff(state, { name: 'anchor_s2_t2_atkFlat',   unitId: null, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: end10 });
-          if (cnt >= 3) pushBuff(state, { name: 'anchor_s2_t3_reloadSpd', unitId: null, reloadSpeedPct: reloadPct, endTick: end15 });
+          if (cnt >= 1) pushBuff(state, { name: 'Sea Anemone (Shaped) Pasta P1 L1', unitId: null, hitRatePct: hitRatePct, endTick: end10 });
+          if (cnt >= 2) pushBuff(state, { name: 'Sea Anemone (Shaped) Pasta P2 L1', unitId: null, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: end10 });
+          if (cnt >= 3) pushBuff(state, { name: 'Sea Anemone (Shaped) Pasta P3 L1', unitId: null, reloadSpeedPct: reloadPct, endTick: end15 });
         },
       },
     ],
@@ -136,14 +129,13 @@ export default {
       //   [TODO: 过量治疗储存 60.19%×MaxHP 25s 未建模]
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const atkFlatPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
           const healPct    = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'anchor_burst_atkFlat', unitId: null,
+          pushBuff(state, { name: 'Seaside Stroll', unitId: null,
             atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: state.tick + TICK_RATE * 10 });
           const healAmt = Math.round(caster.stats.hp * healPct);
-          for (const u of state.squad) applyHeal(state, u, healAmt);
+          applyHeal(state, ALL_ALLIES, healAmt);
         },
       },
     ],

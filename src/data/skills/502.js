@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Elegg: Boom and Shock  (resource_id: 502)
 export default {
 
   // ── Hello Ghost
@@ -28,7 +29,6 @@ export default {
       // S1 Part1：初始化幽灵计数与窗口基准
       {
         on: 'PROGRAM_INIT',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.ebs_ghostCount     = 0;
           caster.skillState.ebs_windowShotBase = 0;
@@ -41,9 +41,9 @@ export default {
       //   ≥1 幽灵（首次）：给所有水属性友军附加 ATK ▲ p04%（以 caster ATK flat 形式，持续）
       //   ≥4 幽灵（首次）：额外附加 Elem Adv ATK Dmg ▲ p06%（持续）
       //   满载（13幽灵）时溢出捕获：触发 S2 Part2 伤害
+      // 注：属■段0，但因 PROGRAM_INIT 占用 tdefIdx=0，此触发器 tdefIdx=1（partIdx=1），接受偏移
       {
         on: 'SQUAD_SHOT_COUNT',
-        partOverride: 0,
         handler(state, caster) {
           if (caster.skillState.ebs_windowSettled) return;
           const shotsThisWindow = (state.squadShotCount ?? 0) - (caster.skillState.ebs_windowShotBase ?? 0);
@@ -61,7 +61,7 @@ export default {
             const lv     = caster.skillLevels[1];
             const hitPct = getSkillValue(caster.rawSkill2, 2, lv) / 100;
             const sums   = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, hitPct, sums, false, 'S2');
+            fireSkillHit(state, caster, hitPct, sums, 'S2');
             return;
           }
 
@@ -76,7 +76,7 @@ export default {
             const atkFlat = Math.round(caster.stats.atk * atkPct);
             for (const u of state.squad) {
               if (u.element !== 'Water') continue;
-              pushBuff(state, { name: 'ebs_s1_atkFlat', unitId: u.id,
+              pushBuff(state, { name: 'Hello Ghost P2 L1', unitId: u.id,
                 atkFlat, endTick: Infinity });
             }
           }
@@ -86,18 +86,17 @@ export default {
             const elemAdvPct = getSkillValue(caster.rawSkill1, 6, lv) / 100;
             for (const u of state.squad) {
               if (u.element !== 'Water') continue;
-              pushBuff(state, { name: 'ebs_s1_elemAdv', unitId: u.id,
-                elementAdvantageBonus: elemAdvPct, endTick: Infinity });
+              pushBuff(state, { name: 'Hello Ghost P2 L2', unitId: u.id,
+                elementAdvantagePct: elemAdvPct, endTick: Infinity });
             }
           }
         },
       },
       // S1 Part3：每 6 秒固定重置窗口基准，与本轮是否达标无关
+      // 注：与上方同属■段0，此触发器 tdefIdx=2（partIdx=2），接受偏移
       {
         on: 'INTERVAL',
-        partOverride: 0,
         opts: { seconds: 6 },
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.ebs_windowShotBase = state.squadShotCount ?? 0;
           caster.skillState.ebs_windowSettled  = false;
@@ -122,12 +121,11 @@ export default {
       // S2 Part1：使用爆裂技能时 → 自身 ATK ▲ p00% 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv     = caster.skillLevels[1];
           const atkPct = getSkillValue(caster.rawSkill2, 0, lv) / 100;
           const end10  = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'ebs_s2_burstAtk', unitId: caster.id,
+          pushBuff(state, { name: 'Ghostbuster', unitId: caster.id,
             atkPct, endTick: end10 });
         },
       },
@@ -155,7 +153,6 @@ export default {
       //   首击延迟 0.2s（12 tick），后续每击间隔 0.2s；默认结算：sums 预捕获，全爆裂补正由引擎自动抑制
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ENEMY',
         handler(state, caster) {
           const lv      = caster.skillLevels[2];
           const ghosts  = caster.skillState.ebs_ghostCount ?? 0;
@@ -191,9 +188,9 @@ export default {
           // 幽灵减少后，检查 Elem Adv buff 条件（需 ≥4 幽灵）
           const newGhosts = caster.skillState.ebs_ghostCount;
           if (newGhosts < 4) {
-            state.buffs = state.buffs.filter(b => b.name !== 'ebs_s1_elemAdv');
+            state.buffs = state.buffs.filter(b => b.name !== 'Hello Ghost P2 L2');
           }
-          // ATK buff（ebs_s1_atkFlat）：非13模式至少保留1幽灵，13模式后剩4幽灵，均 ≥1，故不移除
+          // ATK buff（Hello Ghost P2 L1）：非13模式至少保留1幽灵，13模式后剩4幽灵，均 ≥1，故不移除
         },
       },
     ],

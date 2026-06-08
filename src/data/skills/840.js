@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Ada  (resource_id: 840)
 export default {
 
   // ── Covert Support
@@ -22,7 +23,6 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'BURST_CASTERS',
         handler(state, caster) {
           const lv          = caster.skillLevels[0];
           const end10       = state.tick + TICK_RATE * 10;
@@ -33,9 +33,8 @@ export default {
           const ids = state.burstCastersThisRotation;
           for (const u of state.squad) {
             if (u.burstStep !== 'Step3' || !ids.has(u.id)) continue;
-            pushBuff(state, { name: 'ada_s1_atkFlat',   unitId: u.id, atkFlat,                   endTick: end10 });
-            pushBuff(state, { name: 'ada_s1_trueDmg',   unitId: u.id, trueDamagePct: trueDmgPct, endTick: end10 });
-            pushBuff(state, { name: 'ada_s1_lifeSteal', unitId: u.id, lifeStealPct:  lsPct,      endTick: end10 });
+            pushBuff(state, { name: 'Covert Support', unitId: u.id,
+              atkFlat, trueDamagePct: trueDmgPct, lifeStealPct: lsPct, endTick: end10 });
           }
         },
       },
@@ -57,20 +56,9 @@ export default {
   skill2: {
     groupId: 28402,
     triggers: [
-      // S2 Part2：使用爆裂技能时 → 记录加速截止 tick（10 秒内间隔 ▼1s）
-      {
-        on: 'BURST_SKILL_USE',
-        partOverride: 1,
-        logTargets: null,
-        handler(state, caster) {
-          caster.skillState.ada_s2_accelEnd = state.tick + TICK_RATE * 10;
-        },
-      },
-      // S2 Part1：全爆裂期间每秒轮询，按实际间隔（1s 或 2s）触发闪光弹
+      // ■0：全爆裂期间每秒轮询，按实际间隔（1s 或 2s）触发闪光弹
       {
         on: 'INTERVAL_IN_BURST',
-        partOverride: 0,
-        logTargets: null,
         opts: { seconds: 1 },
         handler(state, caster) {
           const lastFire      = caster.skillState.ada_s2_lastFireTick;
@@ -84,13 +72,19 @@ export default {
           const lv   = caster.skillLevels[1];
           const mult = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, false, 'S2', { isTrueDamage: true });
+          fireSkillHit(state, caster, mult, sums, 'S2', { isTrueDamage: true });
+        },
+      },
+      // ■1：使用爆裂技能时 → 记录加速截止 tick（10 秒内间隔 ▼1s）
+      {
+        on: 'BURST_SKILL_USE',
+        handler(state, caster) {
+          caster.skillState.ada_s2_accelEnd = state.tick + TICK_RATE * 10;
         },
       },
       // 全爆裂结束时重置上次触发记录
       {
         on: 'FULL_BURST_END',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.ada_s2_lastFireTick = undefined;
         },
@@ -119,23 +113,19 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv    = caster.skillLevels[2];
           const end10 = state.tick + TICK_RATE * 10;
 
-          pushBuff(state, { name: 'ada_burst_atk',     unitId: caster.id,
-            atkPct: getSkillValue(caster.rawBurst, 0, lv) / 100, endTick: end10 });
-          pushBuff(state, { name: 'ada_burst_trueDmg', unitId: caster.id,
+          pushBuff(state, { name: 'Secret Agent P1', unitId: caster.id,
+            atkPct: getSkillValue(caster.rawBurst, 0, lv) / 100,
             attackDamagePct: getSkillValue(caster.rawBurst, 2, lv) / 100, endTick: end10 });
 
           // Special Modification：下一发（1 round）蓄力速度 ▼300%，蓄力伤害 ▲{p06}%
           const chargeDmgPct = getSkillValue(caster.rawBurst, 6, lv) / 100;
-          pushBuff(state, { name: 'ada_burst_specialMod_cdmg', unitId: caster.id,
-            chargeDamagePct: chargeDmgPct, endRounds: 1 });
           // chargeSpeedPct: -3.0 → 蓄力时间 ≈ 4× 正常值（模拟降速 300%）
-          pushBuff(state, { name: 'ada_burst_specialMod_cspd', unitId: caster.id,
-            chargeSpeedPct: -3.0, endRounds: 1 });
+          pushBuff(state, { name: 'Secret Agent P2', unitId: caster.id,
+            chargeDamagePct: chargeDmgPct, chargeSpeedPct: -3.0, endRounds: 1 });
         },
       },
     ],

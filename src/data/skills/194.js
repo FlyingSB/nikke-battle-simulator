@@ -1,4 +1,4 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Ludmilla: Winter Owner  (resource_id: 194)
@@ -30,14 +30,12 @@ export default {
 
           // P1: 目标承伤 ▲ p01% 3s
           const dtPct      = getSkillValue(caster.rawSkill1, 1, lv) / 100;
-          const existingDt = state.buffs.find(b => b.name === 'lwo_s1_dt');
-          if (!existingDt) state.enemyDamageTakenPct += dtPct;
-          pushBuff(state, { name: 'lwo_s1_dt', unitId: null,
+          pushBuff(state, { name: 'The Queen\'s Gaze', unitId: '__enemy__', isDebuff: true,
             enemyDamageTakenPct: dtPct, endTick: state.tick + TICK_RATE * 3 });
 
           // P1: 对目标造成 p03% 追加技能伤害
           const dmgPct = getSkillValue(caster.rawSkill1, 3, lv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'S1');
+          fireSkillHit(state, caster, dmgPct, sums, 'S1');
 
           // P2: 自身补弹 p05 发
           const rounds     = getSkillValue(caster.rawSkill1, 5, lv);
@@ -79,18 +77,17 @@ export default {
           const lv   = caster.skillLevels[1];
           const sums = getBuffSums(state, caster.id);
           const mult = getSkillValue(caster.rawSkill2, 1, lv) / 100;
-          fireSkillHit(state, caster, mult, sums, false, 'S2 P1');
+          fireSkillHit(state, caster, mult, sums, 'S2 P1');
         },
       },
       // S2 P2: 进入全爆裂 → 自身暴击率 ▲ p02% 10s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv        = caster.skillLevels[1];
           const critBonus = getSkillValue(caster.rawSkill2, 2, lv) / 100;
-          pushBuff(state, { name: 'lwo_s2_critRate', unitId: caster.id,
-            critRateBonus: critBonus, endTick: state.tick + TICK_RATE * 10 });
+          pushBuff(state, { name: 'Snowstorm', unitId: caster.id,
+            critRatePct: critBonus, endTick: state.tick + TICK_RATE * 10 });
         },
       },
     ],
@@ -111,18 +108,17 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv = caster.skillLevels[2];
 
           // ATK ▲ p00% 10s
           const atkPct = getSkillValue(caster.rawBurst, 0, lv) / 100;
-          pushBuff(state, { name: 'lwo_burst_atk', unitId: caster.id,
+          pushBuff(state, { name: 'Guiding Lantern P1 L1', unitId: caster.id,
             atkPct, endTick: state.tick + TICK_RATE * 10 });
 
           // 换弹速度 ▲ p02% 20s
           const reloadSpeedPct = getSkillValue(caster.rawBurst, 2, lv) / 100;
-          pushBuff(state, { name: 'lwo_burst_reloadSpeed', unitId: caster.id,
+          pushBuff(state, { name: 'Guiding Lantern P1 L2', unitId: caster.id,
             reloadSpeedPct, endTick: state.tick + TICK_RATE * 20 });
         },
       },

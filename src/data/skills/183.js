@@ -1,7 +1,8 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Maiden: Ice Rose  (resource_id: 183)
 export default {
 
   // ── Meditation
@@ -33,8 +34,7 @@ export default {
           const atkFlat     = Math.round(caster.stats.atk * atkFlatPct);
           for (const u of state.squad) {
             if (u.id === caster.id || u.element !== 'Electric') continue;
-            pushBuff(state, { name: 'icr_s2_elemAdv', unitId: u.id, elementAdvantageBonus: elemAdvPct, endTick: end10 });
-            pushBuff(state, { name: 'icr_s2_atkFlat', unitId: u.id, atkFlat, endTick: end10 });
+            pushBuff(state, { name: 'Blessings Upon You P1', unitId: u.id, elementAdvantagePct: elemAdvPct, atkFlat, endTick: end10 });
           }
         },
       },
@@ -42,7 +42,6 @@ export default {
       //   S2 Part1：ElemAdv ATK Dmg ▲[S2 param0]% + ATK ▲[S2 param2]% caster ATK flat 10s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           if ((caster.skillState.iceroseMP ?? 0) < 1) return false;
           caster.skillState.iceroseMP = Math.min(12, caster.skillState.iceroseMP + 1);
@@ -52,21 +51,19 @@ export default {
           const atkFlat     = Math.round(caster.stats.atk * atkFlatPct);
           for (const u of state.squad) {
             if (u.id === caster.id || u.element !== 'Electric') continue;
-            pushBuff(state, { name: 'icr_s2_elemAdv', unitId: u.id, elementAdvantageBonus: elemAdvPct, endTick: end10 });
-            pushBuff(state, { name: 'icr_s2_atkFlat', unitId: u.id, atkFlat, endTick: end10 });
+            pushBuff(state, { name: 'Blessings Upon You P1', unitId: u.id, elementAdvantagePct: elemAdvPct, atkFlat, endTick: end10 });
           }
         },
       },
       // S1 Part3（Meditation）：每 6 次全蓄力 → 自身 Max HP ▲[S1 param2]% 15s（叠加至 10 层）
       {
         on: 'FULL_CHARGE',
-        logTargets: 'SELF',
         handler(state, caster) {
           caster.skillState.iceroseChargeCount = (caster.skillState.iceroseChargeCount ?? 0) + 1;
           if (caster.skillState.iceroseChargeCount < 6) return false;
           caster.skillState.iceroseChargeCount = 0;
           const maxHpPctPerStack = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
-          const existing = state.buffs.find(b => b.name === 'icr_s1_maxHp' && b.unitId === caster.id);
+          const existing = state.buffs.find(b => b.name === 'Meditation P3 L2' && b.unitId === caster.id);
           const stacks   = Math.min(10, (existing?.stackCount ?? 0) + 1);
           const end15    = state.tick + TICK_RATE * 15;
           if (existing) {
@@ -74,7 +71,7 @@ export default {
             existing.maxHpPct   = stacks * maxHpPctPerStack;
             existing.endTick    = end15;
           } else {
-            state.buffs.push({ name: 'icr_s1_maxHp', unitId: caster.id,
+            state.buffs.push({ name: 'Meditation P3 L2', unitId: caster.id,
               maxHpPct: maxHpPctPerStack, endTick: end15, stackCount: 1 });
           }
         },
@@ -105,16 +102,18 @@ export default {
   skill2: {
     groupId: 21832,
     triggers: [
+      // tdefIdx=0：■段0(MP replenished 时)inline 于 S1 触发器，此处占位
+      {},
+      // tdefIdx=1：■段1(MP used 时)inline 于 Burst 触发器，此处占位
+      {},
       // S2 Part3（Blessings Upon You）：每次全蓄力 → [S2 param9]% ATK 技能伤害
       // S2 Part1 inline 于 S1 触发器；S2 Part2 inline 于 Burst 触发器
       {
         on: 'FULL_CHARGE',
-        partOverride: 2,
-        logTargets: null,
         handler(state, caster, ctx) {
           const skillDmg = getSkillValue(caster.rawSkill2, 9, caster.skillLevels[1]) / 100;
           const sums     = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, skillDmg, sums, false, 'S2');
+          fireSkillHit(state, caster, skillDmg, sums, 'S2');
           addBurstGauge(state, caster.name, 'icr_s2_fc_dmg', caster.targetBurstEnergyPerShot);
         },
       },
@@ -138,7 +137,6 @@ export default {
       // Burst P1（敌人）：消耗全部 MP，每点 MP 发动 1 次 (buffedMaxHP + buffedATK) × Burst_param2
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ENEMY',
         handler(state, caster) {
           const preSums     = getBuffSums(state, caster.id);
           const buffedMaxHp = Math.round(caster.stats.hp * (1 + preSums.maxHpPct));
@@ -160,15 +158,14 @@ export default {
       // Burst P2（自身）：S2 Part2 — 消耗 MP 后自身 ElemAdv ATK Dmg ▲ + ATK flat ▲ 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const buffedMaxHp  = caster.skillState.icrBurstBuffedMaxHp ?? 0;
           const end10        = state.tick + TICK_RATE * 10;
           const selfElemAdv  = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const selfHpAtkPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'icr_s2_self_elemAdv', unitId: caster.id,
-            elementAdvantageBonus: selfElemAdv, endTick: end10 });
-          pushBuff(state, { name: 'icr_s2_self_atkFlat', unitId: caster.id,
+          pushBuff(state, { name: 'Blessings Upon You P2 L2', unitId: caster.id,
+            elementAdvantagePct: selfElemAdv, endTick: end10 });
+          pushBuff(state, { name: 'Blessings Upon You P2 L3', unitId: caster.id,
             atkFlat: Math.round(buffedMaxHp * selfHpAtkPct), endTick: end10 });
         },
       },

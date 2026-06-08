@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: EVE  (resource_id: 850)
 export default {
 
   // ── Impact-Type Exospine
@@ -24,11 +25,10 @@ export default {
       // S1 Part1：战斗开始 → 自身暴击率永久 ▲ p00%
       {
         on: 'BATTLE_START',
-        logTargets: 'SELF',
         handler(state, caster) {
           const critRatePct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'eve_s1_critRate', unitId: caster.id,
-            critRateBonus: critRatePct, endTick: Infinity });
+          pushBuff(state, { name: 'Impact-Type Exospine P1 L2', unitId: caster.id,
+            critRatePct: critRatePct, endTick: Infinity });
         },
       },
       // S1 Part2+3：每次普通攻击检测暴击；累计 44 次暴击 → Unstable Energy（3× 技能伤害）
@@ -54,19 +54,17 @@ export default {
           const lv      = caster.skillLevels[0];
           const basePct = getSkillValue(caster.rawSkill1, 1, lv) / 100;
           // Impact-Type Exospine Mk2：Mk2 期间伤害系数 +100%（翻倍）
-          const inMk2   = state.buffs.some(b => b.name === 'eve_burst_mk2_atkPct' && b.unitId === caster.id);
+          const inMk2   = state.buffs.some(b => b.name === 'Counter Chain' && b.unitId === caster.id);
           const hitPct  = inMk2 ? basePct * 2 : basePct;
           const sums    = getBuffSums(state, caster.id);
           for (let h = 0; h < 3 && state.enemyHp > 0; h++) {
-            fireSkillHit(state, caster, hitPct, sums, false, 'S1');
+            fireSkillHit(state, caster, hitPct, sums, 'S1');
           }
 
           // Part3：敌人为电击属性时施加 Damage Taken ▲ p03% 10s
           if (state.enemyElement !== 'Electric') return;
           const dtPct     = getSkillValue(caster.rawSkill1, 3, lv) / 100;
-          const alreadyOn = state.buffs.some(b => b.name === 'eve_s1_damageTaken');
-          if (!alreadyOn) state.enemyDamageTakenPct += dtPct;
-          pushBuff(state, { name: 'eve_s1_damageTaken', unitId: null,
+          pushBuff(state, { name: 'Impact-Type Exospine P3 L3', unitId: '__enemy__', isDebuff: true,
             enemyDamageTakenPct: dtPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -93,16 +91,13 @@ export default {
       // S2 Part1：战斗开始 → 自身永久 ATK ▲ p00% + Max Ammo ▲ p01%（flat 值，取整）
       {
         on: 'BATTLE_START',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv       = caster.skillLevels[1];
           const atkPct   = getSkillValue(caster.rawSkill2, 0, lv) / 100;
           const ammoPct  = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const ammoFlat = Math.round(caster.maxAmmo * ammoPct);
-          pushBuff(state, { name: 'eve_s2_atkPct', unitId: caster.id,
-            atkPct, endTick: Infinity });
-          pushBuff(state, { name: 'eve_s2_maxAmmo', unitId: caster.id,
-            maxAmmoFlat: ammoFlat, endTick: Infinity });
+          pushBuff(state, { name: 'Eagle Eye-Type Exospine', unitId: caster.id,
+            atkPct, maxAmmoFlat: ammoFlat, endTick: Infinity });
         },
       },
       // S2 Part2：每 10 发普通攻击 → 自身补弹 3 发（上限 maxAmmo）
@@ -127,7 +122,7 @@ export default {
   // ■ Affects self. Exospine Mk2 for {p02} sec.
   //   Triggers Impact-Type Exospine Mk2:
   //     Damage multiplier of Unstable Energy sequential attacks is scaled by 100%.
-  //     → Mk2 期间 Unstable Energy 伤害系数 +100%（basePct × 2）。通过检测 eve_burst_mk2_atkPct buff 判断窗口。
+  //     → Mk2 期间 Unstable Energy 伤害系数 +100%（basePct × 2）。通过检测 Counter Chain_atkPct buff 判断窗口。
   //   Triggers Eagle Eye-Type Exospine Mk2:
   //     Damage multiplier of Eagle Eye-Type Exospine is scaled by 100%.
   //     → Mk2 期间追加与 S2 Part1 等量的额外 ATK▲ 和 MaxAmmo▲（总效果翻倍）。
@@ -152,12 +147,10 @@ export default {
           },
         ],
       },
-      // Eagle Eye-Type Exospine Mk2：爆裂后 p02s 内，追加与 S2 Part1 等量的 ATK▲ 和 MaxAmmo▲
+      // ■1：Eagle Eye-Type Exospine Mk2：爆裂后 p02s 内，追加与 S2 Part1 等量的 ATK▲ 和 MaxAmmo▲
       //   S2 Part1 永久 buff 不变；Mk2 buff 到期后总效果恢复到 S2 Part1 基准。
       {
         on: 'BURST_SKILL_USE',
-        partOverride: 0,
-        logTargets: 'SELF',
         handler(state, caster) {
           const burstLv    = caster.skillLevels[2];
           const mk2Sec     = getSkillValue(caster.rawBurst, 2, burstLv);
@@ -166,10 +159,8 @@ export default {
           const mk2AtkPct  = getSkillValue(caster.rawSkill2, 0, s2Lv) / 100;
           const mk2AmmoPct = getSkillValue(caster.rawSkill2, 1, s2Lv) / 100;
           const mk2AmmoFlat = Math.round(caster.maxAmmo * mk2AmmoPct);
-          pushBuff(state, { name: 'eve_burst_mk2_atkPct', unitId: caster.id,
-            atkPct: mk2AtkPct, endTick: mk2End });
-          pushBuff(state, { name: 'eve_burst_mk2_maxAmmo', unitId: caster.id,
-            maxAmmoFlat: mk2AmmoFlat, endTick: mk2End });
+          pushBuff(state, { name: 'Counter Chain', unitId: caster.id,
+            atkPct: mk2AtkPct, maxAmmoFlat: mk2AmmoFlat, endTick: mk2End });
         },
       },
     ],

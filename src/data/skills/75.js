@@ -27,7 +27,6 @@ export default {
       // BURST_SKILL_USE 先于 ENTER_FULL_BURST 触发；此处仅标记本体本轮已使用爆裂，供状态判断使用
       {
         on: 'BURST_SKILL_USE',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.dws_burstUsedFlag = true;
         },
@@ -35,7 +34,6 @@ export default {
       // 进入全爆裂：首次分配 Intro/Highlight 状态（永久暴击伤害加成），每次给予 10s 持续伤害加成
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv = caster.skillLevels[0];
 
@@ -45,17 +43,17 @@ export default {
             const cdIdx = caster.skillState.dws_status === 'intro' ? 0 : 1;
             const cdPct = getSkillValue(caster.rawSkill1, cdIdx, lv) / 100;
             // 永久暴击伤害加成，不可驱散，复活后保留
-            pushBuff(state, { name: 'dws_s1_critDmg', unitId: caster.id,
-              critDmgBonus: cdPct, endTick: Infinity });
+            pushBuff(state, { name: 'Ah Ah, Mic Test P1 L2', unitId: caster.id,
+              critDamagePct: cdPct, endTick: Infinity });
           }
 
           if (caster.skillState.dws_status === 'intro') {
             const sdPct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-            pushBuff(state, { name: 'dws_s1_intro_sd', unitId: caster.id,
+            pushBuff(state, { name: 'Ah Ah, Mic Test P3 L2', unitId: caster.id,
               sustainedDamagePct: sdPct, endTick: state.tick + TICK_RATE * 10 });
           } else if (caster.skillState.dws_status === 'highlight') {
             const sdPct = getSkillValue(caster.rawSkill1, 4, lv) / 100;
-            pushBuff(state, { name: 'dws_s1_hl_sd', unitId: caster.id,
+            pushBuff(state, { name: 'Ah Ah, Mic Test P4 L2', unitId: caster.id,
               sustainedDamagePct: sdPct, endTick: state.tick + TICK_RATE * 10 });
           }
         },
@@ -90,18 +88,17 @@ export default {
       // S2 Part3: 全蓄力 → 自身持续伤害▲ p01%/层 3s，叠加至 2 层（刷新计时器）
       {
         on: 'FULL_CHARGE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv  = caster.skillLevels[1];
           const pct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const end = state.tick + TICK_RATE * 3;
-          const existing = state.buffs.find(b => b.name === 'dws_s2_fc_sd' && b.unitId === caster.id);
+          const existing = state.buffs.find(b => b.name === "I'm Gonna Sing Now!" && b.unitId === caster.id);
           if (existing) {
             existing.stackCount          = Math.min(2, (existing.stackCount ?? 1) + 1);
             existing.sustainedDamagePct = existing.stackCount * pct;
             existing.endTick            = end;
           } else {
-            pushBuff(state, { name: 'dws_s2_fc_sd', unitId: caster.id,
+            pushBuff(state, { name: "I'm Gonna Sing Now!", unitId: caster.id,
               sustainedDamagePct: pct, endTick: end, stackCount: 1 });
           }
         },
@@ -109,7 +106,6 @@ export default {
       // S2 Part4: 进入全爆裂 → 对舞台目标每秒 p06% ATK 持续伤害 DoT，持续 9s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ENEMY',
         handler(state, caster) {
           if (!state.isStageTarget) return;
           const lv   = caster.skillLevels[1];
@@ -165,16 +161,13 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ENEMY',
         handler(state, caster) {
           const lv = caster.skillLevels[2];
 
           // 全体敌人承伤▲ p07% 10s（刷新时仅延长 endTick，不重复累加）
           const dtPct      = getSkillValue(caster.rawBurst, 7, lv) / 100;
           const dtEnd      = state.tick + TICK_RATE * 10;
-          const existingDt = state.buffs.find(b => b.name === 'dws_burst_dt');
-          if (!existingDt) state.enemyDamageTakenPct += dtPct;
-          pushBuff(state, { name: 'dws_burst_dt', unitId: null,
+          pushBuff(state, { name: 'La La La ♬', unitId: '__enemy__', isDebuff: true,
             enemyDamageTakenPct: dtPct, endTick: dtEnd });
 
           // 全体敌人 DoT p00%/sec + 舞台目标额外 DoT p05%/sec，持续 9s

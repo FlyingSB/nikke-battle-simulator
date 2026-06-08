@@ -1,17 +1,18 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Soda: Twinkling Bunny  (resource_id: 314)
 // Golden Chip 暴击伤害 buff 直接更新（pushBuff 同名只刷新 endTick，不更新数值）
 function updateGoldenChipCritDmg(state, caster) {
   const stacks = caster.skillState.soda_goldenChipStacks ?? 0;
   const lv     = caster.skillLevels[0];
   const pct    = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-  const existing = state.buffs.find(b => b.name === 'soda_s1_critDmg' && b.unitId === caster.id);
+  const existing = state.buffs.find(b => b.name === 'Lucky Golden Chip P1 L2' && b.unitId === caster.id);
   if (existing) {
-    existing.critDmgBonus = pct * stacks;
+    existing.critDamagePct = pct * stacks;
   } else if (stacks > 0) {
-    state.buffs.push({ name: 'soda_s1_critDmg', unitId: caster.id,
-      critDmgBonus: pct * stacks, endTick: Infinity });
+    state.buffs.push({ name: 'Lucky Golden Chip P1 L2', unitId: caster.id,
+      critDamagePct: pct * stacks, endTick: Infinity });
   }
 }
 
@@ -39,7 +40,6 @@ export default {
       // S1 Part1: 战斗开始 → Golden Chip 层数初始化（同时建立暴击伤害 buff）
       {
         on: 'BATTLE_START',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv = caster.skillLevels[0];
           const initStacks = getSkillValue(caster.rawSkill1, 0, lv);
@@ -68,14 +68,14 @@ export default {
           const attackDmgPct = getSkillValue(caster.rawSkill1, 4, lv) / 100;
           const end2         = state.tick + TICK_RATE * 2;
 
-          pushBuff(state, { name: 'soda_s1_attackDmg_self', unitId: caster.id,
+          pushBuff(state, { name: 'Lucky Golden Chip P2 L3', unitId: caster.id,
             attackDamagePct: attackDmgPct, endTick: end2 });
 
           const allies = state.squad.filter(u => u.id !== caster.id);
           if (allies.length > 0) {
             allies.sort((a, b) => (b.stats.atk ?? 0) - (a.stats.atk ?? 0));
             const top = allies[0];
-            pushBuff(state, { name: 'soda_s1_attackDmg_ally', unitId: top.id,
+            pushBuff(state, { name: 'Lucky Golden Chip P2 L3', unitId: top.id,
               attackDamagePct: attackDmgPct, endTick: end2 });
           }
         },
@@ -147,14 +147,13 @@ export default {
           }
 
           if (mult > 0) {
-            fireSkillHit(state, caster, mult, sums, false, 'S2');
+            fireSkillHit(state, caster, mult, sums, 'S2');
           }
         },
       },
       // S2 清理: 全爆裂结束 → 重置 Time Extension 状态
       {
         on: 'FULL_BURST_END',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.soda_timeExtI  = false;
           caster.skillState.soda_timeExtII = false;
@@ -186,7 +185,6 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: null,
         handler(state, caster) {
           const lv     = caster.skillLevels[2];
           const stacks = caster.skillState.soda_goldenChipStacks ?? 0;
@@ -195,14 +193,14 @@ export default {
           // Stage 2（≥20 层）: 先提升命中率（命中率当前不影响伤害计算）
           if (stacks >= 20) {
             const hitRatePct = getSkillValue(caster.rawBurst, 3, lv) / 100;
-            pushBuff(state, { name: 'soda_burst_hitRate', unitId: caster.id,
-              hitRateBonus: hitRatePct, endTick: end15 });
+            pushBuff(state, { name: 'Onward, Soda! P2', unitId: caster.id,
+              hitRatePct: hitRatePct, endTick: end15 });
           }
 
           // Stage 3（≥30 层）: 先提升 ATK（让 Stage 1 伤害能纳入此加成）
           if (stacks >= 30) {
             const atkPct = getSkillValue(caster.rawBurst, 6, lv) / 100;
-            pushBuff(state, { name: 'soda_burst_atk', unitId: caster.id,
+            pushBuff(state, { name: 'Onward, Soda! P3', unitId: caster.id,
               atkPct, endTick: end15 });
           }
 
@@ -210,7 +208,7 @@ export default {
           if (state.enemyHp > 0) {
             const burstMult = getSkillValue(caster.rawBurst, 1, lv) / 100;
             const sums      = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, burstMult, sums, false, 'Burst');
+            fireSkillHit(state, caster, burstMult, sums, 'Burst');
           }
 
           // 效果生效后消耗 17 层（不低于 0）

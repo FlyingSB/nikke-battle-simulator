@@ -2,6 +2,7 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Red Hood  (resource_id: 470)
 // ─── Red Hood (470) S1 辅助：更新蓄力伤害转化 buff ────────────────────────────
 // 超出 100% 的蓄力速度 → Charge Damage ▲240% × 超出量（连续）
 // endTick 由调用方传入，与产生该超量的 CS buff 同生命周期。
@@ -11,10 +12,10 @@ function updateRhCsConversion(state, caster, endTick = Infinity) {
   const excess   = Math.max(0, totalCS - 1.0);
   const convRate = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
   const cdBonus  = excess > 0 ? Math.round(excess * convRate * 100000) / 100000 : 0;
-  const conv    = state.buffs.find(b => b.name === 'rh_s1_cd_conv' && b.unitId === caster.id);
+  const conv    = state.buffs.find(b => b.name === 'Glaring Eyes P2 L2' && b.unitId === caster.id);
   if (cdBonus > 0) {
     if (conv) { conv.chargeDamagePct = cdBonus; conv.endTick = endTick; }
-    else state.buffs.push({ name: 'rh_s1_cd_conv', unitId: caster.id, chargeDamagePct: cdBonus, endTick });
+    else state.buffs.push({ name: 'Glaring Eyes P2 L2', unitId: caster.id, chargeDamagePct: cdBonus, endTick });
   } else if (conv) {
     state.buffs.splice(state.buffs.indexOf(conv), 1);
   }
@@ -38,9 +39,8 @@ export default {
       // 每新增一层刷新计时；叠层过期后归零重新计数。
       {
         on: 'FULL_CHARGE',
-        logTargets: 'SELF',
         handler(state, caster) {
-          const existing   = state.buffs.find(b => b.name === 'rh_s1_chargeSpd' && b.unitId === caster.id);
+          const existing   = state.buffs.find(b => b.name === 'Glaring Eyes P1 L1' && b.unitId === caster.id);
           const prevStacks = existing ? caster.skillState.rhCsStacks : 0;
           const newStacks  = Math.min(10, prevStacks + 1);
           caster.skillState.rhCsStacks = newStacks;
@@ -50,7 +50,7 @@ export default {
             existing.chargeSpeedPct = newStacks * csPerStack;
             existing.endTick = end5;
           } else {
-            state.buffs.push({ name: 'rh_s1_chargeSpd', unitId: caster.id,
+            state.buffs.push({ name: 'Glaring Eyes P1 L1', unitId: caster.id,
               chargeSpeedPct: newStacks * csPerStack, endTick: end5 });
           }
           // S1 Part2：更新超量 CS → Charge Damage 转化（与叠层同生命周期）
@@ -81,9 +81,8 @@ export default {
       // S2 Part1（Wild Tooth）：战斗开始 → 自身持续 Pierce
       {
         on: 'BATTLE_START',
-        logTargets: 'SELF',
         handler(state, caster) {
-          caster.skillState.pierceActive = true;
+          pushBuff(state, { name: 'Wild Tooth', unitId: caster.id, pierce: true, endTick: Infinity });
         },
       },
     ],
@@ -132,18 +131,17 @@ export default {
       //   游戏实测 10s 内 32 次攻击 → 600/(32-1) = 19.35 ≈ 19 ticks/shot。
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const isRedWolf = caster.burstStep === 'Step3' || caster.burstStep === 'StepFull';
           if (!isRedWolf) return false;
           const end10            = state.tick + TICK_RATE * 10;
           // S2 Part4：自身 ATK ▲[S2 param4]% 10s（仅 Red Wolf）
           const s2AtkPct         = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'rh_s2_rw_atkPct', unitId: caster.id,
+          pushBuff(state, { name: 'Wild Tooth P4 L2', unitId: caster.id,
             atkPct: s2AtkPct, endTick: end10 });
           // Charge Speed ▲[Burst param9]% 10s（Red Wolf 追加效果）
           const chargeSpeedPct   = getSkillValue(caster.rawBurst, 9, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'rh_burst_rw_chargeSpd', unitId: caster.id,
+          pushBuff(state, { name: 'Red Wolf P1 L5', unitId: caster.id,
             chargeSpeedPct, endTick: end10 });
           // 武器切换：Damage [Burst param6]% final ATK · FC 250% · 10s · 弹匣容量 99
           // Red Wolf 弹匣 99 发，10s 实测约 32 发，不会触发装弹
@@ -165,7 +163,6 @@ export default {
       // 全爆裂结束：恢复普通武器弹药 + 重算 CS 转化
       {
         on: 'FULL_BURST_END',
-        logTargets: null,
         handler(state, caster) {
           if ((caster.skillState.weaponSwitchEndTick ?? 0) <= state.tick)
             caster.skillState.weaponSwitchEndTick = 0;

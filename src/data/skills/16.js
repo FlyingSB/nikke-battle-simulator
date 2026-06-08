@@ -1,7 +1,8 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Rapi: Red Hood  (resource_id: 16)
 export default {
 
   // ── Battlefield Assessment
@@ -33,17 +34,15 @@ export default {
       //   有原生 B1 友军 → combatAssistStatus = false，burstStep = nativeBurstStep（恢复 B3）
       {
         on: 'BATTLE_START',
-        logTargets: 'SELF',
         handler(state, caster) {
           const hasNativeB1 = state.squad.some(u => u.id !== caster.id && u.nativeBurstStep === 'Step1');
           caster.combatAssistStatus = !hasNativeB1;
           caster.burstStep = caster.combatAssistStatus ? 'Step1' : caster.nativeBurstStep;
         },
       },
+      // 注：FULL_BURST_END 与 BATTLE_START 同属■段0，此触发器 tdefIdx=1（partIdx=1），接受偏移
       {
         on: 'FULL_BURST_END',
-        partOverride: 0,
-        logTargets: 'SELF',
         handler(state, caster) {
           const hasNativeB1 = state.squad.some(u => u.id !== caster.id && u.nativeBurstStep === 'Step1');
           const newStatus = !hasNativeB1;
@@ -57,8 +56,6 @@ export default {
       {
         on: 'ENTER_FULL_BURST',
         conditions: [{ type: 'IS_COMBAT_ASSIST' }],
-        partOverride: 1,
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const cdSec        = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]);
           const attackDmgPct = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
@@ -66,8 +63,8 @@ export default {
           for (const u of state.squad)
             u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
           if (state.buffLog)
-            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'rapi_s1_ca_cdReduction', unitId: null, reductionTicks });
-          pushBuff(state, { name: 'rapi_s1_ca_attackDmg', unitId: null,
+            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'Battlefield Assessment P2 L1', unitId: null, reductionTicks });
+          pushBuff(state, { name: 'Battlefield Assessment P2 L2', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -78,14 +75,11 @@ export default {
       {
         on: 'ENTER_FULL_BURST',
         conditions: [{ type: 'NOT_COMBAT_ASSIST' }],
-        partOverride: 2,
-        logTargets: 'SELF',
         handler(state, caster) {
           const atkPct      = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           const partsDmgPct = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
           const endTick     = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'rapi_s1_enterBurst_atkPct',   unitId: caster.id, atkPct: atkPct, endTick });
-          pushBuff(state, { name: 'rapi_s1_enterBurst_partsDmg', unitId: caster.id, interruptionPartsDamagePct: partsDmgPct, endTick });
+          pushBuff(state, { name: 'Battlefield Assessment P3', unitId: caster.id, atkPct, interruptionPartsDamagePct: partsDmgPct, endTick });
         },
       },
     ],
@@ -114,7 +108,6 @@ export default {
       // S2 被动：战斗开始时初始化 attach/explode 倍率及所有弹丸计数器
       {
         on: 'BATTLE_START',
-        logTargets: 'SELF',
         handler(state, caster) {
           const attachBonus    = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const explosionBonus = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
@@ -140,13 +133,13 @@ export default {
           const em      = caster.skillState.rapiProjectileExplosionMult;
           // 弹丸命中伤害：[S2 param1]% ATK（lv10=88.11%）
           const hitMult = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
-          fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2 Projectile Attachment', {
+          fireSkillHit(state, caster, hitMult, sums, 'S2 P2 Projectile Attachment', {
             isCore: state.enemyHasCore, coreDmgIncrement: caster.coreDmgIncrement ?? 0,
             extraAttackDamagePct: am - 1, applyDistanceAdv: true,
           });
           if (state.fullBurstActive) {
             // 全爆裂期间立即爆炸（不需等待，触发 projectileExplosion 加成）
-            fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2 Projectile Explosion', {
+            fireSkillHit(state, caster, hitMult, sums, 'S2 P2 Projectile Explosion', {
               isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true, applyDistanceAdv: true,
             });
           } else {
@@ -155,10 +148,9 @@ export default {
         },
       },
       // 待定 projectile 在进入全爆裂时爆炸（享受 ENTER_FULL_BURST buff 加成，按累计数量各爆一次）
+      // 注：与 SHOT_COUNT 同属■段1，此触发器 tdefIdx=2（partIdx=2），接受偏移
       {
         on: 'ENTER_FULL_BURST',
-        partOverride: 1,
-        logTargets: null,
         handler(state, caster) {
           const count = caster.skillState.rapiPendingProjectileCount;
           if (count <= 0) return false;
@@ -167,7 +159,7 @@ export default {
           const em      = caster.skillState.rapiProjectileExplosionMult;
           const hitMult = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           for (let i = 0; i < count; i++) {
-            fireSkillHit(state, caster, hitMult, sums, false, 'S2 P2 Projectile Explosion', {
+            fireSkillHit(state, caster, hitMult, sums, 'S2 P2 Projectile Explosion', {
               isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true, applyDistanceAdv: true,
             });
           }
@@ -207,8 +199,6 @@ export default {
       {
         on: 'BURST_SKILL_USE',
         conditions: [{ type: 'IS_COMBAT_ASSIST' }],
-        partOverride: 0,
-        logTargets: 'SELF',
         handler(state, caster) {
           caster.burstCdRemaining = Math.max(0, caster.burstCdRemaining - TICK_RATE * 20);
         },
@@ -217,11 +207,9 @@ export default {
       {
         on: 'BURST_SKILL_USE',
         conditions: [{ type: 'IS_COMBAT_ASSIST' }],
-        partOverride: 1,
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const atkPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'rapi_burst_ca_atkFlat', unitId: null,
+          pushBuff(state, { name: 'Power of Inheritance', unitId: null,
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -230,8 +218,6 @@ export default {
       {
         on: 'BURST_SKILL_USE',
         conditions: [{ type: 'NOT_COMBAT_ASSIST' }],
-        partOverride: 2,
-        logTargets: null,
         handler(state, caster) {
           if (caster.skillState.rapiShotCount >= 60) {
             caster.skillState.rapiShotCount -= 60;
@@ -251,8 +237,6 @@ export default {
       {
         on: 'BURST_SKILL_USE',
         conditions: [{ type: 'NOT_COMBAT_ASSIST' }],
-        partOverride: 3,
-        logTargets: 'SELF',
         handler(state, caster) {
           const end10 = state.tick + TICK_RATE * 10;
           const s2AttachPassive  = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
@@ -265,7 +249,6 @@ export default {
       // 全爆裂结束：若 buff 已过期则恢复 S2 非全爆裂默认参数（实现内部逻辑，不记日志）
       {
         on: 'FULL_BURST_END',
-        logTargets: null,
         handler(state, caster) {
           if (state.tick < caster.skillState.rapiProjectileBuffEndTick) return;
           caster.skillState.rapiProjectileThreshold  = 120;

@@ -1,7 +1,8 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+         getBuffSums, TICK_RATE, BURST_GAUGE_MAX, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Helm  (resource_id: 352)
 export default {
 
   // ── Frontline Command
@@ -20,21 +21,19 @@ export default {
       // S1（Frontline Command）：末弹 → 全员 Crit Rate ▲X% 5s（SSR fav 数值）
       {
         on: 'LAST_BULLET',
-        logTargets: 'ALL_ALLIES',
         // [TODO 基础技能] 末弹 → 全员 Crit Rate ▲p01% p02s（基础技能 group_id 23521 未建模）
         handler(state, caster) {
           const helmS1 = caster.ssrFavSkills?.skill1;
           const s1Lv   = helmS1?._activeSkillLevel ?? 0;
           if (!helmS1 || s1Lv <= 0) return false;
           const critBonus = getSkillValue(helmS1, 0, s1Lv) / 100;
-          pushBuff(state, { name: 'helm_skill1_critRate', unitId: null,
-            normalAttackCritRateBonus: critBonus, endTick: state.tick + TICK_RATE * 5 });
+          pushBuff(state, { name: 'Frontline Command', unitId: null,
+            normalAttackCritRatePct: critBonus, endTick: state.tick + TICK_RATE * 5 });
         },
       },
       // S1 SSR：全蓄力命中 → 全员 HP 回复（dvl[2]） + 全队共享爆裂槽增加（dvl[3]）
       {
         on: 'FULL_CHARGE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const helmS1 = caster.ssrFavSkills?.skill1;
           const s1Lv   = helmS1?._activeSkillLevel ?? 0;
@@ -46,7 +45,7 @@ export default {
           if (hpPct > 0) {
             const hpGain = Math.round(caster.stats.hp * hpPct);
             // 全员治疗；HEAL_RECEIVED 触发由 battle.js 中 applyHeal 后调用 executeSkillTriggers 覆盖
-            for (const u of state.squad) applyHeal(state, u, hpGain);
+            applyHeal(state, ALL_ALLIES, hpGain);
           }
           if (bgPct > 0)
             addBurstGauge(state, caster.name, 'helm_s1_gaugeBoost', Math.round(bgPct * BURST_GAUGE_MAX));
@@ -74,20 +73,18 @@ export default {
       // [TODO 基础技能] 进入全爆裂 → 全员 Attack Damage ▲p02% p03s（基础技能 group_id 23522 未建模）
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const helmS2    = caster.ssrFavSkills?.skill2;
           const s2Lv      = helmS2?._activeSkillLevel ?? 0;
           if (!helmS2 || s2Lv <= 0) return false;
           const atkDmgPct = getSkillValue(helmS2, 1, s2Lv) / 100;
-          pushBuff(state, { name: 'helm_skill2_attackDmg', unitId: null,
+          pushBuff(state, { name: 'Fire Away', unitId: null,
             attackDamagePct: atkDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
       // S2 SSR：全蓄力命中 → 额外技能伤害（dvl[3]） + Helm 爆裂槽增加
       {
         on: 'FULL_CHARGE',
-        logTargets: null,
         handler(state, caster, ctx) {
           const helmS2 = caster.ssrFavSkills?.skill2;
           const s2Lv   = helmS2?._activeSkillLevel ?? 0;
@@ -96,7 +93,7 @@ export default {
           const exMult = parseFloat(exVals[s2Lv - 1] ?? '0') / 100;
           if (exMult <= 0) return;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, exMult, sums, false, 'S2');
+          fireSkillHit(state, caster, exMult, sums, 'S2');
           addBurstGauge(state, caster.name, 'helm_s2_skill', caster.targetBurstEnergyPerShot);
         },
       },
@@ -123,7 +120,6 @@ export default {
       // Burst P1（敌人）：延迟 1.05s 爆裂技能伤害
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ENEMY',
         handler(state, caster) {
           const helmBurst = caster.ssrFavSkills?.burst;
           const bLv       = helmBurst?._activeSkillLevel ?? 0;
@@ -139,27 +135,25 @@ export default {
       // Burst P2（全员）：生命偷取 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const helmBurst = caster.ssrFavSkills?.burst;
           const bLv       = helmBurst?._activeSkillLevel ?? 0;
           if (!helmBurst || bLv <= 0) return false;
           const lsPct = getSkillValue(helmBurst, 1, bLv) / 100;
-          pushBuff(state, { name: 'helm_burst_heal', unitId: null,
+          pushBuff(state, { name: 'Aegis Cannon P2 L1', unitId: null,
             lifeStealPct: lsPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
       // Burst P3（自身）：蓄力伤害倍率 ▲ for 10 round(s)
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const helmBurst = caster.ssrFavSkills?.burst;
           const bLv       = helmBurst?._activeSkillLevel ?? 0;
           if (!helmBurst || bLv <= 0) return false;
           const cdPct = getSkillValue(helmBurst, 3, bLv) / 100;
           if (cdPct > 0)
-            pushBuff(state, { name: 'helm_burst_chargeDmg', unitId: caster.id,
+            pushBuff(state, { name: 'Aegis Cannon P3 L1', unitId: caster.id,
               chargeDamagePct: cdPct, endTick: Infinity, endRounds: 10 });
         },
       },

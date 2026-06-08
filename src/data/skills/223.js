@@ -1,4 +1,4 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
@@ -33,7 +33,6 @@ export default {
       // S1 Part1: Indomitability — 战斗开始 9s HP 不低于 1（1次/战）
       {
         on: 'BATTLE_START',
-        logTargets: 'SELF',
         handler(state, caster) {
           caster.skillState.nayutaIndomitabilityEndTick = state.tick + TICK_RATE * 9;
         },
@@ -41,16 +40,15 @@ export default {
       // S1 Part3: Memory Incineration 期间全蓄力攻击 → 全体 p07% + 舞台目标额外 p10%
       {
         on: 'FULL_CHARGE',
-        logTargets: null,
         handler(state, caster, ctx) {
           if ((caster.skillState.weaponSwitchEndTick ?? 0) <= 0 ||
               state.tick > caster.skillState.weaponSwitchEndTick) return;
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
           const allMult = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
-          if (state.enemyHp > 0) fireSkillHit(state, caster, allMult, sums, false, 'S1');
+          if (state.enemyHp > 0) fireSkillHit(state, caster, allMult, sums, 'S1');
           if (state.isStageTarget && state.enemyHp > 0) {
             const stageMult = getSkillValue(caster.rawSkill1, 9, caster.skillLevels[0]) / 100;
-            fireSkillHit(state, caster, stageMult, sums, false, 'S1 Boss');
+            fireSkillHit(state, caster, stageMult, sums, 'S1 Boss');
           }
         },
       },
@@ -82,28 +80,24 @@ export default {
     triggers: [
       {
         on: 'BATTLE_START',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.nayutaMemAbsStacks = 0;
         },
       },
       // S2 Impermanence — Memory Absorption 每 3s 触发（首次 t=3s）
       // 同步执行 S1 Part2 ally buffs（每次生效均刷新，含满层后）
+      // 注：属■段0，但因 BATTLE_START 初始化占用 tdefIdx=0，此触发器 tdefIdx=1（partIdx=1），接受偏移
       {
         on: 'INTERVAL',
-        partOverride: 0,
         opts: { seconds: 3 },
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           // S1 Part2：每次 Memory Absorption 生效 → 全员 5s buff + 自身治疗
           const end5        = state.tick + TICK_RATE * 5;
           const coreDmgPct  = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           const atkFlatPct  = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
           const healPct     = getSkillValue(caster.rawSkill1, 7, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'nayuta_s1_coreDmg', unitId: null,
-            coreDamagePct: coreDmgPct, endTick: end5 });
-          pushBuff(state, { name: 'nayuta_s1_atkFlat', unitId: null,
-            atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: end5 });
+          pushBuff(state, { name: 'Hypocrisy P2', unitId: null,
+            coreDamagePct: coreDmgPct, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: end5 });
           applyHeal(state, caster, Math.round(caster.stats.hp * healPct));
 
           // 层数上限 30；满层后 S1 Part2 仍每 3s 刷新
@@ -114,18 +108,18 @@ export default {
           // Hit Rate 累计值：直接写入已有 buff，因 pushBuff 不更新现有 buff 的数值字段
           const hrPerStack = getSkillValue(caster.rawSkill2, 8, caster.skillLevels[1]) / 100;
           const hrBuff = state.buffs.find(
-            b => b.name === 'nayuta_s2_hitRate' && b.unitId === caster.id);
+            b => b.name === 'Impermanence P1' && b.unitId === caster.id);
           if (hrBuff) {
-            hrBuff.hitRateBonus = s * hrPerStack;
+            hrBuff.hitRatePct = s * hrPerStack;
           } else {
-            state.buffs.push({ name: 'nayuta_s2_hitRate', unitId: caster.id,
-              hitRateBonus: s * hrPerStack, endTick: Infinity });
+            state.buffs.push({ name: 'Impermanence P1', unitId: caster.id,
+              hitRatePct: s * hrPerStack, endTick: Infinity });
           }
 
           // Stage 1: s=2（≥2 层）→ 自身 ATK ▲[S2 param5]%（永久，仅首次推送）
           if (s === 2) {
             const stage1AtkPct = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
-            pushBuff(state, { name: 'nayuta_s2_stage1_atkPct', unitId: caster.id,
+            pushBuff(state, { name: 'Impermanence P2 L1', unitId: caster.id,
               atkPct: stage1AtkPct, endTick: Infinity });
             state.pendingSkillEvents?.push({ type: 'skill_trigger', tick: state.tick,
               unitName: caster.name,
@@ -136,7 +130,7 @@ export default {
           // Stage 2: s=10（≥10 层）→ 自身 Attack Damage ▲[S2 param7]%（永久）
           if (s === 10) {
             const stage2AtkDmgPct = getSkillValue(caster.rawSkill2, 7, caster.skillLevels[1]) / 100;
-            pushBuff(state, { name: 'nayuta_s2_stage2_attackDmg', unitId: caster.id,
+            pushBuff(state, { name: 'Impermanence P2 L2', unitId: caster.id,
               attackDamagePct: stage2AtkDmgPct, endTick: Infinity });
             state.pendingSkillEvents?.push({ type: 'skill_trigger', tick: state.tick,
               unitName: caster.name,
@@ -147,7 +141,7 @@ export default {
           // Stage 3: s=30（=30 层）→ 自身 Core Damage ▲[S2 param3]%（永久）
           if (s === 30) {
             const stage3CoreDmgPct = getSkillValue(caster.rawSkill2, 3, caster.skillLevels[1]) / 100;
-            pushBuff(state, { name: 'nayuta_s2_stage3_coreDmg', unitId: caster.id,
+            pushBuff(state, { name: 'Impermanence P2 L3', unitId: caster.id,
               coreDamagePct: stage3CoreDmgPct, endTick: Infinity });
             state.pendingSkillEvents?.push({ type: 'skill_trigger', tick: state.tick,
               unitName: caster.name,
@@ -189,33 +183,30 @@ export default {
       // Burst P1（全员）：Attack Damage ▲ 15s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'nayuta_burst_attackDmg', unitId: null,
+          pushBuff(state, { name: 'Asceticism P1 L1', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 15 });
         },
       },
       // Burst P2（敌人）：爆裂技能伤害（ATK Dmg buff 已在 P1 生效）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: null,
         handler(state, caster) {
           if (state.enemyHp <= 0) return false;
           const sums         = getBuffSums(state, caster.id);
           const burstHitMult = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
-          fireSkillHit(state, caster, burstHitMult, sums, false, 'Burst');
+          fireSkillHit(state, caster, burstHitMult, sums, 'Burst');
         },
       },
       // Burst P3（自身）：Memory Incineration 武器切换（1.8s/FC，275.18% × 250%）10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const chargeTimeTicks     = Math.round(1.8 * TICK_RATE);
           const weaponSwitchHitMult = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           caster.skillState.weaponSwitchHitMult          = weaponSwitchHitMult;
-          caster.skillState.weaponSwitchType             = 'SR';
+          caster.skillState.weaponSwitchType             = 'Charged';
           caster.skillState.weaponSwitchEndTick          = state.tick + TICK_RATE * 10;
           caster.skillState.weaponSwitchChargeTimeTicks  = chargeTimeTicks;
           caster.skillState.weaponSwitchFullChargeDamage = 25000;

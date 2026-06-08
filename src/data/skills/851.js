@@ -1,6 +1,7 @@
 import { pushBuff, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Raven  (resource_id: 851)
 export default {
 
   // ── Shock Wave
@@ -21,7 +22,6 @@ export default {
       // Part1: 全蓄力 → DoT 叠层（max 10，每次刷新 5s 计时器）
       {
         on: 'FULL_CHARGE',
-        logTargets: 'ENEMY',
         handler(state, caster) {
           const lv           = caster.skillLevels[0];
           const multPerStack = getSkillValue(caster.rawSkill1, 0, lv) / 100;
@@ -51,11 +51,10 @@ export default {
       // Part2: 进入全爆裂 → 自身 ATK ▲ p02% 10s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv     = caster.skillLevels[0];
           const atkPct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-          pushBuff(state, { name: 'rv_s1_atk', unitId: caster.id,
+          pushBuff(state, { name: 'Shock Wave', unitId: caster.id,
             atkPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -98,7 +97,6 @@ export default {
       // Burst P1：全体爆裂技能伤害（延迟 1s）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ENEMY',
         handler(state, caster) {
           const lv        = caster.skillLevels[2];
           const burstMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
@@ -112,11 +110,10 @@ export default {
       // Burst P2：A.N. Mode — 自身持续伤害倍率▲ p01% 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv     = caster.skillLevels[2];
           const sdMult = getSkillValue(caster.rawBurst, 1, lv) / 100;
-          pushBuff(state, { name: 'rv_burst_sustainedDmg', unitId: caster.id,
+          pushBuff(state, { name: 'Tempest', unitId: caster.id,
             sustainedDamagePct: sdMult, endTick: state.tick + TICK_RATE * 10 });
         },
       },

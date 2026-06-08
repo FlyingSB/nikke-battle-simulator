@@ -1,7 +1,8 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Liberalio  (resource_id: 262)
 export default {
 
   // ── Calm Depths
@@ -27,18 +28,37 @@ export default {
       // S1 T1（Calm Depths）：进入全爆裂 → 自身 ATK ▲[S1 param0]% 3s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'SELF',
         handler(state, caster) {
           const atkPct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'lib_s1_t1_atkPct', unitId: caster.id,
+          pushBuff(state, { name: 'Calm Depths P1 L1', unitId: caster.id,
             atkPct, endTick: state.tick + TICK_RATE * 3 });
+        },
+      },
+      // S1 T2：全蓄力命中核心 → 自身 Attack Damage ▲[S1 param2]% 60s（刷新）
+      {
+        on: 'FULL_CHARGE',
+        conditions: [{ type: 'IS_CORE_HIT' }],
+        handler(state, caster) {
+          const attackDmgPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
+          pushBuff(state, { name: 'Calm Depths P2 L2', unitId: caster.id,
+            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 60 });
+        },
+      },
+      // S1 T3：全蓄力命中 → 5×[S1 param4]% ATK 技能伤害 + 为 Lib 补充爆裂槽
+      {
+        on: 'FULL_CHARGE',
+        handler(state, caster, ctx) {
+          const sums    = ctx.sums ?? getBuffSums(state, caster.id);
+          const skillMult = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
+          for (let h = 0; h < 5 && state.enemyHp > 0; h++) {
+            fireSkillHit(state, caster, skillMult, sums, 'S1', { isCore: false });
+            addBurstGauge(state, caster.name, 'lib_s1_t3_skill', caster.targetBurstEnergyPerShot);
+          }
         },
       },
       // S1 T4：进入全爆裂 → ATK 最低的 B3 友军蓄力速度减少 [S1 param5]% 10s
       {
         on: 'ENTER_FULL_BURST',
-        partOverride: 3,
-        logTargets: (caster) => caster.skillState.libS1T4Target ?? '',
         handler(state, caster) {
           const b3Units = state.squad.filter(u => u.burstStep === 'Step3');
           if (!b3Units.length) return false;
@@ -49,35 +69,9 @@ export default {
           const target = withFinalAtk.reduce((a, b) => a.finalAtk < b.finalAtk ? a : b).u;
           caster.skillState.libS1T4Target = target.name;
           const chargeTimeReductionPct = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'lib_s1_t4_chargeSpd', unitId: target.id,
+          pushBuff(state, { name: 'Calm Depths P4 L2', unitId: target.id,
             chargeTimeReductionTicks: Math.round(caster.chargeTimeTicks * chargeTimeReductionPct),
             endTick: state.tick + TICK_RATE * 10 });
-        },
-      },
-      // S1 T2：全蓄力命中核心 → 自身 Attack Damage ▲[S1 param2]% 60s（刷新）
-      {
-        on: 'FULL_CHARGE',
-        partOverride: 1,
-        conditions: [{ type: 'IS_CORE_HIT' }],
-        logTargets: 'SELF',
-        handler(state, caster) {
-          const attackDmgPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'lib_s1_t2_attackDmg', unitId: caster.id,
-            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 60 });
-        },
-      },
-      // S1 T3：全蓄力命中 → 5×[S1 param4]% ATK 技能伤害 + 为 Lib 补充爆裂槽
-      {
-        on: 'FULL_CHARGE',
-        partOverride: 2,
-        logTargets: null,
-        handler(state, caster, ctx) {
-          const sums    = ctx.sums ?? getBuffSums(state, caster.id);
-          const skillMult = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
-          for (let h = 0; h < 5 && state.enemyHp > 0; h++) {
-            fireSkillHit(state, caster, skillMult, sums, false, 'S1', { isCore: false });
-            addBurstGauge(state, caster.name, 'lib_s1_t3_skill', caster.targetBurstEnergyPerShot);
-          }
         },
       },
     ],
@@ -98,28 +92,26 @@ export default {
   skill2: {
     groupId: 22622,
     triggers: [
-      // S2 Part3：战斗开始 → 自身永久免疫蓄力速度增加/减少效果（技能/buff 来源；装备词条与魔方技能不受影响）
-      {
-        on: 'BATTLE_START',
-        partOverride: 2,
-        logTargets: 'SELF',
-        handler(state, caster) {
-          caster.immuneSkillChargeSpeed = true;
-        },
-      },
       // S2 Part1（Strange Currents）：全蓄力命中舞台目标 → Raging Current：自身 Attack Damage ▲[S2 param0]% 永久
       // 命中非舞台目标 Rapture → Gentle Current（蓄力时间固定为 1s）— 普通 Rapture 场景下触发，此处未建模
       {
         on: 'FULL_CHARGE',
-        partOverride: 0,
-        logTargets: 'SELF',
         handler(state, caster) {
           if (!state.isStageTarget) return false;
           if (caster.skillState.libRagingCurrentActive) return false;
           caster.skillState.libRagingCurrentActive = true;
           const attackDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'lib_s2_ragingCurrent', unitId: caster.id,
+          pushBuff(state, { name: 'Strange Currents', unitId: caster.id,
             attackDamagePct: attackDmgPct, endTick: Infinity });
+        },
+      },
+      // tdefIdx=1：■段1(Gentle Current)未建模，占位
+      {},
+      // S2 Part3：战斗开始 → 自身永久免疫蓄力速度增加/减少效果（技能/buff 来源；装备词条与魔方技能不受影响）
+      {
+        on: 'BATTLE_START',
+        handler(state, caster) {
+          caster.immuneSkillChargeSpeed = true;
         },
       },
     ],
@@ -141,17 +133,15 @@ export default {
       // Burst P1：自身 Attack Damage ▲ p00% 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'lib_burst_attackDmg', unitId: caster.id,
+          pushBuff(state, { name: 'Submerged World', unitId: caster.id,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
       // Burst P2：额外技能伤害（延迟 0.97s，受全爆裂加成）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: null,
         handler(state, caster) {
           const burstMult = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           state.pendingSkillHits.push({

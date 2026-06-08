@@ -31,7 +31,6 @@ export default {
       // base 与 SSR 的 p00/p02 数值相同，故 skillObj 回退到 rawSkill1 时仍正确。
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const favS1    = caster.ssrFavSkills?.skill1;
           const lv       = favS1?._activeSkillLevel ?? caster.skillLevels[0];
@@ -42,11 +41,11 @@ export default {
           const pierce10sPct = getSkillValue(skillObj, 2, lv) / 100;
 
           // Pierce Damage ▲ p00%（endRounds:1 → 下次射击后整体失效）
-          pushBuff(state, { name: 'zwei_s1_pierce1r', unitId: null,
+          pushBuff(state, { name: 'Pierce Equation P1 L2', unitId: null,
             pierceDamagePct: pierce1rPct, endTick, endRounds: 1 });
 
           // Pierce Damage ▲ p02%（10s）
-          pushBuff(state, { name: 'zwei_s1_pierce10s', unitId: null,
+          pushBuff(state, { name: 'Pierce Equation P1 L3', unitId: null,
             pierceDamagePct: pierce10sPct, endTick });
         },
       },
@@ -62,7 +61,7 @@ export default {
           if (!favS1) return;
           const lv        = favS1._activeSkillLevel ?? 10;
           const piercePct = getSkillValue(favS1, 4, lv) / 100;
-          pushBuff(state, { name: 'zwei_s1_pierce_stack', unitId: null,
+          pushBuff(state, { name: 'Pierce Equation P2', unitId: null,
             pierceDamagePct: piercePct,
             endTick: state.tick + TICK_RATE * 10,
             endRounds: 1,
@@ -95,11 +94,10 @@ export default {
   skill2: {
     groupId: 123902,
     triggers: [
-      // P1：每 5 次普攻 → 全队封面 HP 回复（仅建模事件，不追踪数值）
+      // P1：每 5 次普攻 → 全队掩体 HP 回复（仅建模事件，不追踪数值）
       {
         on: 'SHOT_COUNT',
         opts: { every: 5, counterKey: 'zwei_s2_coverShots' },
-        logTargets: 'ALL_ALLIES',
         handler(state) {
           applyCoverHeal(state);
         },
@@ -107,7 +105,6 @@ export default {
       // P2：进入全爆裂 → 全队暴击率 ▲ p02%（p03 秒；SSR: 10s，base: 5s）
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const favS2    = caster.ssrFavSkills?.skill2;
           const lv       = favS2?._activeSkillLevel ?? caster.skillLevels[1];
@@ -115,8 +112,8 @@ export default {
 
           const critPct = getSkillValue(skillObj, 2, lv) / 100;
           const dur     = getSkillValue(skillObj, 3, lv);   // base: 5s, SSR: 10s
-          pushBuff(state, { name: 'zwei_s2_critRate', unitId: null,
-            critRateBonus: critPct, endTick: state.tick + TICK_RATE * dur });
+          pushBuff(state, { name: 'Frame Analysis P2', unitId: null,
+            critRatePct: critPct, endTick: state.tick + TICK_RATE * dur });
         },
       },
       // P3 [SSR]：Pierce Attacks 101 中每次普攻 → 全队暴击率 ▲ p04% 5s（最多 3 层）
@@ -131,8 +128,8 @@ export default {
           const lv      = favS2._activeSkillLevel ?? 10;
           const critPct = getSkillValue(favS2, 4, lv) / 100;
           const dur     = getSkillValue(favS2, 6, lv);    // 5s
-          pushBuff(state, { name: 'zwei_s2_crit_stack', unitId: null,
-            critRateBonus: critPct,
+          pushBuff(state, { name: 'Frame Analysis P3', unitId: null,
+            critRatePct: critPct,
             endTick: state.tick + TICK_RATE * dur,
             stackLimit: 3 });
         },
@@ -163,7 +160,6 @@ export default {
       // 建模规范参照 Snow White（220.js）weaponSwitch 字段约定。
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const favBurst = caster.ssrFavSkills?.burst;
           const lv       = favBurst?._activeSkillLevel ?? caster.skillLevels[2];
@@ -182,7 +178,7 @@ export default {
           caster.reloadTick = 0;
 
           caster.skillState.weaponSwitchHitMult          = hitMult;
-          caster.skillState.weaponSwitchType             = 'SR';
+          caster.skillState.weaponSwitchType             = 'Charged';
           caster.skillState.weaponSwitchEndTick          = Infinity;
           caster.skillState.weaponSwitchRoundsLeft       = 1;
           caster.skillState.weaponSwitchChargeTimeTicks  = chargeTimeTicks;
@@ -192,9 +188,8 @@ export default {
           caster.skillState.weaponSwitchBackswingTicks   = 55;
           caster.skillState.weaponSwitchPierce           = true;
           // 游戏实机特性（可视为 bug）：武器切换后的一击造成两次独立伤害。
-          // 第一次命中触发 S1 P2（消耗掉 S1 P1 的一发穿透 buff），
-          // 第二次命中受 S1 P2 本次叠加的 pierce_stack 加成，但不消耗它。
-          // 战斗引擎识别此标志并执行双重命中逻辑（见 battle.js）。
+          // 第一次命中受 S1 P1 pierce1r 加成并消耗它，随后触发 S1 P2 叠加一次 pierce_stack；
+          // 第二次命中受 pierce_stack 加成但不消耗它（由 battle.js 双重命中逻辑处理）。
           caster.skillState.weaponSwitchDoubleHit        = true;
           // 立即开始蓄力
           caster.chargeTick = state.tick + chargeTimeTicks;
@@ -203,14 +198,13 @@ export default {
       // P2：全队 Pierce Attacks 101 → Pierce Damage ▲ p02% 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const favBurst = caster.ssrFavSkills?.burst;
           const lv       = favBurst?._activeSkillLevel ?? caster.skillLevels[2];
           const skillObj = favBurst ?? caster.rawBurst;
 
           const piercePct = getSkillValue(skillObj, 2, lv) / 100;
-          pushBuff(state, { name: 'zwei_burst_pierce', unitId: null,
+          pushBuff(state, { name: 'Overcharge Formula', unitId: null,
             pierceDamagePct: piercePct, endTick: state.tick + TICK_RATE * 10 });
         },
       },

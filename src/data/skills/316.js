@@ -1,6 +1,7 @@
 import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Velvet  (resource_id: 316)
 export default {
 
   // ── Sticky Fingers
@@ -22,25 +23,23 @@ export default {
       // Part1：战斗开始 → 弹药袋初始化至 6000
       {
         on: 'BATTLE_START',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.velvetAmmoPouch = 6000;
         },
       },
       // Part1：进入爆裂阶段 2（B1 施放后、B2 施放前）→ 弹药袋充满至 6000
+      // 注：与 BATTLE_START 同属■段0，此触发器 tdefIdx=1（partIdx=1），接受偏移
       {
         on: 'ENTER_BURST_II',
-        partOverride: 0,
         handler(state, caster) {
           caster.skillState.velvetAmmoPouch = 6000;
         },
       },
       // Part2：全蓄力攻击（非全爆裂）→ 消耗弹药袋 100 发，自身 ATK + Attack Damage ▲ 3s
       // 弹药袋消耗计入全队弹药里程碑（供 LM 等统计），但不视作攻击命中。
+      // 注：属■段1，但因■段0有2个触发器，此触发器 tdefIdx=2（partIdx=2），接受偏移
       {
         on: 'FULL_CHARGE',
-        partOverride: 1,
-        logTargets: 'SELF',
         handler(state, caster) {
           if (state.fullBurstActive) return false;
           const pouch = caster.skillState.velvetAmmoPouch ?? 0;
@@ -50,10 +49,9 @@ export default {
 
           const lv   = caster.skillLevels[0];
           const end3 = state.tick + TICK_RATE * 3;
-          pushBuff(state, { name: 'velvet_s1_atk',
-            unitId: caster.id, atkPct: getSkillValue(caster.rawSkill1, 4, lv) / 100, endTick: end3 });
-          pushBuff(state, { name: 'velvet_s1_atkDmg',
-            unitId: caster.id, attackDamagePct: getSkillValue(caster.rawSkill1, 6, lv) / 100, endTick: end3 });
+          pushBuff(state, { name: 'Sticky Fingers P2', unitId: caster.id,
+            atkPct: getSkillValue(caster.rawSkill1, 4, lv) / 100,
+            attackDamagePct: getSkillValue(caster.rawSkill1, 6, lv) / 100, endTick: end3 });
         },
       },
     ],
@@ -81,7 +79,6 @@ export default {
       // 爆裂武器切换（SMG）期间不触发 FULL_CHARGE，本效果在武器切换结束后由 SR 全蓄力触发。
       {
         on: 'FULL_CHARGE',
-        logTargets: 'ALL_ALLIES',
         conditions: [{ type: 'IN_FULL_BURST' }],
         handler(state, caster) {
           const pouch = caster.skillState.velvetAmmoPouch ?? 0;
@@ -92,16 +89,13 @@ export default {
           const lv      = caster.skillLevels[1];
           const end3    = state.tick + TICK_RATE * 3;
           const atkFlat = Math.round(caster.stats.atk * getSkillValue(caster.rawSkill2, 1, lv) / 100);
-          pushBuff(state, { name: 'velvet_s2_atkFlat',
-            unitId: null, atkFlat, endTick: end3 });
-          pushBuff(state, { name: 'velvet_s2_cdmg',
-            unitId: null, chargeDamagePct: getSkillValue(caster.rawSkill2, 3, lv) / 100, endTick: end3 });
+          pushBuff(state, { name: 'Bullets of Love P1 L1',
+            unitId: null, atkFlat, chargeDamagePct: getSkillValue(caster.rawSkill2, 3, lv) / 100, endTick: end3 });
         },
       },
       // Part2 辅助：进入全爆裂 → 重置普攻计数器
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.velvetFbShotCount = 0;
         },
@@ -123,7 +117,7 @@ export default {
           state.totalAmmoFired += 300;
 
           const lv = caster.skillLevels[1];
-          pushBuff(state, { name: 'velvet_s2_atkDmg',
+          pushBuff(state, { name: 'Bullets of Love P2 L4',
             unitId: caster.id, attackDamagePct: getSkillValue(caster.rawSkill2, 7, lv) / 100,
             endTick: state.tick + TICK_RATE * 5 });
           if (state.enemyHp > 0)
@@ -151,12 +145,11 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv    = caster.skillLevels[2];
           const end10 = state.tick + TICK_RATE * 10;
 
-          pushBuff(state, { name: 'velvet_burst_atkDmg',
+          pushBuff(state, { name: 'Perfect Execution',
             unitId: caster.id, attackDamagePct: getSkillValue(caster.rawBurst, 2, lv) / 100, endTick: end10 });
 
           caster.skillState.weaponSwitchHitMult         = getSkillValue(caster.rawBurst, 0, lv) / 100;

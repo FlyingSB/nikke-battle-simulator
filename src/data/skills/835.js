@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Asuka: WILLE  (resource_id: 835)
 // ─── Anti A.T. Field 叠层管理 ──────────────────────────────────────────────
 // 叠层全批同时计时（每次新增叠层刷新到期时间）。
 // 直接累加 enemyDamageTakenPct，移除时整批减去。
@@ -44,7 +45,7 @@ function fireAnnihilation(state, caster) {
   if (stacks > 0) {
     const annMult = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]) / 100;
     const sums    = getBuffSums(state, caster.id);
-    fireSkillHit(state, caster, annMult * stacks, sums, false, 'Burst');
+    fireSkillHit(state, caster, annMult * stacks, sums, 'Burst');
   }
 
   // ── S2 Part2 ──
@@ -96,7 +97,7 @@ export default {
         handler(state, caster) {
           const sums   = getBuffSums(state, caster.id);
           const dmgPct = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'S1 P1');
+          fireSkillHit(state, caster, dmgPct, sums, 'S1 P1');
         },
       },
       // S1 Part2（Annihilation State 期间）：每 10 发 → 技能伤害 p06% + Anti A.T. Field 叠层
@@ -110,7 +111,7 @@ export default {
           const sums = getBuffSums(state, caster.id);
           const p06  = getSkillValue(caster.rawSkill1, 5, s1Lv) / 100;
           const p07  = getSkillValue(caster.rawSkill1, 6, s1Lv) / 100;
-          fireSkillHit(state, caster, p06, sums, false, 'S1 P2');
+          fireSkillHit(state, caster, p06, sums, 'S1 P2');
           applyAtfStack(state, caster, p07);
         },
       },
@@ -137,11 +138,10 @@ export default {
       // S2 Part1：进入全爆裂时若处于 Annihilation State → Attack Damage ▲p01% 10s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'SELF',
         handler(state, caster) {
           if (state.tick > (caster.skillState.annihilationStateEndTick ?? 0)) return false;
           const atkDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'asuka_w_s2_p1_atkDmg', unitId: caster.id,
+          pushBuff(state, { name: 'Emergency Repair', unitId: caster.id,
             attackDamagePct: atkDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -149,7 +149,6 @@ export default {
       // 固定换弹速度清除：本次装填完成后 fixedReloadSpeedPct 失效
       {
         on: 'RELOAD_END',
-        logTargets: null,
         handler(state, caster, ctx) {
           if (ctx.unit.id !== caster.id) return;
           caster.skillState.fixedReloadSpeedPct = null;
@@ -176,7 +175,6 @@ export default {
       // Annihilation State 激活（爆裂技能使用时）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const bLv  = caster.skillLevels[2];
           const end9 = state.tick + TICK_RATE * 9;
@@ -186,17 +184,17 @@ export default {
           caster.skillState.annihilationFired        = false;
 
           // Effect 1: Normal Attack Damage Multiplier ▼40%（9s，负 buff）
-          pushBuff(state, { name: 'asuka_w_burst_naDebuff', unitId: caster.id,
+          pushBuff(state, { name: 'Annihilation State P1 L1', unitId: caster.id,
             normalAttackDamagePct: -0.40, endTick: end9 });
 
           // Effect 3: ATK ▲p02%（9s）
           const atkPct = getSkillValue(caster.rawBurst, 1, bLv) / 100;
-          pushBuff(state, { name: 'asuka_w_burst_atk', unitId: caster.id,
+          pushBuff(state, { name: 'Annihilation State P1 L3', unitId: caster.id,
             atkPct, endTick: end9 });
 
           // Effect 4: Attack Damage ▲p04%（9s）
           const atkDmgPct = getSkillValue(caster.rawBurst, 3, bLv) / 100;
-          pushBuff(state, { name: 'asuka_w_burst_atkDmg', unitId: caster.id,
+          pushBuff(state, { name: 'Annihilation State P1 L4', unitId: caster.id,
             attackDamagePct: atkDmgPct, endTick: end9 });
 
           // Effect 2: 装填 p01% 弹匣（Annihilation 发动时 S2 会清空弹药；净补弹量由时序决定）
@@ -209,7 +207,6 @@ export default {
       // Annihilation 到期检查 + MG 过热恢复检查（每 1s 轮询）
       {
         on: 'INTERVAL',
-        logTargets: null,
         opts: { seconds: 1 },
         handler(state, caster) {
           const asEnd     = caster.skillState.annihilationStateEndTick ?? 0;

@@ -1,6 +1,7 @@
 import { pushBuff, applyHeal, applyCoverHeal, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Naga  (resource_id: 450)
 export default {
 
   // ── Guardian of Friendship
@@ -29,7 +30,7 @@ export default {
         handler(state, caster) {
           const lv         = caster.skillLevels[0];
           const coreDmgPct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-          pushBuff(state, { name: 'naga_s1_coreDmg', unitId: null,
+          pushBuff(state, { name: 'Guardian of Friendship', unitId: null,
             coreDamagePct: coreDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -63,7 +64,7 @@ export default {
           const endTick    = state.tick + TICK_RATE * 5;
           const sorted     = [...state.squad].sort((a, b) => b.stats.atk - a.stats.atk);
           for (const t of sorted.slice(0, 2)) {
-            pushBuff(state, { name: 'naga_s2p1_coreDmg', unitId: t.id,
+            pushBuff(state, { name: 'Support of Friendship', unitId: t.id,
               coreDamagePct: coreDmgPct, endTick });
           }
         },
@@ -107,32 +108,29 @@ export default {
       // Burst P1：自身获得穿透 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
-          caster.skillState.pierceEndTick = state.tick + TICK_RATE * 10;
+          pushBuff(state, { name: 'As Long As We\'re With Friends P1 L1', unitId: caster.id,
+            pierce: true, endTick: state.tick + TICK_RATE * 10 });
         },
       },
       // Burst P2：全员 ATK flat ▲（p01% Naga ATK）10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv     = caster.skillLevels[2];
           const atkPct = getSkillValue(caster.rawBurst, 1, lv) / 100;
-          pushBuff(state, { name: 'naga_burst_atk', unitId: null,
+          pushBuff(state, { name: 'As Long As We\'re With Friends P2 L1', unitId: null,
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },
       // Part3：施放爆裂技能时自身有生效护盾 → 全员 ATK flat ▲（p03% Naga ATK）10s
       {
         on: 'BURST_SKILL_USE',
-        partOverride: 2,
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           if (!(caster.shieldHp > 0 && caster.shieldEndTick > state.tick)) return false;
           const lv     = caster.skillLevels[2];
           const atkPct = getSkillValue(caster.rawBurst, 3, lv) / 100;
-          pushBuff(state, { name: 'naga_burst_shield_atk', unitId: null,
+          pushBuff(state, { name: 'As Long As We\'re With Friends P3 L1', unitId: null,
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },

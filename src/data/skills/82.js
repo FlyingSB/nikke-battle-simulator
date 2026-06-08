@@ -2,6 +2,7 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Liter  (resource_id: 82)
 export default {
 
   // ── Liter Boost
@@ -27,20 +28,10 @@ export default {
   skill1: {
     groupId: 20821,
     triggers: [
-      {
-        on: 'PROGRAM_INIT',
-        logTargets: null,
-        handler(state, caster) {
-          caster.skillState.literFbCount       = 0;
-          caster.skillState.literBurstUseCount = 0;
-        },
-      },
       // S1 Part 1（Liter Boost）："前效重复触发"，进入全爆裂时：
       //   爆裂冷却累进减少：1st ▼2.34s; 2nd +▼2.70s; 3rd+ +▼3.17s
       {
         on: 'ENTER_FULL_BURST',
-        partOverride: 0,
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           caster.skillState.literFbCount++;
           const cnt = caster.skillState.literFbCount;
@@ -53,7 +44,7 @@ export default {
             u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
           }
           if (state.buffLog && reductionTicks > 0)
-            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'liter_s1_cdReduction', unitId: null, reductionTicks });
+            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'Liter Boost P1 L3', unitId: null, reductionTicks });
         },
       },
       // S1 Part 2："前效重复触发"，每次使用爆裂技能时（累计计数）：
@@ -62,24 +53,29 @@ export default {
       //   第 3 次+：全员 ATK ▲[S1 param7]% 5s
       {
         on: 'BURST_SKILL_USE',
-        partOverride: 1,
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const cnt         = ++caster.skillState.literBurstUseCount;
           const end5        = state.tick + TICK_RATE * 5;
           const maxAmmoPct  = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
-          const critDmgPct  = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
+          const critDamagePct  = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
           const atkPct      = getSkillValue(caster.rawSkill1, 7, caster.skillLevels[0]) / 100;
-          for (const u of state.squad) {
-            const boostExtra = Math.floor(u.baseAmmo * maxAmmoPct);
-            pushBuff(state, { name: `liter_s1_t1_reload_${u.id}`, unitId: u.id, maxAmmoFlat: boostExtra, endTick: end5 });
-            if (state.ammoLog)
+          pushBuff(state, { name: 'Liter Boost P2 L3', unitId: null, maxAmmoPct, endTick: end5 });
+          if (state.ammoLog) {
+            for (const u of state.squad)
               state.ammoLog.push({ tick: state.tick, unitId: u.id, unitName: u.name,
-                delta: 0, ammoAfter: u.ammoLeft, maxAmmo: u.maxAmmo + boostExtra,
-                maxAmmoDelta: boostExtra, source: `liter_s1_t1_maxAmmo(+${(maxAmmoPct*100).toFixed(2)}%)` });
+                delta: 0, ammoAfter: u.ammoLeft, maxAmmo: u.maxAmmo,
+                maxAmmoDelta: Math.round(u.baseAmmo * maxAmmoPct), source: `liter_s1_t1_maxAmmo(+${(maxAmmoPct*100).toFixed(2)}%)` });
           }
-          if (cnt >= 2) pushBuff(state, { name: 'liter_s1_critDmg', unitId: null, critDmgBonus: critDmgPct, endTick: end5 });
-          if (cnt >= 3) pushBuff(state, { name: 'liter_s1_atkPct',  unitId: null, atkPct,                  endTick: end5 });
+          if (cnt >= 2) pushBuff(state, { name: 'Liter Boost P2 L4', unitId: null, critDamagePct: critDamagePct, endTick: end5 });
+          if (cnt >= 3) pushBuff(state, { name: 'Liter Boost P2 L5', unitId: null, atkPct,                   endTick: end5 });
+        },
+      },
+      // 内部初始化（末尾放置不占用描述段 index）
+      {
+        on: 'PROGRAM_INIT',
+        handler(state, caster) {
+          caster.skillState.literFbCount       = 0;
+          caster.skillState.literBurstUseCount = 0;
         },
       },
     ],
@@ -108,10 +104,9 @@ export default {
       // Burst（Double Boost）：全员 ATK ▲[Burst param0]% 5s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const atkPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'liter_burst_atkPct', unitId: null, atkPct,
+          pushBuff(state, { name: 'Double Boost', unitId: null, atkPct,
             endTick: state.tick + TICK_RATE * 5 });
         },
       },

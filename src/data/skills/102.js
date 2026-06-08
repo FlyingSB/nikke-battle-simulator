@@ -1,6 +1,7 @@
 import { pushBuff, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Maxwell  (resource_id: 102)
 export default {
 
   // ── Straight Shot
@@ -18,7 +19,6 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv     = caster.skillLevels[0];
           const csPct  = getSkillValue(caster.rawSkill1, 0, lv) / 100;
@@ -30,10 +30,7 @@ export default {
           const targets = sorted.slice(0, 2);
 
           for (const t of targets) {
-            pushBuff(state, { name: 'mx_s1_chargeSpd', unitId: t.id,
-              chargeSpeedPct: csPct, endTick });
-            pushBuff(state, { name: 'mx_s1_atkPct', unitId: t.id,
-              atkPct, endTick });
+            pushBuff(state, { name: 'Straight Shot', unitId: t.id, chargeSpeedPct: csPct, atkPct, endTick });
           }
         },
       },
@@ -56,7 +53,6 @@ export default {
     triggers: [
       {
         on: 'BATTLE_START',
-        logTargets: null,
         handler(state, caster) {
           const enemyCount = state.enemyCount ?? 1;
           if (enemyCount <= 5) return false;
@@ -64,10 +60,8 @@ export default {
           const lv    = caster.skillLevels[1];
           const crPct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const cdPct = getSkillValue(caster.rawSkill2, 2, lv) / 100;
-          pushBuff(state, { name: 'mx_s2_critRate', unitId: caster.id,
-            critRateBonus: crPct, endTick: Infinity });
-          pushBuff(state, { name: 'mx_s2_critDmg', unitId: caster.id,
-            critDamagePct: cdPct, endTick: Infinity });
+          pushBuff(state, { name: 'Spark Shot', unitId: caster.id,
+            critRatePct: crPct, critDamagePct: cdPct, endTick: Infinity });
         },
       },
     ],
@@ -90,7 +84,6 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const bLv             = caster.skillLevels[2];
           const hitMult         = getSkillValue(caster.rawBurst, 0, bLv) / 100;

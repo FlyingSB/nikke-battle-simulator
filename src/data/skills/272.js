@@ -1,6 +1,7 @@
 import { pushBuff, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Rouge  (resource_id: 272)
 // 计算 Rouge 施法时的有效 MaxHP（含 maxHpPct / maxHpFlat buff）
 function casterMaxHp(state, caster) {
   const sums = getBuffSums(state, caster.id);
@@ -35,7 +36,6 @@ export default {
       // 每 8 次全蓄力 → 全员 Max HP ▲（仅增上限，不恢复 HP）+ 全员爆裂冷却▼
       {
         on: 'FULL_CHARGE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           caster.skillState.rougeS1FcCount = (caster.skillState.rougeS1FcCount ?? 0) + 1;
           if (caster.skillState.rougeS1FcCount < 8) return;
@@ -47,7 +47,7 @@ export default {
           const cdTicks   = Math.round(getSkillValue(caster.rawSkill1, 3, lv) * TICK_RATE);
           const endTick   = state.tick + TICK_RATE * 5;
 
-          pushBuff(state, { name: 'rouge_s1_maxHp', unitId: null, maxHpFlat, endTick });
+          pushBuff(state, { name: 'Card Throw', unitId: null, maxHpFlat, endTick });
           for (const u of state.squad)
             u.burstCdRemaining = Math.max(0, u.burstCdRemaining - cdTicks);
         },
@@ -78,7 +78,6 @@ export default {
       // Part1：战斗开始时处于 back row → Sword Coin 状态 → 自身+两侧友军永久 Attack Damage ▲
       {
         on: 'BATTLE_START',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const idx = state.squad.indexOf(caster);
           if (idx !== 1 && idx !== 3) return;  // 非 back row 不触发
@@ -87,7 +86,7 @@ export default {
           const attackDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
 
           for (const uid of adjacentTargetIds(state, caster)) {
-            pushBuff(state, { name: `rouge_s2_swordCoin_attackDmg_${uid}`, unitId: uid,
+            pushBuff(state, { name: 'Coin Flip P1', unitId: uid,
               attackDamagePct: attackDmgPct, endTick: Infinity });
           }
         },
@@ -97,7 +96,6 @@ export default {
       // Damage Taken ▼ 对友军的减伤不影响 DPS 输出，此处仅推进层级，不建模减伤 buff
       {
         on: 'FULL_CHARGE',
-        logTargets: null,
         handler(state, caster) {
           if ((caster.skillState.rougeCoinLevel ?? 0) !== 1) return;
 
@@ -112,7 +110,6 @@ export default {
       // 全员永久 Max HP ▲（不恢复 HP，模拟器中 maxHpFlat 不触发治疗）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster, ctx) {
           if (ctx.unit?.id !== caster.id) return;
           if ((caster.skillState.rougeCoinLevel ?? 0) !== 2) return;
@@ -124,7 +121,7 @@ export default {
 
           const maxHpFlat = Math.round(casterMaxHp(state, caster)
                               * getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100);
-          pushBuff(state, { name: 'rouge_s2_doubleSwordCoin_maxHp', unitId: null,
+          pushBuff(state, { name: 'Coin Flip P3', unitId: null,
             maxHpFlat, endTick: Infinity });
         },
       },
@@ -156,12 +153,11 @@ export default {
       // Part1：无条件 → 全员 ATK flat ▲（% of caster ATK，10 sec）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster, ctx) {
           if (ctx.unit?.id !== caster.id) return;
           const lv      = caster.skillLevels[2];
           const atkFlat = Math.round(caster.stats.atk * getSkillValue(caster.rawBurst, 0, lv) / 100);
-          pushBuff(state, { name: 'rouge_burst_atkFlat', unitId: null,
+          pushBuff(state, { name: 'Game Master P1', unitId: null,
             atkFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -169,14 +165,13 @@ export default {
       // Part2：有 Sword Coin（level≥1）→ 全员 Max HP ▲（不恢复 HP，10 sec）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster, ctx) {
           if (ctx.unit?.id !== caster.id) return;
           if ((caster.skillState.rougeCoinLevel ?? 0) < 1) return;
           const lv        = caster.skillLevels[2];
           const maxHpFlat = Math.round(casterMaxHp(state, caster)
                               * getSkillValue(caster.rawBurst, 2, lv) / 100);
-          pushBuff(state, { name: 'rouge_burst_swordCoin_maxHp', unitId: null,
+          pushBuff(state, { name: 'Game Master P2', unitId: null,
             maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -184,14 +179,13 @@ export default {
       // Part3：有 Shield Coin（level≥2）→ 全员 Max HP ▲（10 sec；原文无"不恢复 HP"说明）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster, ctx) {
           if (ctx.unit?.id !== caster.id) return;
           if ((caster.skillState.rougeCoinLevel ?? 0) < 2) return;
           const lv        = caster.skillLevels[2];
           const maxHpFlat = Math.round(casterMaxHp(state, caster)
                               * getSkillValue(caster.rawBurst, 4, lv) / 100);
-          pushBuff(state, { name: 'rouge_burst_shieldCoin_maxHp', unitId: null,
+          pushBuff(state, { name: 'Game Master P3', unitId: null,
             maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -199,14 +193,13 @@ export default {
       // Part4：有 Double Sword Coin（level≥3）→ 全员 Max HP ▲（不恢复 HP，10 sec）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster, ctx) {
           if (ctx.unit?.id !== caster.id) return;
           if ((caster.skillState.rougeCoinLevel ?? 0) < 3) return;
           const lv        = caster.skillLevels[2];
           const maxHpFlat = Math.round(casterMaxHp(state, caster)
                               * getSkillValue(caster.rawBurst, 6, lv) / 100);
-          pushBuff(state, { name: 'rouge_burst_doubleSwordCoin_maxHp', unitId: null,
+          pushBuff(state, { name: 'Game Master P4', unitId: null,
             maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },

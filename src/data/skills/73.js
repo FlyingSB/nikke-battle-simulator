@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Brid: Silent Track  (resource_id: 73)
 export default {
 
   // ── Ignition Sequence
@@ -26,15 +27,13 @@ export default {
 
           // Wind Code 敌人承伤 ▲ p00% 10s
           const dtPct      = getSkillValue(caster.rawSkill1, 0, lv) / 100;
-          const existingDt = state.buffs.find(b => b.name === 'brid_s1_damageTaken');
-          if (!existingDt) state.enemyDamageTakenPct += dtPct;
-          pushBuff(state, { name: 'brid_s1_damageTaken', unitId: null,
+          pushBuff(state, { name: 'Ignition Sequence', unitId: null,
             enemyDamageTakenPct: dtPct, endTick: end });
 
           // 全体敌人技能伤害 p02%
           const dmgPct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
           const sums   = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, dmgPct, sums, false, 'S1');
+          fireSkillHit(state, caster, dmgPct, sums, 'S1');
         },
       },
     ],
@@ -68,9 +67,7 @@ export default {
           const end = state.tick + TICK_RATE * 10;
 
           const dtPct      = getSkillValue(caster.rawSkill2, 2, lv) / 100;
-          const existingDt = state.buffs.find(b => b.name === 'brid_s2_damageTaken');
-          if (!existingDt) state.enemyDamageTakenPct += dtPct;
-          pushBuff(state, { name: 'brid_s2_damageTaken', unitId: null,
+          pushBuff(state, { name: 'Journey Ahead', unitId: '__enemy__', isDebuff: true,
             enemyDamageTakenPct: dtPct, endTick: end });
         },
       },
@@ -82,7 +79,7 @@ export default {
           const lv     = caster.skillLevels[1];
           const dmgPct = getSkillValue(caster.rawSkill2, 6, lv) / 100;
           const sums   = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, dmgPct, sums, false, 'S2');
+          fireSkillHit(state, caster, dmgPct, sums, 'S2');
         },
       },
     ],
@@ -100,7 +97,6 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv      = caster.skillLevels[2];
           const atkPct  = getSkillValue(caster.rawBurst, 0, lv) / 100;
@@ -108,7 +104,7 @@ export default {
           const end     = state.tick + TICK_RATE * 10;
           for (const u of state.squad) {
             if (u.id === caster.id) continue;
-            pushBuff(state, { name: 'brid_burst_atk', unitId: u.id, atkFlat, endTick: end });
+            pushBuff(state, { name: 'Full Throttle', unitId: u.id, atkFlat, endTick: end });
           }
         },
       },

@@ -1,7 +1,8 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Scarlet: Black Shadow  (resource_id: 225)
 export default {
 
   // ── Fleetly Fading: Breakthrough
@@ -51,7 +52,7 @@ export default {
             const t = thresholds[i];
             if (prev < t && next >= t) {
               const label = inBurstMode ? `S1_burst_${i+1}` : `S1_normal_${i+1}`;
-              fireSkillHit(state, caster, dmgMults[i], sums, false, label, { isDistributed: i >= 1 });
+              fireSkillHit(state, caster, dmgMults[i], sums, label, { isDistributed: i >= 1 });
             }
           }
         },
@@ -72,20 +73,16 @@ export default {
       // S2（Fleetly Fading: Asura）：进入全爆裂 → 弹匣 ×(1+[S2 param0]%) 10s + 立即补满
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'SELF',
         handler(state, caster) {
           const mult       = 1 + getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           const seconds    = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]);
           const ammoBefore = caster.ammoLeft;
-          caster.tempMaxAmmoMult    = mult;
-          caster.tempMaxAmmoEndTick = state.tick + TICK_RATE * seconds;
-          const expandedMax = Math.max(1, caster.baseAmmo + Math.round(caster.baseAmmo * (mult - 1)))
-                            + Math.round(caster.baseAmmo * (caster.stats.bonusAmmo ?? 0)) + caster.favAmmoBonus;
-          caster.ammoLeft   = expandedMax;
-          caster.reloadTick = 0;
+          // maxAmmoPct = mult - 1（扩充）；pushBuff 触发 recalcMaxAmmo（§5.1.3 仅截断，不强制装填）
+          pushBuff(state, { name: 'Fleetly Fading: Asura', unitId: caster.id,
+            maxAmmoPct: mult - 1, endTick: state.tick + TICK_RATE * seconds });
           if (state.ammoLog)
             state.ammoLog.push({ tick: state.tick, unitId: caster.id, unitName: caster.name,
-              delta: caster.ammoLeft - ammoBefore, ammoAfter: caster.ammoLeft, maxAmmo: expandedMax,
+              delta: caster.ammoLeft - ammoBefore, ammoAfter: caster.ammoLeft, maxAmmo: caster.maxAmmo,
               source: 'sbs_s2_maxAmmo' });
         },
       },
@@ -109,13 +106,11 @@ export default {
       //        激活 S1 Burst 充能模式（每发 +3 步）10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const end10       = state.tick + TICK_RATE * 10;
           const atkPct      = getSkillValue(caster.rawBurst, 1, caster.skillLevels[2]) / 100;
           const chargeDmgPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'sbs_burst_atkPct',    unitId: caster.id, atkPct:          atkPct,      endTick: end10 });
-          pushBuff(state, { name: 'sbs_burst_chargeDmg', unitId: caster.id, chargeDamagePct: chargeDmgPct, endTick: end10 });
+          pushBuff(state, { name: 'Fleetly Fading: Strike', unitId: caster.id, atkPct, chargeDamagePct: chargeDmgPct, endTick: end10 });
           caster.skillState.sbsBurstChargeModeEndTick = end10;
         },
       },

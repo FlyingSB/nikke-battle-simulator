@@ -1,7 +1,8 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Cinderella  (resource_id: 511)
 export default {
 
   // ── Flawless Glass
@@ -28,37 +29,34 @@ export default {
           const atkFlatPct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
           const atkFlat    = Math.round(finalHp * atkFlatPct);
           const endTick    = state.tick + TICK_RATE * 10;
-          const existing = state.buffs.find(b => b.name === 'cinderella_s1_atkFlat' && b.unitId === caster.id);
+          const existing = state.buffs.find(b => b.name === 'Flawless Glass P1 L1' && b.unitId === caster.id);
           if (existing) { existing.atkFlat = atkFlat; existing.endTick = endTick; }
-          else pushBuff(state, { name: 'cinderella_s1_atkFlat', unitId: caster.id, atkFlat, endTick });
+          else pushBuff(state, { name: 'Flawless Glass P1 L1', unitId: caster.id, atkFlat, endTick });
         },
       },
       // S1 Part2：全蓄力攻击 → 自身 Charge Speed ▲100%（自然装填到满后移除）
       {
         on: 'FULL_CHARGE',
-        logTargets: 'SELF',
         handler(state, caster) {
-          pushBuff(state, { name: 'cinderella_s1_chargeSpd', unitId: caster.id,
+          pushBuff(state, { name: 'Flawless Glass P2 L2', unitId: caster.id,
             chargeSpeedPct: 1.0, endTick: Infinity });
         },
       },
       {
         on: 'RELOAD_END',
-        logTargets: null,
         handler(state, caster) {
           state.buffs = state.buffs.filter(b =>
-            !(b.name === 'cinderella_s1_chargeSpd' && b.unitId === caster.id));
+            !(b.name === 'Flawless Glass P2 L2' && b.unitId === caster.id));
         },
       },
       // S1 Part3：全蓄力命中 → [S1 param3]% ATK 附加技能伤害，同时附加对应充能
       {
         on: 'FULL_CHARGE',
-        logTargets: null,
         handler(state, caster, ctx) {
           if (state.enemyHp <= 0) return;
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
           const hitMult = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
-          fireSkillHit(state, caster, hitMult, sums, false, 'S1');
+          fireSkillHit(state, caster, hitMult, sums, 'S1');
           addBurstGauge(state, caster.name, 'S1_fc_bonus', caster.targetBurstEnergyPerShot ?? 0);
         },
       },
@@ -82,20 +80,18 @@ export default {
       // S2（Dirt-Resistant Mirror）：战斗开始 + 进入爆裂阶段 3 → 创建诱饵替身（96% MaxHP，持续）
       {
         on: 'BATTLE_START',
-        logTargets: null,
         handler(state, caster) { caster.skillState.cinderellaDecoyActive = true; },
       },
+      // 注：与 BATTLE_START 同属■段0，此触发器 tdefIdx=1（partIdx=1），接受偏移
       {
         on: 'ENTER_BURST_III',
-        partOverride: 0,
         handler(state, caster) { caster.skillState.cinderellaDecoyActive = true; },
       },
       // 每 3s Beautiful +1 层（上限 12），每层永久 MaxHP ▲1.6%
       // Beautiful 层数存于 cinderellaBeautyStacks；maxHpPct 写入 buff 使 getBuffSums 可聚合
+      // 注：属■段2，但因■段0有2个触发器，此触发器 tdefIdx=2（partIdx=2），接受偏移
       {
         on: 'INTERVAL',
-        partOverride: 1,
-        logTargets: 'SELF',
         opts: { seconds: 3 },
         handler(state, caster) {
           if (!caster.skillState.cinderellaDecoyActive) return false;
@@ -103,9 +99,9 @@ export default {
           caster.skillState.cinderellaBeautyStacks = (caster.skillState.cinderellaBeautyStacks ?? 0) + 1;
           const stacks       = caster.skillState.cinderellaBeautyStacks;
           const maxHpPerStack = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
-          const beautyBuff   = state.buffs.find(b => b.name === 'cinderella_beautiful' && b.unitId === caster.id);
+          const beautyBuff   = state.buffs.find(b => b.name === 'Dirt-Resistant Mirror' && b.unitId === caster.id);
           if (beautyBuff) { beautyBuff.maxHpPct = stacks * maxHpPerStack; }
-          else state.buffs.push({ name: 'cinderella_beautiful', unitId: caster.id,
+          else state.buffs.push({ name: 'Dirt-Resistant Mirror', unitId: caster.id,
             maxHpPct: stacks * maxHpPerStack, endTick: Infinity });
         },
       },
@@ -128,14 +124,13 @@ export default {
       //   S3 Part2：每次 Part1 命中后触发 Beautiful层数 × 28.9% 附加伤害（【已实测】非默认：sums:null，ENTER_FULL_BURST 后重算，享受全爆裂补正）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ENEMY',
         handler(state, caster) {
           const stacks         = caster.skillState.cinderellaBeautyStacks ?? 0;
           const burstHitMult   = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const beautyBonusPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const sums           = getBuffSums(state, caster.id);
           for (let i = 0; i < 10 && state.enemyHp > 0; i++) {
-            fireSkillHit(state, caster, burstHitMult, sums, false, 'Burst P1');
+            fireSkillHit(state, caster, burstHitMult, sums, 'Burst P1');
             if (stacks > 0) {
               state.pendingFireInBurstHits.push({
                 caster, mult: stacks * beautyBonusPct, sums: null,

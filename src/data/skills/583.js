@@ -1,6 +1,7 @@
 import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Arcana: Fortune Mate  (resource_id: 583)
 export default {
 
   // ── Keepsake Album
@@ -25,7 +26,6 @@ export default {
       //   Part3：移除 Making Memories 相关 buff，移除 Snapshots of Youth
       {
         on: 'FULL_BURST_END',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv      = caster.skillLevels[0];
           const atkPct  = getSkillValue(caster.rawSkill1, 0, lv) / 100;
@@ -35,17 +35,16 @@ export default {
             const end15   = state.tick + TICK_RATE * 15;
             for (const u of state.squad) {
               if (u.weaponType !== 'SG') continue;
-              pushBuff(state, { name: 'fortune_s1_atkFlat', unitId: u.id,
+              pushBuff(state, { name: 'Keepsake Album P1 L1', unitId: u.id,
                 atkFlat, endTick: end15 });
             }
           }
 
           // 移除 Making Memories 及其关联 buff
           state.buffs = state.buffs.filter(b =>
-            b.name !== 'fortune_burst_critRate' &&
-            b.name !== 'fortune_burst_attackDmg' &&
-            b.name !== 'fortune_s2_preciousMoments' &&
-            b.name !== 'fortune_s1_snapshotsOfYouth',
+            b.name !== 'Radiant Youth P1' &&
+            b.name !== 'Memories and Moments P1 L6' &&
+            b.name !== 'Keepsake Album P2 L2',
           );
 
           // 撤销 Happy Memories 弹丸叠加（差值还原，不影响其他来源的 shotCount 修改）
@@ -115,7 +114,7 @@ export default {
               const soStacks = (caster.skillState.fortune_snapshotsOfYouthStacks ?? 0);
               if (soStacks < 3) {
                 caster.skillState.fortune_snapshotsOfYouthStacks = soStacks + 1;
-                pushBuff(state, { name: 'fortune_s1_snapshotsOfYouth', unitId: caster.id,
+                pushBuff(state, { name: 'Keepsake Album P2 L2', unitId: caster.id,
                   normalAttackDamagePct: 0.1, endTick: Infinity });
               }
             }
@@ -126,7 +125,7 @@ export default {
             const stacks = caster.skillState.fortune_preciousMomentsStacks ?? 0;
             if (stacks < 3) {
               caster.skillState.fortune_preciousMomentsStacks = stacks + 1;
-              pushBuff(state, { name: 'fortune_s2_preciousMoments', unitId: caster.id,
+              pushBuff(state, { name: 'Memories and Moments P1 L6', unitId: caster.id,
                 atkPct, endTick: Infinity });
             }
             // 重置循环计数
@@ -137,14 +136,13 @@ export default {
       // S2 Part2：使用爆裂技能时，给所有 SG 友军（不含自身）附加 Attack Damage ▲ p05% 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv        = caster.skillLevels[1];
           const atkDmgPct = getSkillValue(caster.rawSkill2, 5, lv) / 100;
           const end10     = state.tick + TICK_RATE * 10;
           for (const u of state.squad) {
             if (u.id === caster.id || u.weaponType !== 'SG') continue;
-            pushBuff(state, { name: 'fortune_s2_burstSgAtkDmg', unitId: u.id,
+            pushBuff(state, { name: 'Memories and Moments P2 L2', unitId: u.id,
               attackDamagePct: atkDmgPct, endTick: end10 });
           }
         },
@@ -170,35 +168,17 @@ export default {
   burst: {
     groupId: 15833,
     triggers: [
-      // Burst：1 次爆裂技能伤害 × p03%
-      {
-        on: 'BURST_SKILL_USE',
-        target: 'ENEMY',
-        effects: [
-          {
-            type: 'SKILL_DAMAGE',
-            count: 1,
-            mult: (caster) => getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100,
-            label: 'Burst',
-          },
-        ],
-      },
       // Burst：施加 Making Memories（暴击率 + 补弹 + Attack Damage ▲，持续到 Full Burst 结束）
       {
         on: 'BURST_SKILL_USE',
-        partOverride: 0,
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv           = caster.skillLevels[2];
           const critRatePct  = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const atkDmgPct    = getSkillValue(caster.rawBurst, 2, lv) / 100;
 
-          // Making Memories：暴击率 ▲（持续到 Full Burst 结束时清除）
-          pushBuff(state, { name: 'fortune_burst_critRate', unitId: caster.id,
-            critRateBonus: critRatePct, endTick: Infinity });
-          // Making Memories：Attack Damage ▲（持续到 Full Burst 结束时清除）
-          pushBuff(state, { name: 'fortune_burst_attackDmg', unitId: caster.id,
-            attackDamagePct: atkDmgPct, endTick: Infinity });
+          // Making Memories：暴击率 ▲ + Attack Damage ▲（持续到 Full Burst 结束时清除）
+          pushBuff(state, { name: 'Radiant Youth P1', unitId: caster.id,
+            critRatePct: critRatePct, attackDamagePct: atkDmgPct, endTick: Infinity });
 
           // Making Memories：立即补弹 2 发
           const ammoBefore = caster.ammoLeft;
@@ -212,6 +192,19 @@ export default {
           caster.skillState.fortune_makingMemoriesActive = true;
           caster.skillState.fortune_mmShotCount          = 0;
         },
+      },
+      // Burst：1 次爆裂技能伤害 × p03%
+      {
+        on: 'BURST_SKILL_USE',
+        target: 'ENEMY',
+        effects: [
+          {
+            type: 'SKILL_DAMAGE',
+            count: 1,
+            mult: (caster) => getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100,
+            label: 'Burst',
+          },
+        ],
       },
     ],
   },

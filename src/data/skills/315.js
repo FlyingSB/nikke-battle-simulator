@@ -1,6 +1,7 @@
 import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Ade: Agent Bunny  (resource_id: 315)
 // 计算当前 Minimum Effective Range 累积值（%）。
 // 来源：Spy Lens 叠层（每层 4.44%，最多 10 层）+ 爆裂技能（+55.56%，10s）。
 function calcMinEffRangePct(state, caster) {
@@ -55,13 +56,12 @@ export default {
       // Part1：全蓄力命中有效射程内 → 全队 ATK ▲[p00]% of caster ATK（flat）5s
       {
         on: 'FULL_CHARGE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           if (!isInEffectiveRange(state, caster)) return;
           const lv   = caster.skillLevels[0];
           const pct  = getSkillValue(caster.rawSkill1, 0, lv) / 100;
           const flat = Math.round(caster.stats.atk * pct);
-          pushBuff(state, { name: 'aab_s1_atkFlat', unitId: null,
+          pushBuff(state, { name: 'Agent\'s Gaze P1 L1', unitId: null,
             atkFlat: flat, endTick: state.tick + TICK_RATE * 5 });
         },
       },
@@ -71,7 +71,6 @@ export default {
       // 每次叠层后同步 extraDistZones，使下一发射击立即享受扩展的优势射程
       {
         on: 'FULL_CHARGE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const now = state.tick;
 
@@ -89,11 +88,9 @@ export default {
           // 首次达到满层时激活 S2 Part2（pierce 持续 + ATK% 持续）
           if (stacks >= 10 && !caster.skillState.aabS2FullyStacked) {
             caster.skillState.aabS2FullyStacked = true;
-            caster.skillState.pierceActive      = true;
             const lv2    = caster.skillLevels[1];
             const atkPct = getSkillValue(caster.rawSkill2, 2, lv2) / 100;
-            pushBuff(state, { name: 'aab_s2_spyLens_atkPct', unitId: caster.id,
-              atkPct, endTick: Infinity });
+            pushBuff(state, { name: 'Agent\'s Movement P2', unitId: caster.id, pierce: true, atkPct, endTick: Infinity });
           }
         },
       },
@@ -118,12 +115,11 @@ export default {
       // Part1：全蓄力命中有效射程内 → 全队 Pierce Damage ▲[p00]% 5s
       {
         on: 'FULL_CHARGE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           if (!isInEffectiveRange(state, caster)) return;
           const lv  = caster.skillLevels[1];
           const pct = getSkillValue(caster.rawSkill2, 0, lv) / 100;
-          pushBuff(state, { name: 'aab_s2_pierceDmg', unitId: null,
+          pushBuff(state, { name: 'Agent\'s Movement P1 L1', unitId: null,
             pierceDamagePct: pct, endTick: state.tick + TICK_RATE * 5 });
         },
       },
@@ -150,7 +146,6 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv    = caster.skillLevels[2];
           const end10 = state.tick + TICK_RATE * 10;
@@ -162,10 +157,8 @@ export default {
           // 全队：Attack Damage + Pierce Damage
           const atkDmgPct = getSkillValue(caster.rawBurst, 2, lv) / 100;
           const piercePct = getSkillValue(caster.rawBurst, 4, lv) / 100;
-          pushBuff(state, { name: 'aab_burst_atkDmg',    unitId: null,
-            attackDamagePct: atkDmgPct, endTick: end10 });
-          pushBuff(state, { name: 'aab_burst_pierceDmg', unitId: null,
-            pierceDamagePct: piercePct, endTick: end10 });
+          pushBuff(state, { name: 'Cutting-Edge Agent Equipment', unitId: null,
+            attackDamagePct: atkDmgPct, pierceDamagePct: piercePct, endTick: end10 });
         },
       },
     ],

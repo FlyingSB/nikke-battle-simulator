@@ -2,6 +2,7 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Alice  (resource_id: 191)
 export default {
 
   // ── Energizing Carrot
@@ -21,7 +22,6 @@ export default {
       //   Charge Damage ▲[S1 param3]% 10s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const sorted          = [...state.squad].sort((a, b) => b.stats.atk - a.stats.atk);
           const targets         = sorted.slice(0, 2);
@@ -31,10 +31,8 @@ export default {
           const chargeReduction = Math.round(caster.chargeTimeTicks * csPct);
           const chargeDmgPct    = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
           for (const u of targets) {
-            pushBuff(state, { name: 'alice_s1_chargeSpd', unitId: u.id,
-              chargeTimeReductionTicks: chargeReduction, endTick: end10 });
-            pushBuff(state, { name: 'alice_s1_chargeDmg', unitId: u.id,
-              chargeDamagePct: chargeDmgPct, endTick: end10 });
+            pushBuff(state, { name: 'Energizing Carrot', unitId: u.id,
+              chargeTimeReductionTicks: chargeReduction, chargeDamagePct: chargeDmgPct, endTick: end10 });
           }
         },
       },
@@ -54,13 +52,12 @@ export default {
     triggers: [
       // S2 Part1（Healthy Carrot）：HP > 80% → 自身持续 Pierce
       // 模拟中队员 HP 始终为 100%，故战斗开始即激活。
-      // [TODO] 实现 HP 实时检测：HP > 80% 时 pierceActive=true，≤ 80% 时关闭
+      // [TODO] 实现 HP 实时检测：HP > 80% 时激活/移除 pierce buff
       // [TODO] S2 Part2：HP < 80% → 攻击时回复 8.12% ATK 量 HP（生命偷取）
       {
         on: 'BATTLE_START',
-        logTargets: 'SELF',
         handler(state, caster) {
-          caster.skillState.pierceActive = true;
+          pushBuff(state, { name: 'Healthy Carrot', unitId: caster.id, pierce: true, endTick: Infinity });
         },
       },
     ],
@@ -82,15 +79,12 @@ export default {
       // 启用快速攻击模式（40次/10s，由 battle.js 判定）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const end10      = state.tick + TICK_RATE * 10;
           const chargeSpd  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const atkPct     = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'alice_burst_chargeSpd', unitId: caster.id,
-            chargeSpeedPct: chargeSpd, endTick: end10 });
-          pushBuff(state, { name: 'alice_burst_atkPct', unitId: caster.id,
-            atkPct, endTick: end10 });
+          pushBuff(state, { name: 'Wonderland', unitId: caster.id,
+            chargeSpeedPct: chargeSpd, atkPct, endTick: end10 });
           caster.skillState.aliceWonderlandEndTick = end10;
         },
       },

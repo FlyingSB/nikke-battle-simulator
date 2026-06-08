@@ -1,6 +1,8 @@
 import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Tove  (resource_id: 192)
+// SSR 珍藏品: Fire Starter（id: 201101）
 export default {
 
   // ── Emergency-Crafted Bullets（SSR：Fire Starter 201101，skill_change_slot=1）
@@ -50,14 +52,14 @@ export default {
               delta: caster.ammoLeft - ammoBefore, ammoAfter: caster.ammoLeft,
               maxAmmo: caster.maxAmmo, source: 'tv_s1_reload' });
 
-          const critDmgPct = getSkillValue(favS1, 5, lv) / 100;
+          const critDamagePct = getSkillValue(favS1, 5, lv) / 100;
           const stackIncr  = getSkillValue(favS1, 2, lv);   // 1 或 2
           const maxStacks  = getSkillValue(favS1, 3, lv);   // 3
           const dur        = getSkillValue(favS1, 4, lv);   // 5 sec
           const endTick    = state.tick + TICK_RATE * dur;
 
           // Crit Damage ▲ 全队（含自身）
-          pushBuff(state, { name: 'tv_s1_critDmg', unitId: null, critDmgBonus: critDmgPct, endTick });
+          pushBuff(state, { name: 'Emergency-Crafted Bullets P2 L5', unitId: null, critDamagePct: critDamagePct, endTick });
 
           // Temporary Modification 叠层：到期则重置
           if ((ss.tvTempModEndTick ?? 0) < state.tick) ss.tvTempModStacks = 0;
@@ -74,12 +76,12 @@ export default {
           const atkSpdPct = getSkillValue(favS2, 1, lv2) / 100;
 
           // Crit Rate ▲ 全队（持续至 Temporary Modification 到期）
-          pushBuff(state, { name: 'tv_s2_critRate', unitId: null, critRateBonus: crPct, endTick });
+          pushBuff(state, { name: 'Modification Successful P1', unitId: null, critRatePct: crPct, endTick });
 
           // Attack Speed ▲ 霰弹枪友军（via buff 系统，支持多施法者叠加）
           for (const t of state.squad) {
             if (t.weaponType !== 'SG') continue;
-            pushBuff(state, { name: `tv_s1_atkSpeed_${caster.id}_${t.id}`, unitId: t.id, atkSpeedPct: atkSpdPct, endTick });
+            pushBuff(state, { name: 'Modification Successful P2', unitId: t.id, atkSpeedPct: atkSpdPct, endTick });
           }
         },
       },
@@ -123,7 +125,6 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const favBurst = caster.ssrFavSkills?.burst;
           if (!favBurst) return false;
@@ -139,12 +140,12 @@ export default {
           const allAtkFlat = casterAtk * allPct * stacks;
 
           // 全队 ATK ▲（flat，基于施法者 ATK）
-          pushBuff(state, { name: 'tv_burst_atk', unitId: null, atkFlat: allAtkFlat, endTick });
+          pushBuff(state, { name: 'Miracle of Makeshifts P1', unitId: null, atkFlat: allAtkFlat, endTick });
 
           // SG 友军额外 ATK ▲
           for (const t of state.squad) {
             if (t.weaponType !== 'SG') continue;
-            pushBuff(state, { name: 'tv_burst_atk_sg', unitId: t.id,
+            pushBuff(state, { name: 'Miracle of Makeshifts P2', unitId: t.id,
               atkFlat: casterAtk * sgPct * stacks, endTick });
           }
         },

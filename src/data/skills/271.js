@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Noir  (resource_id: 271)
 export default {
 
   // ── Lucky Charm
@@ -17,11 +18,10 @@ export default {
     triggers: [
       {
         on: 'BATTLE_START',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const pct     = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
           const atkFlat = Math.round(caster.stats.atk * pct);
-          pushBuff(state, { name: 'noir_s1_atkFlat', unitId: null,
+          pushBuff(state, { name: 'Lucky Charm', unitId: null,
             atkFlat, endTick: Infinity });
         },
       },
@@ -45,19 +45,17 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const ammoFlat  = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]);
           const reloadPct = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
           const endTick   = state.tick + TICK_RATE * 10;
+          pushBuff(state, { name: 'Rabbit Twins B', unitId: null, maxAmmoFlat: ammoFlat, endTick });
           for (const u of state.squad) {
-            pushBuff(state, { name: `noir_s2_reload_${caster.id}_${u.id}`, unitId: u.id, maxAmmoFlat: ammoFlat, endTick });
-            const expandedMax = u.maxAmmo + ammoFlat;
-            const reloadAmt   = Math.round(expandedMax * reloadPct);
-            u.ammoLeft        = Math.min(expandedMax, u.ammoLeft + reloadAmt);
+            const reloadAmt = Math.round(u.maxAmmo * reloadPct);
+            u.ammoLeft      = Math.min(u.maxAmmo, u.ammoLeft + reloadAmt);
             if (state.ammoLog)
               state.ammoLog.push({ tick: state.tick, unitId: u.id, unitName: u.name,
-                delta: reloadAmt, ammoAfter: u.ammoLeft, maxAmmo: expandedMax,
+                delta: reloadAmt, ammoAfter: u.ammoLeft, maxAmmo: u.maxAmmo,
                 maxAmmoDelta: ammoFlat, source: `noir_s2_maxAmmo(+${ammoFlat})_reload(${(reloadPct * 100).toFixed(2)}%)` });
           }
         },
@@ -93,34 +91,29 @@ export default {
       // Part1：爆裂技能伤害（全敌）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: null,
         handler(state, caster) {
           const pct  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, pct, sums, false, 'Burst');
+          fireSkillHit(state, caster, pct, sums, 'Burst');
         },
       },
       // Part2：霰弹枪友军 Hit Rate + Interruption Parts Dmg（10 sec）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const hitRatePct  = getSkillValue(caster.rawBurst, 1, caster.skillLevels[2]) / 100;
           const partsDmgPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
           const end10       = state.tick + TICK_RATE * 10;
           for (const u of state.squad) {
             if (u.weaponType !== 'SG') continue;
-            pushBuff(state, { name: 'noir_burst_sg_hitRate',  unitId: u.id,
-              hitRateBonus: hitRatePct, endTick: end10 });
-            pushBuff(state, { name: 'noir_burst_sg_partsDmg', unitId: u.id,
-              interruptionPartsDamagePct: partsDmgPct, endTick: end10 });
+            pushBuff(state, { name: 'Finale P2', unitId: u.id,
+              hitRatePct, interruptionPartsDamagePct: partsDmgPct, endTick: end10 });
           }
         },
       },
       // Part3：同小队友军存活 → 全员 Hit Rate + Interruption Parts Dmg（30 sec）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const hasSquadAlly = state.squad.some(
             u => u.id !== caster.id && u.squad === caster.squad && u.unitHp > 0,
@@ -129,10 +122,8 @@ export default {
           const hitRatePct  = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]) / 100;
           const partsDmgPct = getSkillValue(caster.rawBurst, 7, caster.skillLevels[2]) / 100;
           const end30       = state.tick + TICK_RATE * 30;
-          pushBuff(state, { name: 'noir_burst_squad_hitRate',  unitId: null,
-            hitRateBonus: hitRatePct, endTick: end30 });
-          pushBuff(state, { name: 'noir_burst_squad_partsDmg', unitId: null,
-            interruptionPartsDamagePct: partsDmgPct, endTick: end30 });
+          pushBuff(state, { name: 'Finale P3', unitId: null,
+            hitRatePct, interruptionPartsDamagePct: partsDmgPct, endTick: end30 });
         },
       },
     ],

@@ -1,4 +1,4 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
@@ -33,18 +33,17 @@ export default {
       //   Super Firepower 状态中追加 262.79% final ATK
       {
         on: 'FULL_CHARGE',
-        logTargets: null,
         handler(state, caster, ctx) {
           if (!state.isStageTarget) return;
           if (state.enemyHp <= 0) return;
           const sums     = ctx.sums ?? getBuffSums(state, caster.id);
           const baseMult = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
-          fireSkillHit(state, caster, baseMult, sums, false, 'S1 P1');
+          fireSkillHit(state, caster, baseMult, sums, 'S1 P1');
           addBurstGauge(state, caster.name, 'nve_s1_explosion', caster.targetBurstEnergyPerShot);
           const isSF = (caster.skillState.nveSuperFirepowerEndTick ?? 0) > state.tick;
           if (isSF) {
             const sfMult = getSkillValue(caster.rawSkill1, 7, caster.skillLevels[0]) / 100;
-            fireSkillHit(state, caster, sfMult, sums, false, 'S1 P2');
+            fireSkillHit(state, caster, sfMult, sums, 'S1 P2');
             addBurstGauge(state, caster.name, 'nve_s1_explosion_sf', caster.targetBurstEnergyPerShot);
           }
         },
@@ -78,7 +77,6 @@ export default {
       // S2 Part1：战斗开始 → 火力槽 = 100
       {
         on: 'BATTLE_START',
-        logTargets: 'SELF',
         handler(state, caster) {
           caster.skillState.nveGauge = getSkillValue(caster.rawSkill2, 7, caster.skillLevels[1]);
         },
@@ -104,20 +102,21 @@ export default {
         },
       },
 
+      // tdefIdx=2：■段2(Firepower Charge ends)由上方 SHOT_COUNT 内部逻辑处理，此处占位
+      {},
+
       // S2 Part4：全爆裂结束且火力槽 > 0 → 每发充能 +flat 5s
       //   flat_increment = burstEnergyPerShot × [S2 p02]% × 槽量
       //   flat 加法，与基础充能叠加后整体乘 FC 倍率（不是百分比乘法）
       {
         on: 'FULL_BURST_END',
-        partOverride: 3,
-        logTargets: 'SELF',
         handler(state, caster) {
           const gauge = caster.skillState.nveGauge ?? 0;
           if (gauge <= 0) return false;
           const rate          = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           const duration      = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]);
           const flatIncrement = Math.round(caster.burstEnergyPerShot * rate * gauge);
-          pushBuff(state, { name: 'nve_s2_burstGaugeFlat', unitId: caster.id,
+          pushBuff(state, { name: 'Firepower Charge P4 L2', unitId: caster.id,
             burstGaugeFlat: flatIncrement, endTick: state.tick + TICK_RATE * duration });
         },
       },
@@ -127,17 +126,13 @@ export default {
       //   （Burst 的 BURST_SKILL_USE 先于 ENTER_FULL_BURST 触发，Super Firepower 状态已生效）
       {
         on: 'ENTER_FULL_BURST',
-        partOverride: 4,
-        logTargets: 'SELF',
         handler(state, caster) {
           const end10  = state.tick + TICK_RATE * 10;
-          const atkPct = getSkillValue(caster.rawSkill2, 3, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'nve_s2_maxFP_atk', unitId: caster.id, atkPct, endTick: end10 });
+          const basePct = getSkillValue(caster.rawSkill2, 3, caster.skillLevels[1]) / 100;
           const isSF = (caster.skillState.nveSuperFirepowerEndTick ?? 0) > state.tick;
-          if (isSF) {
-            const sfAtkPct = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
-            pushBuff(state, { name: 'nve_s2_superFP_atk', unitId: caster.id, atkPct: sfAtkPct, endTick: end10 });
-          }
+          const sfAtkPct = isSF ? getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100 : 0;
+          const atkPct = basePct + sfAtkPct;
+          pushBuff(state, { name: 'Firepower Charge P5', unitId: caster.id, atkPct, endTick: end10 });
         },
       },
     ],
@@ -169,7 +164,6 @@ export default {
       //   常驻：Attack Damage ▲110.21% 10s（Explosion Radius ▲200% 未建模）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const end10 = state.tick + TICK_RATE * 10;
           const gauge = caster.skillState.nveGauge ?? 0;
@@ -178,7 +172,7 @@ export default {
             caster.skillState.nveGauge                 = gauge - 100;
             caster.skillState.nveSuperFirepowerEndTick = end10;
             const sfAtkDmgPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
-            pushBuff(state, { name: 'nve_burst_sf_atkDmg', unitId: caster.id,
+            pushBuff(state, { name: 'Super Firepower P2 L2', unitId: caster.id,
               attackDamagePct: sfAtkDmgPct, endTick: end10 });
           } else {
             caster.skillState.nveSuperFirepowerEndTick  = 0;
@@ -189,7 +183,7 @@ export default {
 
           // 常驻 Attack Damage buff
           const alwaysAtkDmgPct = getSkillValue(caster.rawBurst, 9, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'nve_burst_always_atkDmg', unitId: caster.id,
+          pushBuff(state, { name: 'Super Firepower P3 L3', unitId: caster.id,
             attackDamagePct: alwaysAtkDmgPct, endTick: end10 });
         },
       },

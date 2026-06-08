@@ -2,6 +2,7 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Mast: Romantic Maid  (resource_id: 354)
 export default {
 
   // ── A Pirate's Heart
@@ -22,17 +23,15 @@ export default {
       {
         on: 'ENTER_BURST_I',
         handler(state, caster) {
-          const drunken = state.buffs.find(b => b.name === 'mast_drunken');
+          const drunken = state.buffs.find(b => b.name === "A Pirate's Heart P1 L1");
           const current = drunken?.stackCount ?? 0;
           if (current >= 3) return;
           if (current === 0) {
-            const critRateBonus = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
+            const critRatePct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
             const atkFlatPct    = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
-            pushBuff(state, { name: 'mast_s1_critRate', derivedFrom: 'mast_drunken',
-              unitId: null, critRateBonus, endTick: Infinity });
-            pushBuff(state, { name: 'mast_s1_atkFlat', derivedFrom: 'mast_drunken',
-              unitId: null, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: Infinity });
-            state.buffs.push({ name: 'mast_drunken', unitId: caster.id, isDebuff: true,
+            pushBuff(state, { name: 'A Pirate\'s Heart P2', derivedFrom: 'A Pirate\'s Heart P1 L1',
+              unitId: null, critRatePct, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: Infinity });
+            state.buffs.push({ name: 'A Pirate\'s Heart P1 L1', unitId: caster.id, isDebuff: true,
               stackCount: 1, stackLimit: 3, endTick: Infinity });
           } else {
             drunken.stackCount++;
@@ -61,26 +60,23 @@ export default {
       {
         on: 'ENTER_BURST_III',
         handler(state, caster) {
-          const stacks = state.buffs.find(b => b.name === 'mast_drunken')?.stackCount ?? 0;
+          const stacks = state.buffs.find(b => b.name === "A Pirate's Heart P1 L1")?.stackCount ?? 0;
           if (stacks <= 0) return;
           const end10            = state.tick + TICK_RATE * 10;
           const distDmgPerStack  = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           const reloadSpdPerStack = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'mast_s2_distributedDmg', unitId: null,
-            distributedDamagePct: distDmgPerStack * stacks, endTick: end10 });
-          pushBuff(state, { name: 'mast_s2_reloadSpd', unitId: null,
-            reloadSpeedPct: reloadSpdPerStack * stacks, endTick: end10 });
+          pushBuff(state, { name: 'A Pirate\'s Spirit P1', unitId: null,
+            distributedDamagePct: distDmgPerStack * stacks, reloadSpeedPct: reloadSpdPerStack * stacks, endTick: end10 });
         },
       },
       // S2 Hangover：全爆裂结束，stacks = 3 → 眩晕自身 10s + 层数归零 + S1 被动移除
       {
         on: 'FULL_BURST_END',
-        logTargets: 'SELF',
         handler(state, caster) {
-          const drunken = state.buffs.find(b => b.name === 'mast_drunken');
+          const drunken = state.buffs.find(b => b.name === "A Pirate's Heart P1 L1");
           if ((drunken?.stackCount ?? 0) < 3) return false;
           caster.skillState.stunnedUntilTick = state.tick + TICK_RATE * 10;
-          state.buffs = state.buffs.filter(b => b.name !== 'mast_drunken' && b.derivedFrom !== 'mast_drunken');
+          state.buffs = state.buffs.filter(b => b.name !== "A Pirate's Heart P1 L1" && b.derivedFrom !== "A Pirate's Heart P1 L1");
         },
       },
     ],
@@ -106,17 +102,15 @@ export default {
       //   若 Drunken ≥1：全员 ATK flat ▲20.06%×stacks×Mast.atk 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const end10          = state.tick + TICK_RATE * 10;
-          const critDmgBonus   = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
+          const critDamagePct   = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const attackDmgPct   = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const atkFlatPerStack = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'mast_burst_critDmg',   unitId: null, critDmgBonus,    endTick: end10 });
-          pushBuff(state, { name: 'mast_burst_attackDmg', unitId: null, attackDamagePct, endTick: end10 });
-          const stacks = state.buffs.find(b => b.name === 'mast_drunken')?.stackCount ?? 0;
+          pushBuff(state, { name: 'A Pirate\'s Romance P1', unitId: null, critDamagePct, attackDamagePct, endTick: end10 });
+          const stacks = state.buffs.find(b => b.name === "A Pirate's Heart P1 L1")?.stackCount ?? 0;
           if (stacks > 0)
-            pushBuff(state, { name: 'mast_burst_atkFlat', unitId: null,
+            pushBuff(state, { name: 'A Pirate\'s Romance P2', unitId: null,
               atkFlat: Math.round(caster.stats.atk * atkFlatPerStack * stacks), endTick: end10 });
         },
       },

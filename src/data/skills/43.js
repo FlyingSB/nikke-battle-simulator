@@ -1,6 +1,7 @@
 import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: D: Killer Wife  (resource_id: 43)
 export default {
 
   // ── Calm Sniping
@@ -17,33 +18,27 @@ export default {
     groupId: 20431,
     triggers: [
       // S1 Part 1: 每 3 次全蓄力 → 自身下一发获得穿透（Pierce）。
-      //   伤害计算在 onShotFired 之前，FULL_CHARGE handler 在射击后触发：
-      //   因此"消耗"逻辑放在 handler 开头（清除上一发穿透状态），再按计数重新激活。
+      //   FULL_CHARGE 在射击后触发，推入 endRounds:1 的 pierce buff，
+      //   buff 随下一发实弹命中自动消耗。
       {
         on: 'FULL_CHARGE',
-        logTargets: 'SELF',
         handler(state, caster) {
-          // 上一发是穿透发 → 消耗穿透标志
-          if (caster.skillState.pierceActive) {
-            caster.skillState.pierceActive = false;
-          }
           caster.skillState.dkw_s1_fcCount = (caster.skillState.dkw_s1_fcCount ?? 0) + 1;
           if (caster.skillState.dkw_s1_fcCount % 3 === 0) {
-            caster.skillState.pierceActive = true;
+            pushBuff(state, { name: 'Calm Sniping P1 L2', unitId: caster.id, pierce: true, endRounds: 1 });
           }
         },
       },
       // S1 Part 2: 进入全爆裂 → 队内所有 SR 友军 Pierce Damage ▲ p01% 10s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv  = caster.skillLevels[0];
           const pct = getSkillValue(caster.rawSkill1, 1, lv) / 100;
           const end = state.tick + TICK_RATE * 10;
           for (const u of state.squad) {
             if (u.weaponType !== 'SR') continue;
-            pushBuff(state, { name: 'dkw_s1_pierceDmg', unitId: u.id,
+            pushBuff(state, { name: 'Calm Sniping P2 L2', unitId: u.id,
               pierceDamagePct: pct, endTick: end });
           }
         },
@@ -69,7 +64,6 @@ export default {
       // S2: 累计全蓄力次数计数；每 5 次给全员攻击伤害加成，每 8 次减少全员爆裂冷却
       {
         on: 'FULL_CHARGE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv = caster.skillLevels[1];
           caster.skillState.dkw_fcCount = (caster.skillState.dkw_fcCount ?? 0) + 1;
@@ -78,7 +72,7 @@ export default {
           // 每 5 次全蓄力：全员攻击伤害 ▲ p03% 10s（同名 buff 刷新）
           if (cnt % 5 === 0) {
             const atkDmgPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
-            pushBuff(state, { name: 'dkw_s2_atkDmg', unitId: null,
+            pushBuff(state, { name: 'Assault Formation P2 L2', unitId: null,
               attackDamagePct: atkDmgPct, endTick: state.tick + TICK_RATE * 10 });
           }
 
@@ -91,7 +85,7 @@ export default {
             }
             if (state.buffLog)
               state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
-                name: 'dkw_s2_cdReduction', unitId: null, reductionTicks });
+                name: 'Assault Formation P1 L2', unitId: null, reductionTicks });
           }
         },
       },
@@ -120,7 +114,6 @@ export default {
       // Burst 伤害：p00% of final ATK
       {
         on: 'BURST_SKILL_USE',
-        logTargets: null,
         target: 'ENEMY',
         effects: [
           {
@@ -133,13 +126,12 @@ export default {
       // Wipe Out body hit：全员 ATK ▲ p03% of caster's ATK（flat）10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv      = caster.skillLevels[2];
           const atkPct  = getSkillValue(caster.rawBurst, 3, lv) / 100;
           const atkFlat = Math.round(caster.stats.atk * atkPct);
           const end     = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'dkw_burst_wipeOut_atkFlat', unitId: null,
+          pushBuff(state, { name: 'Kill the Target', unitId: null,
             atkFlat, endTick: end });
         },
       },

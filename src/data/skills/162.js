@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Mihara: Bonding Chain  (resource_id: 162)
 // S1 Part3+4 公共逻辑：消耗 Restraint Chains，发射链式攻击，施加/叠加 Ensnaring Chains DoT
 function fireRestraintChains(state, caster) {
   const lv     = caster.skillLevels[0];
@@ -12,7 +13,7 @@ function fireRestraintChains(state, caster) {
   const sums         = getBuffSums(state, caster.id);
 
   for (let i = 0; i < chains && state.enemyHp > 0; i++) {
-    fireSkillHit(state, caster, chainHitMult, sums, false, 'S1');
+    fireSkillHit(state, caster, chainHitMult, sums, 'S1');
   }
   caster.skillState.mhbcRestraintChains = 0;
 
@@ -64,7 +65,6 @@ export default {
       // Part1：战斗开始 → Restraint Chains 充能至 10（充能在发射之前）
       {
         on: 'BATTLE_START',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.mhbcRestraintChains = 10;
         },
@@ -73,7 +73,6 @@ export default {
       // Part2：全爆裂结束后（本轮使用过爆裂技能）→ Restraint Chains 重充至 10（充能在发射之前）
       {
         on: 'FULL_BURST_END',
-        logTargets: null,
         handler(state, caster) {
           if (!state.burstCastersThisRotation.has(caster.id)) return false;
           caster.skillState.mhbcRestraintChains = 10;
@@ -84,7 +83,6 @@ export default {
       // 此触发在 Part1 充能之后执行，确保初始 chains=10 时立即触发一轮伤害
       {
         on: 'BATTLE_START',
-        logTargets: null,
         handler(state, caster) { fireRestraintChains(state, caster); },
       },
 
@@ -92,10 +90,9 @@ export default {
       // 此触发在 Part2 充能之后执行；若 Mihara 本轮爆裂则 chains=10，否则 chains=0 直接返回
       // 双 B3 循环（1,2,3A,1,2,3B）在 3B 轮：Burst 将 Ensnaring 转为 Dragging →
       //   FULL_BURST_END 时充能 → 发射 10 链 → 新建 Ensnaring Chains（下一轮 S2 Part1 可叠层）
+      // 注：与上方 BATTLE_START 同属■段2，此触发器 tdefIdx=3（partIdx=3），接受偏移
       {
         on: 'FULL_BURST_END',
-        partOverride: 2,
-        logTargets: null,
         handler(state, caster) { fireRestraintChains(state, caster); },
       },
 
@@ -103,9 +100,9 @@ export default {
       // 队伍触发，每轮爆裂均执行；若 chains=0（已被 BATTLE_START/FULL_BURST_END 消耗）则跳过
       // 双 B3 循环 3A 轮（Mihara 未爆裂）：chains 来自上轮 FULL_BURST_END 充能，施加 Ensnaring →
       //   全爆裂期间 S2 Part1 可叠层
+      // 注：与上方同属■段2，此触发器 tdefIdx=4（partIdx=4），接受偏移
       {
         on: 'ENTER_BURST_III',
-        partOverride: 2,
         handler(state, caster) { fireRestraintChains(state, caster); },
       },
     ],
@@ -148,14 +145,17 @@ export default {
         },
       },
 
+      // tdefIdx=1：■段1(自身击倒触发)未建模，占位
+      {},
+      // tdefIdx=2：■段2(击杀时)未建模，占位
+      {},
       // Part4：进入爆裂阶段 3 → 自身 Sustained damage ▲ p06% 持续 10s
       {
         on: 'ENTER_BURST_III',
-        partOverride: 3,
         handler(state, caster) {
           const lv      = caster.skillLevels[1];
           const sDmgPct = getSkillValue(caster.rawSkill2, 6, lv) / 100;
-          pushBuff(state, { name: 'mhbc_s2_sustainedDmg', unitId: caster.id,
+          pushBuff(state, { name: 'Tighten Up P4 L2', unitId: caster.id,
             sustainedDamagePct: sDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -177,7 +177,6 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ENEMY',
         handler(state, caster) {
           const dotIdx = state.dots.findIndex(
             d => d.dotName === 'mhbc_ensnaring' && d.casterId === caster.id,

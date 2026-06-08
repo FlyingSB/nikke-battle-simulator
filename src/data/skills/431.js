@@ -1,6 +1,7 @@
 import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Volume  (resource_id: 431)
 export default {
 
   // ── Freestyle
@@ -39,7 +40,6 @@ export default {
     triggers: [
       {
         on: 'PROGRAM_INIT',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.volumeFbCount       = 0;
           caster.skillState.volumeBurstUseCount = 0;
@@ -47,10 +47,9 @@ export default {
       },
       // S2 Part 1："前效重复触发"，进入全爆裂时全员累进减少爆裂冷却：
       //   1st ▼2.34s; 2nd +▼2.70s; 3rd+ +▼3.17s
+      // 注：属■段0，但因 PROGRAM_INIT 占用 tdefIdx=0，此触发器 tdefIdx=1（partIdx=1），接受偏移
       {
         on: 'ENTER_FULL_BURST',
-        partOverride: 0,
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           caster.skillState.volumeFbCount++;
           const cnt = caster.skillState.volumeFbCount;
@@ -63,26 +62,25 @@ export default {
             u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
           }
           if (state.buffLog && reductionTicks > 0)
-            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'volume_s2_cdReduction', unitId: null, reductionTicks });
+            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'Drop the Beat P1 L1', unitId: null, reductionTicks });
         },
       },
       // S2 Part 2："前效重复触发"，每次使用爆裂技能时（累计计数）：
       //   第 1 次+：全员 CritDmg ▲[p04]% 5s
       //   第 2 次+：全员 CritDmg ▲[p06]% 5s
       //   第 3 次+：全员 CritDmg ▲[p08]% 5s
+      // 注：属■段1，但因 PROGRAM_INIT+■段0 占用 tdefIdx=0,1，此触发器 tdefIdx=2（partIdx=2），接受偏移
       {
         on: 'BURST_SKILL_USE',
-        partOverride: 1,
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const cnt         = ++caster.skillState.volumeBurstUseCount;
           const end5        = state.tick + TICK_RATE * 5;
           const critDmg1   = getSkillValue(caster.rawSkill2, 3, caster.skillLevels[1]) / 100;
           const critDmg2   = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
           const critDmg3   = getSkillValue(caster.rawSkill2, 7, caster.skillLevels[1]) / 100;
-          if (cnt >= 1) pushBuff(state, { name: 'volume_s2_critDmg1', unitId: null, critDmgBonus: critDmg1, endTick: end5 });
-          if (cnt >= 2) pushBuff(state, { name: 'volume_s2_critDmg2', unitId: null, critDmgBonus: critDmg2, endTick: end5 });
-          if (cnt >= 3) pushBuff(state, { name: 'volume_s2_critDmg3', unitId: null, critDmgBonus: critDmg3, endTick: end5 });
+          if (cnt >= 1) pushBuff(state, { name: 'Drop the Beat P2 L3', unitId: null, critDamagePct: critDmg1, endTick: end5 });
+          if (cnt >= 2) pushBuff(state, { name: 'Drop the Beat P2 L4', unitId: null, critDamagePct: critDmg2, endTick: end5 });
+          if (cnt >= 3) pushBuff(state, { name: 'Drop the Beat P2 L5', unitId: null, critDamagePct: critDmg3, endTick: end5 });
         },
       },
     ],
@@ -99,11 +97,10 @@ export default {
       // Burst（Turn up the volume!）：全员 Crit Rate ▲[p00]% 5s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const critRatePct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'volume_burst_critRate', unitId: null,
-            critRateBonus: critRatePct, endTick: state.tick + TICK_RATE * 5 });
+          pushBuff(state, { name: 'Turn up the volume!', unitId: null,
+            critRatePct: critRatePct, endTick: state.tick + TICK_RATE * 5 });
         },
       },
     ],

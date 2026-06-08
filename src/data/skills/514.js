@@ -1,8 +1,9 @@
 import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Grave  (resource_id: 514)
 // Heat Emission 相关 buff 名称常量，用于解除时批量清理
-const HE_BUFF_NAMES = ['grave_s1_reloadPenalty', 'grave_s1_burstSpeed', 'grave_s1_pierceDmg'];
+const HE_BUFF_NAMES = ['Heat Emission P1 L2', 'Heat Emission P3 L3', 'Heat Emission P3 L4'];
 
 function clearHeatEmission(state) {
   state.buffs = state.buffs.filter(b => !HE_BUFF_NAMES.includes(b.name));
@@ -37,7 +38,6 @@ export default {
       // Prediction 到期 → 激活 Heat Emission
       {
         on: 'INTERVAL',
-        logTargets: 'SELF',
         opts: { seconds: 1 },
         handler(state, caster) {
           const predEnd = caster.skillState.grave_predictionEndTick ?? 0;
@@ -58,39 +58,37 @@ export default {
 
           // Heat Emission：Reload Ratio ▼ 50%（持续，解除时由 clearHeatEmission 一并移除）
           const reloadPenalty = getSkillValue(caster.rawSkill1, 1, lv) / 100;
-          state.buffs = state.buffs.filter(b => b.name !== 'grave_s1_reloadPenalty');
-          state.buffs.push({ name: 'grave_s1_reloadPenalty', unitId: caster.id,
+          state.buffs = state.buffs.filter(b => b.name !== 'Heat Emission P1 L2');
+          state.buffs.push({ name: 'Heat Emission P1 L2', unitId: caster.id,
             reloadSpeedPct: -reloadPenalty, endTick: Infinity });
 
           // 全员：Burst Gauge 填充速度 ▲ p03%
           // 提升值 = Grave 自己的 targetBurstEnergyPerShot × p03%（对所有人的 flat 值）
           const bgSpeedPct  = getSkillValue(caster.rawSkill1, 3, lv) / 100;
           const burstFlat   = Math.round(caster.targetBurstEnergyPerShot * bgSpeedPct);
-          state.buffs = state.buffs.filter(b => b.name !== 'grave_s1_burstSpeed');
-          state.buffs.push({ name: 'grave_s1_burstSpeed', unitId: null,
+          state.buffs = state.buffs.filter(b => b.name !== 'Heat Emission P3 L3');
+          state.buffs.push({ name: 'Heat Emission P3 L3', unitId: null,
             burstGaugeFlat: burstFlat, endTick: Infinity });
 
           // 全员：Pierce Damage ▲ p04%（持续）
           const piercePct = getSkillValue(caster.rawSkill1, 4, lv) / 100;
-          state.buffs = state.buffs.filter(b => b.name !== 'grave_s1_pierceDmg');
-          state.buffs.push({ name: 'grave_s1_pierceDmg', unitId: null,
+          state.buffs = state.buffs.filter(b => b.name !== 'Heat Emission P3 L4');
+          state.buffs.push({ name: 'Heat Emission P3 L4', unitId: null,
             pierceDamagePct: piercePct, endTick: Infinity });
         },
       },
       // Heat Emission 解除条件 a：普通攻击命中
       {
         on: 'SHOT_COUNT',
-        logTargets: null,
         opts: { every: 1, counterKey: 'grave_s1_heShot' },
         handler(state, caster) {
-          if (!state.buffs.some(b => b.name === 'grave_s1_reloadPenalty' && b.unitId === caster.id)) return;
+          if (!state.buffs.some(b => b.name === 'Heat Emission P1 L2' && b.unitId === caster.id)) return;
           clearHeatEmission(state);
         },
       },
       // Heat Emission 解除条件 b：弹匣填满（RELOAD_END）
       {
         on: 'RELOAD_END',
-        logTargets: null,
         handler(state, caster) {
           clearHeatEmission(state);
         },
@@ -130,7 +128,7 @@ export default {
           if (caster.skillState.grave_s2_shot15 >= 15) {
             caster.skillState.grave_s2_shot15 -= 15;
             const atkPct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
-            pushBuff(state, { name: 'grave_s2_overheatI', unitId: caster.id, atkPct, endTick: Infinity });
+            pushBuff(state, { name: 'Overheat P1 L2', unitId: caster.id, atkPct, endTick: Infinity });
           }
 
           // Prediction 期间命中计数（Overheat II / III）
@@ -142,16 +140,16 @@ export default {
 
           // Overheat II：Prediction 期间第 30 发，且 Overheat I 已激活
           if (predCount === 30 &&
-              state.buffs.some(b => b.name === 'grave_s2_overheatI' && b.unitId === caster.id)) {
+              state.buffs.some(b => b.name === 'Overheat P1 L2' && b.unitId === caster.id)) {
             const atkPct2 = getSkillValue(caster.rawSkill2, 3, lv) / 100;
-            pushBuff(state, { name: 'grave_s2_overheatII', unitId: caster.id, atkPct: atkPct2, endTick: Infinity });
+            pushBuff(state, { name: 'Overheat P2 L2', unitId: caster.id, atkPct: atkPct2, endTick: Infinity });
           }
 
           // Overheat III：Prediction 期间第 60 发，且 Overheat II 已激活
           if (predCount === 60 &&
-              state.buffs.some(b => b.name === 'grave_s2_overheatII' && b.unitId === caster.id)) {
+              state.buffs.some(b => b.name === 'Overheat P2 L2' && b.unitId === caster.id)) {
             const adPct = getSkillValue(caster.rawSkill2, 5, lv) / 100;
-            pushBuff(state, { name: 'grave_s2_overheatIII', unitId: caster.id, attackDamagePct: adPct, endTick: Infinity });
+            pushBuff(state, { name: 'Overheat P2 L3', unitId: caster.id, attackDamagePct: adPct, endTick: Infinity });
           }
         },
       },
@@ -159,11 +157,10 @@ export default {
       // 注：无限弹药期间弹药不消耗，不会触发 RELOAD_END，故 Overheat I 在 Prediction 期间自然保留
       {
         on: 'RELOAD_END',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.grave_s2_shot15 = 0;
           state.buffs = state.buffs.filter(
-            b => !(b.name === 'grave_s2_overheatI' && b.unitId === caster.id));
+            b => !(b.name === 'Overheat P1 L2' && b.unitId === caster.id));
         },
       },
     ],
@@ -195,7 +192,6 @@ export default {
       // Burst P1（自身）：Prediction 激活 + 无限弹药 + Pierce + 自身 Pierce Damage + Crit Rate 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv  = caster.skillLevels[2];
           const end = state.tick + TICK_RATE * 10;
@@ -205,35 +201,23 @@ export default {
           caster.skillState.grave_predictionEndTick = end;
           caster.skillState.grave_predShotCount     = 0;
           caster.skillState.unlimitedAmmoEndTick    = end;
-          caster.skillState.pierceEndTick           = end;
-
           const selfPiercePct = getSkillValue(caster.rawBurst, 1, lv) / 100;
-          pushBuff(state, { name: 'grave_burst_selfPierce', unitId: caster.id,
-            pierceDamagePct: selfPiercePct, endTick: end });
-
-          const critRatePct = getSkillValue(caster.rawBurst, 5, lv) / 100;
-          pushBuff(state, { name: 'grave_burst_critRate', unitId: caster.id,
-            critRateBonus: critRatePct, endTick: end });
+          const critRatePct   = getSkillValue(caster.rawBurst, 5, lv) / 100;
+          pushBuff(state, { name: 'Plot Spoiler P1', unitId: caster.id,
+            pierce: true, pierceDamagePct: selfPiercePct, critRatePct, endTick: end });
         },
       },
       // Burst P2（全员）：Attack Damage + Pierce Damage + Max Ammo ▲ 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv  = caster.skillLevels[2];
           const end = state.tick + TICK_RATE * 10;
 
-          const atkDmgPct = getSkillValue(caster.rawBurst, 2, lv) / 100;
-          pushBuff(state, { name: 'grave_burst_atkDmg', unitId: null,
-            attackDamagePct: atkDmgPct, endTick: end });
-
+          const atkDmgPct    = getSkillValue(caster.rawBurst, 2, lv) / 100;
           const allPiercePct = getSkillValue(caster.rawBurst, 3, lv) / 100;
-          pushBuff(state, { name: 'grave_burst_allPierce', unitId: null,
-            pierceDamagePct: allPiercePct, endTick: end });
-
-          pushBuff(state, { name: 'grave_burst_maxAmmo', unitId: null,
-            maxAmmoFlat: 3, endTick: end });
+          pushBuff(state, { name: 'Plot Spoiler P2', unitId: null,
+            attackDamagePct: atkDmgPct, pierceDamagePct: allPiercePct, maxAmmoFlat: 3, endTick: end });
         },
       },
     ],

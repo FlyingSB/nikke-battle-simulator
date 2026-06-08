@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, addBurstGauge, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, addBurstGauge, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Helm: Aquamarine  (resource_id: 353)
 export default {
 
   // ── Admire Accompaniment
@@ -30,7 +31,7 @@ export default {
           const lv   = caster.skillLevels[0];
           const mult = getSkillValue(caster.rawSkill1, 1, lv) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, false, 'S1');
+          fireSkillHit(state, caster, mult, sums, 'S1');
           addBurstGauge(state, caster.name, 'helm353_s1_extraHit', caster.targetBurstEnergyPerShot);
         },
       },
@@ -38,7 +39,6 @@ export default {
       // 1次: 1.82s / 2次: 1.82+2.2=4.02s / 3次+: 1.82+2.2+2.6=6.62s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv    = caster.skillLevels[0];
           const count = (caster.skillState.helm353S1Activations ?? 0) + 1;
@@ -76,13 +76,12 @@ export default {
       {
         on: 'INTERVAL',
         opts: { seconds: 4 },
-        logTargets: null,
         handler(state, caster) {
           if (state.enemyHp <= 0) return;
           const lv   = caster.skillLevels[1];
           const mult = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, false, 'S2');
+          fireSkillHit(state, caster, mult, sums, 'S2');
           addBurstGauge(state, caster.name, 'helm353_s2_suppFire', caster.targetBurstEnergyPerShot);
         },
       },
@@ -97,9 +96,8 @@ export default {
           const dtPct     = getSkillValue(caster.rawSkill2, 2, lv) / 100;
           const maxStacks = getSkillValue(caster.rawSkill2, 3, lv);
           const dur       = getSkillValue(caster.rawSkill2, 4, lv);
-          const active    = state.buffs.filter(b => b.name === 'helm353_s2_dtDebuff' && b.endTick >= state.tick).length;
-          if (active >= maxStacks) return;
-          pushBuff(state, { name: 'helm353_s2_dtDebuff', enemyDamageTakenPct: dtPct,
+          pushBuff(state, { name: 'Aegis Cannon Suppression Fire', unitId: '__enemy__', isDebuff: true,
+            enemyDamageTakenPct: dtPct, stackLimit: maxStacks,
             endTick: state.tick + TICK_RATE * dur });
         },
       },
@@ -120,16 +118,15 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: null,
         handler(state, caster) {
           if (state.enemyHp <= 0) return false;
           const lv        = caster.skillLevels[2];
           const burstMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const sums      = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, burstMult, sums, false, 'Burst P1');
+          fireSkillHit(state, caster, burstMult, sums, 'Burst P1');
           if (state.enemyElement === 'Electric') {
             const bonusMult = getSkillValue(caster.rawBurst, 1, lv) / 100;
-            fireSkillHit(state, caster, bonusMult, sums, false, 'Burst P2');
+            fireSkillHit(state, caster, bonusMult, sums, 'Burst P2');
           }
         },
       },

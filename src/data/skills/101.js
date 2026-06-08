@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Drake  (resource_id: 101)
 export default {
 
   // ── Overcharge
@@ -19,7 +20,6 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           // [TODO 基础技能] 进入全爆裂 → 全员HitRate▲p01% + ATK▲p03% 10s（base group_id 21011）
           const favS1 = caster.ssrFavSkills?.skill1;
@@ -27,17 +27,14 @@ export default {
           const favLv = favS1._activeSkillLevel ?? 10;
           const end10 = state.tick + TICK_RATE * 10;
 
-          // 全队 Hit Rate ▲[p01]%（Hit Rate 不影响 DPS，仅记录）
+          // 全队 Hit Rate ▲[p01]% + ATK ▲[p03]%
           const hrPct     = getSkillValue(favS1, 0, favLv) / 100;
-          pushBuff(state, { name: 'drake_s1_hitRate',  unitId: null, hitRatePct: hrPct, endTick: end10 });
-          // 全队 ATK ▲[p03]%
           const atkAllPct = getSkillValue(favS1, 2, favLv) / 100;
-          pushBuff(state, { name: 'drake_s1_atk_all',  unitId: null, atkPct: atkAllPct, endTick: end10 });
+          pushBuff(state, { name: 'Overcharge P1', unitId: null, hitRatePct: hrPct, atkPct: atkAllPct, endTick: end10 });
           // SG 友军 ATK ▲[p05]% + Max Ammo ▲[p07]%
           const atkSgPct  = getSkillValue(favS1, 4, favLv) / 100;
           const ammoPct   = getSkillValue(favS1, 6, favLv) / 100;
-          pushBuff(state, { name: 'drake_s1_atk_sg',  unitId: null, atkPct: atkSgPct,   weaponFilter: 'SG', endTick: end10 });
-          pushBuff(state, { name: 'drake_s1_ammo_sg', unitId: null, maxAmmoPct: ammoPct, weaponFilter: 'SG', endTick: end10 });
+          pushBuff(state, { name: 'Overcharge P2', unitId: null, atkPct: atkSgPct, maxAmmoPct: ammoPct, weaponFilter: 'SG', endTick: end10 });
         },
       },
     ],
@@ -67,7 +64,7 @@ export default {
           const dmgPct = getSkillValue(favS2, 2, favLv) / 100;
           // 游戏打 3 个不同目标，模拟器只有单敌，只计 1 次命中
           const sums   = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, dmgPct, sums, false, 'S2 P1');
+          fireSkillHit(state, caster, dmgPct, sums, 'S2 P1');
         },
       },
       // [SSR] 每 5 发 → 最低 HP 1 敌方受 [p06]% ATK 技能伤害
@@ -80,7 +77,7 @@ export default {
           if (!favS2 || favLv <= 0) return;
           const dmgPct = getSkillValue(favS2, 5, favLv) / 100;
           const sums   = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, dmgPct, sums, false, 'S2 P2');
+          fireSkillHit(state, caster, dmgPct, sums, 'S2 P2');
         },
       },
     ],
@@ -103,20 +100,18 @@ export default {
       // Burst P1（SSR）：范围伤害 p01%
       {
         on: 'BURST_SKILL_USE',
-        logTargets: null,
         handler(state, caster) {
           const favBurst = caster.ssrFavSkills?.burst;
           const favLv    = favBurst?._activeSkillLevel ?? 0;
           if (!favBurst || favLv <= 0) return false;
           const sums   = getBuffSums(state, caster.id);
           const dmgPct = getSkillValue(favBurst, 0, favLv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'Burst');
+          fireSkillHit(state, caster, dmgPct, sums, 'Burst');
         },
       },
       // Burst P2（SSR）：自身 Max Ammo ▲ + Attack Damage ▲ 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const favBurst = caster.ssrFavSkills?.burst;
           const favLv    = favBurst?._activeSkillLevel ?? 0;
@@ -124,8 +119,7 @@ export default {
           const end10     = state.tick + TICK_RATE * 10;
           const ammoPct   = getSkillValue(favBurst, 1, favLv) / 100;
           const atkDmgPct = getSkillValue(favBurst, 3, favLv) / 100;
-          pushBuff(state, { name: 'drake_burst_ammo',   unitId: caster.id, maxAmmoPct: ammoPct,        endTick: end10 });
-          pushBuff(state, { name: 'drake_burst_atkDmg', unitId: caster.id, attackDamagePct: atkDmgPct, endTick: end10 });
+          pushBuff(state, { name: 'Drake Special', unitId: caster.id, maxAmmoPct: ammoPct, attackDamagePct: atkDmgPct, endTick: end10 });
         },
       },
     ],

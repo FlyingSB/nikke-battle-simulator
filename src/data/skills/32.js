@@ -2,6 +2,7 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Miranda  (resource_id: 32)
 export default {
 
   // ── Health Up!
@@ -31,13 +32,13 @@ export default {
 
           const hr1 = getSkillValue(favS1, 1, lv) / 100;
           const hr2 = getSkillValue(favS1, 4, lv) / 100;
-          pushBuff(state, { name: 'miranda_s1_hitRate_all', unitId: null,
+          pushBuff(state, { name: 'Health Up! P1 L2', unitId: null,
             hitRatePct: hr1, endTick: end5 });
-          pushBuff(state, { name: 'miranda_s1_hitRate_smg', unitId: null,
+          pushBuff(state, { name: 'Health Up! P2 L2', unitId: null,
             hitRatePct: hr2, endTick: end5, weaponFilter: 'SMG' });
 
           const atkPct = getSkillValue(favS1, 7, lv) / 100;
-          pushBuff(state, { name: 'miranda_s1_ssr_atkPct', unitId: caster.id,
+          pushBuff(state, { name: 'Health Up! P3 L2', unitId: caster.id,
             atkPct, endTick: end5 });
         },
       },
@@ -63,7 +64,6 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           // [TODO 基础技能] 进入全爆裂 → 全员CritDmg▲p01% 10s（base group_id 20322）
           const favS2 = caster.ssrFavSkills?.skill2;
@@ -71,16 +71,14 @@ export default {
           const lv    = favS2._activeSkillLevel ?? 10;
           const end10 = state.tick + TICK_RATE * 10;
 
-          const critDmgPct = getSkillValue(favS2, 0, lv) / 100;
-          pushBuff(state, { name: 'miranda_s2_critDmg', unitId: null,
-            critDmgBonus: critDmgPct, endTick: end10 });
+          const critDamagePct = getSkillValue(favS2, 0, lv) / 100;
+          pushBuff(state, { name: 'Wake Up! P1 L2', unitId: null,
+            critDamagePct: critDamagePct, endTick: end10 });
 
           const critRateSelf  = getSkillValue(favS2, 2, lv) / 100;
           const attackDmgSelf = getSkillValue(favS2, 4, lv) / 100;
-          pushBuff(state, { name: 'miranda_s2_ssr_self_critRate', unitId: caster.id,
-            critRateBonus: critRateSelf, endTick: end10 });
-          pushBuff(state, { name: 'miranda_s2_ssr_self_attackDmg', unitId: caster.id,
-            attackDamagePct: attackDmgSelf, endTick: end10 });
+          pushBuff(state, { name: 'Wake Up! P2', unitId: caster.id,
+            critRatePct: critRateSelf, attackDamagePct: attackDmgSelf, endTick: end10 });
 
           // 最高 ATK 友军（除自身）Crit Rate ▲ 持续 1 round
           // 无限弹角色（Moran/Nayuta burst 中）不消耗 roundsLeft，直到无限弹结束后首次实弹命中才消耗
@@ -89,8 +87,8 @@ export default {
             .sort((a, b) => b.stats.atk - a.stats.atk)[0];
           if (topAlly) {
             const crBonus = getSkillValue(favS2, 7, lv) / 100;
-            pushBuff(state, { name: 'miranda_s2_ssr_ally_critRate', unitId: topAlly.id,
-              critRateBonus: crBonus, roundsLeft: 1, endTick: Infinity });
+            pushBuff(state, { name: 'Wake Up! P3 L2', unitId: topAlly.id,
+              critRatePct: crBonus, roundsLeft: 1, endTick: Infinity });
           }
         },
       },
@@ -113,7 +111,6 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           // [TODO 基础技能] 最高ATK友军(除自身)×1 ATK▲p02%(idx=2) + CritDmg▲p04%(idx=4) 10s（base group_id 10323）
           const favBurst = caster.ssrFavSkills?.burst;
@@ -132,8 +129,7 @@ export default {
           if (targets.length < 2) targets.push(caster);
 
           for (const t of targets) {
-            pushBuff(state, { name: 'miranda_burst_atkPct',  unitId: t.id, atkPct,              endTick: end10 });
-            pushBuff(state, { name: 'miranda_burst_critDmg', unitId: t.id, critDmgBonus: cdPct, endTick: end10 });
+            pushBuff(state, { name: 'Powering Up!', unitId: t.id, atkPct, critDamagePct: cdPct, endTick: end10 });
           }
         },
       },

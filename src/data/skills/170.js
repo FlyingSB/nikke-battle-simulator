@@ -1,14 +1,17 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Privaty  (resource_id: 170)
+// SSR 珍藏品: Central Government Special Medal（id: 201401）
 export default {
 
   // ── EX Magazine（S1）
   // base group_id: 21701 / SSR group_id: 121701 (skill_change_slot=1)
-  // ■ [SSR] Activates when entering Full Burst. Affects all allies.
+  // ■ Activates when entering Full Burst. Affects all allies.
   //   ATK ▲ {p00}% for {p01=10} sec.
   //   Reloading Speed ▲ {p02}% for {p03=10} sec.
   //   Max Ammunition Capacity ▼ {p04=50.66}% for {p05=10} sec.
+  // ■ [SSR] Activates when entering Full Burst. Affects all allies.
   //   Attack Damage ▲ {p06}% for {p07=10} sec.
   //
   // SSR p00 ATK%: [18.77, 19.30, 19.84, 20.38, 20.92, 21.46, 22.00, 22.54, 23.08, 23.61]
@@ -20,34 +23,23 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
-          // [TODO 基础技能] 进入全爆裂 → 全员ATK▲p00% + Reload▲p02% + MaxAmmo▼p04% 10s（base group_id 21701）
-          const favS1 = caster.ssrFavSkills?.skill1;
-          if (!favS1) return false;
-          const lv      = favS1._activeSkillLevel ?? 10;
+          // 基础技能：进入全爆裂 → 全员 ATK▲p00% + Reload▲p02% + MaxAmmo▼p04% 10s
+          // SSR 珍藏品额外追加 Attack Damage▲p06%（rawSkill1 已自动指向 SSR 版或基础版）
+          const lv      = caster.skillLevels[0];
           const endTick = state.tick + TICK_RATE * 10;
 
-          const atkPct       = getSkillValue(favS1, 0, lv) / 100;
-          const reloadSpdPct = getSkillValue(favS1, 2, lv) / 100;
-          const maxAmmoDec   = getSkillValue(favS1, 4, lv) / 100;  // const 50.66%
-          const atkDmgPct    = getSkillValue(favS1, 6, lv) / 100;
+          const atkPct       = getSkillValue(caster.rawSkill1, 0, lv) / 100;
+          const reloadSpdPct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
+          const maxAmmoDec   = getSkillValue(caster.rawSkill1, 4, lv) / 100;  // const 50.66%
 
-          pushBuff(state, { name: 'pv_s1_atk',    unitId: null, atkPct, endTick });
-          pushBuff(state, { name: 'pv_s1_reload',  unitId: null, reloadSpeedPct: reloadSpdPct, endTick });
-          pushBuff(state, { name: 'pv_s1_atkDmg',  unitId: null, attackDamagePct: atkDmgPct, endTick });
-
-          // Max Ammunition Capacity ▼ p04%（全员；pushBuff 负责记录 buff 持续时间与到期截弹，
-          // tempMaxAmmoMult 供 battle.js 装填路径计算有效弹容，二者需同步刷新）
-          const ammoMult = 1 - maxAmmoDec;
-          pushBuff(state, { name: 'pv_s1_maxAmmo', unitId: null, maxAmmoPct: -maxAmmoDec, endTick });
-          for (const t of state.squad) {
-            t.tempMaxAmmoMult    = ammoMult;
-            t.tempMaxAmmoEndTick = endTick;
-            const newMax = Math.max(1, t.baseAmmo + Math.round(t.baseAmmo * (ammoMult - 1)))
-                         + (t.stats.bonusAmmo ?? 0) + (t.favAmmoBonus ?? 0);
-            if (t.ammoLeft > newMax) t.ammoLeft = newMax;
-          }
+          // SSR 专属：Attack Damage▲ p06%（若已装备）
+          const favS1 = caster.ssrFavSkills?.skill1;
+          const buff = { name: 'EX Magazine', unitId: null,
+            atkPct, reloadSpeedPct: reloadSpdPct, maxAmmoPct: -maxAmmoDec, endTick };
+          if (favS1) buff.attackDamagePct = getSkillValue(favS1, 6, favS1._activeSkillLevel ?? 10) / 100;
+          // pushBuff 内部会调用 recalcMaxAmmo（§5.1.2），截断各单位 ammoLeft（§5.1.3）
+          pushBuff(state, buff);
         },
       },
     ],
@@ -70,24 +62,22 @@ export default {
       // S2 P1（SSR）：末弹 → 追加伤害 p00% + 敌人承伤 ▲ p02% 10s
       {
         on: 'LAST_BULLET',
-        logTargets: null,
         handler(state, caster) {
           const favS2 = caster.ssrFavSkills?.skill2;
           if (!favS2) return false;
           const lv   = favS2._activeSkillLevel ?? 10;
+          const dtPct      = getSkillValue(favS2, 2, lv) / 100;
+          const endTick    = state.tick + TICK_RATE * 10;
+          pushBuff(state, { name: 'LD Assault P1', unitId: '__enemy__', isDebuff: true,
+            enemyDamageTakenPct: dtPct, endTick });
           const sums = getBuffSums(state, caster.id);
           const dmgPct = getSkillValue(favS2, 0, lv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'S2 P1');
-          const dtPct   = getSkillValue(favS2, 2, lv) / 100;
-          const endTick = state.tick + TICK_RATE * 10;
-          state.enemyDamageTakenPct += dtPct;
-          pushBuff(state, { name: 'pv_s2_dmgTaken', unitId: null, enemyDamageTakenPct: dtPct, endTick });
+          fireSkillHit(state, caster, dmgPct, sums, 'S2 P1');
         },
       },
       // S2 P2（SSR）：Designated Target 状态下额外追加伤害 p01%
       {
         on: 'LAST_BULLET',
-        logTargets: null,
         handler(state, caster) {
           const favS2 = caster.ssrFavSkills?.skill2;
           if (!favS2) return false;
@@ -95,7 +85,7 @@ export default {
           const lv        = favS2._activeSkillLevel ?? 10;
           const sums      = getBuffSums(state, caster.id);
           const desDmgPct = getSkillValue(favS2, 1, lv) / 100;
-          fireSkillHit(state, caster, desDmgPct, sums, false, 'S2 P2');
+          fireSkillHit(state, caster, desDmgPct, sums, 'S2 P2');
         },
       },
     ],
@@ -115,32 +105,30 @@ export default {
   burst: {
     groupId: 111703,
     triggers: [
-      // Burst P1（SSR）：对所有敌人造成爆裂技能伤害 p00%
+      // Burst P1（SSR）：自身 Elemental Advantage ATK Damage ▲ p04% 10s + 标记 Designated Target
       {
         on: 'BURST_SKILL_USE',
-        logTargets: null,
-        handler(state, caster) {
-          const favBurst = caster.ssrFavSkills?.burst;
-          if (!favBurst) return false;
-          const lv     = favBurst._activeSkillLevel ?? 10;
-          const sums   = getBuffSums(state, caster.id);
-          const dmgPct = getSkillValue(favBurst, 0, lv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, false, 'Burst');
-        },
-      },
-      // Burst P2（SSR）：自身 Elemental Advantage ATK Damage ▲ p04% 10s + 标记 Designated Target
-      {
-        on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const favBurst = caster.ssrFavSkills?.burst;
           if (!favBurst) return false;
           const lv        = favBurst._activeSkillLevel ?? 10;
           const endTick   = state.tick + TICK_RATE * 10;
           const elemADPct = getSkillValue(favBurst, 4, lv) / 100;
-          pushBuff(state, { name: 'pv_burst_elemAD', unitId: caster.id,
-            elementAdvantageBonus: elemADPct, endTick });
+          pushBuff(state, { name: 'AK Missile P1', unitId: caster.id,
+            elementAdvantagePct: elemADPct, endTick });
           state.pvDesignatedTargetEndTick = endTick;
+        },
+      },
+      // Burst P2（SSR）：对所有敌人造成爆裂技能伤害 p00%
+      {
+        on: 'BURST_SKILL_USE',
+        handler(state, caster) {
+          const favBurst = caster.ssrFavSkills?.burst;
+          if (!favBurst) return false;
+          const lv     = favBurst._activeSkillLevel ?? 10;
+          const sums   = getBuffSums(state, caster.id);
+          const dmgPct = getSkillValue(favBurst, 0, lv) / 100;
+          fireSkillHit(state, caster, dmgPct, sums, 'Burst P2');
         },
       },
     ],

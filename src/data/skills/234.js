@@ -1,6 +1,7 @@
 import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Dorothy: Serendipity  (resource_id: 234)
 export default {
 
   // ── Skill 1（被动）
@@ -24,8 +25,6 @@ export default {
   // 实现说明：
   //   - "Pellet count fixed at 1" 不影响伤害计算，不建模。
   //   - "Expands Pierce range" 不影响伤害计算，Part2 略。
-  //   - Pierce 持续轮次通过 skillState.dorothy234PierceRounds 手动倒计（每发 -1）。
-  //     Part1 触发时设为 4，同发 tracker 将其降为 3，保证随后 3 发有效。
   skill1: {
     groupId: 22341,
     triggers: [
@@ -36,26 +35,7 @@ export default {
         handler(state, caster) {
           const atk = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
           const hr  = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
-          caster.skillState.pierceActive           = true;
-          caster.skillState.dorothy234PierceRounds = 4; // 同发 tracker -1 → 实际 3 发生效
-          pushBuff(state, { name: 'dorothy234_s1_atkDmg', unitId: caster.id,
-            attackDamagePct: atk, endRounds: 3 });
-          pushBuff(state, { name: 'dorothy234_s1_hitRate', unitId: caster.id,
-            hitRateBonus: hr, endRounds: 3 });
-        },
-      },
-
-      // Pierce 倒计：每发 -1，归零时关闭 pierceActive
-      {
-        on: 'SHOT_COUNT',
-        opts: { every: 1, counterKey: 'dorothy234PierceTracker' },
-        handler(state, caster) {
-          const r = caster.skillState.dorothy234PierceRounds ?? 0;
-          if (r <= 0) return;
-          caster.skillState.dorothy234PierceRounds = r - 1;
-          if (caster.skillState.dorothy234PierceRounds <= 0) {
-            caster.skillState.pierceActive = false;
-          }
+          pushBuff(state, { name: 'Skill 1（被动）', unitId: caster.id, pierce: true, attackDamagePct: atk, hitRatePct: hr, endRounds: 3 });
         },
       },
 
@@ -75,7 +55,7 @@ export default {
   // p01: [45, 48.36, 51.72, 55.08, 58.44, 61.8, 65.16, 68.52, 71.88, 75.24] (ATK%)
   // p02: [23.4, 25.32, 27.24, 29.16, 31.08, 33, 34.92, 36.84, 38.76, 40.68] (Hit Rate%)
   //
-  // Pierce damage ▲ 仅在 pierceActive=true（S1 激活 pierce 期间）时由 battle.js 读取生效。
+  // Pierce damage ▲ 仅在 dorothy234_s1_pierce buff 生效期间（S1 激活后 3 发）产生收益。
   // Hit Rate ▲ 进入 buff 系统，当前未应用于核心命中率计算（SG coreHitRateMult TODO）。
   skill2: {
     groupId: 22342,
@@ -83,10 +63,9 @@ export default {
       // Part1：战斗开始 → 自身 Pierce damage ▲ p00% 永久
       {
         on: 'BATTLE_START',
-        logTargets: 'SELF',
         handler(state, caster) {
           const pct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'dorothy234_s2_pierceDmg', unitId: caster.id,
+          pushBuff(state, { name: 'Skill 2（被动） P1', unitId: caster.id,
             pierceDamagePct: pct, endTick: Infinity });
         },
       },
@@ -94,13 +73,11 @@ export default {
       // Part2：进入全爆裂 → 自身 ATK ▲ p01% + Hit Rate ▲ p02%（全爆裂 10s 内）
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'SELF',
         handler(state, caster) {
           const atkPct = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           const hrPct  = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
           const end10  = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'dorothy234_s2_atk',     unitId: caster.id, atkPct,              endTick: end10 });
-          pushBuff(state, { name: 'dorothy234_s2_hitRate', unitId: caster.id, hitRateBonus: hrPct,  endTick: end10 });
+          pushBuff(state, { name: 'Skill 2（被动） P2', unitId: caster.id, atkPct, hitRatePct: hrPct, endTick: end10 });
         },
       },
     ],
@@ -127,15 +104,11 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const atkSpdPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const atkPct    = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const end15     = state.tick + TICK_RATE * 15;
-          // Attack speed ▲：via buff 系统
-          pushBuff(state, { name: 'dorothy234_burst_atkSpeed', unitId: caster.id, atkSpeedPct: atkSpdPct, endTick: end15 });
-          // ATK ▲
-          pushBuff(state, { name: 'dorothy234_burst_atk', unitId: caster.id, atkPct, endTick: end15 });
+          pushBuff(state, { name: 'Burst（Step3）', unitId: caster.id, atkSpeedPct: atkSpdPct, atkPct, endTick: end15 });
         },
       },
     ],

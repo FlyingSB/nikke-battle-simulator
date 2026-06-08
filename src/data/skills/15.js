@@ -1,7 +1,8 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Anis: Sparkling Summer  (resource_id: 15)
 export default {
 
   // ── Sparkling Boost
@@ -19,7 +20,6 @@ export default {
       //   ATK flat ▲[S1 param0]% Anis ATK + Reload Speed ▲[S1 param2]% 10s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const atkPct    = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
           const reloadPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
@@ -27,8 +27,7 @@ export default {
           const end10     = state.tick + TICK_RATE * 10;
           for (const u of state.squad) {
             if (u.element !== 'Electric') continue;
-            pushBuff(state, { name: 'anisss_s1_atkFlat',   unitId: u.id, atkFlat:        atkBonus,   endTick: end10 });
-            pushBuff(state, { name: 'anisss_s1_reloadSpd', unitId: u.id, reloadSpeedPct: reloadPct,  endTick: end10 });
+            pushBuff(state, { name: 'Sparkling Boost', unitId: u.id, atkFlat: atkBonus, reloadSpeedPct: reloadPct, endTick: end10 });
           }
         },
       },
@@ -51,20 +50,18 @@ export default {
       // S2 P1：末弹 → 追加技能伤害
       {
         on: 'LAST_BULLET',
-        logTargets: null,
         handler(state, caster) {
           const skillDmg = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           const sums     = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, skillDmg, sums, false, 'S2');
+          fireSkillHit(state, caster, skillDmg, sums, 'S2');
         },
       },
       // S2 P2：自身 Damage to Interruption Parts ▲ p01% 10s
       {
         on: 'LAST_BULLET',
-        logTargets: 'SELF',
         handler(state, caster) {
           const partsDmg = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'anisss_s2_partsDmg', unitId: caster.id,
+          pushBuff(state, { name: 'Sparkling Missile', unitId: caster.id,
             interruptionPartsDamagePct: partsDmg, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -88,22 +85,16 @@ export default {
       //   Max Ammo ▼[Burst param0]% 10s + Reload Speed ▲[Burst param2]% 10s + Elem Adv ATK Dmg ▲[Burst param4]% 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const end10       = state.tick + TICK_RATE * 10;
           // Max Ammo ▼X%：T33 per-effect round，mult = 1 - X/100
           const maxAmmoDecPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const reloadPct     = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const elemAdvPct    = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
-          const ammoMult      = 1 - maxAmmoDecPct;
-          caster.tempMaxAmmoMult    = ammoMult;
-          caster.tempMaxAmmoEndTick = end10;
-          const reducedMax = Math.max(1, caster.baseAmmo + Math.round(caster.baseAmmo * (ammoMult - 1)))
-                           + (caster.stats.bonusAmmo ?? 0) + caster.favAmmoBonus;
-          caster.ammoLeft   = reducedMax;
-          caster.reloadTick = 0;
-          pushBuff(state, { name: 'anisss_burst_reloadSpd',  unitId: caster.id, reloadSpeedPct:        reloadPct,  endTick: end10 });
-          pushBuff(state, { name: 'anisss_burst_elemAdvDmg', unitId: caster.id, elementAdvantageBonus: elemAdvPct, endTick: end10 });
+          const ammoMult = 1 - maxAmmoDecPct;
+          // maxAmmoPct = ammoMult - 1 = -maxAmmoDecPct（缩减）；pushBuff 触发 recalcMaxAmmo（§5.1.3 仅截断）
+          pushBuff(state, { name: 'Sparkling Wave', unitId: caster.id,
+            maxAmmoPct: ammoMult - 1, reloadSpeedPct: reloadPct, elementAdvantagePct: elemAdvPct, endTick: end10 });
         },
       },
     ],

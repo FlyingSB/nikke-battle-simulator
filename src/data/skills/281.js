@@ -1,7 +1,8 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Moran  (resource_id: 281)
 export default {
 
   // ── Bring It On!
@@ -19,17 +20,8 @@ export default {
     groupId: 22811,
     triggers: [
       // S1 T1（被动）：DEF ▲ X%/每损失 1% HP — [TODO] 未建模（需 HP 受伤追踪）
-      //
-      // S1 SSR Fervor（被动）：战斗开始 → 激活 Fervor 状态（用于 S2 与 Burst）
-      {
-        on: 'BATTLE_START',
-        partOverride: 2,
-        logTargets: 'SELF',
-        handler(state, caster) {
-          if (!caster.ssrFavSkills?.skill1) return false;
-          caster.skillState.moranFervorActive = true;
-        },
-      },
+      // tdefIdx=0：■段0(DEF passive)未建模，占位
+      {},
       // S1 T2：武器替换期间每 5 发普通攻击 → X% ATK 技能伤害（lv10=47.18%）
       {
         on: 'SHOT_COUNT',
@@ -43,7 +35,15 @@ export default {
           if (!s1 || lv <= 0) return;
           const mult = getSkillValue(s1, 1, lv) / 100;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, false, 'S1_burst_weapon_hit');
+          fireSkillHit(state, caster, mult, sums, 'S1_burst_weapon_hit');
+        },
+      },
+      // S1 SSR Fervor（被动）：战斗开始 → 激活 Fervor 状态（用于 S2 与 Burst）
+      {
+        on: 'BATTLE_START',
+        handler(state, caster) {
+          if (!caster.ssrFavSkills?.skill1) return false;
+          caster.skillState.moranFervorActive = true;
         },
       },
     ],
@@ -79,7 +79,6 @@ export default {
       // S2 SSR Fervor：进入全爆裂时，Fervor 状态下 → 全员爆裂冷却 ▼X s（lv10=7.48s）
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           if (!caster.skillState.moranFervorActive) return false;
           const s2 = caster.ssrFavSkills?.skill2;
@@ -91,7 +90,7 @@ export default {
             u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
           if (state.buffLog)
             state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
-              name: 'moran_s2_fervor_cdReduction', unitId: null, reductionTicks });
+              name: 'Leave It To Me! P3 L1', unitId: null, reductionTicks });
         },
       },
     ],
@@ -133,7 +132,6 @@ export default {
       // Burst P1（自身）：武器切换 10s + 生命偷取 + S1 Fervor CD 减少
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const burstSkill = caster.ssrFavSkills?.burst;
           const lv         = burstSkill?._activeSkillLevel ?? 0;
@@ -148,7 +146,7 @@ export default {
           caster.skillState.weaponSwitchRoundsLeft    = 0;
           caster.skillState.weaponSwitchUnlimitedAmmo = true;
 
-          pushBuff(state, { name: 'moran_burst_lifeSteal', unitId: caster.id,
+          pushBuff(state, { name: 'Fair and Square! P1 L3', unitId: caster.id,
             lifeStealPct: lsPct, endTick: end10 });
 
           const s1   = caster.ssrFavSkills?.skill1;
@@ -159,21 +157,20 @@ export default {
             caster.burstCdRemaining = Math.max(0, caster.burstCdRemaining - fervorTicks);
             if (state.buffLog)
               state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
-                name: 'moran_s1_fervor_cdReduction', unitId: caster.id, reductionTicks: fervorTicks });
+                name: 'Bring It On! P3 L2', unitId: caster.id, reductionTicks: fervorTicks });
           }
         },
       },
       // Burst P2（全员）：ATK flat ▲（SSR 专属）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const burstSkill = caster.ssrFavSkills?.burst;
           const lv         = burstSkill?._activeSkillLevel ?? 0;
           if (!burstSkill || lv <= 0) return false;
           const atkPct = getSkillValue(burstSkill, 8, lv) / 100;
           if (atkPct <= 0) return false;
-          pushBuff(state, { name: 'moran_burst_atkFlat', unitId: null,
+          pushBuff(state, { name: 'Fair and Square! P2 L3', unitId: null,
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },

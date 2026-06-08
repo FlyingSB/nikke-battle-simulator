@@ -1,7 +1,8 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Little Mermaid  (resource_id: 513)
 export default {
 
   // ── Bubble Order
@@ -26,23 +27,21 @@ export default {
       // S1 P2：全爆裂结束 → 全员爆裂冷却 ▼[S1 param0]s
       {
         on: 'FULL_BURST_END',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const cdSec          = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]);
           const reductionTicks = Math.round(TICK_RATE * cdSec);
           for (const u of state.squad)
             u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
           if (state.buffLog)
-            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'lm_s1_cdReduction', unitId: null, reductionTicks });
+            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'Bubble Order P2 L1', unitId: null, reductionTicks });
         },
       },
       // S1 P3：进入全爆裂 → 全员 Attack Damage ▲[S1 param1]% 10s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'lm_skill1_attackDmg', unitId: null,
+          pushBuff(state, { name: 'Bubble Order', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -88,7 +87,8 @@ export default {
         target: 'ENEMY',
         handler(state, caster) {
           const damageTakenPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          state.enemyDamageTakenPct += damageTakenPct;
+          pushBuff(state, { name: 'Bubble Wave', unitId: '__enemy__', isDebuff: true,
+            enemyDamageTakenPct: damageTakenPct, endTick: Infinity });
         },
       },
       // S2 Explosive Bubble：累计 50 发（LM 自身）→ 状态标记切换（承伤值不变）
@@ -107,12 +107,11 @@ export default {
       {
         on: 'INTERVAL_IN_BURST',
         opts: { seconds: 1 },
-        logTargets: null,  // 伤害已由 fireSkillHit 写入日志，无需额外 skill_trigger 条目
         handler(state, caster, ctx) {
           const mult = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
           for (let h = 0; h < 4 && state.enemyHp > 0; h++) {
-            fireSkillHit(state, caster, mult, sums, false, 'S2 P3');
+            fireSkillHit(state, caster, mult, sums, 'S2 P3');
           }
         },
       },
@@ -124,7 +123,7 @@ export default {
           const sums    = getBuffSums(state, caster.id);
           const barrageMult = getSkillValue(caster.rawSkill2, 7, caster.skillLevels[1]) / 100;
           for (let h = 0; h < 10 && state.enemyHp > 0; h++) {
-            fireSkillHit(state, caster, barrageMult, sums, false, 'S2 P4');
+            fireSkillHit(state, caster, barrageMult, sums, 'S2 P4');
           }
         },
       },
@@ -152,12 +151,11 @@ export default {
       // Burst P1：全员 Attack Damage ▲ + 补弹
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const end10         = state.tick + TICK_RATE * 10;
           const attackDmgPct  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const ammoReloadPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'lm_burst_attackDmg', unitId: null, attackDamagePct: attackDmgPct, endTick: end10 });
+          pushBuff(state, { name: 'Siren\'s Song P1 L1', unitId: null, attackDamagePct: attackDmgPct, endTick: end10 });
           for (const u of state.squad) {
             const ammoBefore = u.ammoLeft;
             u.ammoLeft = Math.min(u.maxAmmo, u.ammoLeft + Math.floor(u.maxAmmo * ammoReloadPct));
@@ -171,10 +169,9 @@ export default {
       // Burst P2：自身 ATK flat ▲
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const atkFlatPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'lm_burst_atkFlat', unitId: caster.id,
+          pushBuff(state, { name: 'Siren\'s Song P2 L1', unitId: caster.id,
             atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },

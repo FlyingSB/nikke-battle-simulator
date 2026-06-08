@@ -1,7 +1,8 @@
 import { pushBuff, applyHeal, applyShield,
-         TICK_RATE } from '../../engine/battle-utils.js';
+         TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Crown  (resource_id: 330)
 export default {
 
   // ── One for All
@@ -27,9 +28,9 @@ export default {
         on: 'ENTER_FULL_BURST',
         target: 'BURST_CASTERS',
         effects: [
-          { type: 'BUFF', name: 'crown_skill1_atkFlat',  duration: 15,
+          { type: 'BUFF', name: 'One for All P1 L1',  duration: 15,
             stat: (caster) => ({ atkFlat: Math.round(caster.stats.atk * getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100) }) },
-          { type: 'BUFF', name: 'crown_skill1_reloadSpd', duration: 15,
+          { type: 'BUFF', name: 'One for All P1 L2', duration: 15,
             stat: (caster) => ({ reloadSpeedPct: getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100 }) },
         ],
       },
@@ -38,9 +39,9 @@ export default {
         on: 'ENTER_FULL_BURST',
         target: 'NON_BURST_CASTERS',
         effects: [
-          { type: 'BUFF', name: 'crown_skill1_defFlat',  duration: 15,
+          { type: 'BUFF', name: 'One for All P2 L1',  duration: 15,
             stat: (caster) => ({ defFlat: Math.round(caster.stats.def * getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100) }) },
-          { type: 'BUFF', name: 'crown_skill1_reloadSpd', duration: 15,
+          { type: 'BUFF', name: 'One for All P2 L2', duration: 15,
             stat: (caster) => ({ reloadSpeedPct: getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100 }) },
         ],
       },
@@ -79,20 +80,20 @@ export default {
           const healPct      = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
           const attackDmgPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
           applyHeal(state, caster, Math.round(caster.stats.hp * healPct));
-          pushBuff(state, { name: 'crown_skill2_attackDmg', unitId: null,
+          pushBuff(state, { name: 'Royal Attire P2 L7', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 7 });
         },
       },
+      // tdefIdx=1：■段1(Relax满层 Invulnerable/Taunt)防御性效果未建模，占位
+      {},
       // S2 HEAL_RECEIVED：Crown 自身受到治疗时 → 全员 Attack Damage ▲[S2 param6]% 7s
       // 与满层触发共用 buff name；pushBuff 刷新语义保证不叠加
       {
         on: 'HEAL_RECEIVED',
-        partOverride: 2,
         conditions: [{ type: 'HEALED_UNIT_IS_SELF' }],
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'crown_skill2_attackDmg', unitId: null,
+          pushBuff(state, { name: 'Royal Attire P2 L7', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 7 });
         },
       },
@@ -115,17 +116,14 @@ export default {
       //   全员护盾 10.45% Crown HP 15s（刷新取 max(旧, 新)）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const shieldPct    = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'crown_burst_attackDmg', unitId: null,
+          pushBuff(state, { name: 'Last Kingdom', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 15 });
           const shieldAmt = Math.round(caster.stats.hp * shieldPct);
           const shieldEnd = state.tick + TICK_RATE * 15;
-          for (const u of state.squad) {
-            applyShield(state, u, shieldAmt, shieldEnd);
-          }
+          applyShield(state, ALL_ALLIES, shieldAmt, shieldEnd);
         },
       },
     ],

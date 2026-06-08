@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Privaty: Unkind Maid  (resource_id: 313)
 export default {
 
   // ── Passionate Maid（S1）
@@ -26,7 +27,7 @@ export default {
             const lv   = caster.skillLevels[0];
             const mult = getSkillValue(caster.rawSkill1, 1, lv) / 100;
             const sums = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, mult, sums, false, 'S1');
+            fireSkillHit(state, caster, mult, sums, 'S1');
           }
         },
       },
@@ -63,7 +64,7 @@ export default {
           const lv           = caster.skillLevels[1];
           const reloadSpdPct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const end2         = state.tick + TICK_RATE * 2;
-          pushBuff(state, { name: 'pum_s2_reloadSpd', unitId: caster.id,
+          pushBuff(state, { name: 'Loving Maid P1 L2', unitId: caster.id,
             reloadSpeedPct: reloadSpdPct, endTick: end2 });
         },
       },
@@ -92,7 +93,7 @@ export default {
             const atkPct = getSkillValue(caster.rawSkill2, 5, lv) / 100;
             const end2   = now + TICK_RATE * 2;
             for (let i = 0; i < 5; i++) {
-              const slotName = `pum_s2_atk_${i}`;
+              const slotName = 'Loving Maid P2 L4';
               const slot = state.buffs.find(b => b.name === slotName && b.unitId === caster.id);
               if (!slot) {
                 state.buffs.push({ name: slotName, unitId: caster.id, atkPct, endTick: end2 });
@@ -110,7 +111,6 @@ export default {
       // 全爆裂结束 → 重置弹丸计数器（ATK 各层自然到期）
       {
         on: 'FULL_BURST_END',
-        logTargets: null,
         handler(state, caster) {
           caster.skillState.pum_s2_burstPellets = 0;
         },
@@ -137,26 +137,23 @@ export default {
       // Burst P1：自身 Attack Damage ▲ p00% + Crit Damage ▲ p02% 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv         = caster.skillLevels[2];
           const end10      = state.tick + TICK_RATE * 10;
           const atkDmgPct  = getSkillValue(caster.rawBurst, 0, lv) / 100;
-          const critDmgPct = getSkillValue(caster.rawBurst, 2, lv) / 100;
-          pushBuff(state, { name: 'pum_burst_atkDmg',  unitId: caster.id, attackDamagePct: atkDmgPct,  endTick: end10 });
-          pushBuff(state, { name: 'pum_burst_critDmg', unitId: caster.id, critDmgBonus:    critDmgPct, endTick: end10 });
+          const critDamagePct = getSkillValue(caster.rawBurst, 2, lv) / 100;
+          pushBuff(state, { name: 'Your Bashful Maid!', unitId: caster.id, attackDamagePct: atkDmgPct, critDamagePct, endTick: end10 });
         },
       },
       // Burst P2：对所有敌人造成爆裂技能伤害 p04%
       {
         on: 'BURST_SKILL_USE',
-        logTargets: null,
         handler(state, caster) {
           if (state.enemyHp <= 0) return false;
           const lv        = caster.skillLevels[2];
           const burstMult = getSkillValue(caster.rawBurst, 4, lv) / 100;
           const sums      = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, burstMult, sums, false, 'Burst');
+          fireSkillHit(state, caster, burstMult, sums, 'Burst');
         },
       },
     ],

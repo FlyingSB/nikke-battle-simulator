@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Snow White: Heavy Arms  (resource_id: 471)
 export default {
 
   // ── Seven Dwarves V+VI
@@ -25,7 +26,7 @@ export default {
   // p01: [0.2, ...] (interval sec, const)
   // p02: [2.48, 2.66, 2.84, 3.02, 3.2, 3.38, 3.56, 3.74, 3.92, 4.2] (Damage Taken%)
   // p03: [5, ...] (max Lock-On targets, const)
-  // p04: [24.96, 26.8, 28.62, 30.46, 32.28, 34.1, 35.94, 37.76, 39.6, 42.24] (DEF%, defensive skip)
+  // p04: [24.96, 26.8, 28.62, 30.46, 32.28, 34.1, 35.94, 37.76, 39.6, 42.24] (DEF%)
   // p05: [5, ...] (max ammo, const)
   // p06: [24.76, 26.58, 28.4, 30.22, 32.04, 33.86, 35.68, 37.5, 39.32, 41.9] (Auto Fire AoE%)
   // p07: [62.39, 66.95, 71.51, 76.07, 80.63, 85.19, 89.75, 94.31, 98.87, 105.59] (Auto Fire seq% per shot)
@@ -35,74 +36,52 @@ export default {
   // - "每 0.2s 激活" 效果在蓄力时持续触发：
   //   正常蓄力 1.2s / 0.2s = 6 次 → 弹药上限 5 发（始终满弹）。
   //   FA 蓄力 3.2s / 0.2s = 16 次 → 上限 15 发（始终满弹）。
+  // - Auto Fire Ready DEF ▲ p04%：蓄力期间持续，普攻时清除；模拟中不执行普攻，以 BATTLE_START 永久施加建模。
   // - 单体 Boss 场景下 Lock-On 目标始终存在，Damage Taken 实质持续，以 BATTLE_START 永久施加建模。
-  // - Auto Fire Effect 1 (AoE) 为全蓄力命中，isCharged=true 享受蓄力伤害加成。
-  // - Auto Fire Effect 2 (sequential) 为七矮人顺序弹，isCharged=false 处理。
   skill1: {
     groupId: 24711,
     triggers: [
+      // tdefIdx=0：■段0(Lock-On，每0.2s interval)未建模，占位
+      {},
+      // 战斗开始：Auto Fire Ready DEF ▲ p04%（蓄力期间持续刷新；近乎全程覆盖）
+      {
+        on: 'BATTLE_START',
+        handler(state, caster) {
+          const p04 = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
+          pushBuff(state, { name: 'Seven Dwarves V+VI P2', unitId: caster.id,
+            defPct: p04, endTick: Infinity });
+        },
+      },
       // 战斗开始：Damage Taken ▲ p02% 永久施加（单体 Boss 下锁定目标始终存在）
       {
         on: 'BATTLE_START',
-        partOverride: 1,
-        logTargets: 'ENEMY',
         handler(state, caster) {
           const p02 = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
-          state.enemyDamageTakenPct += p02;
+          pushBuff(state, { name: 'Seven Dwarves V+VI P3', unitId: '__enemy__', isDebuff: true,
+            enemyDamageTakenPct: p02, endTick: Infinity });
         },
       },
 
       // 全蓄力：Auto Fire（AoE + 顺序攻击）
-      // 同帧先推送 S2 增益（Damage to Parts / ATK），确保 Auto Fire 命中时已生效。
-      // FA 激活时额外推送 Charge Damage ▲（endTick+1 使其仅对本帧 isCharged=true 的 AoE 有效）。
+      // S2 P2/P4 的增益由各自 DURING_FULL_CHARGE 触发器在本 tick 更早推入，getBuffSums 可直接读到。
       {
         on: 'FULL_CHARGE',
-        partOverride: 2,
-        logTargets: null,
         handler(state, caster) {
           const s1Lv    = caster.skillLevels[0];
-          const s2Lv    = caster.skillLevels[1];
           const faActive = (caster.skillState.swhaFaUses ?? 0) > 0;
+          const sums    = getBuffSums(state, caster.id);
 
-          // ── S2 全蓄力增益（同帧推送保证 Auto Fire 受益）
-          // 蓄力周期（1.2s）< buff 持续时长（5s）：若不防重叠，会累积多层。
-          // 仅在上一次 buff 过期后才重新 push；未过期时旧 buff 仍处于计算中，无需重复。
-          const now   = state.tick;
-          const p11s2 = getSkillValue(caster.rawSkill2, 10, s2Lv) / 100;  // Damage to Parts ▲
-          const p03s2 = getSkillValue(caster.rawSkill2, 2,  s2Lv) / 100;  // ATK ▲
-          const end5  = now + TICK_RATE * 5;
-          if (now >= (caster.skillState.swhaS2PartsDmgEndTick ?? 0)) {
-            pushBuff(state, { name: 'swha_s2_partsDmg', unitId: caster.id,
-              attackDamagePct: p11s2, endTick: end5 });
-            caster.skillState.swhaS2PartsDmgEndTick = end5;
-          }
-          if (now >= (caster.skillState.swhaS2AtkEndTick ?? 0)) {
-            pushBuff(state, { name: 'swha_s2_atk', unitId: caster.id,
-              atkPct: p03s2, endTick: end5 });
-            caster.skillState.swhaS2AtkEndTick = end5;
-          }
-
-          // FA 时：Charge Damage ▲ p07_s2%（下一 tick 过期，仅影响本帧 isCharged=true 的 AoE 命中）
-          if (faActive) {
-            const chargeDmg = getSkillValue(caster.rawSkill2, 6, s2Lv) / 100;
-            pushBuff(state, { name: 'swha_s2_fa_chargeDmg', unitId: caster.id,
-              chargeDamagePct: chargeDmg, endTick: state.tick + 1 });
-          }
-
-          const sums = getBuffSums(state, caster.id);
-
-          // Auto Fire Effect 1：p06% 对全体（isCharged=true，受 chargeDamagePct FA 加成）
+          // Auto Fire Effect 1：p06% 对全体
           const p06 = getSkillValue(caster.rawSkill1, 5, s1Lv) / 100;
-          fireSkillHit(state, caster, p06, sums, true, 'S1 P1');
+          fireSkillHit(state, caster, p06, sums, 'S1 P4 L4');
 
-          // Auto Fire Effect 2：p07% × ammo 顺序攻击（isCharged=false，chargeDmgStat 不参与）
-          const p07    = getSkillValue(caster.rawSkill1, 6, s1Lv) / 100;
-          const ammo   = faActive ? 15 : 5;
-          const seqMult = faActive
-            ? p07 * (1 + getSkillValue(caster.rawSkill2, 8, s2Lv) / 100)  // p09_s2: sequential dmg ▲
-            : p07;
+          // Auto Fire Effect 2：p07% × ammo 顺序攻击（isCharged=false）
+          // FA 时 S2 P4 推入 sequentialAttackDamagePct，经 sums 自动参与计算
+          const p07     = getSkillValue(caster.rawSkill1, 6, s1Lv) / 100;
+          const ammo    = faActive ? 15 : 5;
+          const seqMult = p07 * (1 + (sums.sequentialAttackDamagePct ?? 0));
           for (let i = 0; i < ammo; i++) {
-            fireSkillHit(state, caster, seqMult, sums, false, 'S1 P2');
+            fireSkillHit(state, caster, seqMult, sums, 'S1 P4 L5');
           }
 
           // FA 使用次数递减；耗尽时恢复 S2 固定蓄力时长 1.2s
@@ -144,28 +123,55 @@ export default {
   // p10: [1, ...] (round, const)
   // p11: [37.01, 39.74, 42.46, 45.19, 47.91, 50.64, 53.36, 56.09, 58.81, 62.64] (Damage to Parts%)
   //
-  // 注：Full Charge 时的 ATK / Damage to Parts / FA Charge Damage 增益由 S1 FULL_CHARGE handler 推送，
-  //   保证与 Auto Fire 同帧生效。Pierce 在单体 Boss 场景下不增加 DPS，仅注释说明。
+  // 注：P2 DURING_FULL_CHARGE 触发器在 getBuffSums 之前执行，Pierce / ATK / Damage to Parts 对 Auto Fire 同帧有效。
+  //     P4 同理。Pierce 通过 swha_s2_pierce buff（pierce:true）建模，由 getBuffSums 汇总为 sums.pierce。
   skill2: {
     groupId: 24712,
     triggers: [
-      // 战斗开始：固定蓄力时长为 1.2s（直接覆盖 unit.chargeTimeTicks）
+      // P1：战斗开始：固定蓄力时长为 1.2s；永久免疫技能/buff 来源的蓄力速度变化
       {
         on: 'BATTLE_START',
-        logTargets: 'SELF',
         handler(state, caster) {
-          caster.chargeTimeTicks = Math.round(1.2 * TICK_RATE);
+          caster.chargeTimeTicks        = Math.round(1.2 * TICK_RATE);
+          caster.immuneSkillChargeSpeed = true;
         },
       },
 
-      // 进入爆裂阶段 3：ATK ▲ p05% (10s)
+      // P2：全蓄力期间：Pierce (5s) + ATK ▲ p03% (5s) + Damage to Parts ▲ p11% (5s)
+      {
+        on: 'DURING_FULL_CHARGE',
+        handler(state, caster) {
+          const lv   = caster.skillLevels[1];
+          const end5 = state.tick + TICK_RATE * 5;
+          const p03  = getSkillValue(caster.rawSkill2, 2, lv) / 100;
+          const p11  = getSkillValue(caster.rawSkill2, 10, lv) / 100;
+          pushBuff(state, { name: 'Shades of White P2', unitId: caster.id, pierce: true, atkPct: p03, damageToPartsPct: p11, endTick: end5 });
+        },
+      },
+
+      // P3：进入爆裂阶段 3：ATK ▲ p05% (10s)
       {
         on: 'ENTER_BURST_III',
         handler(state, caster) {
           const p05   = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const end10 = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'swha_s2_b3_atk', unitId: caster.id,
+          pushBuff(state, { name: 'Shades of White P3 L2', unitId: caster.id,
             atkPct: p05, endTick: end10 });
+        },
+      },
+
+      // P4：全蓄力期间（FA 状态下）：Charge Damage ▲ p07% + Sequential attack damage ▲ p09%（均 1 round）
+      {
+        on: 'DURING_FULL_CHARGE',
+        handler(state, caster) {
+          if ((caster.skillState.swhaFaUses ?? 0) <= 0) return;
+          const lv = caster.skillLevels[1];
+          const p07 = getSkillValue(caster.rawSkill2, 6, lv) / 100;
+          const p09 = getSkillValue(caster.rawSkill2, 8, lv) / 100;
+          pushBuff(state, { name: 'Shades of White P4 L1', unitId: caster.id,
+            chargeDamagePct: p07, endTick: state.tick + 1 });
+          pushBuff(state, { name: 'Shades of White P4 L2', unitId: caster.id,
+            sequentialAttackDamagePct: p09, endTick: state.tick + 1 });
         },
       },
     ],
@@ -194,14 +200,13 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const bLv   = caster.skillLevels[2];
           const end10 = state.tick + TICK_RATE * 10;
 
           // Attack Damage ▲ p03% (10s)
           const atkDmgPct = getSkillValue(caster.rawBurst, 2, bLv) / 100;
-          pushBuff(state, { name: 'swha_burst_atkDmg', unitId: caster.id,
+          pushBuff(state, { name: 'Seven Dwarves Fully Active', unitId: caster.id,
             attackDamagePct: atkDmgPct, endTick: end10 });
 
           // Seven Dwarves Fully Active：2 次使用；蓄力时长切换至 3.2s；弹药上限升至 15（S1 handler 直接读取）

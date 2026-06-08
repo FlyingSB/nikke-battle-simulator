@@ -1,6 +1,7 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Mari  (resource_id: 832)
 // S2 周期（游戏内实测 10s；战斗开始先进入冷却，首次触发于 t+10s）
 const S2_INTERVAL_SEC = 10;
 
@@ -20,17 +21,15 @@ export default {
   skill1: {
     groupId: 28321,
     triggers: [
-      // S1 T1: 全蓄力命中 → 全员对护盾伤害 ▲ p00% 3s
-      // [TODO] Damage dealt to Shield buff 系统暂未支持，跳过实现
-      //
-      // S1 T2: 命中核心 → 全员 Pierce Damage ▲ p02% 10s
+      // ■0：全蓄力命中 → 对护盾伤害 ▲（Shield Damage buff 系统暂未支持，未建模）
+      {},
+      // ■1：命中核心 → 全员 Pierce Damage ▲ p02% 10s
       {
         on: 'CORE_HIT',
-        partOverride: 1,
         handler(state, caster) {
           const lv  = caster.skillLevels[0];
           const pct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-          pushBuff(state, { name: 'mari_s1_pierceDmg', unitId: null,
+          pushBuff(state, { name: 'Precision Sniping', unitId: null,
             pierceDamagePct: pct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -60,27 +59,23 @@ export default {
       {
         on: 'INTERVAL',
         opts: { seconds: S2_INTERVAL_SEC },
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv   = caster.skillLevels[1];
           const end5 = state.tick + TICK_RATE * 5;
-          caster.skillState.pierceEndTick = end5;
           const selfAtkPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
-          pushBuff(state, { name: 'mari_s2_selfAtk', unitId: caster.id,
-            atkPct: selfAtkPct, endTick: end5 });
+          pushBuff(state, { name: 'Full Focus P1', unitId: caster.id, pierce: true, atkPct: selfAtkPct, endTick: end5 });
         },
       },
       // S2 P2：全员 ATK flat ▲ p01% × Mari.ATK 5s
       {
         on: 'INTERVAL',
         opts: { seconds: S2_INTERVAL_SEC },
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv          = caster.skillLevels[1];
           const end5        = state.tick + TICK_RATE * 5;
           const allyAtkPct  = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const allyAtkFlat = Math.round(caster.stats.atk * allyAtkPct);
-          pushBuff(state, { name: 'mari_s2_allyAtkFlat', unitId: null,
+          pushBuff(state, { name: 'Full Focus P2 L2', unitId: null,
             atkFlat: allyAtkFlat, endTick: end5 });
         },
       },
@@ -104,23 +99,21 @@ export default {
       // Burst P1：对所有敌人造成爆裂技能伤害
       {
         on: 'BURST_SKILL_USE',
-        logTargets: null,
         handler(state, caster) {
           if (state.enemyHp <= 0) return false;
           const lv      = caster.skillLevels[2];
           const sums    = getBuffSums(state, caster.id);
           const hitMult = getSkillValue(caster.rawBurst, 0, lv) / 100;
-          fireSkillHit(state, caster, hitMult, sums, false, 'Burst');
+          fireSkillHit(state, caster, hitMult, sums, 'Burst');
         },
       },
       // Burst P2：全员攻击伤害 ▲ p01% 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv           = caster.skillLevels[2];
           const attackDmgPct = getSkillValue(caster.rawBurst, 1, lv) / 100;
-          pushBuff(state, { name: 'mari_burst_attackDmg', unitId: null,
+          pushBuff(state, { name: 'GPS Guided Missile', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },

@@ -1,6 +1,7 @@
 import { pushBuff, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
+// Character: Scarlet  (resource_id: 222)
 // S2 Part2 激活条件：HP < 60%（首次低于阈值时永久生效，不重复叠加）
 function checkAndApplyS2P2(state, caster) {
   if (caster.skillState.scS2CritApplied) return;
@@ -8,8 +9,8 @@ function checkAndApplyS2P2(state, caster) {
   caster.skillState.scS2CritApplied = true;
   const lv    = caster.skillLevels[1];
   const cdPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
-  pushBuff(state, { name: 'sc_s2_critDmg', unitId: caster.id,
-    critDmgBonus: cdPct, endTick: Infinity });
+  pushBuff(state, { name: 'Zatoichi', unitId: caster.id,
+    critDamagePct: cdPct, endTick: Infinity });
 }
 
 export default {
@@ -39,7 +40,7 @@ export default {
           // ATK ▲ 独立叠层（最多 5 层，5s/层）— 使用 0~4 轮转槽位
           const slot = (caster.skillState.scS1AtkSlot ?? 0) % 5;
           caster.skillState.scS1AtkSlot = slot + 1;
-          pushBuff(state, { name: `sc_s1_atk_${slot}`, unitId: caster.id,
+          pushBuff(state, { name: 'Blood for Blood', unitId: caster.id,
             atkPct, endTick });
 
           // 扣除当前 HP 的 4.01%（不低于 1）
@@ -71,7 +72,6 @@ export default {
       // Part2：战斗开始时检测初始 HP（通常满血不触发；安全起见保留）
       {
         on: 'BATTLE_START',
-        logTargets: null,
         handler: checkAndApplyS2P2,
       },
     ],
@@ -94,20 +94,18 @@ export default {
       // Burst P1：HP < 50% → 自身 Crit Rate ▲[p01]% 10s
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'SELF',
         handler(state, caster) {
           const hpPct = (caster.unitHp ?? caster.stats.hp) / caster.stats.hp;
           if (hpPct >= 0.5) return false;
           const lv    = caster.skillLevels[2];
           const crPct = getSkillValue(caster.rawBurst, 1, lv) / 100;
-          pushBuff(state, { name: 'sc_burst_critRate', unitId: caster.id,
-            critRateBonus: crPct, endTick: state.tick + TICK_RATE * 10 });
+          pushBuff(state, { name: 'Scarlet Flash', unitId: caster.id,
+            critRatePct: crPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
       // Burst P2：延迟 1.38s 后触发爆裂伤害（sums 在 P1 crit buff 生效后捕获）
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ENEMY',
         handler(state, caster) {
           const lv        = caster.skillLevels[2];
           const burstMult = getSkillValue(caster.rawBurst, 3, lv) / 100;

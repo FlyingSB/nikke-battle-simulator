@@ -1,4 +1,4 @@
-import { pushBuff, applyHeal, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, TICK_RATE, pushHoT, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Prika  (resource_id: 601)
@@ -26,27 +26,20 @@ export default {
     triggers: [
       {
         on: 'FULL_CHARGE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const lv      = caster.skillLevels[0];
           const endTick = state.tick + TICK_RATE * 3;
 
-          // 全队：Projectile Explosion Damage ▲ p00% 3s
+          // 全队：Projectile Explosion Damage ▲ p00% + Pierce Damage ▲ p02% 3s（合并）
           const projExpPct = getSkillValue(caster.rawSkill1, 0, lv) / 100;
-          pushBuff(state, { name: 'prika_s1_projExp', unitId: null,
-            projectileExplosionDamagePct: projExpPct, endTick });
-
-          // 全队：Pierce Damage ▲ p02% 3s
           const piercePct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-          pushBuff(state, { name: 'prika_s1_pierce', unitId: null,
-            pierceDamagePct: piercePct, endTick });
+          pushBuff(state, { name: 'Let\'s Get the Show Started P1', unitId: null,
+            projectileExplosionDamagePct: projExpPct, pierceDamagePct: piercePct, endTick });
 
           // 全队：ATK ▲（p04% × 施放者 ATK）flat 3s
           const atkPct  = getSkillValue(caster.rawSkill1, 4, lv) / 100;
           const atkFlat = Math.round(caster.stats.atk * atkPct);
-          for (const u of state.squad) {
-            pushBuff(state, { name: `prika_s1_atk_${u.id}`, unitId: u.id, atkFlat, endTick });
-          }
+          pushBuff(state, { name: 'Let\'s Get the Show Started P1 L4', unitId: null, atkFlat, endTick });
         },
       },
     ],
@@ -74,11 +67,10 @@ export default {
       // P1：进入全爆裂 → 自身 Max HP ▲ p00% 10s
       {
         on: 'ENTER_FULL_BURST',
-        logTargets: 'SELF',
         handler(state, caster) {
           const lv       = caster.skillLevels[1];
           const maxHpPct = getSkillValue(caster.rawSkill2, 0, lv) / 100;
-          pushBuff(state, { name: 'prika_s2_maxHp', unitId: caster.id,
+          pushBuff(state, { name: 'One More Song! P1 L1', unitId: caster.id,
             maxHpPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -86,7 +78,6 @@ export default {
       // 以 ENTER_BURST_III 代理"Sing Along 生效"（Mint 为 B2，其 burst 在 B3 进入前触发）
       {
         on: 'ENTER_BURST_III',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const ss            = caster.skillState;
           const inPerformance = (ss.prika_performanceEndTick ?? 0) > state.tick;
@@ -110,7 +101,7 @@ export default {
 
           // 延长所有队友的 Performance Charge Damage buff 到期时间
           for (const b of state.buffs) {
-            if (b.name === 'prika_burst_chargeDmg') b.endTick = ss.prika_performanceEndTick;
+            if (b.name === 'Get Ready for an Amazing Show!') b.endTick = ss.prika_performanceEndTick;
           }
 
           // 追加 21 次 HoT（紧接原结束 tick 之后逐秒触发）
@@ -122,7 +113,7 @@ export default {
 
           // Effect 3：全队 Attack Damage ▲ p03% 10s
           const atkDmgPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
-          pushBuff(state, { name: 'prika_s2_encore_atkDmg', unitId: null,
+          pushBuff(state, { name: 'One More Song! P2 L3', unitId: null,
             attackDamagePct: atkDmgPct, endTick });
         },
       },
@@ -144,7 +135,6 @@ export default {
     triggers: [
       {
         on: 'BURST_SKILL_USE',
-        logTargets: 'ALL_ALLIES',
         handler(state, caster) {
           const ss       = caster.skillState;
           const lv       = caster.skillLevels[2];
@@ -159,15 +149,11 @@ export default {
           const potencyPct = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
           const amount     = Math.round(caster.stats.hp * hotPct * (1 + potencyPct));
           ss.prika_hotAmount = amount; // 供 Encore 延长时复用
-          for (const u of state.squad) {
-            for (let i = 1; i <= duration; i++) {
-              state.pendingHoTs.push({ fireTick: state.tick + i * TICK_RATE, targetId: u.id, amount });
-            }
-          }
+          pushHoT(state, ALL_ALLIES, amount, duration);
 
           // Effect 2：全队 Charge Damage ▲ p04% 25s
           const chargeDmgPct = getSkillValue(caster.rawBurst, 4, lv) / 100;
-          pushBuff(state, { name: 'prika_burst_chargeDmg', unitId: null,
+          pushBuff(state, { name: 'Get Ready for an Amazing Show!', unitId: null,
             chargeDamagePct: chargeDmgPct, endTick: state.tick + TICK_RATE * duration });
         },
       },
