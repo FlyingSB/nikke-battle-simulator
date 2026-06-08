@@ -67,9 +67,9 @@ import {
  * @property {number} hp
  * @property {number} def
  * @property {number} critRate           基础 0.15 + 装备 critRatePct
- * @property {number} critDmg            基础 0.50 + 装备 critDmgPct（= calcDamage 用的 critDmgIncrement）
+ * @property {number} critDmg            基础 0.50 + 装备 critDamagePct（= calcDamage 用的 critDmgIncrement）
  * @property {number} elementDmgPct      来自装备词条（传给 calcDamage 的 elementAdvantageDmgIncrement）
- * @property {number} bonusAmmo          来自装备词条（加到 maxAmmo 上）
+ * @property {number} equipMaxAmmoPct     来自装备词条（加到 maxAmmo 上）
  * @property {number} chargeDmgPct       来自装备词条。以 chargeDmgStat: (1 + chargeDmgPct) 的形式传给 calcDamage()。
  * @property {number} chargeSpeedPct     来自装备词条（仅记录；会减少蓄力时间 — 当前模型未计算）
  * @property {number} hitRatePct         来自装备词条（仅记录；未建模 — 默认必定命中）
@@ -91,7 +91,7 @@ export const SLOT_MAP = {
  * @property {number} [atkFlat=0]          固定 ATK 加成（两遍计算中从 atkPct 推导；或直接给定）
  * @property {number} [elementDmgPct=0]    "Increase Element Damage Dealt" — 小数（0.05 = 5%）
  * @property {number} [hitRatePct=0]       "Increase Hit Rate" — 小数（仅记录，不参与模拟）
- * @property {number} [bonusAmmo=0]        "Increase Max Ammunition Capacity" — 固定子弹数。
+ * @property {number} [equipMaxAmmoPct=0]  "Increase Max Ammunition Capacity" — 固定子弹数。
  *                                          使用 grouped-ROUND 规则计算：将相同 pct 的词条分组，
  *                                          然后每组 Math.round(baseAmmo × pct × count)。
  *                                          OL 最多 4 个槽位。此处不要包含珍藏品 / 魔方 pct，
@@ -99,7 +99,7 @@ export const SLOT_MAP = {
  * @property {number} [chargeDmgPct=0]     "Increase Charge Damage" — 加在蓄力倍率上的小数
  * @property {number} [chargeSpeedPct=0]   "Increase Charge Speed" — 小数（仅记录，减少蓄力时间）
  * @property {number} [critRatePct=0]      "Increase Critical Rate" — 加到暴击率的小数
- * @property {number} [critDmgPct=0]       "Increase Critical Damage" — 加到暴击伤害增量的小数
+ * @property {number} [critDamagePct=0]       "Increase Critical Damage" — 加到暴击伤害增量的小数
  * @property {number} [defFlat=0]          "Increase DEF" 词条带来的固定 DEF 加成
  */
 
@@ -243,10 +243,12 @@ export function computeFinalStats(slot, nikkeLevel, research) {
     // 不计入 stats.atk，以保证技能"X% of caster's ATK"引用正确的基础 ATK。
     equipAtkFlat,
     critRate:       BASE_CRIT_RATE + (opts.critRatePct ?? 0),
-    critDmg:        BASE_CRIT_DMG  + (opts.critDmgPct  ?? 0),
+    critDmg:        BASE_CRIT_DMG  + (opts.critDamagePct  ?? 0),
     // 优越代码攻击伤害：装备词条 + 魔方 Anti Code HC
-    elementDmgPct:  (opts.elementDmgPct ?? 0) + cubeElementDmgPct,
-    bonusAmmo:      opts.bonusAmmo      ?? 0,
+    elementDmgPct:      (opts.elementDmgPct ?? 0) + cubeElementDmgPct,
+    // 仅装备词条部分（UI 最终属性展示用，不含魔方加成）
+    equipElementDmgPct: opts.elementDmgPct ?? 0,
+    equipMaxAmmoPct: opts.equipMaxAmmoPct ?? 0,
     chargeDmgPct:   opts.chargeDmgPct   ?? 0,
     // 蓄力速度：装备词条 + 魔方（Adjutant）
     chargeSpeedPct: (opts.chargeSpeedPct ?? 0) + cubeChargeSpeedPct,

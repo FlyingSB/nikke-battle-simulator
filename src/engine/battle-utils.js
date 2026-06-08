@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 战斗引擎共享工具。
  * 被 battle.js 和 skill-executor.js 同时引用，避免循环依赖。
  */
@@ -6,7 +6,68 @@
 import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
 
 export const TICK_RATE       = 60;         // 每秒 tick 数
+
+// unit.maxAmmo 的内部存储 key（模块私有）。
+// 仅 recalcMaxAmmo 可写；外部通过 getter 只读，严格模式下赋值抛出 TypeError。
+const _maxAmmo = Symbol('maxAmmo');
 export const BURST_GAUGE_MAX = 1_000_000;  // 共享爆裂槽上限
+export const ENEMY_UNIT_ID   = '__enemy__';    // 敌人 debuff 专用 unitId（区别于 unitId:null 全体队友 buff）
+export const ALL_ALLIES      = '__all_allies__'; // 全体队友目标哨兵（applyHeal/applyShield/pushHoT 支持）
+
+// ─── Buff 数值字段注册表（单一来源）────────────────────────────────────────────
+// 新增 buff 字段：只需在此处添加一行，getBuffSums 和 buffLog 会自动包含它。
+export const BUFF_NUMERIC_FIELDS = [
+  'atkPct', 'atkFlat', 'defPct', 'defFlat',
+  'attackDamagePct', 'normalAttackDamagePct',
+  'critRatePct', 'normalAttackCritRatePct', 'critDamagePct',
+  'chargeDamagePct', 'chargeSpeedPct', 'reloadSpeedPct',
+  'lifeStealPct', 'distributedDamagePct',
+  'chargeTimeReductionTicks', 'hitRatePct', 'elementAdvantagePct',
+  'projectileAttachmentDamagePct', 'projectileExplosionDamagePct', 'coreDamagePct',
+  'maxHpPct', 'maxHpFlat', 'burstGaugeFlat',
+  'pierceDamagePct', 'sustainedDamagePct',
+  'maxAmmoPct', 'maxAmmoFlat',
+  'trueDamagePct', 'atkSpeedPct', 'sequentialAttackDamagePct',
+  'damageToPartsPct',
+];
+
+// ─── 最大装弹数管理 ─────────────────────────────────────────────────────────
+
+/**
+ * 在单位对象上安装 maxAmmo 只读 getter，并设置初始值与 ammoLeft。
+ * 必须在 battle.js initBattle 的 map 回调末尾调用一次，之后由 recalcMaxAmmo 维护。
+ */
+export function initUnitMaxAmmo(unit, initialValue) {
+  unit[_maxAmmo] = initialValue;
+  unit.ammoLeft  = initialValue;
+  Object.defineProperty(unit, 'maxAmmo', {
+    get() { return this[_maxAmmo]; },
+    enumerable:   true,
+    configurable: false,   // 禁止重新定义，防止意外覆盖
+  });
+}
+
+/**
+ * 根据当前所有效果重新计算 unit.maxAmmo，并在必要时截断 unit.ammoLeft。
+ * 触发时机：pushBuff（含 maxAmmoPct/maxAmmoFlat）、buff 过期、tempMaxAmmoMult 写入/到期。
+ *
+ * 公式（§5.1.1）：
+ *   rawMax = max(1,
+ *     baseAmmo
+ *     + round(baseAmmo × sums.maxAmmoPct)   ← 含 OL、珍藏品pct、技能 buff 百分比（均作为永久/临时 buff）
+ *     + sums.maxAmmoFlat                     ← 含珍藏品 flat、技能 buff 固定值
+ *   )
+ */
+export function recalcMaxAmmo(state, unit) {
+  const sums   = getBuffSums(state, unit.id);
+  const rawMax = Math.max(1,
+    unit.baseAmmo
+    + Math.round(unit.baseAmmo * (sums.maxAmmoPct ?? 0))
+    + (sums.maxAmmoFlat ?? 0),
+  );
+  unit[_maxAmmo] = rawMax;
+  if (unit.ammoLeft > rawMax) unit.ammoLeft = rawMax;
+}
 
 // ─── Buff 汇总 ──────────────────────────────────────────────────────────────
 
@@ -17,58 +78,89 @@ export function getBuffSums(state, unitId) {
     console.error(err, { unitId, squadIds: state.squad.map(u => u.id) });
     throw new Error(err);
   }
-  let atkPct  = unit.equipAtkPct  ?? 0;
-  let atkFlat = unit.equipAtkFlat ?? 0, defFlat = 0, defPct = 0, attackDamagePct = 0,
-      normalAttackDamagePct = 0, critRateBonus = 0, normalAttackCritRateBonus = 0, critDmgBonus = 0, chargeDamagePct = 0,
-      chargeSpeedPct = 0, reloadSpeedPct = 0, lifeStealPct = 0, distributedDamagePct = 0,
-      chargeTimeReductionTicks = 0, hitRateBonus = 0, elementAdvantageBonus = 0,
-      projectileExplosionDamagePct = 0, coreDamagePct = 0, maxHpPct = 0, maxHpFlat = 0,
-      burstGaugeFlat = 0, pierceDamagePct = 0, sustainedDamagePct = 0, maxAmmoFlat = 0,
-      trueDamagePct = 0, atkSpeedPct = 0;
+  // 从 BUFF_NUMERIC_FIELDS 初始化，装备基础值单独叠加
+  const sums = Object.fromEntries(BUFF_NUMERIC_FIELDS.map(f => [f, 0]));
+  sums.atkPct  = unit.equipAtkPct  ?? 0;
+  sums.atkFlat = unit.equipAtkFlat ?? 0;
+  let pierce = false;
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
     if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
     // 可叠加 buff（stacks > 1）：各字段按层数等比累加
     const k = b.stacks ?? 1;
-    atkPct                       += (b.atkPct                       ?? 0) * k;
-    atkFlat                      += (b.atkFlat                      ?? 0) * k;
-    defFlat                      += (b.defFlat                      ?? 0) * k;
-    defPct                       += (b.defPct                       ?? 0) * k;
-    attackDamagePct              += (b.attackDamagePct              ?? 0) * k;
-    normalAttackDamagePct        += (b.normalAttackDamagePct        ?? 0) * k;
-    critRateBonus                += (b.critRateBonus                ?? 0) * k;
-    normalAttackCritRateBonus    += (b.normalAttackCritRateBonus    ?? 0) * k;
-    critDmgBonus                 += (b.critDmgBonus                 ?? 0) * k;
-    chargeDamagePct              += (b.chargeDamagePct              ?? 0) * k;
-    chargeSpeedPct               += (b.chargeSpeedPct               ?? 0) * k;
-    reloadSpeedPct               += (b.reloadSpeedPct               ?? 0) * k;
-    lifeStealPct                 += (b.lifeStealPct                 ?? 0) * k;
-    distributedDamagePct         += (b.distributedDamagePct         ?? 0) * k;
-    chargeTimeReductionTicks     += (b.chargeTimeReductionTicks     ?? 0) * k;
-    hitRateBonus                 += (b.hitRateBonus                 ?? 0) * k;
-    elementAdvantageBonus        += (b.elementAdvantageBonus        ?? 0) * k;
-    projectileExplosionDamagePct += (b.projectileExplosionDamagePct ?? 0) * k;
-    coreDamagePct                += (b.coreDamagePct                ?? 0) * k;
-    maxHpPct                     += (b.maxHpPct                     ?? 0) * k;
-    maxHpFlat                    += (b.maxHpFlat                    ?? 0) * k;
-    burstGaugeFlat               += (b.burstGaugeFlat               ?? 0) * k;
-    pierceDamagePct              += (b.pierceDamagePct              ?? 0) * k;
-    sustainedDamagePct           += (b.sustainedDamagePct           ?? 0) * k;
-    maxAmmoFlat                  += (b.maxAmmoFlat                  ?? 0) * k;
-    trueDamagePct                += (b.trueDamagePct                ?? 0) * k;
-    atkSpeedPct                  += (b.atkSpeedPct                  ?? 0) * k;
+    for (const f of BUFF_NUMERIC_FIELDS) sums[f] += (b[f] ?? 0) * k;
+    if (b.pierce) pierce = true;
   }
-  return { atkPct, atkFlat, defFlat, defPct, attackDamagePct, normalAttackDamagePct,
-    critRateBonus, normalAttackCritRateBonus, critDmgBonus, chargeDamagePct, chargeSpeedPct,
-    reloadSpeedPct, lifeStealPct, distributedDamagePct,
-    chargeTimeReductionTicks, hitRateBonus, elementAdvantageBonus,
-    projectileExplosionDamagePct, coreDamagePct, maxHpPct, maxHpFlat, burstGaugeFlat,
-    pierceDamagePct, sustainedDamagePct, maxAmmoFlat, trueDamagePct, atkSpeedPct };
+  return { ...sums, pierce };
+}
+
+// ─── 敌人承伤汇总 ─────────────────────────────────────────────────────────────
+
+// 汇总所有 unitId === ENEMY_UNIT_ID 的活跃 buff 中的 enemyDamageTakenPct（含叠层）
+export function getEnemyDamageTakenPct(state) {
+  let total = 0;
+  for (const b of state.buffs) {
+    if (b.unitId !== ENEMY_UNIT_ID) continue;
+    if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
+    total += (b.enemyDamageTakenPct ?? 0) * (b.stacks ?? 1);
+  }
+  return total;
+}
+
+/**
+ * 构建敌人承伤 debuff 的 buffBreakdown 条目，与 damageTakenMult 来源严格对应：
+ *   1. state.buffs 中 unitId === '__enemy__' 的具名条目
+ *   2. state.enemyDamageTakenPct 标量（无 buff 条目的技能，如 Asuka:WILLE ATF 叠层）
+ * 返回的条目可直接 spread 进 hitLog 的 buffBreakdown 数组。
+ */
+export function getEnemyDebuffBreakdown(state) {
+  const entries = state.buffs
+    .filter(b => b.unitId === ENEMY_UNIT_ID
+              && (b.roundsLeft === undefined || b.roundsLeft > 0)
+              && (b.enemyDamageTakenPct ?? 0) !== 0)
+    .map(b => ({
+      name:             b.name,
+      damageTakenPct:   (b.enemyDamageTakenPct ?? 0) * (b.stacks ?? 1),
+      isEnemyDebuff:    true,
+      sourceCaster:     b._sourceCaster     ?? null,
+      sourceSkillLabel: b._sourceSkillLabel ?? null,
+      sourcePartIdx:    b._sourcePartIdx    ?? null,
+      sourceLineIdx:    b._sourceLineIdx    ?? null,
+      stacks:           b.stacks ?? 1,
+    }));
+  if (state.enemyDamageTakenPct !== 0) {
+    // 无 buff 条目的标量承伤（当前仅 Asuka:WILLE ATF 叠层使用此路径）
+    entries.push({
+      name:           'ATF叠层',
+      damageTakenPct: state.enemyDamageTakenPct,
+      isEnemyDebuff:  true,
+    });
+  }
+  return entries;
 }
 
 // ─── Buff 添加 ─────────────────────────────────────────────────────────────
 
-export function pushBuff(state, buffObj) {
+// logCtx: { unitName, skillLabel, partIdx, trigger } — 传入时在真实产生效果处写入主日志
+function _emitBuffEvent(state, buffObj, logCtx) {
+  if (!state.pendingSkillEvents) return;
+  const targetName = buffObj.unitId === null
+    ? '全体队友'
+    : buffObj.unitId === ENEMY_UNIT_ID
+    ? '敌人'
+    : (state.squad?.find(u => u.id === buffObj.unitId)?.name ?? '?');
+  state.pendingSkillEvents.push({
+    type: 'skill_trigger', tick: state.tick,
+    _seq: state._logSeq++,
+    unitName: logCtx.unitName, skillLabel: logCtx.skillLabel, slot: logCtx.slot ?? null,
+    partIdx: logCtx.partIdx, trigger: logCtx.trigger ?? '',
+    lineIdx: logCtx.lineIdx ?? null,
+    target: targetName,
+    buffName: buffObj.name,
+  });
+}
+
+function _pushBuffCore(state, buffObj, logCtx = null) {
   const existing = state.buffs.find(b => b.name === buffObj.name && b.unitId === buffObj.unitId);
   if (existing) {
     // 无论是否达到上限，均刷新 endTick（整体持续时间重置）
@@ -81,30 +173,61 @@ export function pushBuff(state, buffObj) {
     if (limit > 1 && (existing.stacks ?? 1) < limit) {
       existing.stacks = (existing.stacks ?? 1) + 1;
     }
+    // 仅纯永久 buff（无回合制）刷新时视为无实质变化，不记录日志
+    const isInfiniteRefresh = existing.endTick === Infinity && buffObj.endTick === Infinity
+      && buffObj.endRounds === undefined;
+    if (logCtx && !isInfiniteRefresh) _emitBuffEvent(state, buffObj, logCtx);
     return;
   }
   // 初次推入：设置 roundsLeft（回合制）和 stacks（初始层数为 1）
   const buff = { ...buffObj, stacks: buffObj.stacks ?? 1 };
   if (buff.endRounds !== undefined && buff.roundsLeft === undefined)
     buff.roundsLeft = buff.endRounds;
+  if (logCtx) {
+    buff._sourceCaster     = logCtx.unitName;
+    buff._sourceSkillLabel = logCtx.skillLabel;
+    buff._sourcePartIdx    = logCtx.partIdx ?? null;
+    buff._sourceLineIdx    = logCtx.lineIdx ?? null;
+  }
   state.buffs.push(buff);
+  if (logCtx) _emitBuffEvent(state, buff, logCtx);
   if (state.buffLog) {
-    state.buffLog.push({ type: 'buff_gain', tick: state.tick, name: buff.name, unitId: buff.unitId, endTick: buff.endTick,
-      atkPct:               buff.atkPct               ?? 0,
-      atkFlat:              buff.atkFlat              ?? 0,
-      attackDamagePct:      buff.attackDamagePct      ?? 0,
-      critRateBonus:        buff.critRateBonus        ?? 0,
-      critDmgBonus:         buff.critDmgBonus         ?? 0,
-      chargeDamagePct:      buff.chargeDamagePct      ?? 0,
-      chargeSpeedPct:       buff.chargeSpeedPct       ?? 0,
-      reloadSpeedPct:            buff.reloadSpeedPct            ?? 0,
-      distributedDamagePct:      buff.distributedDamagePct      ?? 0,
-      maxAmmoPct:                buff.maxAmmoPct                ?? 0,
-      chargeTimeReductionTicks:  buff.chargeTimeReductionTicks  ?? 0,
-      hitRateBonus:              buff.hitRateBonus              ?? 0,
-      coreDamagePct:             buff.coreDamagePct             ?? 0,
+    state.buffLog.push({
+      _seq: state._logSeq++,
+      type: 'buff_gain', tick: state.tick, name: buff.name, unitId: buff.unitId, endTick: buff.endTick,
+      ...Object.fromEntries(BUFF_NUMERIC_FIELDS.map(f => [f, buff[f] ?? 0])),
     });
   }
+}
+
+// buff 推入后：若含 maxAmmo 相关字段，对受影响单位重新计算最大弹匣。
+function _maybeRecalcMaxAmmo(state, buffObj) {
+  if (!state.squad) return;
+  if (buffObj.maxAmmoPct == null && buffObj.maxAmmoFlat == null) return;
+  const affected = buffObj.unitId != null
+    ? [state.squad.find(u => u.id === buffObj.unitId)].filter(Boolean)
+    : state.squad;
+  for (const u of affected) recalcMaxAmmo(state, u);
+}
+
+export function pushBuff(state, buffObj, logCtx = null) {
+  const effectiveLogCtx = logCtx ?? state._logCtx ?? null;
+  // 规则1：回合制 buff endTick 强制为 Infinity
+  if (buffObj.endRounds !== undefined && buffObj.endRounds > 0) {
+    buffObj = { ...buffObj, endTick: Infinity };
+  }
+  // 规则2：回合制全体 buff → 拆分为每角色独立 buff，各自维护独立的 roundsLeft
+  // 日志仍记录一条（目标：全体队友），由调用层统一发出
+  if (buffObj.endRounds !== undefined && buffObj.endRounds > 0 && buffObj.unitId === null) {
+    for (const u of state.squad) {
+      _pushBuffCore(state, { ...buffObj, unitId: u.id });
+    }
+    if (effectiveLogCtx) _emitBuffEvent(state, buffObj, effectiveLogCtx);
+    _maybeRecalcMaxAmmo(state, buffObj);
+    return;
+  }
+  _pushBuffCore(state, buffObj, effectiveLogCtx);
+  _maybeRecalcMaxAmmo(state, buffObj);
 }
 
 // ─── 回合制 Buff 消耗 ──────────────────────────────────────────────────────
@@ -151,29 +274,55 @@ export function addBurstGauge(state, unitName, source, energy) {
   }
 }
 
+// ─── 技能事件日志辅助 ──────────────────────────────────────────────────────
+
+/**
+ * 当 state._logCtx 存在（handler 执行期间由 skill-executor 注入）时，
+ * 向 pendingSkillEvents 推入一条技能触发记录。
+ * declarative 路径不设置 _logCtx，因此不会产生重复日志。
+ *
+ * override 可传 { partIdx, lineIdx } 覆盖默认值，与 pushBuff 第三参数语义一致：
+ *   _emitSkillEvent(state, '全体队友', { partIdx: 2, lineIdx: 0 })
+ */
+function _emitSkillEvent(state, target, override = null) {
+  const base = state._logCtx;
+  if (!base || !state.pendingSkillEvents) return;
+  const ctx = override ? { ...base, ...override } : base;
+  state.pendingSkillEvents.push({
+    type: 'skill_trigger', tick: state.tick,
+    unitName: ctx.unitName, skillLabel: ctx.skillLabel, slot: ctx.slot,
+    partIdx: ctx.partIdx, trigger: ctx.trigger ?? '',
+    lineIdx: ctx.lineIdx ?? null,
+    target,
+  });
+}
+
 // ─── HP 回复 ────────────────────────────────────────────────────────────────
 
 /**
  * 对目标单位施加 HP 回复。
+ * targetUnit 可为单位对象或 ALL_ALLIES 哨兵（内部遍历 state.squad）。
+ * 若 state._logCtx 存在（handler 路径），自动向战斗日志推入合并记录。
  * 调用方负责在回复后分派 HEAL_RECEIVED 触发（skill-executor.executeSkillTriggers）。
  */
-export function applyHeal(state, targetUnit, amount) {
+export function applyHeal(state, targetUnit, amount, logCtxOverride = null) {
   if (amount <= 0) return;
+  if (targetUnit === ALL_ALLIES) {
+    _emitSkillEvent(state, '全体队友', logCtxOverride);
+    for (const u of state.squad) {
+      u.unitHp = Math.min(u.stats.hp, u.unitHp + amount);
+      if (Array.isArray(state.pendingHealReceived)) state.pendingHealReceived.push(u);
+    }
+    return;
+  }
+  _emitSkillEvent(state, targetUnit.name, logCtxOverride);
   targetUnit.unitHp = Math.min(targetUnit.stats.hp, targetUnit.unitHp + amount);
   if (Array.isArray(state.pendingHealReceived)) state.pendingHealReceived.push(targetUnit);
 }
 
 // ─── 护盾 ──────────────────────────────────────────────────────────────────
 
-/**
- * 对目标单位施加护盾，并将该单位推入 state.pendingShieldReceived 队列。
- * battle.js 在每次可能触发护盾的操作后调用 flushShieldReceived，
- * 逐单位分派 APPLY_SHIELD 触发（技能触发条件为"自身护盾生效时"，
- * 与 HEAL_RECEIVED 语义一致：谁收到护盾，谁的单位 id 作为 ctx.unit）。
- * 刷新语义：已有护盾时取两者较大值（量与到期 tick 均取 max）。
- */
-export function applyShield(state, unit, shieldAmt, shieldEndTick) {
-  if (shieldAmt <= 0) return;
+function _applyShieldUnit(state, unit, shieldAmt, shieldEndTick) {
   if (unit.shieldHp > 0) {
     unit.shieldHp      = Math.max(unit.shieldHp, shieldAmt);
     unit.shieldEndTick = Math.max(unit.shieldEndTick, shieldEndTick);
@@ -184,15 +333,56 @@ export function applyShield(state, unit, shieldAmt, shieldEndTick) {
   if (Array.isArray(state.pendingShieldReceived)) state.pendingShieldReceived.push(unit);
 }
 
+/**
+ * 对目标单位施加护盾，并将该单位推入 state.pendingShieldReceived 队列。
+ * unit 可为单位对象或 ALL_ALLIES 哨兵（内部遍历 state.squad）。
+ * 若 state._logCtx 存在（handler 路径），自动向战斗日志推入合并记录。
+ * battle.js 在每次可能触发护盾的操作后调用 flushShieldReceived，
+ * 逐单位分派 APPLY_SHIELD 触发（技能触发条件为"自身护盾生效时"，
+ * 与 HEAL_RECEIVED 语义一致：谁收到护盾，谁的单位 id 作为 ctx.unit）。
+ * 刷新语义：已有护盾时取两者较大值（量与到期 tick 均取 max）。
+ */
+export function applyShield(state, unit, shieldAmt, shieldEndTick, logCtxOverride = null) {
+  if (shieldAmt <= 0) return;
+  if (unit === ALL_ALLIES) {
+    _emitSkillEvent(state, '全体队友', logCtxOverride);
+    for (const u of state.squad) _applyShieldUnit(state, u, shieldAmt, shieldEndTick);
+    return;
+  }
+  _emitSkillEvent(state, unit.name, logCtxOverride);
+  _applyShieldUnit(state, unit, shieldAmt, shieldEndTick);
+}
+
 // ─── 掩体治疗 ─────────────────────────────────────────────────────────────
 
 /**
  * 标记掩体受到治疗（设置 state.pendingCoverHeal = true）。
+ * 若 state._logCtx 存在（handler 路径），自动向战斗日志推入记录。
  * battle.js 的 flushCoverHeal 会分派 COVER_HEAL 团队触发。
  * 调用方负责传入实际治疗量（模拟器仅建模事件，不追踪掩体 HP 数值）。
  */
-export function applyCoverHeal(state) {
+export function applyCoverHeal(state, logCtxOverride = null) {
+  _emitSkillEvent(state, '掩体', logCtxOverride);
   state.pendingCoverHeal = true;
+}
+
+// ─── 持续治疗辅助 ──────────────────────────────────────────────────────────
+
+/**
+ * 将持续治疗（HoT）推入 state.pendingHoTs。
+ * target 可为单位对象或 ALL_ALLIES 哨兵（内部自动遍历 state.squad）。
+ * durationSecs：持续秒数，每整秒触发一次治疗。
+ * 若 state._logCtx 存在（handler 路径），自动向战斗日志推入一条合并开始记录。
+ */
+export function pushHoT(state, target, amount, durationSecs, logCtxOverride = null) {
+  if (amount <= 0 || durationSecs <= 0) return;
+  _emitSkillEvent(state, target === ALL_ALLIES ? '全体队友' : target.name, logCtxOverride);
+  const units = target === ALL_ALLIES ? state.squad : [target];
+  for (const u of units) {
+    for (let i = 1; i <= durationSecs; i++) {
+      state.pendingHoTs.push({ fireTick: state.tick + i * TICK_RATE, targetId: u.id, amount });
+    }
+  }
 }
 
 // ─── 技能伤害 ───────────────────────────────────────────────────────────────
@@ -202,8 +392,8 @@ export function applyCoverHeal(state) {
  * 返回实际造成的伤害量。
  *
  * opts 可选字段：
- *   isCore                   {boolean}  命中核心
- *   coreDmgIncrement         {number}   核心额外加成
+ *   hitPart                  {'body'|'core'|'parts'|'intercept_parts'}  命中部位（默认 'body'）
+ *   coreDmgIncrement         {number}   核心额外加成（仅 hitPart==='core' 时有效）
  *   extraAttackDamagePct     {number}   本次命中独有的 xDmg 加成
  *   isDistributed            {boolean}  使用 distributedDamagePct
  *   extraAtkFlat             {number}   本次命中额外 ATK flat
@@ -211,33 +401,37 @@ export function applyCoverHeal(state) {
  *   affectedByFullBurst      {boolean}  非默认：该命中受全爆裂补正影响（仅 Rapi: Red Hood、Liberellio）
  *   suppressFullBurst        {boolean}  [引擎内部] 由引擎自动标记延迟爆裂技能命中，抑制全爆裂补正
  *   applyDistanceAdv         {boolean}  该技能命中受距离优势影响（默认仅普通攻击；Rapi S2 P1/P2 需显式开启）
+ *   isSequentialAttack       {boolean}  依次攻击命中（受 sequentialAttackDamagePct buff 加成）
  */
 function resolveSkillLabel(unit, label) {
   if (!label || label === 'normal_shot') return label;
-  const m = label.match(/^(S1|S2|Burst)( P\d+)?$/);
+  // 匹配 "S1"、"S1 P2"、"S1 P2 L3" 三种格式
+  const m = label.match(/^(S1|S2|Burst)( P\d+)?( L\d+)?$/);
   if (!m) return label;
   const slot = m[1];
   const part = m[2] ?? '';
+  const line = m[3] ?? '';
   const raw = slot === 'S1' ? unit.rawSkill1
             : slot === 'S2' ? unit.rawSkill2
             : unit.rawBurst;
-  return (raw?.name_localkey ?? slot) + part;
+  return (raw?.name_localkey ?? slot) + part + line;
 }
 
-export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts = {}) {
+export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
   label = resolveSkillLabel(unit, label);
-  const charged          = isCharged !== undefined ? isCharged : ['SR', 'RL'].includes(unit.weaponType);
-  // normalAttackCritRateBonus 仅适用于普通攻击，技能伤害不受此加成
-  const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRateBonus);
+  const charged          = false;
+  // normalAttackCritRatePct 仅适用于普通攻击，技能伤害不受此加成
+  const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRatePct);
   const isCrit           = rollCrit(effectiveCritRate);
-  const isCore           = opts.isCore           ?? false;
+  const hitPart          = opts.hitPart ?? (opts.isCore ? 'core' : 'body');
+  const isCore           = hitPart === 'core';
   const coreDmgIncrement = (opts.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0);
   const extraAtkDmgPct   = opts.extraAttackDamagePct ?? 0;
   const isDistributed    = opts.isDistributed    ?? false;
-  const distributedBonus = isDistributed ? (sums.distributedDamagePct ?? 0) : 0;
-  const extraAtkFlat     = opts.extraAtkFlat     ?? 0;
+  const distributedDamagePct = isDistributed ? (sums.distributedDamagePct ?? 0) : 0;
+  const extraAtkFlat         = opts.extraAtkFlat ?? 0;
   // Projectile Explosion 伤害：受 projectileExplosionDamagePct 加成（累加至 extraAtkDmgPct）
-  const projExplosionBonus = opts.projectileExplosion ? (sums.projectileExplosionDamagePct ?? 0) : 0;
+  const projectileExplosionDamagePct = opts.projectileExplosion ? (sums.projectileExplosionDamagePct ?? 0) : 0;
   const isTrueDamage       = opts.isTrueDamage ?? false;
   const distanceZoneForHit = opts.applyDistanceAdv ? (state.distanceZone ?? null) : null;
   // B3 爆裂技能施放时 fullBurstActive 尚未置为 true，直接命中自然不受 +50% 补正。
@@ -252,22 +446,24 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
     hitMultiplier:     hitMult,
     weaponType:        unit.weaponType,
     isCrit,
-    critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDmgBonus,
-    isCore,
+    critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
+    hitPart,
     coreDmgIncrement,
     distanceZone:      distanceZoneForHit,
     isFullBurst,
     attackerElement:   unit.element,
     defenderElement:   state.enemyElement,
-    elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantageBonus ?? 0),
+    elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantagePct ?? 0),
     isCharged:         charged,
     fullChargeDamage:  unit.fullChargeDamage,
     chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
     isTrueDamage,
-    extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projExplosionBonus,
+    extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct,
                          sustainedDamagePct: opts.sustainedDamage ? (sums.sustainedDamagePct ?? 0) : 0,
-                         trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0 },
-    damageTakenMult:   state.enemyDamageTakenPct + distributedBonus,
+                         trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
+                         sequentialAttackDamageMult: opts.isSequentialAttack ? (sums.sequentialAttackDamagePct ?? 0) : 0,
+                         damageToPartsMult: sums.damageToPartsPct ?? 0 },
+    damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state) + distributedDamagePct,
   });
   unit.totalDamage += damage;
   if (sums.lifeStealPct > 0) {
@@ -281,26 +477,35 @@ export function fireSkillHit(state, unit, hitMult, sums, isCharged, label, opts 
   }
   if (state.hitLog) {
     state.hitLog.push({
+      _seq: state._logSeq++,
       tick: state.tick, unitId: unit.id, label: label ?? 'skill',
       atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
-      hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50,
-      attackDamagePct: sums.attackDamagePct + extraAtkDmgPct + projExplosionBonus,
+      hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
+      attackDamagePct: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct,
       extraAttackDamagePct: extraAtkDmgPct,
+      sequentialAttackDamagePct: opts.isSequentialAttack ? (sums.sequentialAttackDamagePct ?? 0) : 0,
+      sustainedDamagePct: opts.sustainedDamage ? (sums.sustainedDamagePct ?? 0) : 0,
+      trueDamagePct: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
+      isTrueDamage,
       projectileExplosion: opts.projectileExplosion ?? false,
-      projectileExplosionBonus: projExplosionBonus,
+      projectileExplosionDamagePct,
       affectedByFullBurst: opts.affectedByFullBurst ?? false,
       isFullBurst,
-      damageTakenPct: state.enemyDamageTakenPct + distributedBonus, enemyDef: state.enemyDef,
-      isDistributed, distributedBonus,
+      damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state) + distributedDamagePct,
+      enemyDef: isTrueDamage ? 0 : state.enemyDef,
+      isDistributed, distributedDamagePct,
       isCore, coreDmgIncrement, damage,
       elementDmgPct: unit.stats.elementDmgPct ?? 0,
       elemMult: bd.elemMult,
       chargeMult: bd.chargeMult,
       distanceAdv: distanceZoneForHit !== null && hasDistanceAdvantage(unit.weaponType, distanceZoneForHit),
-      buffBreakdown: state.buffs
-        .filter(b => b.unitId === null || b.unitId === unit.id)
-        .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: b.attackDamagePct ?? 0 }))
-        .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct),
+      buffBreakdown: [
+        ...state.buffs
+          .filter(b => b.unitId === null || b.unitId === unit.id)
+          .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: b.attackDamagePct ?? 0, sequentialAttackDamagePct: b.sequentialAttackDamagePct ?? 0, elementAdvantagePct: b.elementAdvantagePct ?? 0, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null, sourceLineIdx: b._sourceLineIdx ?? null }))
+          .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct),
+        ...getEnemyDebuffBreakdown(state),
+      ],
     });
   }
   return damage;
@@ -330,7 +535,7 @@ export function fireDotPool(state) {
       continue;
     }
     const sums = getBuffSums(state, caster.id);
-    fireSkillHit(state, caster, dot.multPerStack * dot.stacks, sums, false, dot.label,
+    fireSkillHit(state, caster, dot.multPerStack * dot.stacks, sums, dot.label,
       { sustainedDamage: dot.sustainedDamage !== false });
   }
   state.dots = state.dots.filter(d => d.endTick >= state.tick);

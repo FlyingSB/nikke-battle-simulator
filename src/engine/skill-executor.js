@@ -59,12 +59,12 @@
  *   { type: 'ENEMY_BUFF_STACKS_GTE', buffName, stacks }
  *   { type: 'IN_FULL_BURST' }
  *   { type: 'IS_CHARGED' }
- *   { type: 'IS_CORE_HIT' }
+ *   { type: 'IS_CORE_HIT' }  — ctx.hitPart === 'core'
  */
 
 import { SKILL_TRAITS } from '../data/skill-traits.js';
 import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, decrementRoundBuffs, TICK_RATE, BURST_GAUGE_MAX } from './battle-utils.js';
+         getBuffSums, decrementRoundBuffs, TICK_RATE, BURST_GAUGE_MAX, ALL_ALLIES } from './battle-utils.js';
 
 // 团队触发：ctx.unit 无意义，所有持有该技能的在队单位均触发
 const TEAM_TRIGGERS = new Set([
@@ -73,69 +73,15 @@ const TEAM_TRIGGERS = new Set([
   'AMMO_MILESTONE', 'HEAL_RECEIVED', 'COVER_HEAL',
 ]);
 
-// 记录到战斗日志的触发类型白名单（排除高频的射击/命中类触发）
-const LOGGABLE_TRIGGERS = new Set([
-  'BATTLE_START', 'INTERVAL', 'INTERVAL_IN_BURST',
-  'ENTER_FULL_BURST', 'FULL_BURST_END', 'RELOAD_END', 'LAST_BULLET',
-  'FULL_CHARGE', 'HEAL_RECEIVED', 'BURST_SKILL_USE',
-]);
-
-// 将 tdef.target 或 trigger 类型推导为目标显示字符串（effect-based trigger 的兜底逻辑）
-function resolveEventTarget(tdef, trigger, caster) {
-  const raw = tdef?.target;
-  if (raw === 'ALL_ALLIES')         return '全体队友';
-  if (raw === 'BURST_CASTERS')      return '爆裂施放者';
-  if (raw === 'NON_BURST_CASTERS')  return '爆裂未施放者';
-  if (raw === 'SELF') return caster.name;
-  if (raw === 'ENEMY') return '敌人';
-  // handler 类技能按触发类型推断（已被 logTargets 取代；此处保留作为无 logTargets 时的最终兜底）
-  switch (trigger) {
-    case 'HEAL_RECEIVED':
-    case 'LAST_BULLET':
-    case 'ENTER_FULL_BURST':
-    case 'FULL_BURST_END':
-    case 'BATTLE_START':
-    case 'INTERVAL':
-    case 'INTERVAL_IN_BURST':
-      return '全体队友';
-    case 'BURST_SKILL_USE':
-      return '敌人';
-    default:
-      return '';
-  }
-}
-
-// 将 logTargets 关键字解析为显示字符串
-function resolveLogTarget(key, caster) {
-  if (key === 'ALL_ALLIES')    return '全体队友';
-  if (key === 'SELF')          return caster.name;
-  if (key === 'ENEMY')         return '敌人';
-  if (key === 'BURST_CASTERS') return '爆裂施放者';
-  return key;
-}
-
-function pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef, skill) {
-  if (!state.pendingSkillEvents || !LOGGABLE_TRIGGERS.has(trigger)) return;
-  // logTargets: null → 不记录；string → 单行；array → 多行；未设置 → 兜底逻辑
-  if ('logTargets' in tdef && tdef.logTargets === null) return;
-
-  const slot    = skillKey === 'skill1' ? 'S1' : skillKey === 'skill2' ? 'S2' : 'Burst';
-  const raw     = slot === 'S1' ? caster.rawSkill1 : slot === 'S2' ? caster.rawSkill2 : caster.rawBurst;
-  const skLabel = raw?.name_localkey ?? slot;
+// 根据触发定义和施放者计算 logCtx，供 applyEffects / pushBuff 使用
+function buildLogCtx(caster, skillKey, tdefIdx, tdef, skill, trigger) {
+  const slot       = skillKey === 'skill1' ? 'S1' : skillKey === 'skill2' ? 'S2' : 'Burst';
+  const raw        = slot === 'S1' ? caster.rawSkill1 : slot === 'S2' ? caster.rawSkill2 : caster.rawBurst;
+  const skillLabel = raw?.name_localkey || slot;   // || 确保空字符串也回退到 slot
   const partOffset = skill?.partOffset ?? 0;
   const partIdx    = tdef.partOverride !== undefined ? tdef.partOverride : (tdefIdx + partOffset);
-  const base = { type: 'skill_trigger', tick: state.tick, unitName: caster.name,
-                 skillLabel: skLabel, partIdx, trigger };
-
-  if ('logTargets' in tdef) {
-    // logTargets 支持函数形式：(caster, state) => string，用于动态目标名
-    const resolved = typeof tdef.logTargets === 'function' ? tdef.logTargets(caster, state) : tdef.logTargets;
-    const keys = Array.isArray(resolved) ? resolved : [resolved];
-    for (const k of keys)
-      state.pendingSkillEvents.push({ ...base, target: resolveLogTarget(k, caster) });
-  } else {
-    state.pendingSkillEvents.push({ ...base, target: resolveEventTarget(tdef, trigger, caster) });
-  }
+  const lineIdx    = tdef.lineOverride ?? null;
+  return { unitName: caster.name, skillLabel, slot, partIdx, trigger, lineIdx };
 }
 
 // ─── 条件判断 ──────────────────────────────────────────────────────────────
@@ -161,7 +107,7 @@ function checkOne(state, caster, cond, ctx) {
     case 'IS_CHARGED':
       return !!ctx.isCharged;
     case 'IS_CORE_HIT':
-      return !!ctx.isCore;
+      return ctx.hitPart === 'core';
     case 'HEALED_UNIT_IS_SELF':
       return ctx.unit?.id === caster.id;
     default:
@@ -203,7 +149,7 @@ function resolveTargets(state, caster, target, targetOpts) {
 
 // ─── 效果应用 ──────────────────────────────────────────────────────────────
 
-function applyEffects(state, caster, targets, effects, ctx) {
+function applyEffects(state, caster, targets, effects, ctx, logCtx = null) {
   for (const eff of effects) {
     const statVal = typeof eff.stat === 'function' ? eff.stat(caster, state, ctx) : (eff.stat ?? {});
     const endTick = typeof eff.duration === 'number'
@@ -214,13 +160,13 @@ function applyEffects(state, caster, targets, effects, ctx) {
       case 'BUFF':
         for (const t of targets) {
           if (t === '__enemy__') continue;
-          pushBuff(state, { name: eff.name, unitId: t.id, endTick, ...statVal });
+          pushBuff(state, { name: eff.name, unitId: t.id, endTick, ...statVal }, logCtx);
         }
         break;
 
       case 'BUFF_GLOBAL':
         // unitId=null：作为全队 buff 推入，区别于逐人推入（用于 Crown S1 之外的全员效果）
-        pushBuff(state, { name: eff.name, unitId: null, endTick, ...statVal });
+        pushBuff(state, { name: eff.name, unitId: null, endTick, ...statVal }, logCtx);
         break;
 
       case 'DEBUFF_ENEMY': {
@@ -228,6 +174,15 @@ function applyEffects(state, caster, targets, effects, ctx) {
           ? eff.damageTakenPct(caster, state)
           : eff.damageTakenPct;
         state.enemyDamageTakenPct += val;
+        if (logCtx) {
+          state.pendingSkillEvents?.push({
+            type: 'skill_trigger', tick: state.tick,
+            unitName: logCtx.unitName, skillLabel: logCtx.skillLabel, slot: logCtx.slot,
+            partIdx: logCtx.partIdx, trigger: logCtx.trigger ?? '',
+            lineIdx: logCtx.lineIdx ?? null,
+            target: '敌人',
+          });
+        }
         break;
       }
 
@@ -237,7 +192,7 @@ function applyEffects(state, caster, targets, effects, ctx) {
         const mult  = typeof eff.mult === 'function' ? eff.mult(caster, state, ctx) : eff.mult;
         const opts  = eff.opts ?? {};
         for (let h = 0; h < count && state.enemyHp > 0; h++) {
-          fireSkillHit(state, caster, mult, sums, eff.isCharged ?? false, eff.label, opts);
+          fireSkillHit(state, caster, mult, sums, eff.label, opts);
         }
         break;
       }
@@ -246,9 +201,29 @@ function applyEffects(state, caster, targets, effects, ctx) {
         const amount = typeof eff.amount === 'function'
           ? eff.amount(caster, state)
           : (eff.pct ? Math.round(caster.stats.hp * eff.pct) : (eff.flat ?? 0));
+        // targets === state.squad 时为全体队友，合并为单条日志
+        const isAllAllies = targets === state.squad;
+        if (logCtx && isAllAllies) {
+          state.pendingSkillEvents?.push({
+            type: 'skill_trigger', tick: state.tick,
+            unitName: logCtx.unitName, skillLabel: logCtx.skillLabel, slot: logCtx.slot,
+            partIdx: logCtx.partIdx, trigger: logCtx.trigger ?? '',
+            lineIdx: logCtx.lineIdx ?? null,
+            target: '全体队友',
+          });
+        }
         for (const t of targets) {
           if (t === '__enemy__') continue;
           applyHeal(state, t, amount);
+          if (logCtx && !isAllAllies) {
+            state.pendingSkillEvents?.push({
+              type: 'skill_trigger', tick: state.tick,
+              unitName: logCtx.unitName, skillLabel: logCtx.skillLabel, slot: logCtx.slot,
+              partIdx: logCtx.partIdx, trigger: logCtx.trigger ?? '',
+              lineIdx: logCtx.lineIdx ?? null,
+              target: t.name,
+            });
+          }
           // 分派 HEAL_RECEIVED（Crown S2 等通过此触发响应）
           executeSkillTriggers(state, 'HEAL_RECEIVED', { unit: t });
         }
@@ -290,16 +265,15 @@ function applyEffects(state, caster, targets, effects, ctx) {
       case 'AMMO_EXPAND':
         for (const t of targets) {
           if (t === '__enemy__') continue;
-          const ammoBefore     = t.ammoLeft;
-          t.tempMaxAmmoMult    = eff.mult ?? 1;
-          t.tempMaxAmmoEndTick = state.tick + TICK_RATE * eff.seconds;
-          const expandedMax    = Math.max(1, t.baseAmmo + Math.round(t.baseAmmo * (t.tempMaxAmmoMult - 1)))
-                               + Math.round(t.baseAmmo * (t.stats.bonusAmmo ?? 0)) + t.favAmmoBonus;
-          t.ammoLeft           = expandedMax;
-          t.reloadTick         = 0;
+          const ammoBefore = t.ammoLeft;
+          // maxAmmoPct = mult - 1；pushBuff 触发 recalcMaxAmmo，更新 t.maxAmmo
+          pushBuff(state, { name: eff.label ?? 'ammo_expand', unitId: t.id,
+            maxAmmoPct: (eff.mult ?? 1) - 1, endTick: state.tick + TICK_RATE * eff.seconds });
+          t.ammoLeft   = t.maxAmmo;  // AMMO_EXPAND：扩充并装满
+          t.reloadTick = 0;
           if (state.ammoLog)
             state.ammoLog.push({ tick: state.tick, unitId: t.id, unitName: t.name,
-              delta: t.ammoLeft - ammoBefore, ammoAfter: t.ammoLeft, maxAmmo: expandedMax,
+              delta: t.ammoLeft - ammoBefore, ammoAfter: t.ammoLeft, maxAmmo: t.maxAmmo,
               source: eff.label ?? 'ammo_expand' });
         }
         break;
@@ -330,7 +304,7 @@ function applyEffects(state, caster, targets, effects, ctx) {
  *
  * @param {object} state
  * @param {string} trigger   触发名称
- * @param {object} [ctx]     上下文：{ unit, sums, isCharged, isCore }
+ * @param {object} [ctx]     上下文：{ unit, sums, isCharged, hitPart }
  */
 export function executeSkillTriggers(state, trigger, ctx = {}) {
   const isTeamTrigger = TEAM_TRIGGERS.has(trigger);
@@ -349,16 +323,16 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
         if (!isTeamTrigger && scopedUnit && scopedUnit.id !== caster.id) continue;
         if (!checkConditions(state, caster, tdef, ctx)) continue;
 
+        const logCtx = buildLogCtx(caster, skillKey, tdefIdx, tdef, skill, trigger);
+
         if (tdef.handler) {
-          // 约定：return false = 条件未满足，不记日志；return (void) = 技能触发但效果无变化（如永久buff已激活/已满层），仍记日志。
-          // TODO: 考虑方案B（conditions/guards 两层声明式拆分）或方案C（pushBuff 返回 isNew），
-          //       以在框架层杜绝此类误用，而非依赖 handler 内的 return 值约定。
-          const result = tdef.handler(state, caster, ctx);
-          if (result !== false) pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef, skill);
+          state._logCtx = logCtx;
+          ctx.logCtx = logCtx;
+          tdef.handler(state, caster, ctx);
+          state._logCtx = null;
         } else {
           const targets = resolveTargets(state, caster, tdef.target, tdef.targetOpts);
-          applyEffects(state, caster, targets, tdef.effects ?? [], ctx);
-          pushSkillEvent(state, trigger, caster, skillKey, tdefIdx, tdef, skill);
+          applyEffects(state, caster, targets, tdef.effects ?? [], ctx, logCtx);
         }
       }
     }
@@ -380,10 +354,9 @@ export function fireShotCountTriggers(state, unit, shotCtx) {
   const charSkills = SKILL_TRAITS[rid];
   if (!charSkills) return;
   const ctx = { unit, ...shotCtx };
-  for (const skillKey of ['skill1', 'skill2', 'burst']) {
-    const skill = charSkills[skillKey];
+  for (const [skillKey, skill] of [['skill1', charSkills.skill1], ['skill2', charSkills.skill2], ['burst', charSkills.burst]]) {
     if (!skill?.triggers) continue;
-    for (const tdef of skill.triggers) {
+    for (const [tdefIdx, tdef] of skill.triggers.entries()) {
       if (tdef.on !== 'SHOT_COUNT') continue;
       const counterKey = tdef.opts?.counterKey ?? `shotCount_${skillKey}`;
       unit.skillState[counterKey] = (unit.skillState[counterKey] ?? 0) + 1;
@@ -391,8 +364,15 @@ export function fireShotCountTriggers(state, unit, shotCtx) {
       if (unit.skillState[counterKey] < every) continue;
       unit.skillState[counterKey] -= every;
       if (!checkConditions(state, unit, tdef, ctx)) continue;
-      if (tdef.handler) tdef.handler(state, unit, ctx);
-      else applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
+      const logCtx = buildLogCtx(unit, skillKey, tdefIdx, tdef, skill, 'SHOT_COUNT');
+      if (tdef.handler) {
+        state._logCtx = logCtx;
+        ctx.logCtx = logCtx;
+        tdef.handler(state, unit, ctx);
+        state._logCtx = null;
+      } else {
+        applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx, logCtx);
+      }
     }
   }
 }
@@ -403,7 +383,7 @@ export function fireShotCountTriggers(state, unit, shotCtx) {
  *
  * @param {object} state
  * @param {object} unit      射击单位
- * @param {object} shotCtx   { sums, isCharged, isCore, ammoAfterShot }
+ * @param {object} shotCtx   { sums, isCharged, hitPart, ammoAfterShot }
  * @param {object} [opts]    可选标志
  *   skipShotCount      {boolean}  跳过 SHOT_COUNT 触发（已由 fireShotCountTriggers 处理）
  *   skipRoundDecrement {boolean}  跳过 decrementRoundBuffs（已在双重命中第一次命中后手动调用）
@@ -448,11 +428,16 @@ export function onShotFired(state, unit, shotCtx, opts = {}) {
           if (unit.skillState[counterKey] < every) break;
           unit.skillState[counterKey] -= every;  // 溢出保留
           if (!checkConditions(state, unit, tdef, ctx)) break;
-          if (tdef.handler) {
-            tdef.handler(state, unit, ctx);
-          } else {
-            const targets = resolveTargets(state, unit, tdef.target, tdef.targetOpts);
-            applyEffects(state, unit, targets, tdef.effects ?? [], ctx);
+          {
+            const logCtx = buildLogCtx(unit, skillKey, tdefIdx, tdef, skill, 'SHOT_COUNT');
+            if (tdef.handler) {
+              state._logCtx = logCtx;
+              ctx.logCtx = logCtx;
+              tdef.handler(state, unit, ctx);
+              state._logCtx = null;
+            } else {
+              applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx, logCtx);
+            }
           }
           break;
         }
@@ -460,26 +445,51 @@ export function onShotFired(state, unit, shotCtx, opts = {}) {
         case 'LAST_BULLET': {
           if (shotCtx.ammoAfterShot !== 0) break;
           if (!checkConditions(state, unit, tdef, ctx)) break;
-          const llResult = tdef.handler ? tdef.handler(state, unit, ctx)
-            : (applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx), undefined);
-          if (llResult !== false) pushSkillEvent(state, 'LAST_BULLET', unit, skillKey, tdefIdx, tdef, skill);
+          {
+            const logCtx = buildLogCtx(unit, skillKey, tdefIdx, tdef, skill, 'LAST_BULLET');
+            if (tdef.handler) {
+              state._logCtx = logCtx;
+              ctx.logCtx = logCtx;
+              tdef.handler(state, unit, ctx);
+              state._logCtx = null;
+            } else {
+              applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx, logCtx);
+            }
+          }
           break;
         }
 
         case 'FULL_CHARGE': {
           if (!shotCtx.isCharged) break;
           if (!checkConditions(state, unit, tdef, ctx)) break;
-          const fcResult = tdef.handler ? tdef.handler(state, unit, ctx)
-            : (applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx), undefined);
-          if (fcResult !== false) pushSkillEvent(state, 'FULL_CHARGE', unit, skillKey, tdefIdx, tdef, skill);
+          {
+            const logCtx = buildLogCtx(unit, skillKey, tdefIdx, tdef, skill, 'FULL_CHARGE');
+            if (tdef.handler) {
+              state._logCtx = logCtx;
+              ctx.logCtx = logCtx;
+              tdef.handler(state, unit, ctx);
+              state._logCtx = null;
+            } else {
+              applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx, logCtx);
+            }
+          }
           break;
         }
 
         case 'CORE_HIT':
-          if (!shotCtx.isCore) break;
+          if (shotCtx.hitPart !== 'core') break;
           if (!checkConditions(state, unit, tdef, ctx)) break;
-          if (tdef.handler) tdef.handler(state, unit, ctx);
-          else applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
+          {
+            const logCtx = buildLogCtx(unit, skillKey, tdefIdx, tdef, skill, 'CORE_HIT');
+            if (tdef.handler) {
+              state._logCtx = logCtx;
+              ctx.logCtx = logCtx;
+              tdef.handler(state, unit, ctx);
+              state._logCtx = null;
+            } else {
+              applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx, logCtx);
+            }
+          }
           break;
       }
     }
@@ -495,6 +505,36 @@ export function onShotFired(state, unit, shotCtx, opts = {}) {
       const bsTicks = unit.skillState.weaponSwitchBackswingTicks ?? 0;
       if (bsTicks > 0)
         unit.skillState.weaponSwitchPostBackswingEndTick = state.tick + bsTicks;
+    }
+  }
+}
+
+/**
+ * 全蓄力击发之前调用（battle.js line-1033 getBuffSums 之前）。
+ * 处理 DURING_FULL_CHARGE 触发——此时机比 FULL_CHARGE 更早，推入的 buff 可被本次普攻的 getBuffSums 读到。
+ */
+export function fireDuringFullChargeTriggers(state, unit) {
+  const rid = String(unit.id);
+  const charSkills = SKILL_TRAITS[rid];
+  if (!charSkills) return;
+
+  const ctx = { unit, isCharged: true };
+
+  for (const skillKey of ['skill1', 'skill2', 'burst']) {
+    const skill = charSkills[skillKey];
+    if (!skill?.triggers) continue;
+    for (const [tdefIdx, tdef] of skill.triggers.entries()) {
+      if (tdef.on !== 'DURING_FULL_CHARGE') continue;
+      if (!checkConditions(state, unit, tdef, ctx)) continue;
+      const logCtx = buildLogCtx(unit, skillKey, tdefIdx, tdef, skill, 'DURING_FULL_CHARGE');
+      if (tdef.handler) {
+        state._logCtx = logCtx;
+        ctx.logCtx = logCtx;
+        tdef.handler(state, unit, ctx);
+        state._logCtx = null;
+      } else {
+        applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx, logCtx);
+      }
     }
   }
 }
@@ -524,9 +564,15 @@ export function onInterval(state) {
 
         const ctx = { unit: caster, sums: getBuffSums(state, caster.id) };
         if (!checkConditions(state, caster, tdef, ctx)) continue;
-        if (tdef.handler) tdef.handler(state, caster, ctx);
-        else applyEffects(state, caster, resolveTargets(state, caster, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
-        pushSkillEvent(state, 'INTERVAL', caster, skillKey, tdefIdx, tdef, skill);
+        const logCtx = buildLogCtx(caster, skillKey, tdefIdx, tdef, skill, 'INTERVAL');
+        if (tdef.handler) {
+          state._logCtx = logCtx;
+          ctx.logCtx = logCtx;
+          tdef.handler(state, caster, ctx);
+          state._logCtx = null;
+        } else {
+          applyEffects(state, caster, resolveTargets(state, caster, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx, logCtx);
+        }
       }
     }
   }
@@ -547,9 +593,15 @@ export function onReloadEnd(state, unit) {
     for (const [tdefIdx, tdef] of skill.triggers.entries()) {
       if (tdef.on !== 'RELOAD_END') continue;
       if (!checkConditions(state, unit, tdef, ctx)) continue;
-      if (tdef.handler) tdef.handler(state, unit, ctx);
-      else applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
-      pushSkillEvent(state, 'RELOAD_END', unit, skillKey, tdefIdx, tdef, skill);
+      const logCtx = buildLogCtx(unit, skillKey, tdefIdx, tdef, skill, 'RELOAD_END');
+      if (tdef.handler) {
+        state._logCtx = logCtx;
+        ctx.logCtx = logCtx;
+        tdef.handler(state, unit, ctx);
+        state._logCtx = null;
+      } else {
+        applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx, logCtx);
+      }
     }
   }
 }
@@ -583,9 +635,15 @@ export function onIntervalInBurst(state) {
 
         const ctx = { unit: caster, sums: getBuffSums(state, caster.id) };
         if (!checkConditions(state, caster, tdef, ctx)) continue;
-        if (tdef.handler) tdef.handler(state, caster, ctx);
-        else applyEffects(state, caster, resolveTargets(state, caster, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx);
-        pushSkillEvent(state, 'INTERVAL_IN_BURST', caster, skillKey, tdefIdx, tdef, skill);
+        const logCtx = buildLogCtx(caster, skillKey, tdefIdx, tdef, skill, 'INTERVAL_IN_BURST');
+        if (tdef.handler) {
+          state._logCtx = logCtx;
+          ctx.logCtx = logCtx;
+          tdef.handler(state, caster, ctx);
+          state._logCtx = null;
+        } else {
+          applyEffects(state, caster, resolveTargets(state, caster, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx, logCtx);
+        }
       }
     }
   }

@@ -103,7 +103,7 @@ const ELEMENT_CHART = {
  * @property {string}        weaponType            AR | SMG | SR | MG | SG | RL
  * @property {boolean}       [isCrit=false]
  * @property {number}        [critDmgIncrement=0]  在基础 50% 暴击伤害之上的附加值
- * @property {boolean}       [isCore=false]
+ * @property {'body'|'core'|'parts'|'intercept_parts'} [hitPart='body']
  * @property {number}        [coreDmgIncrement=0]  在基础 100% 核心伤害之上的附加值
  * @property {DistanceZone}  [distanceZone=null]   武器当前的有效射程区间
  * @property {boolean}       [isFullBurst=false]
@@ -142,7 +142,7 @@ export function calcDamage(input) {
     weaponType          = 'AR',
     isCrit              = false,
     critDmgIncrement    = 0,
-    isCore              = false,
+    hitPart             = 'body',
     coreDmgIncrement    = 0,
     distanceZone        = null,
     isFullBurst         = false,
@@ -167,8 +167,8 @@ export function calcDamage(input) {
 
   // ── CommonMultiplier ──
   let commonMult = 1;
-  if (isCrit)         commonMult += BASE_CRIT_DAMAGE + critDmgIncrement;
-  if (isCore)         commonMult += BASE_CORE_DAMAGE + coreDmgIncrement;
+  if (isCrit)              commonMult += BASE_CRIT_DAMAGE + critDmgIncrement;
+  if (hitPart === 'core') commonMult += BASE_CORE_DAMAGE + coreDmgIncrement;
   if (distanceZone && hasDistanceAdvantage(weaponType, distanceZone)) commonMult += DISTANCE_ADVANTAGE_BONUS;
   if (isFullBurst)    commonMult += FULL_BURST_BONUS;
 
@@ -177,7 +177,7 @@ export function calcDamage(input) {
   const elemMult   = hasElemAdv ? (1 + ELEMENT_ADVANTAGE_BASE + elementAdvantageDmgIncrement) : 1.0;
 
   // ── ChargeDamageMultiplier ──
-  const canCharge    = ['SR', 'RL'].includes(weaponType);
+  const canCharge    = ['SR', 'RL', 'Charged'].includes(weaponType);
   // favChargeDmgPct 只与 shot_detail.damage 相乘；其他蓄力加成均为加法。
   // chargeDmgStat 传入形式为 (1 + 装备/技能/魔方加成)，因此 (chargeDmgStat - 1) 即为纯加成部分。
   const chargeMult   = (canCharge && isCharged)
@@ -221,7 +221,7 @@ function sumExtra(extra, input) {
   sum += extra.projectileExplosionDamageMult  ?? 0;
 
   sum += extra.pierceDamageMult              ?? 0;
-  sum += extra.damageToPartsMult             ?? 0;
+  if (input.hitPart === 'parts') sum += extra.damageToPartsMult ?? 0;
   sum += extra.sequentialAttackDamageMult    ?? 0;
   sum += extra.affectsAllEnemiesDamageMult   ?? 0;
   sum += extra.affects1EnemyDamageMult       ?? 0;

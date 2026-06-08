@@ -17,8 +17,8 @@ import { computeFinalStats } from './stats.js';
 import { WEAPON_AMMO, WEAPON_HIT_MULT } from './constants.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs } from './battle-utils.js';
-import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers } from './skill-executor.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, initUnitMaxAmmo, recalcMaxAmmo } from './battle-utils.js';
+import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
 const MAX_TICKS = TICK_RATE * 180; // 战斗上限 3 分钟
@@ -174,11 +174,23 @@ function applyBurstIISkills(state) {
 
 /**
  * 所有"进入 Full Burst"时的效果。
- * 严格按照文档时序：B3 施放（fullBurstActive=false）→ fullBurstActive=true
- * → ENTER_FULL_BURST 被动触发 → pendingFireInBurstHits 结算。
- * B3 直接命中由于 fullBurstActive 尚未为 true，自然不受 +50% 补正，无需额外标记。
+ *
+ * 不变量：B3 的所有即时效果（伤害命中、buff、治疗、护盾）必须完全结算完毕，
+ * 才能开始结算 Full Burst 效果（fullBurstActive=true、ENTER_FULL_BURST 触发器）。
+ * 显式延迟命中（pendingSkillHits）不属于"即时效果"，允许跨越时序边界，
+ * 但引擎会自动为其打上 suppressFullBurst=true，防止意外获得 Full Burst 补正。
+ * 唯一例外：opts.affectedByFullBurst=true（如 Rapi: Red Hood、Liberellio），
+ * 这些是游戏内明确设计为受全爆裂补正的延迟命中。
+ *
+ * 执行顺序：
+ *   1. BURST_SKILL_USE（B3 即时效果全部在 fullBurstActive=false 下结算）
+ *   2. 延迟命中标记 suppressFullBurst
+ *   3. flushHealReceived / flushShieldReceived
+ *   4. fullBurstActive = true
+ *   5. ENTER_FULL_BURST 触发器
+ *   6. pendingFireInBurstHits 结算
  */
-function applyFullBurstSkills(state) {
+function applyFullBurstSkills(state, events) {
   // 1. 按 §6.0 从左到右选第一个 CD 就绪的 B3 单位施放；其余本轮无法施放。
   const step3 = state.squad.find(u =>
     (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
@@ -191,6 +203,11 @@ function applyFullBurstSkills(state) {
   if (step3) {
     step3.burstCdRemaining = step3.burstSkillCooltime;
     state.burstCastersThisRotation?.add(step3.id);
+
+    // burst_iii 标记在 B3 即时效果之前推入，确保日志顺序：B3 → 效果 → Full Burst
+    const bev = { type: 'burst_iii', tick: state.tick, unitName: step3.name, _seq: state._logSeq++ };
+    if (step3.combatAssistStatus != null) bev.isCA = !!step3.combatAssistStatus;
+    events.push(bev);
 
     const prePendingLen = state.pendingSkillHits.length;
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: step3 });
@@ -210,6 +227,9 @@ function applyFullBurstSkills(state) {
   state.fullBurstActive = true;
   state.fullBurstStartTick = state.tick;
 
+  // full_burst 标记在 ENTER_FULL_BURST 之前推入，确保日志顺序：B3效果 → Full Burst → FB效果
+  events.push({ type: 'full_burst', tick: state.tick, _seq: state._logSeq++ });
+
   // 3. ENTER_FULL_BURST 被动触发（此时 fullBurstActive 已为 true）
   const prePendingLenFull = state.pendingSkillHits.length;
   executeSkillTriggers(state, 'ENTER_FULL_BURST');
@@ -225,7 +245,7 @@ function applyFullBurstSkills(state) {
   // 4. 结算 pendingFireInBurstHits（在 ENTER_FULL_BURST 生效后触发，受全爆裂补正）
   for (const h of state.pendingFireInBurstHits) {
     const sums = h.sums ?? getBuffSums(state, h.caster.id);
-    fireSkillHit(state, h.caster, h.mult, sums, h.isCharged, h.label, h.opts);
+    fireSkillHit(state, h.caster, h.mult, sums, h.label, h.opts);
   }
   state.pendingFireInBurstHits.length = 0;
 
@@ -293,14 +313,16 @@ export function initBattle(config) {
     // Base ammo: prefer CDN-derived value from config (baseAmmo), fall back to weapon type table.
     const baseAmmo = cfg.baseAmmo ?? WEAPON_AMMO[wt] ?? 30;
     // Fav item ammo pct: applied as Math.round(base × pct), matching in-game rounding.
-    // bonusAmmo (from OL equipment stats) is pre-computed using the grouped-ROUND rule:
+    // equipMaxAmmoPct (from OL equipment stats) is pre-computed using the grouped-ROUND rule:
     //   duplicate pct values are grouped → Math.round(base × pct × count) per group.
-    const favAmmoBonus = collFx?.ammoPct ? Math.round(baseAmmo * collFx.ammoPct) : 0;
-    const maxAmmo = baseAmmo + Math.round(baseAmmo * (stats.bonusAmmo ?? 0)) + favAmmoBonus;
-    // FORESWING/BACKSWING for SR/RL weapons: time before and after each charge shot.
+    const favMaxAmmoFlat = collFx?.ammoPct ? Math.round(baseAmmo * collFx.ammoPct) : 0;
+    // initialMaxAmmo：仅含静态来源（baseAmmo + OL + 珍藏品），buff 效果为空故等价于 recalcMaxAmmo 初值。
+    const initialMaxAmmo = Math.max(1,
+      baseAmmo + Math.round(baseAmmo * (stats.equipMaxAmmoPct ?? 0)) + favMaxAmmoFlat);
+    // FORESWING/BACKSWING for SR/RL/Charged weapons: time before and after each charge shot.
     // store.js 从 CDN spot_first_delay / spot_last_delay / maintain_fire_stance 计算并传入。
     // 默认 10t（≈16.67 百分秒）仅在无 CDN 数据时兜底；通常 CDN 值为 12t（20 百分秒）。
-    const isChargWeapon = ['SR', 'RL'].includes(wt);
+    const isChargWeapon = ['SR', 'RL', 'Charged'].includes(wt);
     const foreswingTicks = isChargWeapon ? (cfg.foreswingTicks ?? 10) : 0;
     const backswingTicks = isChargWeapon ? (cfg.backswingTicks ?? 10) : 0;
     const chargeTimeTicks = cfg.chargeTimeTicks ?? 0;
@@ -310,7 +332,7 @@ export function initBattle(config) {
     const ssrFavSkills = cfg._favItemData
       ? getSsrFavSkills(cfg._favItemData, cfg.favoriteItem?.level ?? 0, cfg.ssrFavSkillLevel)
       : null;
-    return {
+    const unit = {
       id:               cfg.characterId,
       name:             (() => {
         if (cfg.name == null) {
@@ -337,10 +359,10 @@ export function initBattle(config) {
       // 来源为 CDN _nikkeData.squad；技能条件依赖此字段非 null。
       squad:            cfg._nikkeData?.squad ?? null,
       stats,
-      baseAmmo,         // CDN base ammo (no OL, no fav%); used for skill ammo scaling
-      favAmmoBonus,     // Math.round(baseAmmo × favAmmoPct); stored for burst-expanded reload
-      maxAmmo,
-      ammoLeft:         maxAmmo,
+      baseAmmo,         // CDN base ammo (no OL, no fav%); anchor for recalcMaxAmmo 百分比计算
+      favMaxAmmoFlat,   // Math.round(baseAmmo × favAmmoPct)；init 时推入 Fav Ammo 永久 buff
+      // maxAmmo: getter 由 initUnitMaxAmmo 安装，只能通过 recalcMaxAmmo 更新
+      ammoLeft:         0,   // initUnitMaxAmmo 写入真实初值
       reloadTick:       0,
       ammoBeforeHidden: 0,   // non-zero only during a HIDDEN phase with a voluntary reload in progress
       // Per-unit reload duration (ticks). 必须由调用方提供（validateUnitConfig 已校验）。
@@ -431,7 +453,7 @@ export function initBattle(config) {
       // Fav item "Charge Damage Multiplier ▲" (SR/RL items) — multiplies shot_detail.damage specifically.
       favChargeDmgPct:          collFx?.chargeDmgPct ?? 0,
       // Fraction of normal shots that hit the enemy core (0=none, 1=all).
-      // MG/SR/RL default to 1 (always hit core). SMG defaults to 0.033.
+      // MG/SR/RL/Charged default to 1 (always hit core). SMG defaults to 0.033.
       // SG: 核心命中率 = 20% + 0.8 × HitRate；HitRate 属性待建模，当前固定 20%。
       // TODO: HitRate 属性建模后，改为 0.20 + 0.8 * (stats.hitRatePct ?? 0)。
       coreHitRateMult:          cfg.coreHitRateMult ?? (wt === 'SMG' ? 0.033 : wt === 'SG' ? 0.20 : 1),
@@ -482,10 +504,6 @@ export function initBattle(config) {
       unitHp:           stats.hp,
       shieldHp:         0,
       shieldEndTick:    0,
-      // Temporary max ammo multiplier (e.g. SBS Skill 2: ×1.6 for 10s during burst).
-      // Applied to reload size only; does not change maxAmmo permanently.
-      tempMaxAmmoMult:    1,
-      tempMaxAmmoEndTick: 0,
       // Fractional shot accumulator for MG weapons.
       // Eliminates per-tick rounding loss at high ROF (e.g. Crown 4200 RPM = 1.17 shots/tick).
       shotAccumulator:  0,
@@ -533,6 +551,9 @@ export function initBattle(config) {
       rawSkill2:    ssrFavSkills?.skill2 ?? cfg._nikkeData?.skill2_detail    ?? null,
       rawBurst:     ssrFavSkills?.burst  ?? cfg._nikkeData?.ulti_skill_detail ?? null,
     };
+    // 安装 maxAmmo 只读 getter（只能通过 recalcMaxAmmo 写入），同时设置 ammoLeft 初值。
+    initUnitMaxAmmo(unit, initialMaxAmmo);
+    return unit;
   });
 
   // 爆裂阶段间隔（ticks）：B1→B2 和 B2→B3 各等待此时长。
@@ -581,7 +602,7 @@ export function initBattle(config) {
     // the burst collapses and gauges reset to 0.
     burstPhaseTimeoutTick: 0,
     // Active buffs: { name, unitId (null=all), atkPct, atkFlat, defFlat,
-    //                attackDamagePct, critRateBonus, chargeDamagePct, reloadSpeedPct, endTick }
+    //                attackDamagePct, critRatePct, chargeDamagePct, reloadSpeedPct, endTick }
     buffs:              [],
     totalAmmoFired:     0,
     lastMilestone400:   0,   // how many 400-ammo milestones have been crossed
@@ -618,7 +639,21 @@ export function initBattle(config) {
     dots: [],
     // 技能触发事件缓冲区，由 skill-executor 在满足白名单触发条件时填充，每 tick 开始时排入 events。
     pendingSkillEvents: [],
+    // 全局日志序列号，每次向 hitLog / buffLog / events 推送时自增。
+    // full-damage-trace.mjs 以 _seq 作为同 tick 事件的次级排序键，还原真实执行顺序。
+    _logSeq: 0,
   };
+
+  // OL 装备词条（equipMaxAmmoPct）和珍藏品（favMaxAmmoFlat）作为永久 buff 推入，
+  // 由 recalcMaxAmmo 统一通过 getBuffSums 读取（§5.1 第二期）。
+  // 直接写入 state.buffs 避免 buffLog 噪声；之后调用 recalcMaxAmmo 更新 unit.maxAmmo。
+  for (const unit of state.squad) {
+    if ((unit.stats.equipMaxAmmoPct ?? 0) !== 0)
+      state.buffs.push({ name: 'OL Ammo', unitId: unit.id, maxAmmoPct: unit.stats.equipMaxAmmoPct, endTick: Infinity });
+    if ((unit.favMaxAmmoFlat ?? 0) !== 0)
+      state.buffs.push({ name: 'Fav Ammo', unitId: unit.id, maxAmmoFlat: unit.favMaxAmmoFlat, endTick: Infinity });
+    recalcMaxAmmo(state, unit);   // 确认 unit.maxAmmo 与 initialMaxAmmo 一致
+  }
 
   // PROGRAM_INIT: 程序初始化阶段，仅用于 skillState 计数器/标志位归零，不写入战斗日志。
   executeSkillTriggers(state, 'PROGRAM_INIT');
@@ -727,32 +762,28 @@ export function tick(state) {
     }
   }
 
-  // 清理过期 buff — 移除前先记录过期事件
+  // 清理过期 buff — 移除前收集需要重算 maxAmmo 的单位 ID
+  const _ammoRecalcIds = new Set();
   for (const b of state.buffs) {
     if (b.endTick <= state.tick) {
       if (state.buffLog)
         state.buffLog.push({ type: 'buff_expire', tick: state.tick, name: b.name, unitId: b.unitId });
-      // 敌人承伤 debuff：到期时从全局累加器中减去
-      if (b.enemyDamageTakenPct) state.enemyDamageTakenPct -= b.enemyDamageTakenPct;
-      // 仅改容量的弹药 buff（maxAmmoPct 或 maxAmmoFlat > 0）：到期时将当前弹药截到基础 maxAmmo
-      if (b.maxAmmoPct > 0 || b.maxAmmoFlat > 0) {
-        const targets = b.unitId != null
-          ? [state.squad.find(u => u.id === b.unitId)].filter(Boolean)
-          : state.squad;
-        for (const u of targets) {
-          if (u.ammoLeft > u.maxAmmo) {
-            const before = u.ammoLeft;
-            u.ammoLeft = u.maxAmmo;
-            if (state.ammoLog)
-              state.ammoLog.push({ tick: state.tick, unitId: u.id, unitName: u.name,
-                delta: u.ammoLeft - before, ammoAfter: u.ammoLeft, maxAmmo: u.maxAmmo,
-                source: `${b.name}(expired)` });
-          }
+      if (b.maxAmmoPct != null || b.maxAmmoFlat != null) {
+        if (b.unitId != null) {
+          _ammoRecalcIds.add(b.unitId);
+        } else {
+          for (const u of state.squad) _ammoRecalcIds.add(u.id);
         }
       }
     }
   }
   state.buffs = state.buffs.filter(b => b.endTick > state.tick);
+
+  // maxAmmo 相关 buff 过期后重算（此时过期 buff 已从 state.buffs 移除）
+  for (const uid of _ammoRecalcIds) {
+    const u = state.squad.find(u => u.id === uid);
+    if (u) recalcMaxAmmo(state, u);
+  }
 
   // ── 持续伤害（DoT）池 ────────────────────────────────────────────────────────
   if (state.dots?.length > 0) {
@@ -776,7 +807,7 @@ export function tick(state) {
     state.pendingSkillHits = state.pendingSkillHits.filter(h => h.fireTick > state.tick);
     for (const h of due) {
       const sums = h.sums ?? getBuffSums(state, h.caster.id);
-      fireSkillHit(state, h.caster, h.mult, sums, h.isCharged, h.label, h.opts ?? {});
+      fireSkillHit(state, h.caster, h.mult, sums, h.label, h.opts ?? {});
     }
   }
 
@@ -814,13 +845,15 @@ export function tick(state) {
   // 阶段 1：等待 B1 冷却 — 每 tick 重试，直到有 B1 单位冷却结束。
   //（槽填满的那一 tick 会跳过这段；那一 tick 由下方"填满槽"逻辑触发 B1。）
   if (state.burstPhase === 1 && state.burstPhaseTick === Infinity) {
+    // _bSeq：在 executeSkillTriggers（BURST_SKILL_USE）运行前占用序列号，保证 burst_i 排在技能触发事件之前
+    const _bSeq = state._logSeq++;
     const fired = applyBurstISkills(state);
     if (fired) {
       // 进入 B2 被动在 B1 施放后立即触发，然后才开始延迟
       applyEnterBurst2Passives(state);
       state.burstPhaseTick = state.tick + state.burstStepTicks;
       if (fired.name != null) {
-        const bev = { type: 'burst_i', tick: state.tick, unitName: fired.name };
+        const bev = { type: 'burst_i', tick: state.tick, unitName: fired.name, _seq: _bSeq };
         if (fired.combatAssistStatus != null) bev.isCA = !!fired.combatAssistStatus;
         events.push(bev);
       }
@@ -837,12 +870,13 @@ export function tick(state) {
 
   // 阶段 2：等待 B2 冷却 — 每 tick 重试，直到有 B2 单位冷却结束。
   if (state.burstPhase === 2 && state.burstPhaseTick === Infinity) {
+    const _bSeq = state._logSeq++;
     const fired = applyBurstIISkills(state);
     if (fired) {
       // 进入 B3 被动在 B2 施放后立即触发，然后才开始延迟
       applyEnterBurst3Passives(state);
       state.burstPhaseTick = state.tick + state.burstStepTicks;
-      events.push({ type: 'burst_ii', tick: state.tick, unitName: fired.name });
+      events.push({ type: 'burst_ii', tick: state.tick, unitName: fired.name, _seq: _bSeq });
     }
   }
 
@@ -866,14 +900,8 @@ export function tick(state) {
     if (b3Ready) {
       state.burstPhaseTimeoutTick = 0;
       for (const u of state.squad) u.burstCount++;
-      const fired = applyFullBurstSkills(state);
+      applyFullBurstSkills(state, events);
       state.fullBurstTick = state.tick + TICK_RATE * 10; // 10s burst window
-      if (fired) {
-        const bev = { type: 'burst_iii', tick: state.tick, unitName: fired.name };
-        if (fired.combatAssistStatus != null) bev.isCA = !!fired.combatAssistStatus;
-        events.push(bev);
-      }
-      events.push({ type: 'full_burst', tick: state.tick });
     }
   }
 
@@ -885,13 +913,14 @@ export function tick(state) {
     state.burstCastersThisRotation = new Set();
     // 进入 Burst 1 阶段时立即触发被动（不依赖 B1 是否 cast）
     applyEnterBurst1Passives(state);
+    const _bSeq2 = state._logSeq++;
     const fired = applyBurstISkills(state);
     if (fired) {
       // 进入 B2 被动在 B1 施放后立即触发，然后才开始延迟
       applyEnterBurst2Passives(state);
       state.burstPhaseTick = state.tick + state.burstStepTicks;
       if (fired.name != null) {
-        const bev = { type: 'burst_i', tick: state.tick, unitName: fired.name };
+        const bev = { type: 'burst_i', tick: state.tick, unitName: fired.name, _seq: _bSeq2 };
         if (fired.combatAssistStatus != null) bev.isCA = !!fired.combatAssistStatus;
         events.push(bev);
       }
@@ -937,18 +966,8 @@ export function tick(state) {
         }
         continue;
       }
-      const ammoMult       = (state.tick < unit.tempMaxAmmoEndTick) ? unit.tempMaxAmmoMult : 1;
-      // maxAmmoFlat buff：来自技能的弹容量加成（如 Liter S1 T1、Noir S2、Grave 爆裂），
-      // 所有来源通过 buff 系统叠加，由 getBuffSums 统一汇总。
-      const flatBoost = rSums.maxAmmoFlat ?? 0;
-      // 技能缩放弹匣：每个 pct 效果单独对 baseAmmo 取整（T33 per-effect round 公式）。
-      // OL/fav 平坦加成在取整后叠加，整体结果 max(1, ...)。
-      const effectiveMax = flatBoost > 0
-        ? unit.maxAmmo + flatBoost
-        : (ammoMult !== 1
-          ? Math.max(1, unit.baseAmmo + Math.round(unit.baseAmmo * (ammoMult - 1)))
-            + Math.round(unit.baseAmmo * (unit.stats.bonusAmmo ?? 0)) + unit.favAmmoBonus
-          : unit.maxAmmo);
+      // unit.maxAmmo 由 recalcMaxAmmo 维护，始终反映当前所有效果的最终弹匣上限。
+      const effectiveMax = unit.maxAmmo;
       // 分段装填：每次装填动作仅恢复 round(maxAmmo × reloadFraction) 发，不超过上限。
       // reloadFraction=1（默认）时等价于一次装满。
       unit.ammoLeft = unit.reloadFraction < 1
@@ -1029,34 +1048,41 @@ export function tick(state) {
     for (let _s = 0; _s < shotsThisTick; _s++) {
       if (unit.ammoLeft <= 0) break; // 本 tick 中途弹尽；下一 tick 开始装填
 
-      // 计算 buff 汇总（round-based buff 由 getBuffSums 自动根据 roundsLeft 过滤）
-      const sums = getBuffSums(state, unit.id);
       // 武器切换（WEAPON_SWITCH 效果）：期间覆盖 hitMult 和 isCharged
+      // 提前到 getBuffSums 之前计算，供 DURING_FULL_CHARGE 触发器使用。
       const effectiveWeaponType = weaponSwitchActive
         ? (unit.skillState.weaponSwitchType ?? unit.weaponType)
         : unit.weaponType;
       const hitMult = weaponSwitchActive
         ? (unit.skillState.weaponSwitchHitMult ?? WEAPON_HIT_MULT[effectiveWeaponType] ?? 0.03)
         : unit.shotDamageMult;
-      const isCharged = ['SR', 'RL'].includes(effectiveWeaponType);
-      // normalAttackCritRateBonus 适用于所有普通攻击（含蓄力），不区分蓄力与否
-      const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRateBonus
-        + (sums.normalAttackCritRateBonus ?? 0));
+      const isCharged = ['SR', 'RL', 'Charged'].includes(effectiveWeaponType);
+
+      // DURING_FULL_CHARGE：全蓄力击发前触发，推入的 buff 立即被 getBuffSums 读取
+      if (isCharged) fireDuringFullChargeTriggers(state, unit);
+
+      // 计算 buff 汇总（round-based buff 由 getBuffSums 自动根据 roundsLeft 过滤）
+      const sums = getBuffSums(state, unit.id);
+      // normalAttackCritRatePct 适用于所有普通攻击（含蓄力），不区分蓄力与否
+      const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRatePct
+        + (sums.normalAttackCritRatePct ?? 0));
       const isCrit    = rollCrit(effectiveCritRate);
       // 核心命中判定（文档 §3.8）。
-      // 穿透攻击：weaponSwitchPierce / pierceActive / pierceEndTick 任一生效时命中穿透。
+      // 穿透攻击：weaponSwitchPierce（Zwei 武器切换）或 sums.pierce（buff 系统）生效时命中穿透。
       // 核心被保护（enemyCoreProtected=true）：仅穿透攻击可命中核心。
       const isPierce = (weaponSwitchActive && unit.skillState.weaponSwitchPierce)
-        || unit.skillState.pierceActive
-        || (unit.skillState.pierceEndTick ?? 0) > state.tick;
-      const coreHitRateMult = weaponSwitchActive && unit.skillState.weaponSwitchType
-        ? (unit.skillState.weaponSwitchType === 'SMG' ? 0.033
-          : unit.skillState.weaponSwitchType === 'SG' ? 0.20 : 1.0)
+        || sums.pierce;
+      // 切换武器核心命中率：SMG=3.3%、SG=20%；SR/RL/Charged 及其他均为 100%。
+      // 使用已解析的 effectiveWeaponType，可正确处理 weaponSwitchType=null 时回退到基础武器类型的情况。
+      const coreHitRateMult = weaponSwitchActive
+        ? (effectiveWeaponType === 'SMG' ? 0.033
+          : effectiveWeaponType === 'SG'  ? 0.20 : 1.0)
         : (unit.coreHitRateMult ?? 1);
       const coreRoll = coreHitRateMult >= 1 || Math.random() < coreHitRateMult;
       const isCore = state.enemyHasCore && (
         state.enemyCoreProtected ? (isPierce && coreRoll) : coreRoll
       );
+      const hitPart = isCore ? 'core' : 'body';
 
       const { damage, breakdown: bd } = calcDamage({
         atk:               unit.stats.atk,
@@ -1066,14 +1092,14 @@ export function tick(state) {
         hitMultiplier:     hitMult,
         weaponType:        effectiveWeaponType,
         isCrit,
-        critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDmgBonus,
-        isCore,
+        critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
+        hitPart,
         coreDmgIncrement:  unit.coreDmgIncrement + (isCore ? (sums.coreDamagePct ?? 0) : 0),
         distanceZone:      state.distanceZone,
         isFullBurst:       state.fullBurstActive,
         attackerElement:   unit.element,
         defenderElement:   state.enemyElement,
-        elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantageBonus ?? 0),
+        elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantagePct ?? 0),
         isCharged,
         fullChargeDamage:  weaponSwitchActive && unit.skillState.weaponSwitchFullChargeDamage != null
           ? unit.skillState.weaponSwitchFullChargeDamage
@@ -1083,8 +1109,9 @@ export function tick(state) {
         favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
         extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct
                              + (effectiveWeaponType === 'RL' ? sums.projectileExplosionDamagePct : 0),
+                             damageToPartsMult: sums.damageToPartsPct ?? 0,
                              ...(isPierce ? { pierceDamageMult: sums.pierceDamagePct } : {}) },
-        damageTakenMult:   state.enemyDamageTakenPct,
+        damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
       });
 
       // ── Zwei 爆裂双重命中（游戏实机特性/bug）──────────────────────────────
@@ -1095,14 +1122,35 @@ export function tick(state) {
       //   ② 第二次命中：使用更新后的 buff（pierce_stack 已存在，pierce1r 已消耗）；
       //      暴击与第一次独立判定；pierce_stack 在本次射击结束后保留（不被 onShotFired 再次递减）。
       const isDoubleHit = weaponSwitchActive && (unit.skillState.weaponSwitchDoubleHit ?? false);
+
+      // 双重命中：回合制全体 buff 被 pushBuff 拆分为各角色独立副本（unitId=各自 id），
+      // 弹匣清理循环（ammoLeft-- 后）会把 Zwei 的副本 splice 掉，导致 hitLog 无法读到。
+      // 解决：在双重命中前后分别快照 buffBreakdown，只保留 roundsLeft>0 的活跃 buff。
+      const _snapActiveBufs = () => state.buffs
+        .filter(b => (b.unitId === null || b.unitId === unit.id)
+                   && (b.roundsLeft === undefined || b.roundsLeft > 0))
+        .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0,
+                     attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0),
+                     pierceDamagePct: b.pierceDamagePct ?? 0,
+                     sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null,
+                     sourcePartIdx: b._sourcePartIdx ?? null }))
+        .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct);
+      let _hit1BreakdownBufs = null, _hit2BreakdownBufs = null;
+      if (isDoubleHit && state.hitLog) _hit1BreakdownBufs = _snapActiveBufs();
+
+      // 双重命中时，SHOT_COUNT 事件（Pierce Equation P2 等）需排在命中行之后；
+      // 记录 fireShotCountTriggers 前的 pendingSkillEvents 长度，事后重新赋 _seq。
+      let _shotCountPendingLen = 0;
+
       let damage2 = 0, isCrit2 = false;
       if (isDoubleHit) {
-        // 消耗回合制 buff（pierce1r roundsLeft 1→0），然后让 S1 P2 添加 pierce_stack。
+        _shotCountPendingLen = state.pendingSkillEvents?.length ?? 0;
         decrementRoundBuffs(state, unit.id);
-        fireShotCountTriggers(state, unit, { sums, isCharged, isCore, ammoAfterShot: unit.ammoLeft - 1 });
+        fireShotCountTriggers(state, unit, { sums, isCharged, hitPart, ammoAfterShot: unit.ammoLeft - 1 });
+        if (state.hitLog) _hit2BreakdownBufs = _snapActiveBufs();
         const sums2 = getBuffSums(state, unit.id);
         const eCritRate2 = Math.min(1,
-          (unit.stats.critRate ?? 0.15) + sums2.critRateBonus + (sums2.normalAttackCritRateBonus ?? 0));
+          (unit.stats.critRate ?? 0.15) + sums2.critRatePct + (sums2.normalAttackCritRatePct ?? 0));
         isCrit2 = rollCrit(eCritRate2);
         ({ damage: damage2 } = calcDamage({
           atk:               unit.stats.atk,
@@ -1112,14 +1160,14 @@ export function tick(state) {
           hitMultiplier:     hitMult,
           weaponType:        effectiveWeaponType,
           isCrit:            isCrit2,
-          critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums2.critDmgBonus,
-          isCore,
+          critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums2.critDamagePct,
+          hitPart,
           coreDmgIncrement:  unit.coreDmgIncrement + (isCore ? (sums2.coreDamagePct ?? 0) : 0),
           distanceZone:      state.distanceZone,
           isFullBurst:       state.fullBurstActive,
           attackerElement:   unit.element,
           defenderElement:   state.enemyElement,
-          elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums2.elementAdvantageBonus ?? 0),
+          elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums2.elementAdvantagePct ?? 0),
           isCharged,
           fullChargeDamage:  weaponSwitchActive && unit.skillState.weaponSwitchFullChargeDamage != null
             ? unit.skillState.weaponSwitchFullChargeDamage
@@ -1129,8 +1177,9 @@ export function tick(state) {
           favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
           extra:             { attackDamageMult: sums2.attackDamagePct + sums2.normalAttackDamagePct
                                + (effectiveWeaponType === 'RL' ? sums2.projectileExplosionDamagePct : 0),
+                               damageToPartsMult: sums2.damageToPartsPct ?? 0,
                                ...(isPierce ? { pierceDamageMult: sums2.pierceDamagePct } : {}) },
-          damageTakenMult:   state.enemyDamageTakenPct,
+          damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
         }));
       }
 
@@ -1153,30 +1202,27 @@ export function tick(state) {
       if (isDoubleHit && isCrit2) unit.critCount++;
       unit.totalDamage += damage + damage2;
       // 调试：按单位记录普通射击伤害
+      // 武器切换期间用 burst 技能名标记，与普通攻击分离统计
       unit.skillDamage        ??= {};
       unit.skillDamageCount   ??= {};
-      const normalLabel = 'normal_shot';
-      unit.skillDamage[normalLabel]      = (unit.skillDamage[normalLabel]      ?? 0) + damage + damage2;
-      unit.skillDamageCount[normalLabel] = (unit.skillDamageCount[normalLabel] ?? 0) + (isDoubleHit ? 2 : 1);
+      const shotLabel = weaponSwitchActive
+        ? `Burst${unit.rawBurst?.name_localkey ? ' ' + unit.rawBurst.name_localkey : ''}`
+        : 'normal_shot';
+      unit.skillDamage[shotLabel]      = (unit.skillDamage[shotLabel]      ?? 0) + damage + damage2;
+      unit.skillDamageCount[shotLabel] = (unit.skillDamageCount[shotLabel] ?? 0) + (isDoubleHit ? 2 : 1);
       // 普通射击的逐发详细日志
       if (state.hitLog) {
-        // 射击时刻的有效最大弹匣 — 与装填处公式保持一致，同时考虑 tempMaxAmmoMult 和 maxAmmoFlat
-        const _hitLogAmmoMult  = (state.tick < unit.tempMaxAmmoEndTick) ? unit.tempMaxAmmoMult : 1;
-        const _hitLogFlatBoost = sums.maxAmmoFlat ?? 0;
-        const effectiveMaxAmmo = _hitLogFlatBoost > 0
-          ? unit.maxAmmo + _hitLogFlatBoost
-          : (_hitLogAmmoMult !== 1
-            ? Math.max(1, unit.baseAmmo + Math.round(unit.baseAmmo * (_hitLogAmmoMult - 1)))
-              + Math.round(unit.baseAmmo * (unit.stats.bonusAmmo ?? 0)) + unit.favAmmoBonus
-            : unit.maxAmmo);
+        const effectiveMaxAmmo = unit.maxAmmo;  // 由 recalcMaxAmmo 维护的当前最大弹匣
         state.hitLog.push({
-          tick: state.tick, unitId: unit.id, label: normalLabel,
+          _seq: state._logSeq++,
+          tick: state.tick, unitId: unit.id, label: shotLabel,
           atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
-          hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50,
+          hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
           favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
           attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct, isFullBurst: state.fullBurstActive,
-          damageTakenPct: state.enemyDamageTakenPct, enemyDef: state.enemyDef,
-          ammoBeforeShot, isCore,
+          damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: state.enemyDef,
+          isPierce, pierceDamagePct: isPierce ? (sums.pierceDamagePct ?? 0) : 0,
+          ammoBeforeShot, hitPart, isCore,
           coreDmgIncrement: (unit.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0),
           damage,
           elementDmgPct: unit.stats.elementDmgPct ?? 0,
@@ -1189,23 +1235,29 @@ export function tick(state) {
           ammoLeft: unit.ammoLeft,
           maxAmmo: effectiveMaxAmmo,
           isUnlimitedAmmo: isUnlimitedAmmoShot,
-          buffBreakdown: state.buffs
-            .filter(b => b.unitId === null || b.unitId === unit.id)
-            .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0) }))
-            .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct),
+          // 双重命中时使用预快照（ammoLeft-- 之前），避免弹匣清理 splice 掉 Zwei 的回合制 buff 副本
+          buffBreakdown: [
+            ...(_hit1BreakdownBufs ?? state.buffs
+              .filter(b => b.unitId === null || b.unitId === unit.id)
+              .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0), pierceDamagePct: b.pierceDamagePct ?? 0, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null }))
+              .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct)),
+            ...getEnemyDebuffBreakdown(state),
+          ],
         });
-        // 双重命中第二次伤害单独记录，label='normal_shot_2' 以便测试区分两次命中
+        // 双重命中第二次伤害单独记录
         if (isDoubleHit) {
           const sums2log = getBuffSums(state, unit.id);
           state.hitLog.push({
-            tick: state.tick, unitId: unit.id, label: 'normal_shot_2',
+            _seq: state._logSeq++,
+            tick: state.tick, unitId: unit.id, label: shotLabel + '_2',
             atk: unit.stats.atk, atkPct: sums2log.atkPct, atkFlat: sums2log.atkFlat,
-            hitMult, isCrit: isCrit2, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50,
+            hitMult, isCrit: isCrit2, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums2log.critDamagePct,
             favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
             attackDamagePct: sums2log.attackDamagePct + sums2log.normalAttackDamagePct,
             isFullBurst: state.fullBurstActive,
-            damageTakenPct: state.enemyDamageTakenPct, enemyDef: state.enemyDef,
-            ammoBeforeShot, isCore,
+            damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: state.enemyDef,
+            isPierce, pierceDamagePct: isPierce ? (sums2log.pierceDamagePct ?? 0) : 0,
+            ammoBeforeShot, hitPart, isCore,
             coreDmgIncrement: (unit.coreDmgIncrement ?? 0) + (isCore ? (sums2log.coreDamagePct ?? 0) : 0),
             damage: damage2,
             elementDmgPct: unit.stats.elementDmgPct ?? 0,
@@ -1216,8 +1268,18 @@ export function tick(state) {
             ammoLeft: unit.ammoLeft,
             maxAmmo: effectiveMaxAmmo,
             isUnlimitedAmmo: isUnlimitedAmmoShot,
-            pierceDamagePct: sums2log.pierceDamagePct,
+            buffBreakdown: [
+              ...(_hit2BreakdownBufs ?? []),
+              ...getEnemyDebuffBreakdown(state),
+            ],
           });
+        }
+      }
+      // 双重命中：把 fireShotCountTriggers 产生的 SHOT_COUNT 事件重新赋更大的 _seq，
+      // 使其在日志排序中出现在命中行之后（而非之前）。
+      if (isDoubleHit && state.pendingSkillEvents) {
+        for (let i = _shotCountPendingLen; i < state.pendingSkillEvents.length; i++) {
+          state.pendingSkillEvents[i]._seq = state._logSeq++;
         }
       }
       // 全蓄力能量 = (targetBurstEnergyPerShot + burstGaugeFlat) × (fullChargeDamage / 10000)。
@@ -1277,7 +1339,7 @@ export function tick(state) {
 
       // ── 每发射击后的单位技能触发（声明式执行器） ────────────────
       // 双重命中：SHOT_COUNT 已由 fireShotCountTriggers 处理，decrementRoundBuffs 已在第一次命中后调用，均跳过。
-      onShotFired(state, unit, { sums, isCharged, isCore, ammoAfterShot: unit.ammoLeft },
+      onShotFired(state, unit, { sums, isCharged, hitPart, ammoAfterShot: unit.ammoLeft },
         isDoubleHit ? { skipShotCount: true, skipRoundDecrement: true } : undefined);
       flushHealReceived(state);
       flushShieldReceived(state);
