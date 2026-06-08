@@ -117,7 +117,7 @@ section('T7b: Crit + critDmgIncrement');
 section('T8: Core hit');
 {
   // commonMult = 1 + BASE_CORE_DAMAGE(1.00) = 2.0; damage = floor(400 × 2) = 800
-  const { damage, breakdown } = calcDamage({ ...BASE, isCore: true });
+  const { damage, breakdown } = calcDamage({ ...BASE, hitPart: 'core' });
   eq('core damage', damage, 800);
   near('commonMult', breakdown.commonMult, 1 + BASE_CORE_DAMAGE);
 }
@@ -126,7 +126,7 @@ section('T8b: Core + coreDmgIncrement');
 {
   // commonMult = 1 + 1.00 + 0.25 = 2.25; damage = floor(400 × 2.25) = 900
   // Using 0.25 (binary-exact) to avoid floating-point floor ambiguity
-  const { damage } = calcDamage({ ...BASE, isCore: true, coreDmgIncrement: 0.25 });
+  const { damage } = calcDamage({ ...BASE, hitPart: 'core', coreDmgIncrement: 0.25 });
   eq('core+increment', damage, 900);
 }
 
@@ -135,7 +135,7 @@ section('T8b: Core + coreDmgIncrement');
 section('T9: Crit + Core combined');
 {
   // commonMult = 1 + 0.50 + 1.00 = 2.5; damage = floor(400 × 2.5) = 1000
-  const { damage } = calcDamage({ ...BASE, isCrit: true, isCore: true });
+  const { damage } = calcDamage({ ...BASE, isCrit: true, hitPart: 'core' });
   eq('crit+core', damage, 1_000);
 }
 
@@ -377,7 +377,7 @@ section('T17: All multipliers stacked');
     hitMultiplier:    0.05,
     weaponType:       'AR',
     isCrit:           true,
-    isCore:           true,
+    hitPart: 'core',
     distanceZone:     'MID',
     isFullBurst:      true,
     attackerElement:  'Wind',
@@ -539,7 +539,7 @@ section('T23: Rapi S2 Projectile — attachment (core hit, passive)');
     ...BASE,
     hitMultiplier: 0.8811,
     isCrit:        false,
-    isCore:        true,
+    hitPart: 'core',
     extra:         { attackDamageMult: 1.5072 },  // passive attachment type bonus
   });
   eq('S2 attach passive core hit', damage, 35345);
@@ -557,7 +557,7 @@ section('T23b: Rapi S2 Projectile — attachment (core hit, during Full Burst)')
     ...BASE,
     hitMultiplier: 0.8811,
     isCrit:        false,
-    isCore:        true,
+    hitPart: 'core',
     isFullBurst:   true,
     extra:         { attackDamageMult: 5.7192 },  // passive 1.5072 + burst 4.212
   });
@@ -580,7 +580,7 @@ section('T24: Rapi S2 Projectile — explosion (no core, passive)');
     ...BASE,
     hitMultiplier: 0.8811,
     isCrit:        false,
-    isCore:        false,   // explosion never hits core
+    hitPart: 'body',   // explosion never hits core
     extra:         { attackDamageMult: 1.006 },
   });
   eq('S2 explode passive no core', damage, 14139);
@@ -598,7 +598,7 @@ section('T24b: Rapi S2 Projectile — explosion during Full Burst (no core)');
     ...BASE,
     hitMultiplier: 0.8811,
     isCrit:        false,
-    isCore:        false,
+    hitPart: 'body',
     isFullBurst:   true,
     extra:         { attackDamageMult: 1.006 },  // burst does NOT change explosion bonus
   });
@@ -844,14 +844,14 @@ section('T30: Skill buff type classification — Attack Damage vs ATK vs ATK-fla
 
   // Baseline (no buffs)
   const { damage: base } = calcDamage({ atk: ATK, atkMultiplier: 1, otherAtkIncrement: 0,
-    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, isCore: false, isFullBurst: false,
+    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, hitPart: 'body', isFullBurst: false,
     attackerElement: 'Iron', defenderElement: 'Iron',
     extra: { attackDamageMult: 0 }, damageTakenMult: 0 });
   // base = floor(99900 × 1.0) = 99900
 
   // "Attack Damage ▲50%" → attackDamagePct=0.50 → extraMult = 1.50
   const { damage: withAttackDmg } = calcDamage({ atk: ATK, atkMultiplier: 1, otherAtkIncrement: 0,
-    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, isCore: false, isFullBurst: false,
+    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, hitPart: 'body', isFullBurst: false,
     attackerElement: 'Iron', defenderElement: 'Iron',
     extra: { attackDamageMult: 0.50 }, damageTakenMult: 0 });
   eq('"Attack Damage ▲50%" → extraMult ×1.50: floor(99900×1.50)=149850', withAttackDmg, 149850);
@@ -859,7 +859,7 @@ section('T30: Skill buff type classification — Attack Damage vs ATK vs ATK-fla
 
   // "ATK ▲50%" → atkMultiplier=1.50 (applied before DEF subtraction)
   const { damage: withAtkPct } = calcDamage({ atk: ATK, atkMultiplier: 1.50, otherAtkIncrement: 0,
-    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, isCore: false, isFullBurst: false,
+    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, hitPart: 'body', isFullBurst: false,
     attackerElement: 'Iron', defenderElement: 'Iron',
     extra: { attackDamageMult: 0 }, damageTakenMult: 0 });
   // effATK = 100000×1.5 = 150000; minus DEF 100 = 149900; ×1.0 hitMult = 149900
@@ -870,7 +870,7 @@ section('T30: Skill buff type classification — Attack Damage vs ATK vs ATK-fla
   // e.g. 91.28% of caster ATK=100000 → +91280 flat
   const flatBonus = Math.round(ATK * 0.9128);
   const { damage: withAtkFlat } = calcDamage({ atk: ATK, atkMultiplier: 1, otherAtkIncrement: flatBonus,
-    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, isCore: false, isFullBurst: false,
+    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, hitPart: 'body', isFullBurst: false,
     attackerElement: 'Iron', defenderElement: 'Iron',
     extra: { attackDamageMult: 0 }, damageTakenMult: 0 });
   // effATK = 100000 + 91280 = 191280; minus DEF 100 = 191180; ×1.0 = 191180
@@ -881,7 +881,7 @@ section('T30: Skill buff type classification — Attack Damage vs ATK vs ATK-fla
   // "Distributed Damage ▲50%" → damageTakenMult += 0.50 (same slot as enemy Damage Taken)
   // Only applies to Distributed Damage hit types (e.g. SBS S1 6th/9th shots)
   const { damage: withDistributed } = calcDamage({ atk: ATK, atkMultiplier: 1, otherAtkIncrement: 0,
-    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, isCore: false, isFullBurst: false,
+    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, hitPart: 'body', isFullBurst: false,
     attackerElement: 'Iron', defenderElement: 'Iron',
     extra: { attackDamageMult: 0 }, damageTakenMult: 0.50 });
   // base 99900 × (1+0.50) = 149850
@@ -892,7 +892,7 @@ section('T30: Skill buff type classification — Attack Damage vs ATK vs ATK-fla
 
 // ── T31: Hit Rate buff type classification ────────────────────────────────────
 //
-// "Hit Rate ▲ X%" → hitRateBonus field (NOT attackDamagePct, NOT critRateBonus).
+// "Hit Rate ▲ X%" → hitRatePct field (NOT attackDamagePct, NOT critRatePct).
 // In PvE against bosses without evasion, Hit Rate has no mechanical effect on damage.
 // The field is tracked in buffLog for display purposes only.
 //
@@ -906,26 +906,26 @@ section('T31: Skill buff type classification — Hit Rate');
   const HIT = 1.0;
 
   const { damage: base } = calcDamage({ atk: ATK, atkMultiplier: 1, otherAtkIncrement: 0,
-    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, isCore: false, isFullBurst: false,
+    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, hitPart: 'body', isFullBurst: false,
     attackerElement: 'Iron', defenderElement: 'Iron',
     extra: { attackDamageMult: 0 }, damageTakenMult: 0 });
   // base = floor(99900) = 99900
 
-  // "Hit Rate ▲10.13%" — hitRateBonus does NOT map to attackDamageMult, atkMultiplier, or damageTakenMult.
+  // "Hit Rate ▲10.13%" — hitRatePct does NOT map to attackDamageMult, atkMultiplier, or damageTakenMult.
   // In PvE (no enemy evasion), Hit Rate does not change damage. Damage == base.
-  // (Engine tracks hitRateBonus for trace display; it has no formula effect currently.)
+  // (Engine tracks hitRatePct for trace display; it has no formula effect currently.)
   eq('"Hit Rate ▲10.13%" — no damage effect in PvE (no evasion): damage == base', base, 99900);
 
   // Confirm it is NOT attackDamagePct (that would give 149850 at 50%)
   const { damage: withAttackDmg } = calcDamage({ atk: ATK, atkMultiplier: 1, otherAtkIncrement: 0,
-    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, isCore: false, isFullBurst: false,
+    enemyDef: DEF, hitMultiplier: HIT, isCrit: false, hitPart: 'body', isFullBurst: false,
     attackerElement: 'Iron', defenderElement: 'Iron',
     extra: { attackDamageMult: 0.50 }, damageTakenMult: 0 });
   eq('"Hit Rate" ≠ "Attack Damage" — different formula slots', base !== withAttackDmg, true);
 
-  // Confirm it is NOT critRateBonus (that affects crit probability, not a flat damage multiplier)
+  // Confirm it is NOT critRatePct (that affects crit probability, not a flat damage multiplier)
   const { damage: withCritRate } = calcDamage({ atk: ATK, atkMultiplier: 1, otherAtkIncrement: 0,
-    enemyDef: DEF, hitMultiplier: HIT, isCrit: true, isCore: false, isFullBurst: false,
+    enemyDef: DEF, hitMultiplier: HIT, isCrit: true, hitPart: 'body', isFullBurst: false,
     attackerElement: 'Iron', defenderElement: 'Iron',
     extra: { attackDamageMult: 0 }, damageTakenMult: 0 });
   eq('"Hit Rate" ≠ forced-crit path — crit changes damage, Hit Rate does not', base !== withCritRate, true);
@@ -1052,3 +1052,4 @@ section('T34: Maiden: Ice Rose — burst energy per full charge (game-verified)'
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 summary('Formula tests');
+

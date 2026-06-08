@@ -203,12 +203,12 @@ section('T8: Helm burst uses round-based charge damage buff');
   for (const t of burstTriggers.filter(t => t.on === 'BURST_SKILL_USE'))
     t.handler(state, caster, {});
 
-  const chargeBuff = state.buffs.find(b => b.name === 'helm_burst_chargeDmg');
-  eq('helm_burst_chargeDmg buff pushed',     !!chargeBuff,             true);
-  eq('helm_burst_chargeDmg endRounds=10',    chargeBuff?.endRounds,    10);
-  eq('helm_burst_chargeDmg roundsLeft=10',   chargeBuff?.roundsLeft,   10);
-  eq('helm_burst_chargeDmg chargeDamagePct', chargeBuff?.chargeDamagePct, 0.5);
-  eq('helm_burst_chargeDmg endTick=Infinity', chargeBuff?.endTick,     Infinity);
+  const chargeBuff = state.buffs.find(b => b.name === 'Aegis Cannon P3 L1');
+  eq('Aegis Cannon P3 L1 buff pushed',     !!chargeBuff,             true);
+  eq('Aegis Cannon P3 L1 endRounds=10',    chargeBuff?.endRounds,    10);
+  eq('Aegis Cannon P3 L1 roundsLeft=10',   chargeBuff?.roundsLeft,   10);
+  eq('Aegis Cannon P3 L1 chargeDamagePct', chargeBuff?.chargeDamagePct, 0.5);
+  eq('Aegis Cannon P3 L1 endTick=Infinity', chargeBuff?.endTick,     Infinity);
 
   // After 10 decrements, buff is exhausted
   for (let i = 0; i < 10; i++) decrementRoundBuffs(state, unitId);
@@ -290,13 +290,13 @@ section('T9: Moran SSR burst — handler sets weaponSwitch + lifeSteal + ATK buf
   eq('weaponSwitchRoundsLeft = 0',            caster.skillState.weaponSwitchRoundsLeft,     0);
 
   // Life steal buff (self only)
-  const lsBuff = state.buffs.find(b => b.name === 'moran_burst_lifeSteal');
+  const lsBuff = state.buffs.find(b => b.name === 'Fair and Square! P1 L3');
   eq('lifeSteal buff pushed',                 !!lsBuff,               true);
   eq('lifeStealPct = lv10 value',             lsBuff?.lifeStealPct,   parseFloat('36.14') / 100);
   eq('lifeSteal unitId = caster (self)',       lsBuff?.unitId,         unitId);
 
   // ATK flat buff for all allies (SSR)
-  const atkBuff = state.buffs.find(b => b.name === 'moran_burst_atkFlat');
+  const atkBuff = state.buffs.find(b => b.name === 'Fair and Square! P2 L3');
   eq('ATK flat buff pushed (SSR)',            !!atkBuff,              true);
   eq('ATK flat unitId = null (global)',        atkBuff?.unitId,        null);
   eq('ATK flat = round(atk * 42.57%)',         atkBuff?.atkFlat,       Math.round(100000 * parseFloat('42.57') / 100));
@@ -410,39 +410,39 @@ section('T11: Nayuta S2 stage thresholds — ≥2, ≥10, ≥30 (not >2, >10, >3
   // s=1: no stage buffs
   const st1 = makeState();
   callN(st1, 1);
-  eq('s=1: no stage1 buff', hasStage(st1, 'nayuta_s2_stage1_atkPct'), false);
+  eq('s=1: no stage1 buff', hasStage(st1, 'Impermanence P2 L1'), false);
 
   // s=2: Stage 1 fires at exactly s=2 (≥2)
   const st2 = makeState();
   callN(st2, 2);
-  eq('s=2: stage1 buff pushed', hasStage(st2, 'nayuta_s2_stage1_atkPct'), true);
-  eq('s=2: no stage2 yet',      hasStage(st2, 'nayuta_s2_stage2_attackDmg'), false);
+  eq('s=2: stage1 buff pushed', hasStage(st2, 'Impermanence P2 L1'), true);
+  eq('s=2: no stage2 yet',      hasStage(st2, 'Impermanence P2 L2'), false);
 
   // s=9: still no stage2
   const st9 = makeState();
   callN(st9, 9);
-  eq('s=9: no stage2 buff', hasStage(st9, 'nayuta_s2_stage2_attackDmg'), false);
+  eq('s=9: no stage2 buff', hasStage(st9, 'Impermanence P2 L2'), false);
 
   // s=10: Stage 2 fires at exactly s=10 (≥10)
   const st10 = makeState();
   callN(st10, 10);
-  eq('s=10: stage2 buff pushed', hasStage(st10, 'nayuta_s2_stage2_attackDmg'), true);
-  eq('s=10: no stage3 yet',      hasStage(st10, 'nayuta_s2_stage3_coreDmg'), false);
+  eq('s=10: stage2 buff pushed', hasStage(st10, 'Impermanence P2 L2'), true);
+  eq('s=10: no stage3 yet',      hasStage(st10, 'Impermanence P2 L3'), false);
 
   // s=29: still no stage3
   const st29 = makeState();
   callN(st29, 29);
-  eq('s=29: no stage3 buff', hasStage(st29, 'nayuta_s2_stage3_coreDmg'), false);
+  eq('s=29: no stage3 buff', hasStage(st29, 'Impermanence P2 L3'), false);
 
   // s=30: Stage 3 fires at exactly s=30
   const st30 = makeState();
   callN(st30, 30);
-  eq('s=30: stage3 buff pushed', hasStage(st30, 'nayuta_s2_stage3_coreDmg'), true);
+  eq('s=30: stage3 buff pushed', hasStage(st30, 'Impermanence P2 L3'), true);
 
   // s=31+: capped at 30, stage1 buff not pushed twice
   const st31 = makeState();
   callN(st31, 31);
-  const stage1Buffs = st31.buffs.filter(b => b.name === 'nayuta_s2_stage1_atkPct');
+  const stage1Buffs = st31.buffs.filter(b => b.name === 'Impermanence P2 L1');
   eq('s=31: stage1 not pushed twice', stage1Buffs.length, 1);
 }
 
@@ -529,8 +529,8 @@ section('T13: Nayuta S1 Part3 — FULL_CHARGE during Memory Incineration fires 5
   const unitId = 223;
   const T = 500;
   const zeroSums = {
-    atkPct: 0, atkFlat: 0, attackDamagePct: 0, critRateBonus: 0,
-    critDmgBonus: 0, chargeDamagePct: 0, lifeStealPct: 0, distributedDamagePct: 0,
+    atkPct: 0, atkFlat: 0, attackDamagePct: 0, critRatePct: 0,
+    critDamagePct: 0, chargeDamagePct: 0, lifeStealPct: 0, distributedDamagePct: 0,
     coreDamagePct: 0,
   };
   // rawSkill1 mock：index 6 = p07 (150%), index 9 = p10 (380.46%)，skillLevel=1 取 description_value[0]
@@ -843,11 +843,11 @@ section('T16: B3 直接伤害默认/非默认结算配置审计');
     eq('Asuka BURST_SKILL_USE 不设置 asuka_burstSumsSnapshot（非默认不需快照）',
       caster.skillState.asuka_burstSumsSnapshot, undefined);
     // ATK▲ 和 AttackDmg▲ buff 的 endTick 与 annihilationStateEndTick 相同（同时失效）
-    const atkBuff    = state.buffs.find(b => b.name === 'asuka_w_burst_atk');
-    const atkDmgBuff = state.buffs.find(b => b.name === 'asuka_w_burst_atkDmg');
-    eq('asuka_w_burst_atk.endTick === annihilationStateEndTick（buff 与 Annihilation 同时到期）',
+    const atkBuff    = state.buffs.find(b => b.name === 'Annihilation State P1 L3');
+    const atkDmgBuff = state.buffs.find(b => b.name === 'Annihilation State P1 L4');
+    eq('Annihilation State P1 L3.endTick === annihilationStateEndTick（buff 与 Annihilation 同时到期）',
       atkBuff?.endTick, asEnd);
-    eq('asuka_w_burst_atkDmg.endTick === annihilationStateEndTick（buff 与 Annihilation 同时到期）',
+    eq('Annihilation State P1 L4.endTick === annihilationStateEndTick（buff 与 Annihilation 同时到期）',
       atkDmgBuff?.endTick, asEnd);
   }
   {

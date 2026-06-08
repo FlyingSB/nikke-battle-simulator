@@ -202,11 +202,11 @@ const RAPI_BURST_TRIGGER_REDUCTION_DURATION_S = 10;               // [burst inde
 //   atkFlat        — flat ATK from "Increase ATK" options
 //   elementDmgPct  — "Increase Element Damage Dealt"  (decimal: 0.05 = 5%)
 //   hitRatePct     — "Increase Hit Rate"              (tracked; not simulated)
-//   bonusAmmo      — "Increase Max Ammunition Capacity" (flat rounds)
+//   equipMaxAmmoPct — "Increase Max Ammunition Capacity" (flat rounds)
 //   chargeDmgPct   — "Increase Charge Damage"         (decimal added to charge multiplier)
 //   chargeSpeedPct — "Increase Charge Speed"          (tracked; not in current model)
 //   critRatePct    — "Increase Critical Rate"         (decimal: 0.03 = 3%)
-//   critDmgPct     — "Increase Critical Damage"       (decimal added to crit damage increment)
+//   critDamagePct     — "Increase Critical Damage"       (decimal added to crit damage increment)
 //   defFlat        — flat DEF from "Increase DEF" options
 
 // ── Favorite item collection skill parser ─────────────────────────────────────
@@ -381,12 +381,12 @@ function runBattle(lmSkill1, lmBurst, crownBurst, crownSkills) {
     const baseMax  = def.weaponData?.maxAmmo ?? WEAPON_AMMO[def.weaponType] ?? 30;
     // Formula B: separate floors for equipment and fav collection ammo bonuses.
     // _equipConfig.bonusAmmoPct is equipment-only; fav collection maxAmmoPct is added separately.
-    const equipBonus = Math.round(baseMax * (def._equipConfig?.bonusAmmoPct ?? 0));
-    const favBonus   = Math.round(baseMax * (def._favSkills?.maxAmmoPct ?? 0));
+    const equipMaxAmmoFlat = Math.round(baseMax * (def._equipConfig?.bonusAmmoPct ?? 0));
+    const favMaxAmmoFlat   = Math.round(baseMax * (def._favSkills?.maxAmmoPct ?? 0));
     return {
     ...def,
     _equipOpts:      opts,
-    _favAmmoBonus:   favBonus,
+    _favMaxAmmoFlat: favMaxAmmoFlat,
     // Equipment "Increase ATK: X%" is a combat multiplier (added to atkMultiplier in getAtkMult),
     // not a flat stat. Stored permanently on the unit.
     equipAtkPct:     def._equipConfig?.atkPct ?? 0,
@@ -394,9 +394,9 @@ function runBattle(lmSkill1, lmBurst, crownBurst, crownSkills) {
     atk:             def.atk,
     def:             def.def      + (opts.defFlat      ?? 0),
     critRate:        def.critRate + (opts.critRatePct  ?? 0),
-    critDmgIncrement: opts.critDmgPct ?? 0,  // crit damage increment above BASE_CRIT_DAMAGE (0.50)
-    _maxAmmo:        baseMax + equipBonus + favBonus,
-    ammoLeft:        baseMax + equipBonus + favBonus,
+    critDmgIncrement: opts.critDamagePct ?? 0,  // crit damage increment above BASE_CRIT_DAMAGE (0.50)
+    _maxAmmo:        baseMax + equipMaxAmmoFlat + favMaxAmmoFlat,
+    ammoLeft:        baseMax + equipMaxAmmoFlat + favMaxAmmoFlat,
     reloadTick:      0,
     burstCdTick:     0,
     totalDamage:     0,
@@ -543,7 +543,7 @@ function runBattle(lmSkill1, lmBurst, crownBurst, crownSkills) {
   }
 
   /** Sum active reload speed bonus for a unit (e.g. Crown Skill 1). */
-  function getReloadSpeedBonus(unitId) {
+  function getReloadSpeedPct(unitId) {
     let sum = 0;
     for (const b of state.buffs) {
       if (b.unitId === unitId) sum += b.reloadSpeedPct ?? 0;
@@ -640,7 +640,7 @@ function runBattle(lmSkill1, lmBurst, crownBurst, crownSkills) {
   }
 
   /** Sum active Crit Rate bonus for a unit (Helm Skill 1). */
-  function getCritRateBonus(unitId) {
+  function getCritRatePct(unitId) {
     let sum = 0;
     for (const b of state.buffs) {
       if (b.unitId === unitId) sum += b.critRatePct ?? 0;
@@ -804,7 +804,7 @@ function runBattle(lmSkill1, lmBurst, crownBurst, crownSkills) {
     logLmBuffState('FB periodic');
     log(`Little Mermaid - Bubble Wave - FB periodic (${LM_SK2_FB_HIT_COUNT} hits × ${(LM_SK2_FB_HIT_MULT * 100).toFixed(2)}% ATK):`);
     for (let i = 0; i < LM_SK2_FB_HIT_COUNT; i++) {
-      const isCrit = Math.random() < (lm.critRate + getCritRateBonus(lm.id));
+      const isCrit = Math.random() < (lm.critRate + getCritRatePct(lm.id));
       const dmgInput = {
         atk:              lm.atk,
         atkMultiplier:    atkMult,
@@ -849,7 +849,7 @@ function runBattle(lmSkill1, lmBurst, crownBurst, crownSkills) {
     logLmBuffState(`Barrage @${state.totalTeamShots} shots`);
     log(`Little Mermaid - Bubble Wave Barrage @${state.totalTeamShots} shots (${LM_SK2_BARRAGE_HIT_COUNT} hits × ${(LM_SK2_BARRAGE_HIT_MULT * 100).toFixed(2)}% ATK):`);
     for (let i = 0; i < LM_SK2_BARRAGE_HIT_COUNT; i++) {
-      const isCrit = Math.random() < (lm.critRate + getCritRateBonus(lm.id));
+      const isCrit = Math.random() < (lm.critRate + getCritRatePct(lm.id));
       const dmgInput = {
         atk:              lm.atk,
         atkMultiplier:    atkMult,
@@ -1034,31 +1034,31 @@ function runBattle(lmSkill1, lmBurst, crownBurst, crownSkills) {
   function sbsSk2_onFBStart() {
     if (!sbs) return;
     const baseAmmo  = sbs.weaponData?.maxAmmo ?? WEAPON_AMMO[sbs.weaponType] ?? 9;
-    const bonusAmmo = Math.floor(baseAmmo * SBS_SK2_MAX_AMMO_PCT);
-    const newMax    = baseAmmo + bonusAmmo;
-    log(`Scarlet: Black Shadow - Fleetly Fading: Asura - Max Ammo ↑ ${bonusAmmo} (${baseAmmo}→${newMax}) for ${SBS_SK2_DURATION_S}s + 100% reload`);
+    const finalMaxAmmoIncrement = Math.floor(baseAmmo * SBS_SK2_MAX_AMMO_PCT);
+    const finalMaxAmmo          = baseAmmo + finalMaxAmmoIncrement;
+    log(`Scarlet: Black Shadow - Fleetly Fading: Asura - Max Ammo ↑ ${finalMaxAmmoIncrement} (${baseAmmo}→${finalMaxAmmo}) for ${SBS_SK2_DURATION_S}s + 100% reload`);
     // Instant full reload to boosted max (replaces any in-progress reload)
-    sbs.ammoLeft   = newMax;
+    sbs.ammoLeft   = finalMaxAmmo;
     sbs.reloadTick = 0;
     // Store boosted max ammo as a timed buff so the reload code uses it
     const endTick  = state.tick + SBS_SK2_DURATION_S * TICK_RATE;
     const key      = 'SBS_Asura_MaxAmmo';
     const exist    = state.buffs.find(b => b.buffKey === key && b.unitId === sbs.id);
-    if (exist) { exist.endTick = endTick; exist.bonusAmmo = bonusAmmo; }
+    if (exist) { exist.endTick = endTick; exist.finalMaxAmmoIncrement = finalMaxAmmoIncrement; }
     else {
-      state.buffs.push({ buffKey: key, displayName: `Asura: Max Ammo +${bonusAmmo}`, unitId: sbs.id, bonusAmmo, endTick });
-      log(`Scarlet: Black Shadow - Acquire Buff [Asura: Max Ammo +${bonusAmmo} for ${SBS_SK2_DURATION_S}s]`);
+      state.buffs.push({ buffKey: key, displayName: `Asura: Max Ammo +${finalMaxAmmoIncrement}`, unitId: sbs.id, finalMaxAmmoIncrement, endTick });
+      log(`Scarlet: Black Shadow - Acquire Buff [Asura: Max Ammo +${finalMaxAmmoIncrement} for ${SBS_SK2_DURATION_S}s]`);
     }
   }
 
   /** Returns total bonus ammo for a unit from active buffs (SBS SK2). */
   function getBonusMaxAmmo(unitId) {
-    // Equipment option bonusAmmo + fav item ammo (both baked into unit._maxAmmo at init,
+    // Equipment option equipMaxAmmoPct + fav item ammo (both baked into unit._maxAmmo at init,
     // but also returned here so reload logic and Bastion cap use a single formula).
     const unit = units.find(u => u.id === unitId);
-    let sum = (unit?._equipOpts?.bonusAmmo ?? 0) + (unit?._favAmmoBonus ?? 0);
+    let sum = (unit?._equipOpts?.equipMaxAmmoPct ?? 0) + (unit?._favMaxAmmoFlat ?? 0);
     for (const b of state.buffs) {
-      if (b.unitId === unitId) sum += b.bonusAmmo ?? 0;
+      if (b.unitId === unitId) sum += b.finalMaxAmmoIncrement ?? 0;
     }
     return sum;
   }
@@ -1159,7 +1159,7 @@ function runBattle(lmSkill1, lmBurst, crownBurst, crownSkills) {
                              + (unit._equipOpts?.chargeDmgPct ?? 0) + (unit._favSkills?.chargeDmgPct ?? 0);
     const fullChargeDamage = unit.weaponData?.fullChargeDamage ?? CHARGE_DAMAGE_BASE;
     const cube           = CUBES[unit.cube] ?? {};
-    const isCrit         = Math.random() < (unit.critRate + getCritRateBonus(unit.id));
+    const isCrit         = Math.random() < (unit.critRate + getCritRatePct(unit.id));
     const { damage } = calcDamage({
       atk:               unit.atk,
       atkMultiplier:     atkMult,
@@ -1399,7 +1399,7 @@ function runBattle(lmSkill1, lmBurst, crownBurst, crownSkills) {
                           + (unit._equipOpts?.chargeDmgPct ?? 0) + (unit._favSkills?.chargeDmgPct ?? 0);
       }
 
-      const effectiveCritRate = unit.critRate + getCritRateBonus(unit.id);
+      const effectiveCritRate = unit.critRate + getCritRatePct(unit.id);
       const isCrit = Math.random() < effectiveCritRate;
       const { damage } = calcDamage({
         atk:              unit.atk,
@@ -1471,7 +1471,7 @@ function runBattle(lmSkill1, lmBurst, crownBurst, crownSkills) {
       const maxAmmo = (unit.weaponData?.maxAmmo ?? WEAPON_AMMO[unit.weaponType] ?? 30)
                     + getBonusMaxAmmo(unit.id);
       // Total reload speed: cube bonus + active buff bonus
-      const reloadSpeedTotal = (cube.reloadSpeedPct ?? 0) + getReloadSpeedBonus(unit.id);
+      const reloadSpeedTotal = (cube.reloadSpeedPct ?? 0) + getReloadSpeedPct(unit.id);
       const baseReloadT = unit.weaponData
         ? Math.round(unit.weaponData.reloadTimeSec * TICK_RATE)
         : (RELOAD_TICKS[unit.weaponType] ?? 120);
@@ -1559,7 +1559,7 @@ function computeNikkeStats(nikkeData, cubeData, favItemData, teamEntry) {
     bonusAmmo:      0,
     elementDmgPct:  raw.elementDmgPct  ?? 0,
     critRatePct:    raw.critRatePct    ?? 0,
-    critDmgPct:     raw.critDmgPct     ?? 0,
+    critDamagePct:     raw.critDamagePct     ?? 0,
     chargeDmgPct:   raw.chargeDmgPct   ?? 0,
     chargeSpeedPct: raw.chargeSpeedPct ?? 0,
     hitRatePct:     raw.hitRatePct     ?? 0,

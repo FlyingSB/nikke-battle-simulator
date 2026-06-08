@@ -91,7 +91,7 @@ const TEAM_DEF = [
       ammoPct:        1.1321,
       chargeSpeedPct: 0.0925,
       critRatePct:    0.0571,
-      critDmgPct:     0.2700,
+      critDamagePct:     0.2700,
     },
   },
   {
@@ -111,7 +111,7 @@ const TEAM_DEF = [
       elementDmgPct:  0.9842,
       atkPct:         0.5289,
       ammoPct:        1.8625,
-      critDmgPct:     0.0664,
+      critDamagePct:     0.0664,
     },
   },
   {

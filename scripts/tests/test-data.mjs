@@ -11,7 +11,7 @@
  *   Favorite items      — lv10 and lv15 atk/hp/def spot-checks
  *   Research bonus      — computeResearchBonus() for a known config
  *   Full stats pipeline — computeFinalStats() for Rapi:RH at known config
- *   equipOptions        — non-zero atkFlat/critRatePct/critDmgPct/elementDmgPct
+ *   equipOptions        — non-zero atkFlat/critRatePct/critDamagePct/elementDmgPct
  *
  * Run: node scripts/test-data.mjs
  * Requires: scripts/cache/ to be populated (run any test-battle.mjs first).
@@ -480,10 +480,10 @@ section('T10: computeFinalStats — equipOptions non-zero (atkFlat, critRate, cr
       atkFlat:       5_000,
       defFlat:       0.10,   // 10% DEF 增量（小数形式；aggregateEquipOptions 已从整数/10000转换）
       critRatePct:   0.10,
-      critDmgPct:    0.25,
+      critDamagePct:    0.25,
       elementDmgPct: 0.05,
       chargeSpeedPct: 0.15,
-      bonusAmmo:     10,
+      equipMaxAmmoPct: 10,
     },
   };
   const stats = computeFinalStats(slot, 200, {
@@ -503,8 +503,8 @@ section('T10: computeFinalStats — equipOptions non-zero (atkFlat, critRate, cr
   near('elementDmgPct', stats.elementDmgPct, 0.05, 0.0001);
   // chargeSpeedPct passed through
   near('chargeSpeedPct', stats.chargeSpeedPct, 0.15, 0.0001);
-  // bonusAmmo passed through
-  eq('bonusAmmo', stats.bonusAmmo, 10);
+  // equipMaxAmmoPct passed through
+  eq('equipMaxAmmoPct', stats.equipMaxAmmoPct, 10);
 }
 
 // ── T11: Nikke corporation field ──────────────────────────────────────────────

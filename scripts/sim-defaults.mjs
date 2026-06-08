@@ -107,7 +107,7 @@ export const CROWN_DEF = {
     ammoPct:        1.1321,
     chargeSpeedPct: 0.0925,
     critRatePct:    0.0571,
-    critDmgPct:     0.27,
+    critDamagePct:     0.27,
   },
 };
 
@@ -131,7 +131,7 @@ export const RAPI_DEF = {
     elementDmgPct: 0.9842,
     atkPct:        0.5289,
     ammoPct:       1.8625,
-    critDmgPct:    0.0664,
+    critDamagePct:    0.0664,
   },
 };
 
@@ -259,7 +259,7 @@ export const ANCHOR_DEF = {
     ammoPct:     1.3786,
     hitRatePct:  0.1181,
     critRatePct: 0.1142,
-    critDmgPct:  0.3288,
+    critDamagePct:  0.3288,
   },
 };
 
@@ -313,7 +313,7 @@ export const MORAN_DEF = {
     chargeSpeedPct: 0.0492,
     hitRatePct:     0.1181,
     critRatePct:    0.1142,
-    critDmgPct:     0.1644,
+    critDamagePct:     0.1644,
   },
 };
 
@@ -362,7 +362,7 @@ export const CINDERELLA_DEF = {
     elementDmgPct: 0.9282,
     atkPct:        0.4021,
     ammoPct:       0.8537 + 0.4017,  // 1.2554 合计
-    critDmgPct:    0.0762,
+    critDamagePct:    0.0762,
   },
 };
 
@@ -387,7 +387,7 @@ export const ANIS_SS_DEF = {
     atkPct:        0.1587,
     hitRatePct:    0.1799,
     critRatePct:   0.0537,
-    critDmgPct:    0.1252,
+    critDamagePct:    0.1252,
   },
 };
 

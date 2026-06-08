@@ -12,7 +12,7 @@
  *           pierce_stack 不在本次射击中消耗（roundsLeft 保留为 1）。
  *
  * 测试编号：
- *   ZW1  两次命中均出现在 hitLog（label='normal_shot' 和 'normal_shot_2'）
+ *   ZW1  两次命中均出现在 hitLog（label='Burst' 和 'Burst_2'）
  *   ZW2  命中①的伤害包含 pierce1r 加成（高于无 pierce 基准）
  *   ZW3  命中②的伤害包含 pierce_stack 加成（不含 pierce1r）
  *   ZW4  命中②比命中①伤害更高（pierce_stack > pierce1r）
@@ -35,7 +35,7 @@ function mkVals(lv10) {
 
 /**
  * skill2 暴击率全零版本：用于 critRate=0 测试中排除 S2 P2/P3 的暴击率 buff，
- * 避免非确定性暴击。S2 P2 仍会触发（不崩溃），但 critRateBonus=0，不影响判定。
+ * 避免非确定性暴击。S2 P2 仍会触发（不崩溃），但 critRatePct=0，不影响判定。
  */
 const ZERO_CRIT_SKILL2 = {
   _activeSkillLevel: 10,
@@ -187,21 +187,21 @@ function runUntilDoubleHit(statsOverride = {}, includeSkill2 = true) {
   for (let t = 0; t < 120; t++) {
     const { over } = tick(state);
     if (over) break;
-    if (state.hitLog.some(h => h.label === 'normal_shot_2')) break;
+    if (state.hitLog?.some(h => h.label === 'Burst_2')) break;
   }
   return state;
 }
 
-// ─── ZW1：hitLog 中同一 tick 出现 normal_shot 和 normal_shot_2 ────────────────
+// ─── ZW1：hitLog 中同一 tick 出现 Burst 和 Burst_2 ─────────────────────────────
 
-section('ZW1 — 双重命中：hitLog 出现两条 normal_shot / normal_shot_2');
+section('ZW1 — 双重命中：hitLog 出现两条 Burst / Burst_2');
 {
   const state = runUntilDoubleHit();
-  // 先找 normal_shot_2（双重命中第二次），再找同 tick 的 normal_shot（第一次）
-  const hit2  = state.hitLog.find(h => h.label === 'normal_shot_2' && h.unitId === 390);
-  const hit1  = state.hitLog.find(h => h.label === 'normal_shot'   && h.unitId === 390 && h.tick === hit2?.tick);
-  eq('ZW1.1  hitLog 中存在 normal_shot（命中①）',   hit1 != null, true);
-  eq('ZW1.2  hitLog 中存在 normal_shot_2（命中②）',  hit2 != null, true);
+  // 先找 Burst_2（双重命中第二次），再找同 tick 的 Burst（第一次）
+  const hit2  = state.hitLog.find(h => h.label === 'Burst_2' && h.unitId === 390);
+  const hit1  = state.hitLog.find(h => h.label === 'Burst'   && h.unitId === 390 && h.tick === hit2?.tick);
+  eq('ZW1.1  hitLog 中存在 Burst（命中①）',   hit1 != null, true);
+  eq('ZW1.2  hitLog 中存在 Burst_2（命中②）',  hit2 != null, true);
   eq('ZW1.3  两次命中发生在同一 tick', hit1 != null && hit2 != null && hit1.tick === hit2.tick, true);
 }
 
@@ -224,8 +224,8 @@ section('ZW2-ZW4 — 命中①/② 伤害差异（critRate=1）');
   const EXPECTED_DMG2 = 486867;
 
   const state = runUntilDoubleHit({ critRate: 1.0 });
-  const hit2  = state.hitLog.find(h => h.label === 'normal_shot_2' && h.unitId === 390);
-  const hit1  = state.hitLog.find(h => h.label === 'normal_shot'   && h.unitId === 390 && h.tick === hit2?.tick);
+  const hit2  = state.hitLog.find(h => h.label === 'Burst_2' && h.unitId === 390);
+  const hit1  = state.hitLog.find(h => h.label === 'Burst'         && h.unitId === 390 && h.tick === hit2?.tick);
 
   eq('ZW2.1  命中① isCrit=true', hit1?.isCrit, true);
   eq('ZW3.1  命中② isCrit=true', hit2?.isCrit, true);
@@ -242,8 +242,8 @@ section('ZW2-ZW4 — 命中①/② 伤害差异（critRate=1）');
 section('ZW5 — buff 状态：pierce1r 消耗，pierce_stack roundsLeft=1 保留');
 {
   const state       = runUntilDoubleHit();
-  const pierce1r    = state.buffs.find(b => b.name === 'zwei_s1_pierce1r');
-  const pierceStack = state.buffs.find(b => b.name === 'zwei_s1_pierce_stack');
+  const pierce1r    = state.buffs.find(b => b.name === 'Pierce Equation P1 L2');
+  const pierceStack = state.buffs.find(b => b.name === 'Pierce Equation P2');
 
   // pierce1r 的 roundsLeft 应已变为 0（已被消耗），buff 对象可能仍在数组中（仅 roundsLeft=0）
   const pierce1rConsumed = pierce1r == null || (pierce1r.roundsLeft ?? 0) <= 0;
@@ -261,8 +261,8 @@ section('ZW6 — critRate=0（无 skill2 暴击率 buff）：两次命中均不�
   // includeSkill2=false：禁止 S2 P2（ENTER_FULL_BURST 暴击率 buff）和 S2 P3（Pierce Attacks 101 暴击叠层），
   // 排除非确定性暴击因素，确保 critRate=0 时两次命中绝对不暴击。
   const state = runUntilDoubleHit({ critRate: 0 }, false);
-  const hit2  = state.hitLog.find(h => h.label === 'normal_shot_2' && h.unitId === 390);
-  const hit1  = state.hitLog.find(h => h.label === 'normal_shot'   && h.unitId === 390 && h.tick === hit2?.tick);
+  const hit2  = state.hitLog.find(h => h.label === 'Burst_2' && h.unitId === 390);
+  const hit1  = state.hitLog.find(h => h.label === 'Burst'         && h.unitId === 390 && h.tick === hit2?.tick);
   eq('ZW6.1  命中① isCrit=false', hit1?.isCrit, false);
   eq('ZW6.2  命中② isCrit=false', hit2?.isCrit, false);
 }

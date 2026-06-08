@@ -74,12 +74,12 @@ export const fmtP = v => (v * 100).toFixed(2) + '%';
 
 /** Signature used to group consecutive hits with identical damage parameters. */
 function sig(h) {
-  return `${h.atkPct}|${h.atkFlat}|${h.hitMult}|${h.favNormalAttackDamageMult ?? 1}|${h.attackDamagePct}|${h.damageTakenPct}|${h.isFullBurst}|${h.isCore}|${h.distanceAdv}|${h.elemMult}|${h.chargeMult}`;
+  return `${h.atkPct}|${h.atkFlat}|${h.hitMult}|${h.favNormalAttackDamageMult ?? 1}|${h.attackDamagePct}|${h.pierceDamagePct ?? 0}|${h.damageTakenPct}|${h.isFullBurst}|${h.isCore}|${h.distanceAdv}|${h.elemMult}|${h.chargeMult}`;
 }
 
 /** Signature that ignores isCore — used for mixed-core weapons (SMG/AR/SG) to merge core/non-core into one segment. */
 function sigNoCore(h) {
-  return `${h.atkPct}|${h.atkFlat}|${h.hitMult}|${h.favNormalAttackDamageMult ?? 1}|${h.attackDamagePct}|${h.damageTakenPct}|${h.isFullBurst}|${h.distanceAdv}|${h.elemMult}|${h.chargeMult}`;
+  return `${h.atkPct}|${h.atkFlat}|${h.hitMult}|${h.favNormalAttackDamageMult ?? 1}|${h.attackDamagePct}|${h.pierceDamagePct ?? 0}|${h.damageTakenPct}|${h.isFullBurst}|${h.distanceAdv}|${h.elemMult}|${h.chargeMult}`;
 }
 
 function segNoCrit(h) {
@@ -89,10 +89,11 @@ function segNoCrit(h) {
   if (h.isFullBurst) cMult += 0.50;
   if (h.isCore)      cMult += 1.00 + (h.coreDmgIncrement ?? 0);
   if (h.distanceAdv) cMult += 0.30;
-  const elemMult   = h.elemMult ?? 1;
-  const chargeMult = h.chargeMult ?? 1;
+  const elemMult    = h.elemMult ?? 1;
+  const chargeMult  = h.chargeMult ?? 1;
+  const piercePct   = h.isPierce ? (h.pierceDamagePct ?? 0) : 0;
   return Math.floor(Math.max(0, effAtk - h.enemyDef) * h.hitMult * favMult
-    * cMult * elemMult * chargeMult * (1 + h.attackDamagePct) * (1 + h.damageTakenPct));
+    * cMult * elemMult * chargeMult * (1 + h.attackDamagePct + piercePct) * (1 + h.damageTakenPct));
 }
 
 function segCrit(h) {
@@ -103,10 +104,11 @@ function segCrit(h) {
   if (h.isCore)      cMult += 1.00 + (h.coreDmgIncrement ?? 0);
   if (h.distanceAdv) cMult += 0.30;
   cMult += 0.50 + (h.critDmgInc ?? 0);
-  const elemMult   = h.elemMult ?? 1;
-  const chargeMult = h.chargeMult ?? 1;
+  const elemMult    = h.elemMult ?? 1;
+  const chargeMult  = h.chargeMult ?? 1;
+  const piercePct   = h.isPierce ? (h.pierceDamagePct ?? 0) : 0;
   return Math.floor(Math.max(0, effAtk - h.enemyDef) * h.hitMult * favMult
-    * cMult * elemMult * chargeMult * (1 + h.attackDamagePct) * (1 + h.damageTakenPct));
+    * cMult * elemMult * chargeMult * (1 + h.attackDamagePct + piercePct) * (1 + h.damageTakenPct));
 }
 
 // ── Expanded formula printer ──────────────────────────────────────────────────
@@ -134,7 +136,8 @@ function printExpandedFormula(h, favMult, label = 'formula') {
 
   const elemMult   = h.elemMult   ?? 1;
   const chargeMult = h.chargeMult ?? 1;
-  const xDmgTotal  = h.attackDamagePct ?? 0;
+  const piercePct  = h.isPierce ? (h.pierceDamagePct ?? 0) : 0;
+  const xDmgTotal  = (h.attackDamagePct ?? 0) + piercePct;
   const xDmgMult   = 1 + xDmgTotal;
   const dTknMult   = 1 + (h.damageTakenPct ?? 0);
   const noCrit     = Math.floor(effAtkMinusDef * h.hitMult * favMult * cMult * elemMult * chargeMult * xDmgMult * dTknMult);
@@ -148,7 +151,8 @@ function printExpandedFormula(h, favMult, label = 'formula') {
   const atkFlatBuffs = (h.buffBreakdown ?? []).filter(b => b.atkFlat > 0);
 
   // xDmg breakdown
-  const dmgBuffs = (h.buffBreakdown ?? []).filter(b => b.attackDamagePct > 0);
+  const dmgBuffs    = (h.buffBreakdown ?? []).filter(b => b.attackDamagePct > 0);
+  const pierceBuffs = h.isPierce ? (h.buffBreakdown ?? []).filter(b => b.pierceDamagePct > 0) : [];
 
   // Line 1: effATK
   const atkPctBreakdown = [];
@@ -188,7 +192,10 @@ function printExpandedFormula(h, favMult, label = 'formula') {
 
   // Line 5: xDmg
   if (xDmgTotal > 0) {
-    const xParts = dmgBuffs.map(b => `${b.name}(+${fmtP(b.attackDamagePct)})`);
+    const xParts = [
+      ...dmgBuffs.map(b => `${b.name}(+${fmtP(b.attackDamagePct)})`),
+      ...pierceBuffs.map(b => `${b.name}[pierce](+${fmtP(b.pierceDamagePct)})`),
+    ];
     const xMult_str = xParts.length > 0
       ? `*${xDmgMult.toFixed(4)} = 1 + ${xParts.join(' + ')}`
       : `*${xDmgMult.toFixed(4)}`;
@@ -197,14 +204,14 @@ function printExpandedFormula(h, favMult, label = 'formula') {
 
   // Line 6: dTkn + result
   // damageTakenPct on the hit already includes distributedBonus (enemy base + distributed)
-  const distributedBonus = h.distributedBonus ?? 0;
-  const enemyDTknBase    = (h.damageTakenPct ?? 0) - distributedBonus;
+  const distributedDamagePct = h.distributedDamagePct ?? 0;
+  const enemyDTknBase        = (h.damageTakenPct ?? 0) - distributedDamagePct;
   let dTknStr = '';
   if (dTknMult > 1) {
-    if (distributedBonus > 0) {
+    if (distributedDamagePct > 0) {
       const dTknParts = [];
       if (enemyDTknBase  > 0) dTknParts.push(`enemy(+${fmtP(enemyDTknBase)})`);
-      dTknParts.push(`distDmg(+${fmtP(distributedBonus)})`);
+      dTknParts.push(`distDmg(+${fmtP(distributedDamagePct)})`);
       dTknStr = `dTknMult(*${dTknMult.toFixed(4)} = 1 + ${dTknParts.join(' + ')})`;
     } else {
       dTknStr = `dTknMult(*${dTknMult.toFixed(4)})`;
@@ -324,7 +331,8 @@ export function printFullDamageTrace({ result, unitName, maxAmmo, hitDetailFn, o
   // Same-tick order: burst(0) > buff(1) > reload(2) > ammo_change(2) > segment(3) > activation(4)
   // ammo_change from burst skills fires before that tick's shots; bastion fires after a shot
   // but within the same tick — both are shown at priority 2 (before shot segments).
-  const BURST_EVENTS = new Set(['burst_i', 'burst_ii', 'full_burst', 'burst_end']);
+  const BURST_EVENTS = new Set(['burst_i', 'burst_ii', 'burst_iii', 'full_burst', 'burst_end']);
+  // KIND_ORDER 仅作 _seq 缺失时的后备排序（通常不触发）
   const KIND_ORDER   = { phase: 0, burst: 0, buff: 1, reload: 2, ammo_change: 2, segment: 3, activation: 4 };
   const timeline     = [];
 
@@ -349,7 +357,18 @@ export function printFullDamageTrace({ result, unitName, maxAmmo, hitDetailFn, o
   for (const group of activations)
     timeline.push({ kind: 'activation', tick: group[0].tick, group });
 
-  timeline.sort((a, b) => a.tick - b.tick || KIND_ORDER[a.kind] - KIND_ORDER[b.kind]);
+  // 主键：tick；次键：_seq（还原真实执行顺序）；后备：KIND_ORDER（_seq 缺失时）
+  for (const item of timeline) {
+    if (item.ev)    item._seq = item.ev._seq    ?? Infinity;
+    else if (item.seg) item._seq = item.seg.group[0]?._seq ?? Infinity;
+    else if (item.group) item._seq = item.group[0]?._seq   ?? Infinity;
+  }
+  timeline.sort((a, b) => {
+    const tickDiff = a.tick - b.tick;
+    if (tickDiff !== 0) return tickDiff;
+    if (a._seq !== b._seq) return a._seq - b._seq;
+    return KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
+  });
 
   // Number reloads in order
   let reloadNum = 0;
@@ -380,8 +399,10 @@ export function printFullDamageTrace({ result, unitName, maxAmmo, hitDetailFn, o
         console.log(`${fmtT(ev.tick)}  ── Burst Rotation ${burstRotation}: B1 = ${ev.unitName}`);
       } else if (ev.type === 'burst_ii') {
         console.log(`${fmtT(ev.tick)}     B2 = ${ev.unitName}`);
+      } else if (ev.type === 'burst_iii') {
+        console.log(`${fmtT(ev.tick)}     B3 = ${ev.unitName}${ev.isCA ? ' (CA)' : ''}`);
       } else if (ev.type === 'full_burst') {
-        console.log(`${fmtT(ev.tick)}     FB = ${ev.unitName ?? '(no B3)'}`);
+        console.log(`${fmtT(ev.tick)}     Full Burst`);
       } else if (ev.type === 'burst_end') {
         console.log(`${fmtT(ev.tick)}     FB End`);
         console.log(BURST_SEP);
@@ -405,14 +426,14 @@ export function printFullDamageTrace({ result, unitName, maxAmmo, hitDetailFn, o
         if (ev.atkFlat              > 0) effects.push(`atkFlat(+${fmtN(ev.atkFlat)})`);
         if (ev.attackDamagePct      > 0) effects.push(`xDmg(+${fmtP(ev.attackDamagePct)})`);
         if (ev.distributedDamagePct > 0) effects.push(`distDmg(+${fmtP(ev.distributedDamagePct)})`);
-        if (ev.critRateBonus        > 0) effects.push(`critRate(+${fmtP(ev.critRateBonus)})`);
-        if (ev.critDmgBonus         > 0) effects.push(`critDmg(+${fmtP(ev.critDmgBonus)})`);
+        if (ev.critRatePct        > 0) effects.push(`critRate(+${fmtP(ev.critRatePct)})`);
+        if (ev.critDamagePct         > 0) effects.push(`critDmg(+${fmtP(ev.critDamagePct)})`);
         if (ev.chargeDamagePct      > 0) effects.push(`chgDmg(+${fmtP(ev.chargeDamagePct)})`);
         if (ev.chargeSpeedPct       > 0) effects.push(`chgSpd(+${fmtP(ev.chargeSpeedPct)})`);
         if (ev.reloadSpeedPct            > 0) effects.push(`reload(+${fmtP(ev.reloadSpeedPct)})`);
         if (ev.maxAmmoPct                > 0) effects.push(`ammo(+${fmtP(ev.maxAmmoPct)})`);
         if (ev.chargeTimeReductionTicks  > 0) effects.push(`chgTimeFlat(-${ev.chargeTimeReductionTicks}ticks)`);
-        if (ev.hitRateBonus              > 0) effects.push(`hitRate(+${fmtP(ev.hitRateBonus)})`);
+        if (ev.hitRatePct              > 0) effects.push(`hitRate(+${fmtP(ev.hitRatePct)})`);
         const effectStr = effects.length ? `  {${effects.join('  ')}}` : '';
         console.log(`${fmtT(ev.tick).padEnd(10)}  + ${ev.name}  [${who}]  (${dur})${effectStr}`);
       } else if (ev.type === 'buff_expire') {
@@ -482,6 +503,7 @@ export function printFullDamageTrace({ result, unitName, maxAmmo, hitDetailFn, o
 
         const flags = [];
         if (h.isFullBurst) flags.push('FB');
+        if (h.isPierce)    flags.push('pierce');
         if (h.distanceAdv) flags.push('dist');
         flagStr = flags.length ? `  [${flags.join('+')}]` : '';
 
@@ -500,6 +522,7 @@ export function printFullDamageTrace({ result, unitName, maxAmmo, hitDetailFn, o
 
         const flags = [];
         if (h.isFullBurst) flags.push('FB');
+        if (h.isPierce)    flags.push('pierce');
         if (h.isCore)      flags.push('core');
         if (h.distanceAdv) flags.push('dist');
         flagStr = flags.length ? `  [${flags.join('+')}]` : '';
@@ -511,9 +534,11 @@ export function printFullDamageTrace({ result, unitName, maxAmmo, hitDetailFn, o
 
       console.log(`${timeRange}  ${compactLine}  ammo ${ammo}  = ${fmtN(subtot)}${flagStr}`);
 
-      const dmgSrc = (h.buffBreakdown ?? []).filter(b => b.attackDamagePct)
-        .map(b => `${b.name}:+${fmtP(b.attackDamagePct)}`).join('  ');
-      if (dmgSrc) console.log(`  xDmg%: ${dmgSrc}`);
+      const dmgParts = [
+        ...(h.buffBreakdown ?? []).filter(b => b.attackDamagePct).map(b => `${b.name}:+${fmtP(b.attackDamagePct)}`),
+        ...(h.isPierce ? (h.buffBreakdown ?? []).filter(b => b.pierceDamagePct).map(b => `${b.name}[pierce]:+${fmtP(b.pierceDamagePct)}`) : []),
+      ];
+      if (dmgParts.length) console.log(`  xDmg%: ${dmgParts.join('  ')}`);
 
       printExpandedFormula(hForNormal, favMult, 'formula');
       continue;
@@ -550,15 +575,18 @@ export function printFullDamageTrace({ result, unitName, maxAmmo, hitDetailFn, o
     );
 
     // Standard buff detail lines
-    const atkPctBuffs  = (h.buffBreakdown ?? []).filter(b => b.atkPct);
-    const atkFlatBuffs = (h.buffBreakdown ?? []).filter(b => b.atkFlat);
-    const dmgPctBuffs  = (h.buffBreakdown ?? []).filter(b => b.attackDamagePct);
+    const atkPctBuffs    = (h.buffBreakdown ?? []).filter(b => b.atkPct);
+    const atkFlatBuffs   = (h.buffBreakdown ?? []).filter(b => b.atkFlat);
+    const dmgPctBuffs    = (h.buffBreakdown ?? []).filter(b => b.attackDamagePct);
+    const elemAdvBuffs   = (h.buffBreakdown ?? []).filter(b => b.elementAdvantagePct);
     if (atkPctBuffs.length)
       console.log('  ATK%:     ' + atkPctBuffs.map(b => `${b.name}:+${fmtP(b.atkPct)}`).join('  '));
     if (atkFlatBuffs.length)
       console.log('  ATK flat: ' + atkFlatBuffs.map(b => `${b.name}:+${fmtN(b.atkFlat)}`).join('  '));
     if (dmgPctBuffs.length)
       console.log('  xDmg%:    ' + dmgPctBuffs.map(b => `${b.name}:+${fmtP(b.attackDamagePct)}`).join('  '));
+    if (elemAdvBuffs.length)
+      console.log('  elemAdv%: ' + elemAdvBuffs.map(b => `${b.name}:+${fmtP(b.elementAdvantagePct)}`).join('  '));
 
     // Expanded formula (no crit path)
     printExpandedFormula(h, 1);

@@ -44,7 +44,7 @@ const _OPTION_GROUPS = [
   { start: 7000901, key: 'chargeDmgPct',   vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
   { start: 7001001, key: 'chargeSpeedPct', vals: [198,228,257,286,316,345,375,404,433,463,492,521,551,580,609] },
   { start: 7001101, key: 'critRatePct',    vals: [230,264,298,332,366,400,435,469,503,537,570,605,639,673,707] },
-  { start: 7001201, key: 'critDmgPct',     vals: [664,762,860,958,1056,1154,1252,1350,1448,1546,1644,1742,1840,1938,2036] },
+  { start: 7001201, key: 'critDamagePct',     vals: [664,762,860,958,1056,1154,1252,1350,1448,1546,1644,1742,1840,1938,2036] },
   { start: 7001301, key: 'defFlat',        vals: [477,547,618,688,759,829,900,970,1040,1111,1181,1252,1322,1393,1463] },
 ];
 const _OPTION_MAP = new Map();
@@ -57,7 +57,7 @@ const EQUIP_SLOTS  = ['head', 'torso', 'arms', 'legs'];
 
 const _PCT_OPT_KEYS = new Set([
   'elementDmgPct', 'hitRatePct', 'bonusAmmo', 'atkPct',
-  'chargeDmgPct', 'chargeSpeedPct', 'critRatePct', 'critDmgPct', 'defFlat',
+  'chargeDmgPct', 'chargeSpeedPct', 'critRatePct', 'critDamagePct', 'defFlat',
 ]);
 
 function _parseEquip(slotKey, raw) {
@@ -319,8 +319,8 @@ async function main() {
     const baseAmmo     = cfg.baseAmmo ?? nd?.shot_detail?.max_ammo ?? 30;
     const collFx       = (cfg._favItemData && (cfg.favoriteItem?.level ?? 0) > 0)
       ? getFavItemSkillEffects(cfg._favItemData, cfg.favoriteItem.level) : null;
-    const favAmmoBonus = collFx?.ammoPct ? Math.round(baseAmmo * collFx.ammoPct) : 0;
-    const maxAmmo      = baseAmmo + Math.round(baseAmmo * (stats.bonusAmmo ?? 0)) + favAmmoBonus;
+    const favMaxAmmoFlat = collFx?.ammoPct ? Math.round(baseAmmo * collFx.ammoPct) : 0;
+    const maxAmmo        = baseAmmo + Math.round(baseAmmo * (stats.equipMaxAmmoPct ?? 0)) + favMaxAmmoFlat;
 
     // 短名称用于文件名（去除特殊字符）
     const shortName = name.replace(/[^a-zA-Z0-9]+/g, '').replace(/^-|-$/g, '');

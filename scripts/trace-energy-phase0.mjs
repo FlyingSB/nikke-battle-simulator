@@ -125,11 +125,11 @@ function printPhase0Trace(label, result) {
     10005: load('./scripts/cache/cube_10005.json'),
   };
   const squadStats = [
-    { atk:256573, hp:7844413, def:50308, critRate:0.2028, critDmg:0.5,    equipAtkPct:0.09,   elementDmgPct:0.578,  bonusAmmo:218, chargeDmgPct:0,     chargeSpeedPct:0,      reloadSpeedPct:0.2969 },
-    { atk:212496, hp:8708666, def:50281, critRate:0.2071, critDmg:0.77,   equipAtkPct:0.2151, elementDmgPct:0.3564, bonusAmmo:340, chargeDmgPct:0,     chargeSpeedPct:0.0925, reloadSpeedPct:0 },
-    { atk:320969, hp:7489834, def:43684, critRate:0.15,   critDmg:0.5666, equipAtkPct:0.5289, elementDmgPct:1.1751, bonusAmmo:559, chargeDmgPct:0,     chargeSpeedPct:0,      reloadSpeedPct:0 },
-    { atk:304256, hp:7127674, def:46796, critRate:0.1935, critDmg:0.5,    equipAtkPct:0.5501, elementDmgPct:1.119,  bonusAmmo:11,  chargeDmgPct:0.097, chargeSpeedPct:0,      reloadSpeedPct:0.2969 },
-    { atk:336758, hp:7836241, def:46153, critRate:0.15,   critDmg:0.5,    equipAtkPct:0.1659, elementDmgPct:1.1471, bonusAmmo:12,  chargeDmgPct:0.194, chargeSpeedPct:0.0212, reloadSpeedPct:0 },
+    { atk:256573, hp:7844413, def:50308, critRate:0.2028, critDmg:0.5,    equipAtkPct:0.09,   elementDmgPct:0.578,  equipMaxAmmoPct:218, chargeDmgPct:0,     chargeSpeedPct:0,      reloadSpeedPct:0.2969 },
+    { atk:212496, hp:8708666, def:50281, critRate:0.2071, critDmg:0.77,   equipAtkPct:0.2151, elementDmgPct:0.3564, equipMaxAmmoPct:340, chargeDmgPct:0,     chargeSpeedPct:0.0925, reloadSpeedPct:0 },
+    { atk:320969, hp:7489834, def:43684, critRate:0.15,   critDmg:0.5666, equipAtkPct:0.5289, elementDmgPct:1.1751, equipMaxAmmoPct:559, chargeDmgPct:0,     chargeSpeedPct:0,      reloadSpeedPct:0 },
+    { atk:304256, hp:7127674, def:46796, critRate:0.1935, critDmg:0.5,    equipAtkPct:0.5501, elementDmgPct:1.119,  equipMaxAmmoPct:11,  chargeDmgPct:0.097, chargeSpeedPct:0,      reloadSpeedPct:0.2969 },
+    { atk:336758, hp:7836241, def:46153, critRate:0.15,   critDmg:0.5,    equipAtkPct:0.1659, elementDmgPct:1.1471, equipMaxAmmoPct:12,  chargeDmgPct:0.194, chargeSpeedPct:0.0212, reloadSpeedPct:0 },
   ];
   const teamDef = [
     { name:'Little Mermaid',        key:'lm',    classType:'Supporter', corporation:'PILGRIM',  element:'Wind',  weaponType:'SMG', burstStep:'Step1', grade:3,core:0,bondLevel:40, cubeId:10003, cubeLevel:14, favItemId:100502, favLevel:15 },
@@ -163,11 +163,11 @@ function printPhase0Trace(label, result) {
     10004: load('./scripts/cache/cube_10004.json'),
   };
   const squadStats = [
-    { atk:278763, hp:8631352, def:50618, critRate:0.3213, critDmg:0.5,   equipAtkPct:0.1181, elementDmgPct:0.4265, bonusAmmo:83, chargeDmgPct:0.1181, chargeSpeedPct:0.0492, reloadSpeedPct:0.2969 },
-    { atk:260643, hp:8112638, def:46012, critRate:0.2071, critDmg:0.5,   equipAtkPct:0.1181, elementDmgPct:0.4265, bonusAmmo:0,  chargeDmgPct:0.2362, chargeSpeedPct:0,      reloadSpeedPct:0 },
-    { atk:251178, hp:7826675, def:50426, critRate:0.2642, critDmg:0.8288, equipAtkPct:0,      elementDmgPct:0.1909, bonusAmmo:8,  chargeDmgPct:0,      chargeSpeedPct:0,      reloadSpeedPct:0.2969 },
-    { atk:304256, hp:7127674, def:46796, critRate:0.1935, critDmg:0.5,   equipAtkPct:0.5501, elementDmgPct:1.119,  bonusAmmo:11, chargeDmgPct:0.097,  chargeSpeedPct:0,      reloadSpeedPct:0.2969 },
-    { atk:299231, hp:7127674, def:40336, critRate:0.2199, critDmg:0.5,   equipAtkPct:0.1870, elementDmgPct:0.7267, bonusAmmo:6,  chargeDmgPct:0,      chargeSpeedPct:0.0484, reloadSpeedPct:0.2969 },
+    { atk:278763, hp:8631352, def:50618, critRate:0.3213, critDmg:0.5,   equipAtkPct:0.1181, elementDmgPct:0.4265, equipMaxAmmoPct:83, chargeDmgPct:0.1181, chargeSpeedPct:0.0492, reloadSpeedPct:0.2969 },
+    { atk:260643, hp:8112638, def:46012, critRate:0.2071, critDmg:0.5,   equipAtkPct:0.1181, elementDmgPct:0.4265, equipMaxAmmoPct:0,  chargeDmgPct:0.2362, chargeSpeedPct:0,      reloadSpeedPct:0 },
+    { atk:251178, hp:7826675, def:50426, critRate:0.2642, critDmg:0.8288, equipAtkPct:0,      elementDmgPct:0.1909, equipMaxAmmoPct:8,  chargeDmgPct:0,      chargeSpeedPct:0,      reloadSpeedPct:0.2969 },
+    { atk:304256, hp:7127674, def:46796, critRate:0.1935, critDmg:0.5,   equipAtkPct:0.5501, elementDmgPct:1.119,  equipMaxAmmoPct:11, chargeDmgPct:0.097,  chargeSpeedPct:0,      reloadSpeedPct:0.2969 },
+    { atk:299231, hp:7127674, def:40336, critRate:0.2199, critDmg:0.5,   equipAtkPct:0.1870, elementDmgPct:0.7267, equipMaxAmmoPct:6,  chargeDmgPct:0,      chargeSpeedPct:0.0484, reloadSpeedPct:0.2969 },
   ];
   const teamDef = [
     { name:'Liter',                  key:'liter',  classType:'Supporter', corporation:'MISSILIS', element:'Iron',  weaponType:'SMG', burstStep:'Step1', grade:3, core:7, bondLevel:40, cubeId:10003, cubeLevel:15, favItemId:100502, favLevel:5  },

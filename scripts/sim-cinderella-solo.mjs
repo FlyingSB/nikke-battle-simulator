@@ -39,7 +39,7 @@ async function main() {
   const baseAmmo = nd.shot_detail?.max_ammo ?? 30;
 
   const { ammoPct = 0, atkPct = 0, ...directOpts } = char.equipPct;
-  const bonusAmmo = Math.round(baseAmmo * ammoPct);
+  const equipMaxAmmoFlat = Math.round(baseAmmo * ammoPct);
 
   const slotBase = {
     resourceId:   char.resourceId,
@@ -60,7 +60,7 @@ async function main() {
       arms:  { classReq: char.classType, tier: 'T10', level: 5, options: [false,false,false] },
       legs:  { classReq: char.classType, tier: 'T10', level: 5, options: [false,false,false] },
     },
-    equipOptions: { ...directOpts, atkPct, bonusAmmo },
+    equipOptions: { ...directOpts, atkPct, equipMaxAmmoPct: equipMaxAmmoFlat },
     _nikkeData:   nd,
     _cubeData:    cd,
     _favItemData: fd,
@@ -108,7 +108,7 @@ async function main() {
   console.log('═══════════════════════════════════════════════════════════════\n');
   console.log(`  普通攻击次数（hitCount）  ：${u.hitCount}`);
   console.log(`  换弹次数    （reloadCount）：${u.reloadCount}`);
-  console.log(`\n  弹药容量：${baseAmmo} + ${bonusAmmo} = ${baseAmmo + bonusAmmo}`);
+  console.log(`\n  弹药容量：${baseAmmo} + ${equipMaxAmmoFlat} = ${baseAmmo + equipMaxAmmoFlat}`);
   console.log(`  CDN charge_time：${nd.shot_detail?.charge_time ?? '未知'} cs  →  ${chargeTimeTicks} tick`);
   console.log(`  CDN reload_time：${nd.shot_detail?.reload_time ?? '未知'} cs  →  ${reloadTicks} tick`);
   console.log(`\n  模拟时长：${result.timeSeconds.toFixed(1)}s   爆裂次数：${result.burstCount}`);

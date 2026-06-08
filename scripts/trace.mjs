@@ -10,7 +10,7 @@
  *   [ { resourceId, name, classType, element, weaponType, burstStep, corporation,
  *       grade, core, bondLevel, cubeId, favItemId, favLevel,
  *       equipPct: { atkPct?, defPct?, ammoPct?, elementDmgPct?, critRatePct?,
- *                   critDmgPct?, chargeDmgPct?, chargeSpeedPct?, ... },
+ *                   critDamagePct?, chargeDmgPct?, chargeSpeedPct?, ... },
  *       ssrFavSkillLevel?, canBurst? }, ... ]
  *
  * Output: scripts/<char-name>-trace.txt  (gitignored via scripts/*.txt)
@@ -52,13 +52,13 @@ const CLASSIC_TEAM = [
     element: 'Iron', weaponType: 'MG', burstStep: 'Step2', corporation: 'PILGRIM',
     grade: 3, core: 1, bondLevel: 40, cubeId: 10004, favItemId: 100202, favLevel: 15,
     equipPct: { elementDmgPct: 0.1655, atkPct: 0.2151, ammoPct: 1.1321,
-                chargeSpeedPct: 0.0925, critRatePct: 0.0571, critDmgPct: 0.2700 },
+                chargeSpeedPct: 0.0925, critRatePct: 0.0571, critDamagePct: 0.2700 },
   },
   {
     resourceId: 16, name: 'Rapi: Red Hood', classType: 'Attacker',
     element: 'Fire', weaponType: 'MG', burstStep: 'Step3', corporation: 'ELYSION',
     grade: 3, core: 3, bondLevel: 40, cubeId: 10004, favItemId: 100202, favLevel: 15,
-    equipPct: { elementDmgPct: 0.9842, atkPct: 0.5289, ammoPct: 1.8625, critDmgPct: 0.0664 },
+    equipPct: { elementDmgPct: 0.9842, atkPct: 0.5289, ammoPct: 1.8625, critDamagePct: 0.0664 },
   },
   {
     resourceId: 225, name: 'Scarlet: Black Shadow', classType: 'Attacker',
@@ -86,10 +86,10 @@ function computeStatsFromPct(slotBase, equipPct, baseAmmo) {
   const { atkPct = 0, defPct = 0, ammoPct = 0, ...directOpts } = equipPct;
   const pass1     = computeFinalStats({ ...slotBase, equipOptions: directOpts }, SYNCHRO_LEVEL, RESEARCH);
   const defFlat   = Math.round(pass1.def * defPct);
-  const bonusAmmo = Math.round(baseAmmo * ammoPct);
+  const equipMaxAmmoFlat = Math.round(baseAmmo * ammoPct);
   return computeFinalStats({
     ...slotBase,
-    equipOptions: { ...directOpts, atkPct, defFlat, bonusAmmo },
+    equipOptions: { ...directOpts, atkPct, defFlat, equipMaxAmmoPct: equipMaxAmmoFlat },
   }, SYNCHRO_LEVEL, RESEARCH);
 }
 
@@ -199,10 +199,10 @@ function makeTeeLogger(filePath) {
   return () => { console.log = orig; stream.end(); };
 }
 
-function computeMaxAmmo(nd, fdRaw, favLevel, bonusAmmo) {
+function computeMaxAmmo(nd, fdRaw, favLevel, equipMaxAmmoFlat) {
   const base    = nd.shot_detail?.max_ammo ?? 0;
   const ammoPct = getFavItemSkillEffects(fdRaw, favLevel)?.ammoPct ?? 0;
-  return Math.round(base * (1 + ammoPct)) + (bonusAmmo ?? 0);
+  return Math.round(base * (1 + ammoPct)) + (equipMaxAmmoFlat ?? 0);
 }
 
 function printStatHeader(char, stats, nd) {
@@ -275,7 +275,7 @@ async function main() {
     const stats   = squadStats[idx];
     const nd      = nikkeData[char.resourceId];
     const fdRaw   = favItemData[char.favItemId];
-    const maxAmmo = computeMaxAmmo(nd, fdRaw, char.favLevel, stats.bonusAmmo);
+    const maxAmmo = computeMaxAmmo(nd, fdRaw, char.favLevel, stats.equipMaxAmmoPct);
     const slug    = char.name.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
     const outFile = `./scripts/${slug}-trace.txt`;
 

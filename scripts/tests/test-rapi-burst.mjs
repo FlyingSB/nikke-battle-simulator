@@ -114,9 +114,9 @@ section('R1 — No native B1 ally: CA auto-activates, Rapi fires as B1');
     dummyUnit('Step3'),
   ]));
   eq('R1.1  at least one burst fired',             r.burstCount > 0,                                         true);
-  eq('R1.2  Scenario D ATK buff did NOT fire',     buffFired(r.buffLog, 'rapi_s1_enterBurst_atkPct'),        false);
-  eq('R1.3  Scenario C ATK-dmg buff fired',        buffFired(r.buffLog, 'rapi_s1_ca_attackDmg'),             true);
-  eq('R1.4  CA burst ATK-flat buff fired',         buffFired(r.buffLog, 'rapi_burst_ca_atkFlat'),            true);
+  eq('R1.2  Scenario D ATK buff did NOT fire',     buffFired(r.buffLog, 'Battlefield Assessment P3'),        false);
+  eq('R1.3  Scenario C ATK-dmg buff fired',        buffFired(r.buffLog, 'Battlefield Assessment P2 L2'),             true);
+  eq('R1.4  CA burst ATK-flat buff fired',         buffFired(r.buffLog, 'Power of Inheritance'),            true);
 }
 
 // ─── R2: Has native B1 ally → CA removed → Rapi stays B3 ────────────────────
@@ -129,8 +129,8 @@ section('R2 — Has native B1 ally: CA removed, Rapi fires as B3');
     rapiUnit(),
   ]));
   eq('R2.1  at least one burst fired',             r.burstCount > 0,                                         true);
-  eq('R2.2  Scenario D ATK buff fired',            buffFired(r.buffLog, 'rapi_s1_enterBurst_atkPct'),        true);
-  eq('R2.3  Scenario C ATK-dmg buff did NOT fire', buffFired(r.buffLog, 'rapi_s1_ca_attackDmg'),             false);
+  eq('R2.2  Scenario D ATK buff fired',            buffFired(r.buffLog, 'Battlefield Assessment P3'),        true);
+  eq('R2.3  Scenario C ATK-dmg buff did NOT fire', buffFired(r.buffLog, 'Battlefield Assessment P2 L2'),             false);
 }
 
 // ─── R3: CA mode — burst sequence completes with Rapi as B1 ─────────────────
@@ -143,8 +143,8 @@ section('R3 — CA mode: burst sequence completes (Rapi selected as Step1 unit)'
     dummyUnit('Step3'),
   ]));
   eq('R3.1  full burst fired ≥1',                  r.burstCount >= 1,                                        true);
-  eq('R3.2  CA burst ATK-flat buff fired',          buffFired(r.buffLog, 'rapi_burst_ca_atkFlat'),            true);
-  eq('R3.3  Scenario C fired on ENTER_FULL_BURST', buffFired(r.buffLog, 'rapi_s1_ca_attackDmg'),             true);
+  eq('R3.2  CA burst ATK-flat buff fired',          buffFired(r.buffLog, 'Power of Inheritance'),            true);
+  eq('R3.3  Scenario C fired on ENTER_FULL_BURST', buffFired(r.buffLog, 'Battlefield Assessment P2 L2'),             true);
   const rapi = rapiResult(r);
   eq('R3.4  no B3 burst damage (Burst P3 absent)', 'Burst P3' in (rapi.skillDamage ?? {}),                   false);
 }
@@ -159,8 +159,8 @@ section('R4 — combatAssistStatus re-evaluated at FULL_BURST_END; consistent ac
     dummyUnit('Step3'),
   ], { duration: 120 }));
 
-  const caCount = buffCount(r.buffLog, 'rapi_s1_ca_attackDmg');
-  const dCount  = buffCount(r.buffLog, 'rapi_s1_enterBurst_atkPct');
+  const caCount = buffCount(r.buffLog, 'Battlefield Assessment P2 L2');
+  const dCount  = buffCount(r.buffLog, 'Battlefield Assessment P3');
 
   eq('R4.1  multiple bursts fired (≥3)',            r.burstCount >= 3,             true);
   eq('R4.2  Scenario C fires every cycle',          caCount >= r.burstCount,       true);
@@ -191,7 +191,7 @@ section('R6 — CA mode: CA ATK-flat burst buff fires; burst damage absent');
     dummyUnit('Step3'),
   ]));
   const rapi = rapiResult(r);
-  eq('R6.1  CA burst ATK-flat buff fired',          buffFired(r.buffLog, 'rapi_burst_ca_atkFlat'),  true);
+  eq('R6.1  CA burst ATK-flat buff fired',          buffFired(r.buffLog, 'Power of Inheritance'),  true);
   eq('R6.2  burst damage label absent',             'Burst P3' in (rapi.skillDamage ?? {}),         false);
 }
 
@@ -207,9 +207,9 @@ section('R7 — CA mode: Scenario C fires; Scenario D absent; no Stage 3 damage'
   const rapi = rapiResult(r);
   eq('R7.1  at least one burst fired',              r.burstCount > 0,                                          true);
   eq('R7.2  Stage 3 burst damage absent in CA mode',('Burst P3' in (rapi.skillDamage ?? {})),                  false);
-  eq('R7.3  Stage 1 CA ATK-flat buff fired',        buffFired(r.buffLog, 'rapi_burst_ca_atkFlat'),             true);
-  eq('R7.4  Scenario C ATK-dmg buff fired',         buffFired(r.buffLog, 'rapi_s1_ca_attackDmg'),             true);
-  eq('R7.5  Scenario D ATK buff did NOT fire',      buffFired(r.buffLog, 'rapi_s1_enterBurst_atkPct'),        false);
+  eq('R7.3  Stage 1 CA ATK-flat buff fired',        buffFired(r.buffLog, 'Power of Inheritance'),             true);
+  eq('R7.4  Scenario C ATK-dmg buff fired',         buffFired(r.buffLog, 'Battlefield Assessment P2 L2'),             true);
+  eq('R7.5  Scenario D ATK buff did NOT fire',      buffFired(r.buffLog, 'Battlefield Assessment P3'),        false);
 }
 
 summary('Rapi: Red Hood burst-step & Combat Assist tests');
