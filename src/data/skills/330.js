@@ -83,7 +83,7 @@ export default {
           state.buffs = state.buffs.filter(b => !(b.name === 'Relax' && b.unitId === caster.id));
           const healPct      = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
           const attackDmgPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
-          applyHeal(state, caster, Math.round(caster.stats.hp * healPct), { ...state.logCtx, partIdx: 1 });
+          applyHeal(state, caster, Math.round(caster.stats.hp * healPct), { ...state._logCtx, partIdx: 1 });
         },
       },
       // tdefIdx=1：■段1(Relax满层 Invulnerable/Taunt)防御性效果未建模，占位
@@ -121,10 +121,12 @@ export default {
           const attackDmgPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const shieldPct    = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           pushBuff(state, { name: 'Last Kingdom', unitId: null,
-            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 15 });
+            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 15 },
+          { ...state._logCtx, lineIdx: 1 });
           const shieldAmt = Math.round(caster.stats.hp * shieldPct);
           const shieldEnd = state.tick + TICK_RATE * 15;
-          applyShield(state, ALL_ALLIES, shieldAmt, shieldEnd);
+          applyShield(state, ALL_ALLIES, shieldAmt, shieldEnd,
+          { ...state._logCtx, lineIdx: 2 });
         },
       },
     ],

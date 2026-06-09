@@ -327,7 +327,7 @@ const BATTLE_EVENT_COLS = {
   burst_i:      e => ({ name: e.unitName ?? '', label: 'Burst',  desc: 'Burst I' }),
   burst_ii:     e => ({ name: e.unitName ?? '', label: 'Burst',  desc: 'Burst II' }),
   burst_iii:    e => ({ name: e.unitName ?? '', label: 'Burst',  desc: 'Burst III' }),
-  full_burst:   () => ({ name: '',              label: 'Burst',  desc: 'Full Burst' }),
+  full_burst:   e => ({ name: '',              label: 'Burst',  desc: e.burstNum != null ? `Full Burst #${e.burstNum}` : 'Full Burst' }),
   burst_end:    () => ({ name: '',               label: '',       desc: 'Full Burst 结束' }),
   burst_timeout:() => ({ name: '',               label: '',       desc: 'Full Burst 超时' }),
   reload:       e => ({ name: e.unitName ?? '', label: '',       desc: '装填' }),

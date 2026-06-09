@@ -148,6 +148,7 @@ function buildLogHTML(log, isAveraged) {
     const t       = e.tick / TICK_RATE;
     const mm      = String(Math.floor(t / 60)).padStart(2, '0');
     const ss      = String(Math.floor(t % 60)).padStart(2, '0');
+    const burstSuffix = (e.type === 'full_burst' && e.burstNum != null) ? ` #${e.burstNum}` : '';
     const name    = e.unitName ? ` — ${e.unitName}` : '';
     const isHit   = e.type === 'hit';
     const hidden  = isHit ? ' log-hidden' : '';
@@ -156,7 +157,7 @@ function buildLogHTML(log, isAveraged) {
     return `<div class="log-row ${meta.cls}${hidden}" data-type="${e.type}"${unitAttr}>
       <span class="log-line">${isHit ? '' : lineNum}</span>
       <span class="log-time">[${mm}:${ss}]</span>
-      <span class="log-desc">${meta.label}${name}</span>
+      <span class="log-desc">${meta.label}${burstSuffix}${name}</span>
     </div>`;
   }).join('');
 

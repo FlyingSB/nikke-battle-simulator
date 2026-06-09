@@ -228,7 +228,7 @@ function applyFullBurstSkills(state, events) {
   state.fullBurstStartTick = state.tick;
 
   // full_burst 标记在 ENTER_FULL_BURST 之前推入，确保日志顺序：B3效果 → Full Burst → FB效果
-  events.push({ type: 'full_burst', tick: state.tick, _seq: state._logSeq++ });
+  events.push({ type: 'full_burst', tick: state.tick, burstNum: state.fullBurstCount, _seq: state._logSeq++ });
 
   // 3. ENTER_FULL_BURST 被动触发（此时 fullBurstActive 已为 true）
   const prePendingLenFull = state.pendingSkillHits.length;
@@ -617,6 +617,7 @@ export function initBattle(config) {
     burstCastersThisRotation: new Set(),
     // 全队普通攻击命中计数，由 skill-executor.onShotFired 在每次射击时自增。
     squadShotCount: 0,
+    fullBurstCount: 0,
     // Deferred skill hits: [{ fireTick, caster, mult, sums, isCharged, label, opts }]
     // Processed at the start of each tick before unit loops.
     pendingSkillHits: [],
@@ -899,6 +900,7 @@ export function tick(state) {
     );
     if (b3Ready) {
       state.burstPhaseTimeoutTick = 0;
+      state.fullBurstCount++;
       for (const u of state.squad) u.burstCount++;
       applyFullBurstSkills(state, events);
       state.fullBurstTick = state.tick + TICK_RATE * 10; // 10s burst window

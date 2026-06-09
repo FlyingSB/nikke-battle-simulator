@@ -30,7 +30,9 @@ export default {
 
           const atkPct = getSkillValue(caster.rawSkill1, 2, s1Lv) / 100;
           const end5   = state.tick + TICK_RATE * 5;
-          pushBuff(state, { name: 'Determination', unitId: caster.id, atkPct, endTick: end5 });
+          pushBuff(state, { name: 'Determination', unitId: caster.id, atkPct, endTick: end5 }, 
+            { ...state._logCtx, partIdx: 1 }
+          );
         },
       },
     ],
@@ -47,22 +49,23 @@ export default {
   skill2: {
     groupId: 12202,
     triggers: [
-      // S2：每 15s 触发一次（首次 t+15s）；仅 Full Burst 期间生效
+      // S2：每 15s 触发一次（首次 t+15s）
       // P1（技能伤害）与 P2（Crit Rate buff）合并在同一 handler，P2 复用 Full Burst 判断
       {
         on: 'INTERVAL',
         opts: { seconds: S2_COOLDOWN_SEC },
         handler(state, caster) {
-          if (!state.fullBurstActive) return;
           const s2Lv  = caster.skillLevels[1];
           const sums  = getBuffSums(state, caster.id);
           // P1: 技能伤害
           const dmgPct = getSkillValue(caster.rawSkill2, 0, s2Lv) / 100;
           fireSkillHit(state, caster, dmgPct, sums, 'S2 P1');
+          if (!state.fullBurstActive) return;
           // P2: Crit Rate ▲（Full Burst 期间已在上方确认）
           const crPct = getSkillValue(caster.rawSkill2, 1, s2Lv) / 100;
           pushBuff(state, { name: 'Seven Dwarves: V&VI', unitId: caster.id,
-            critRatePct: crPct, endTick: state.tick + TICK_RATE * 10 });
+            critRatePct: crPct, endTick: state.tick + TICK_RATE * 10 }, 
+            { ...state._logCtx, partIdx: 1 });
         },
       },
     ],

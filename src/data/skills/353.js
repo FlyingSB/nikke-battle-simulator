@@ -90,7 +90,7 @@ export default {
             const dur       = getSkillValue(caster.rawSkill2, 4, lv);
             pushBuff(state, { name: 'Aegis Cannon Suppression Fire', unitId: '__enemy__', isDebuff: true,
               enemyDamageTakenPct: dtPct, stackLimit: maxStacks,
-              endTick: state.tick + TICK_RATE * dur });
+              endTick: state.tick + TICK_RATE * dur }, { ...state._logCtx, partIdx: 1 });
           }
         },
       },
