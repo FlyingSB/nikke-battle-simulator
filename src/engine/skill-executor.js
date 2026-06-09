@@ -310,6 +310,9 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
   const isTeamTrigger = TEAM_TRIGGERS.has(trigger);
   const scopedUnit    = ctx.unit ?? null;
 
+  // 先收集所有匹配的触发器，按 priority 升序排序后再执行（默认 priority=0）
+  const pending = [];
+
   for (const [ridStr, charSkills] of Object.entries(SKILL_TRAITS)) {
     const caster = state.squad.find(u => u.id === Number(ridStr));
     if (!caster) continue;
@@ -322,19 +325,26 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
         if (tdef.on !== trigger) continue;
         if (!isTeamTrigger && scopedUnit && scopedUnit.id !== caster.id) continue;
         if (!checkConditions(state, caster, tdef, ctx)) continue;
-
-        const logCtx = buildLogCtx(caster, skillKey, tdefIdx, tdef, skill, trigger);
-
-        if (tdef.handler) {
-          state._logCtx = logCtx;
-          ctx.logCtx = logCtx;
-          tdef.handler(state, caster, ctx);
-          state._logCtx = null;
-        } else {
-          const targets = resolveTargets(state, caster, tdef.target, tdef.targetOpts);
-          applyEffects(state, caster, targets, tdef.effects ?? [], ctx, logCtx);
-        }
+        pending.push({ caster, skillKey, tdefIdx, tdef, skill });
       }
+    }
+  }
+
+  if (pending.some(p => p.tdef.priority !== undefined)) {
+    pending.sort((a, b) => (a.tdef.priority ?? 0) - (b.tdef.priority ?? 0));
+  }
+
+  for (const { caster, skillKey, tdefIdx, tdef, skill } of pending) {
+    const logCtx = buildLogCtx(caster, skillKey, tdefIdx, tdef, skill, trigger);
+
+    if (tdef.handler) {
+      state._logCtx = logCtx;
+      ctx.logCtx = logCtx;
+      tdef.handler(state, caster, ctx);
+      state._logCtx = null;
+    } else {
+      const targets = resolveTargets(state, caster, tdef.target, tdef.targetOpts);
+      applyEffects(state, caster, targets, tdef.effects ?? [], ctx, logCtx);
     }
   }
 }

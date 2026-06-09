@@ -64,6 +64,7 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
+        priority: 100,  // 最后结算：P3 依赖其他角色的 ATK buff 已推完才能准确选出最高 ATK 友军
         handler(state, caster) {
           // [TODO 基础技能] 进入全爆裂 → 全员CritDmg▲p01% 10s（base group_id 20322）
           const favS2 = caster.ssrFavSkills?.skill2;
@@ -83,9 +84,13 @@ export default {
 
           // 最高 ATK 友军（除自身）Crit Rate ▲ 持续 1 round
           // 无限弹角色（Moran/Nayuta burst 中）不消耗 roundsLeft，直到无限弹结束后首次实弹命中才消耗
+          const effectiveAtk = u => {
+            const s = getBuffSums(state, u.id);
+            return u.stats.atk * (1 + s.atkPct) + s.atkFlat;
+          };
           const topAlly = state.squad
             .filter(u => u.id !== caster.id)
-            .sort((a, b) => b.stats.atk - a.stats.atk)[0];
+            .sort((a, b) => effectiveAtk(b) - effectiveAtk(a))[0];
           if (topAlly) {
             const crBonus = getSkillValue(favS2, 7, lv) / 100;
             pushBuff(state, { name: 'Wake Up! P3', unitId: topAlly.id,
