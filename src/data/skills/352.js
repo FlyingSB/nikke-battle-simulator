@@ -67,8 +67,17 @@ export default {
   // p04: [105.76, 113.89, 122.03, 130.16, 138.3, 146.44, 154.57, 162.71, 170.84, 178.98]
   skill2: {
     groupId: 23522,
-    partOffset: 1,  // P1（被动 Interruption Parts，未建模）跳过，从 P2 开始编号
     triggers: [
+      // S2 P1（基础技能）：全员 Damage to Interruption Parts ▲p01% 永久
+      {
+        on: 'BATTLE_START',
+        handler(state, caster) {
+          const lv  = caster.skillLevels[1];
+          const pct = getSkillValue(caster.rawSkill2, 0, lv) / 100;
+          pushBuff(state, { name: 'Fire Away P1', unitId: null,
+            damageToPartsPct: pct, endTick: Infinity });
+        },
+      },
       // S2 P2（Fire Away）：进入全爆裂 → 全员 Attack Damage ▲X% 10s（SSR fav 数值）
       // [TODO 基础技能] 进入全爆裂 → 全员 Attack Damage ▲p02% p03s（基础技能 group_id 23522 未建模）
       {

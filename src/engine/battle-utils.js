@@ -142,7 +142,45 @@ export function getEnemyDebuffBreakdown(state) {
 
 // ─── Buff 添加 ─────────────────────────────────────────────────────────────
 
-// logCtx: { unitName, skillLabel, partIdx, trigger } — 传入时在真实产生效果处写入主日志
+/**
+ * logCtx — 日志上下文，控制 skill_trigger 事件在战斗日志中的归属与显示。
+ *
+ * 字段说明：
+ *   unitName   {string}      施法单位名（日志"角色"列）。
+ *   skillLabel {string}      技能显示名，通常为 name_localkey（如 "Calm Depths"）。
+ *                            UI 以此名称查找 tooltip 对应技能对象，需与 slot 匹配。
+ *   slot       {string|null} 'S1' | 'S2' | 'Burst'。
+ *                            用于 tooltip 精确定位技能对象；null 时回退至名称匹配。
+ *   partIdx    {number|null} P 段 0-based 索引（P1=0, P2=1 …）。
+ *                            null = 不显示 P 后缀。
+ *                            UI 在描述只有唯一段时自动省略 P（见 store._countSkillParts）。
+ *   lineIdx    {number|null} L 行 0-based 索引（L1=0, L2=1 …）。
+ *                            null = 不显示 L 后缀。
+ *                            UI 在该 P 段行数 ≤ 2 时自动省略 L（见 store._countLinesInPart）。
+ *   trigger    {string}      触发条件字符串（如 'ENTER_FULL_BURST'），用于日志分组排序。
+ *
+ * 常见用法：
+ *   // 1. 沿用当前触发器上下文（handler 内最常见，自动取 state._logCtx）
+ *   pushBuff(state, buffObj);
+ *
+ *   // 2. 省略 P 后缀
+ *   pushBuff(state, buffObj, { ...state._logCtx, partIdx: null });
+ *
+ *   // 3. 覆盖为另一个技能槽
+ *   pushBuff(state, buffObj, {
+ *     ...state._logCtx,
+ *     skillLabel: unit.rawSkill2?.name_localkey ?? 'S2',
+ *     slot: 'S2', partIdx: 0, lineIdx: null,
+ *   });
+ *
+ *   // 4. 归属另一个单位的技能
+ *   pushBuff(state, buffObj, {
+ *     unitName:   ally.name,
+ *     skillLabel: ally.rawBurst?.name_localkey ?? 'Burst',
+ *     slot: 'Burst', partIdx: null, lineIdx: null,
+ *     trigger: state._logCtx?.trigger ?? '',
+ *   });
+ */
 function _emitBuffEvent(state, buffObj, logCtx) {
   if (!state.pendingSkillEvents) return;
   const targetName = buffObj.unitId === null

@@ -24,11 +24,10 @@ export default {
   // p08: [155.28, 167.23, 179.17, 191.12, 203.06, 215.01, 226.95, 238.9, 250.84, 262.79]
   skill1: {
     groupId: 20181,
-    partOffset: 1,  // P1（Healthy Body）不在模拟器中建模，从 P2 开始编号
     triggers: [
       // [TODO] S1 P1（Healthy Body）：受到攻击且无 Healthy Body → 自身无敌 3s + 免疫 debuff 3s（5次/战）
       //   + Healthy Body: HP 回复效力 ▲10.26% 20s — 防御性技能，暂不建模
-
+      {},
       // S1 P2（Firepower Explosion）：全蓄力命中舞台目标 → 额外 437.98% final ATK
       //   Super Firepower 状态中追加 262.79% final ATK
       {

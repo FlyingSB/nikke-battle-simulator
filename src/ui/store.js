@@ -385,16 +385,59 @@ function _logRowOrder(row) {
   }
 }
 
-function buildEventRows(eventLog) {
+// 根据事件的 slot 字段从 squadLookup 取出对应技能对象
+function _getSkillForEvent(e, squadLookup) {
+  if (!squadLookup || !e.unitName || !e.slot) return null;
+  const ud = squadLookup[e.unitName];
+  if (!ud) return null;
+  if (e.slot === 'S1') return ud.rawSkill1;
+  if (e.slot === 'S2') return ud.rawSkill2;
+  if (e.slot === 'Burst') return ud.rawBurst;
+  return null;
+}
+
+// 统计技能描述中的 ■ 分段数（决定技能有几个"P"段）
+function _countSkillParts(skill) {
+  const desc = skill?.description_localkey ?? '';
+  const parts = desc.split('■').filter(s => s.trim() !== '');
+  return parts.length || 1;
+}
+
+// 统计指定 P 段内的行数（按 \n 计，决定是否省略 L 后缀）
+function _countLinesInPart(skill, partIdx) {
+  const desc = skill?.description_localkey ?? '';
+  const parts = desc.split('■').filter(s => s.trim() !== '');
+  if (!parts.length) return 1;
+  const startsWithBlock = desc.trimStart().startsWith('■');
+  let raw;
+  if (partIdx == null) {
+    raw = parts[0];
+  } else {
+    const rawIdx = startsWithBlock ? partIdx : partIdx + 1;
+    raw = parts[rawIdx] ?? parts[0];
+  }
+  return Math.max(1, (raw ?? '').split('\n').filter(s => s.trim() !== '').length);
+}
+
+function buildEventRows(eventLog, squadLookup = null) {
   if (!eventLog?.length) return [];
   return eventLog.map(e => {
     // burst_i with no caster = 队伍无 B1 单位时的跳过占位事件，不显示
     if (e.type === 'burst_i' && !e.unitName) return null;
     let name = '', label = '', target = '';
     if (e.type === 'skill_trigger') {
-      const slot = e.slot ?? '';
-      const part = e.partIdx != null ? ` P${e.partIdx + 1}` : '';
-      const ln   = e.lineIdx != null ? ` L${e.lineIdx + 1}` : '';
+      const slot  = e.slot ?? '';
+      const skill = _getSkillForEvent(e, squadLookup);
+      // 技能仅有唯一 P 段时省略 P 后缀
+      let part = '';
+      if (e.partIdx != null && _countSkillParts(skill) > 1) {
+        part = ` P${e.partIdx + 1}`;
+      }
+      // 该 P 段内行数 ≤ 2 时省略 L 后缀
+      let ln = '';
+      if (e.lineIdx != null && _countLinesInPart(skill, e.partIdx) > 2) {
+        ln = ` L${e.lineIdx + 1}`;
+      }
       name   = e.unitName;
       // 有 L 时补充 slot（技能名 S2 L3 或 技能名 S2 P2 L3），否则保持原格式
       if (ln && slot && e.skillLabel !== slot) {
@@ -1385,7 +1428,7 @@ export function createStore() {
       const hitRows   = this.logMode === 'detail'
         ? buildDetailLog(this.hitLogRaw, unitNames)
         : buildAggregateLog(this.hitLogRaw, unitNames);
-      const eventRows = buildEventRows(this.battleLogRaw);
+      const eventRows = buildEventRows(this.battleLogRaw, this._squadLookup);
       this.hitLogRows = [...hitRows, ...eventRows].sort((a, b) => {
         const dt = a.tickStart - b.tickStart;
         if (dt !== 0) return dt;

@@ -30,7 +30,7 @@ export default {
         on: 'ENTER_FULL_BURST',
         handler(state, caster) {
           const atkPct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Calm Depths P1 L1', unitId: caster.id,
+          pushBuff(state, { name: 'Calm Depths P1', unitId: caster.id,
             atkPct, endTick: state.tick + TICK_RATE * 3 });
         },
       },
@@ -40,7 +40,7 @@ export default {
         conditions: [{ type: 'IS_CORE_HIT' }],
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Calm Depths P2 L2', unitId: caster.id,
+          pushBuff(state, { name: 'Calm Depths P2', unitId: caster.id,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 60 });
         },
       },
@@ -69,7 +69,7 @@ export default {
           const target = withFinalAtk.reduce((a, b) => a.finalAtk < b.finalAtk ? a : b).u;
           caster.skillState.libS1T4Target = target.name;
           const chargeTimeReductionPct = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Calm Depths P4 L2', unitId: target.id,
+          pushBuff(state, { name: 'Calm Depths P4', unitId: target.id,
             chargeTimeReductionTicks: Math.round(caster.chargeTimeTicks * chargeTimeReductionPct),
             endTick: state.tick + TICK_RATE * 10 });
         },

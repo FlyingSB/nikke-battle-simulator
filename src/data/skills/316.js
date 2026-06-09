@@ -51,7 +51,8 @@ export default {
           const end3 = state.tick + TICK_RATE * 3;
           pushBuff(state, { name: 'Sticky Fingers P2', unitId: caster.id,
             atkPct: getSkillValue(caster.rawSkill1, 4, lv) / 100,
-            attackDamagePct: getSkillValue(caster.rawSkill1, 6, lv) / 100, endTick: end3 });
+            attackDamagePct: getSkillValue(caster.rawSkill1, 6, lv) / 100, endTick: end3 },
+            { ...state._logCtx, partIdx: 1 });
         },
       },
     ],
@@ -89,7 +90,7 @@ export default {
           const lv      = caster.skillLevels[1];
           const end3    = state.tick + TICK_RATE * 3;
           const atkFlat = Math.round(caster.stats.atk * getSkillValue(caster.rawSkill2, 1, lv) / 100);
-          pushBuff(state, { name: 'Bullets of Love P1 L1',
+          pushBuff(state, { name: 'Bullets of Love P1',
             unitId: null, atkFlat, chargeDamagePct: getSkillValue(caster.rawSkill2, 3, lv) / 100, endTick: end3 });
         },
       },
@@ -117,12 +118,11 @@ export default {
           state.totalAmmoFired += 300;
 
           const lv = caster.skillLevels[1];
-          pushBuff(state, { name: 'Bullets of Love P2 L4',
+          pushBuff(state, { name: 'Bullets of Love P2',
             unitId: caster.id, attackDamagePct: getSkillValue(caster.rawSkill2, 7, lv) / 100,
             endTick: state.tick + TICK_RATE * 5 });
-          if (state.enemyHp > 0)
-            fireSkillHit(state, caster, getSkillValue(caster.rawSkill2, 9, lv) / 100,
-              getBuffSums(state, caster.id), false, 'velvet_s2_bonusHit');
+          fireSkillHit(state, caster, getSkillValue(caster.rawSkill2, 9, lv) / 100,
+            getBuffSums(state, caster.id), false, 'velvet_s2_bonusHit');
         },
       },
     ],

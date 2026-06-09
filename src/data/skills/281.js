@@ -71,10 +71,11 @@ export default {
   // p10: [5.34, 5.58, 5.82, 6.05, 6.29, 6.53, 6.77, 7, 7.24, 7.48]
   skill2: {
     groupId: 22812,
-    partOffset: 2,  // P1（末弹嘲讽）和 P2（HP 分阶段）均未建模，从 P3 开始编号
     triggers: [
       // [TODO] S2 P1：末弹 → 最高 ATK 3 名敌人嘲讽 4s（无敌人选择/嘲讽模型）
+      {},
       // [TODO] S2 P2：HP 低于 91% 时分阶段（Once/Twice/Three Times）提升 MaxHP（无 HP 受伤模型）
+      {},
       //
       // S2 SSR Fervor：进入全爆裂时，Fervor 状态下 → 全员爆裂冷却 ▼X s（lv10=7.48s）
       {

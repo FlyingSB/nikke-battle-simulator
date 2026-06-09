@@ -45,10 +45,10 @@ export default {
               state.tick > caster.skillState.weaponSwitchEndTick) return;
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
           const allMult = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
-          if (state.enemyHp > 0) fireSkillHit(state, caster, allMult, sums, 'S1');
+          if (state.enemyHp > 0) fireSkillHit(state, caster, allMult, sums, 'S1 P4');
           if (state.isStageTarget && state.enemyHp > 0) {
             const stageMult = getSkillValue(caster.rawSkill1, 9, caster.skillLevels[0]) / 100;
-            fireSkillHit(state, caster, stageMult, sums, 'S1 Boss');
+            fireSkillHit(state, caster, stageMult, sums, 'S1 P5');
           }
         },
       },
@@ -97,8 +97,10 @@ export default {
           const atkFlatPct  = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
           const healPct     = getSkillValue(caster.rawSkill1, 7, caster.skillLevels[0]) / 100;
           pushBuff(state, { name: 'Hypocrisy P2', unitId: null,
-            coreDamagePct: coreDmgPct, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: end5 });
-          applyHeal(state, caster, Math.round(caster.stats.hp * healPct));
+            coreDamagePct: coreDmgPct, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: end5 },
+            { unitName: caster.name, skillLabel: caster.rawSkill1?.name_localkey ?? 'S1', slot: 'S1', partIdx: 1, lineIdx: null, trigger: 'INTERVAL' });
+          applyHeal(state, caster, Math.round(caster.stats.hp * healPct),
+            { unitName: caster.name, skillLabel: caster.rawSkill1?.name_localkey ?? 'S1', slot: 'S1', partIdx: 2, lineIdx: null, trigger: 'INTERVAL' });
 
           // 层数上限 30；满层后 S1 Part2 仍每 3s 刷新
           if (caster.skillState.nayutaMemAbsStacks >= 30) return;
@@ -119,34 +121,22 @@ export default {
           // Stage 1: s=2（≥2 层）→ 自身 ATK ▲[S2 param5]%（永久，仅首次推送）
           if (s === 2) {
             const stage1AtkPct = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
-            pushBuff(state, { name: 'Impermanence P2 L1', unitId: caster.id,
+            pushBuff(state, { name: 'Impermanence P2 L4', unitId: caster.id,
               atkPct: stage1AtkPct, endTick: Infinity });
-            state.pendingSkillEvents?.push({ type: 'skill_trigger', tick: state.tick,
-              unitName: caster.name,
-              skillLabel: `${caster.rawSkill2?.name_localkey ?? 'S2'} Stage 1`,
-              partIdx: 1, target: caster.name });
           }
 
           // Stage 2: s=10（≥10 层）→ 自身 Attack Damage ▲[S2 param7]%（永久）
           if (s === 10) {
             const stage2AtkDmgPct = getSkillValue(caster.rawSkill2, 7, caster.skillLevels[1]) / 100;
-            pushBuff(state, { name: 'Impermanence P2 L2', unitId: caster.id,
+            pushBuff(state, { name: 'Impermanence P2 L6', unitId: caster.id,
               attackDamagePct: stage2AtkDmgPct, endTick: Infinity });
-            state.pendingSkillEvents?.push({ type: 'skill_trigger', tick: state.tick,
-              unitName: caster.name,
-              skillLabel: `${caster.rawSkill2?.name_localkey ?? 'S2'} Stage 2`,
-              partIdx: 1, target: caster.name });
           }
 
           // Stage 3: s=30（=30 层）→ 自身 Core Damage ▲[S2 param3]%（永久）
           if (s === 30) {
             const stage3CoreDmgPct = getSkillValue(caster.rawSkill2, 3, caster.skillLevels[1]) / 100;
-            pushBuff(state, { name: 'Impermanence P2 L3', unitId: caster.id,
+            pushBuff(state, { name: 'Impermanence P2 L8', unitId: caster.id,
               coreDamagePct: stage3CoreDmgPct, endTick: Infinity });
-            state.pendingSkillEvents?.push({ type: 'skill_trigger', tick: state.tick,
-              unitName: caster.name,
-              skillLabel: `${caster.rawSkill2?.name_localkey ?? 'S2'} Stage 3`,
-              partIdx: 1, target: caster.name });
           }
         },
       },
@@ -196,7 +186,7 @@ export default {
           if (state.enemyHp <= 0) return false;
           const sums         = getBuffSums(state, caster.id);
           const burstHitMult = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
-          fireSkillHit(state, caster, burstHitMult, sums, 'Burst');
+          fireSkillHit(state, caster, burstHitMult, sums, 'Asceticism P2', { ...state._logCtx, partIdx: 1 });
         },
       },
       // Burst P3（自身）：Memory Incineration 武器切换（1.8s/FC，275.18% × 250%）10s
