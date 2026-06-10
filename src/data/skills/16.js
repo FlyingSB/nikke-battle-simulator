@@ -79,7 +79,9 @@ export default {
           const atkPct      = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           const partsDmgPct = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
           const endTick     = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'Battlefield Assessment P3', unitId: caster.id, atkPct, interruptionPartsDamagePct: partsDmgPct, endTick });
+          pushBuff(state, { name: 'Battlefield Assessment P3', unitId: caster.id, atkPct, interruptionPartsDamagePct: partsDmgPct, endTick },
+            { ...state._logCtx, partIdx: 2}
+          );
         },
       },
     ],
@@ -105,18 +107,20 @@ export default {
   skill2: {
     groupId: 20162,
     triggers: [
-      // S2 被动：战斗开始时初始化 attach/explode 倍率及所有弹丸计数器
+      // S2 P1（被动）：战斗开始时推入永久 buff（attach/explosion 加成），并初始化弹丸计数器
       {
         on: 'BATTLE_START',
         handler(state, caster) {
           const attachBonus    = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const explosionBonus = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
-          caster.skillState.rapiShotCount               = 0;
-          caster.skillState.rapiProjectileThreshold     = 120;
-          caster.skillState.rapiProjectileAttachMult    = 1 + attachBonus;
-          caster.skillState.rapiProjectileExplosionMult = 1 + explosionBonus;
-          caster.skillState.rapiPendingProjectileCount  = 0;
-          caster.skillState.rapiProjectileBuffEndTick   = 0;
+          caster.skillState.rapiShotCount              = 0;
+          caster.skillState.rapiProjectileThreshold    = 120;
+          caster.skillState.rapiPendingProjectileCount = 0;
+          caster.skillState.rapiProjectileBuffEndTick  = 0;
+          pushBuff(state, { name: 'Attachable Projectiles P1', unitId: caster.id,
+            projectileAttachmentDamagePct: attachBonus,
+            projectileExplosionDamagePct:  explosionBonus,
+            endTick: Infinity });
         },
       },
       // S2（Attachable Projectiles）：每 120 发（全爆裂期间 60 发）触发 projectile
@@ -129,18 +133,16 @@ export default {
           if (caster.skillState.rapiShotCount < caster.skillState.rapiProjectileThreshold) return;
           caster.skillState.rapiShotCount = 0;
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
-          const am      = caster.skillState.rapiProjectileAttachMult;
-          const em      = caster.skillState.rapiProjectileExplosionMult;
           // 弹丸命中伤害：[S2 param1]% ATK（lv10=88.11%）
           const hitMult = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           fireSkillHit(state, caster, hitMult, sums, 'S2 P2 Projectile Attachment', {
             isCore: state.enemyHasCore, coreDmgIncrement: caster.coreDmgIncrement ?? 0,
-            extraAttackDamagePct: am - 1, applyDistanceAdv: true,
+            extraAttackDamagePct: sums.projectileAttachmentDamagePct ?? 0, applyDistanceAdv: true,
           });
           if (state.fullBurstActive) {
-            // 全爆裂期间立即爆炸（不需等待，触发 projectileExplosion 加成）
+            // 全爆裂期间立即爆炸；projectileExplosionDamagePct 由 sums 自动读取
             fireSkillHit(state, caster, hitMult, sums, 'S2 P2 Projectile Explosion', {
-              isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true, applyDistanceAdv: true,
+              isCore: false, projectileExplosion: true, applyDistanceAdv: true,
             });
           } else {
             caster.skillState.rapiPendingProjectileCount++;
@@ -156,11 +158,10 @@ export default {
           if (count <= 0) return false;
           caster.skillState.rapiPendingProjectileCount = 0;
           const sums    = getBuffSums(state, caster.id);
-          const em      = caster.skillState.rapiProjectileExplosionMult;
           const hitMult = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           for (let i = 0; i < count; i++) {
             fireSkillHit(state, caster, hitMult, sums, 'S2 P2 Projectile Explosion', {
-              isCore: false, extraAttackDamagePct: em - 1, projectileExplosion: true, applyDistanceAdv: true,
+              isCore: false, projectileExplosion: true, applyDistanceAdv: true,
             });
           }
         },
@@ -232,27 +233,26 @@ export default {
           });
         },
       },
-      // ■ P4（Stage 3 / 非 CA）：自身 Projectile Attachment ▲ + S2 触发阈值 ▼60 发（10s）
-      // burst 期间 attach mult = 1 + S2被动(150.72%) + Burst增益(421.2%)
+      // ■ P4（Stage 3 / 非 CA）：自身 Projectile Attachment ▲[Burst param5]% + S2 触发阈值 ▼60 发（10s）
+      // S2 P1 被动 buff 已常驻，此处只叠加 Burst 增益部分
       {
         on: 'BURST_SKILL_USE',
         conditions: [{ type: 'NOT_COMBAT_ASSIST' }],
         handler(state, caster) {
-          const end10 = state.tick + TICK_RATE * 10;
-          const s2AttachPassive  = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
-          const burstAttachBonus = getSkillValue(caster.rawBurst,  5, caster.skillLevels[2]) / 100;
-          caster.skillState.rapiProjectileThreshold    = 60;
-          caster.skillState.rapiProjectileAttachMult   = 1 + s2AttachPassive + burstAttachBonus;
-          caster.skillState.rapiProjectileBuffEndTick  = end10;
+          const end10            = state.tick + TICK_RATE * 10;
+          const burstAttachBonus = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]) / 100;
+          pushBuff(state, { name: 'Power of Inheritance P4', unitId: caster.id,
+            projectileAttachmentDamagePct: burstAttachBonus, endTick: end10 });
+          caster.skillState.rapiProjectileThreshold   = 60;
+          caster.skillState.rapiProjectileBuffEndTick = end10;
         },
       },
-      // 全爆裂结束：若 buff 已过期则恢复 S2 非全爆裂默认参数（实现内部逻辑，不记日志）
+      // 全爆裂结束：若 Burst P4 buff 已过期则还原触发阈值（buff 本身自动过期，无需手动移除）
       {
         on: 'FULL_BURST_END',
         handler(state, caster) {
           if (state.tick < caster.skillState.rapiProjectileBuffEndTick) return;
-          caster.skillState.rapiProjectileThreshold  = 120;
-          caster.skillState.rapiProjectileAttachMult = 1 + getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
+          caster.skillState.rapiProjectileThreshold = 120;
         },
       },
     ],

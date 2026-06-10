@@ -410,39 +410,39 @@ section('T11: Nayuta S2 stage thresholds — ≥2, ≥10, ≥30 (not >2, >10, >3
   // s=1: no stage buffs
   const st1 = makeState();
   callN(st1, 1);
-  eq('s=1: no stage1 buff', hasStage(st1, 'Impermanence P2 L1'), false);
+  eq('s=1: no stage1 buff', hasStage(st1, 'Impermanence P2 L4'), false);
 
   // s=2: Stage 1 fires at exactly s=2 (≥2)
   const st2 = makeState();
   callN(st2, 2);
-  eq('s=2: stage1 buff pushed', hasStage(st2, 'Impermanence P2 L1'), true);
-  eq('s=2: no stage2 yet',      hasStage(st2, 'Impermanence P2 L2'), false);
+  eq('s=2: stage1 buff pushed', hasStage(st2, 'Impermanence P2 L4'), true);
+  eq('s=2: no stage2 yet',      hasStage(st2, 'Impermanence P2 L6'), false);
 
   // s=9: still no stage2
   const st9 = makeState();
   callN(st9, 9);
-  eq('s=9: no stage2 buff', hasStage(st9, 'Impermanence P2 L2'), false);
+  eq('s=9: no stage2 buff', hasStage(st9, 'Impermanence P2 L6'), false);
 
   // s=10: Stage 2 fires at exactly s=10 (≥10)
   const st10 = makeState();
   callN(st10, 10);
-  eq('s=10: stage2 buff pushed', hasStage(st10, 'Impermanence P2 L2'), true);
-  eq('s=10: no stage3 yet',      hasStage(st10, 'Impermanence P2 L3'), false);
+  eq('s=10: stage2 buff pushed', hasStage(st10, 'Impermanence P2 L6'), true);
+  eq('s=10: no stage3 yet',      hasStage(st10, 'Impermanence P2 L8'), false);
 
   // s=29: still no stage3
   const st29 = makeState();
   callN(st29, 29);
-  eq('s=29: no stage3 buff', hasStage(st29, 'Impermanence P2 L3'), false);
+  eq('s=29: no stage3 buff', hasStage(st29, 'Impermanence P2 L8'), false);
 
   // s=30: Stage 3 fires at exactly s=30
   const st30 = makeState();
   callN(st30, 30);
-  eq('s=30: stage3 buff pushed', hasStage(st30, 'Impermanence P2 L3'), true);
+  eq('s=30: stage3 buff pushed', hasStage(st30, 'Impermanence P2 L8'), true);
 
   // s=31+: capped at 30, stage1 buff not pushed twice
   const st31 = makeState();
   callN(st31, 31);
-  const stage1Buffs = st31.buffs.filter(b => b.name === 'Impermanence P2 L1');
+  const stage1Buffs = st31.buffs.filter(b => b.name === 'Impermanence P2 L4');
   eq('s=31: stage1 not pushed twice', stage1Buffs.length, 1);
 }
 
@@ -554,8 +554,8 @@ section('T13: Nayuta S1 Part3 — FULL_CHARGE during Memory Incineration fires 5
   caster.skillState = { weaponSwitchEndTick: T + 600 }; // switch active
   fcTrigger.handler(state, caster, { sums: zeroSums });
 
-  const hitAll   = state.hitLog.find(h => h.label === 'S1');
-  const hitBoss  = state.hitLog.find(h => h.label === 'S1 Boss');
+  const hitAll   = state.hitLog.find(h => h.label === 'S1 P4');
+  const hitBoss  = state.hitLog.find(h => h.label === 'S1 P5');
   eq('hitLog entry for S1 (all enemies) exists', !!hitAll, true);
   eq('S1 all-enemies hitMult = 1.5',             hitAll?.hitMult, 1.5);
   eq('hitLog entry for S1 Boss (stage target) exists', !!hitBoss, true);
