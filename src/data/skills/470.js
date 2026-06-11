@@ -5,19 +5,26 @@ import { getSkillValue } from '../../data/models.js';
 // Character: Red Hood  (resource_id: 470)
 // ─── Red Hood (470) S1 辅助：更新蓄力伤害转化 buff ────────────────────────────
 // 超出 100% 的蓄力速度 → Charge Damage ▲240% × 超出量（连续）
-// endTick 由调用方传入，与产生该超量的 CS buff 同生命周期。
+// 由 CS_BUFF_CHANGED 触发器驱动，每次 Red Hood 的 chargeSpeedPct 变化时自动重算。
+// endTick 取 Glaring Eyes P1 的剩余时间（P1 过期时 CS_BUFF_CHANGED 再次触发，届时移除 P2）。
 function updateRhCsConversion(state, caster, endTick = Infinity) {
   const sums     = getBuffSums(state, caster.id);
   const totalCS  = (caster.stats.chargeSpeedPct ?? 0) + sums.chargeSpeedPct;
   const excess   = Math.max(0, totalCS - 1.0);
   const convRate = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
   const cdBonus  = excess > 0 ? Math.round(excess * convRate * 100000) / 100000 : 0;
-  const conv    = state.buffs.find(b => b.name === 'Glaring Eyes P2 L2' && b.unitId === caster.id);
+  const convIdx = state.buffs.findIndex(b => b.name === 'Glaring Eyes P2' && b.unitId === caster.id);
+  if (convIdx !== -1) state.buffs.splice(convIdx, 1);
   if (cdBonus > 0) {
-    if (conv) { conv.chargeDamagePct = cdBonus; conv.endTick = endTick; }
-    else state.buffs.push({ name: 'Glaring Eyes P2 L2', unitId: caster.id, chargeDamagePct: cdBonus, endTick });
-  } else if (conv) {
-    state.buffs.splice(state.buffs.indexOf(conv), 1);
+    pushBuff(state, { name: 'Glaring Eyes P2', unitId: caster.id, chargeDamagePct: cdBonus, endTick },
+      { unitName: caster.name,
+        skillLabel: caster.rawSkill1?.name_localkey ?? 'S1',
+        slot: 'S1',
+        partIdx: 1,
+        lineIdx: null,
+        trigger: state._logCtx?.trigger ?? ''
+      }
+    );
   }
 }
 
@@ -40,21 +47,20 @@ export default {
       {
         on: 'FULL_CHARGE',
         handler(state, caster) {
-          const existing   = state.buffs.find(b => b.name === 'Glaring Eyes P1 L1' && b.unitId === caster.id);
-          const prevStacks = existing ? caster.skillState.rhCsStacks : 0;
-          const newStacks  = Math.min(10, prevStacks + 1);
-          caster.skillState.rhCsStacks = newStacks;
-          const end5          = state.tick + TICK_RATE * 5;
-          const csPerStack    = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
-          if (existing) {
-            existing.chargeSpeedPct = newStacks * csPerStack;
-            existing.endTick = end5;
-          } else {
-            state.buffs.push({ name: 'Glaring Eyes P1 L1', unitId: caster.id,
-              chargeSpeedPct: newStacks * csPerStack, endTick: end5 });
-          }
-          // S1 Part2：更新超量 CS → Charge Damage 转化（与叠层同生命周期）
-          updateRhCsConversion(state, caster, end5);
+          const end5       = state.tick + TICK_RATE * 5;
+          const csPerStack = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
+          pushBuff(state, { name: 'Glaring Eyes P1', unitId: caster.id,
+            chargeSpeedPct: csPerStack, endTick: end5, stackLimit: 10 });
+          // CS_BUFF_CHANGED 由 pushBuff → _trackCsChange → flushCsChanged 自动分派，
+          // 无需在此手动调用 updateRhCsConversion。
+        },
+      },
+      // S1 Part2：Red Hood 蓄力速度变化时自动重算超量 CS → Charge Damage 转化
+      {
+        on: 'CS_BUFF_CHANGED',
+        handler(state, caster) {
+          const p1 = state.buffs.find(b => b.name === 'Glaring Eyes P1' && b.unitId === caster.id);
+          updateRhCsConversion(state, caster, p1?.endTick ?? Infinity);
         },
       },
     ],
@@ -136,32 +142,41 @@ export default {
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
-          const isRedWolf = caster.burstStep === 'Step3' || caster.burstStep === 'StepFull';
-          if (!isRedWolf) return false;
-          const end10            = state.tick + TICK_RATE * 10;
-          // S2 Part4：自身 ATK ▲[S2 param4]% 10s（仅 Red Wolf）
-          const s2AtkPct         = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'Wild Tooth P4 L2', unitId: caster.id,
-            atkPct: s2AtkPct, endTick: end10 });
-          // Charge Speed ▲[Burst param9]% 10s（Red Wolf 追加效果）
-          const chargeSpeedPct   = getSkillValue(caster.rawBurst, 9, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'Red Wolf P1 L5', unitId: caster.id,
-            chargeSpeedPct, endTick: end10 });
-          // 武器切换：Damage [Burst param6]% final ATK · FC 250% · 10s · 弹匣容量 99
-          // Red Wolf 弹匣 99 发，10s 实测约 32 发，不会触发装弹
-          const weaponSwitchHitMult = getSkillValue(caster.rawBurst, 6, caster.skillLevels[2]) / 100;
-          caster.skillState.rhNormalAmmoSaved             = caster.ammoLeft;
-          caster.ammoLeft                                 = 99;
-          caster.skillState.weaponSwitchHitMult           = weaponSwitchHitMult;
-          caster.skillState.weaponSwitchType              = 'SR';
-          caster.skillState.weaponSwitchEndTick           = end10;
-          caster.skillState.weaponSwitchChargeTimeTicks   = 19;
-          caster.skillState.weaponSwitchFullChargeDamage  = 25000; // 250% FC
-          caster.skillState.weaponSwitchUnlimitedAmmo     = false;
-          // 立即开始蓄力（全爆裂期间首发尽快打出）
-          caster.chargeTick = state.tick;
-          // 更新 CS 转化 buff（Red Wolf CS buff 现已生效）
-          updateRhCsConversion(state, caster, end10);
+          if (state.burstPhase === 1) {
+
+          } else if (state.burstPhase === 2) {
+
+          } else if (state.burstPhase === 3) {
+            const end10            = state.tick + TICK_RATE * 10;
+            // S2 Part4：自身 ATK ▲[S2 param4]% 10s（仅 Red Wolf）
+            const s2AtkPct         = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
+            pushBuff(state, { name: 'Wild Tooth P4', unitId: caster.id,
+              atkPct: s2AtkPct, endTick: end10 },
+              { unitName: caster.name,
+                skillLabel: caster.rawSkill2?.name_localkey ?? 'S2',
+                slot: 'S2',
+                partIdx: 3,
+                lineIdx: null,
+                trigger: state._logCtx?.trigger ?? 'BURST_SKILL_USE',
+              });
+            // Charge Speed ▲[Burst param9]% 10s（Red Wolf 追加效果）
+            const chargeSpeedPct   = getSkillValue(caster.rawBurst, 9, caster.skillLevels[2]) / 100;
+            pushBuff(state, { name: 'Red Wolf P4 L8', unitId: caster.id,
+              chargeSpeedPct, endTick: end10 }, { ...state._logCtx, partIdx: 3 });
+            // 武器切换：Damage [Burst param6]% final ATK · FC 250% · 10s · 弹匣容量 99
+            // Red Wolf 弹匣 99 发，10s 实测约 32 发，不会触发装弹
+            const weaponSwitchHitMult = getSkillValue(caster.rawBurst, 6, caster.skillLevels[2]) / 100;
+            caster.skillState.rhNormalAmmoSaved             = caster.ammoLeft;
+            caster.ammoLeft                                 = 99;
+            caster.skillState.weaponSwitchHitMult           = weaponSwitchHitMult;
+            caster.skillState.weaponSwitchType              = 'SR';
+            caster.skillState.weaponSwitchEndTick           = end10;
+            caster.skillState.weaponSwitchChargeTimeTicks   = 19;
+            caster.skillState.weaponSwitchFullChargeDamage  = 25000; // 250% FC
+            caster.skillState.weaponSwitchUnlimitedAmmo     = false;
+            // 立即开始蓄力（全爆裂期间首发尽快打出）
+            caster.chargeTick = state.tick;
+          }
         },
       },
       // 全爆裂结束：恢复普通武器弹药 + 重算 CS 转化
@@ -175,7 +190,6 @@ export default {
             caster.ammoLeft = caster.skillState.rhNormalAmmoSaved;
             caster.skillState.rhNormalAmmoSaved = null;
           }
-          updateRhCsConversion(state, caster, state.tick + TICK_RATE * 5);
         },
       },
     ],

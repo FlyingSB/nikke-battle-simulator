@@ -24,6 +24,9 @@
  *   CORE_HIT            命中敌人核心时（ctx.unit = 射击单位，ctx.isCore = true）
  *   RELOAD_END          自然装填完成（ammoLeft 恢复至 maxAmmo）时（ctx.unit = 装填单位）
  *                       不包含技能/道具补弹将弹匣填满的情况
+ *   CS_BUFF_CHANGED     含 chargeSpeedPct 的 buff 被推入或过期时（ctx.unit = 受影响单位）
+ *                       由 pushBuff → _trackCsChange → flushCsChanged / buff 过期清理 分派；
+ *                       供需要感知自身蓄力速度变化的技能（如 Red Hood S1 P2）使用
  *
  * 作用范围（target 字段）：
  *   SELF                     自身（caster）

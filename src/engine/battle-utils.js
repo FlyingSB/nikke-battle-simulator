@@ -267,10 +267,22 @@ export function pushBuff(state, buffObj, logCtx = null) {
     }
     if (effectiveLogCtx) _emitBuffEvent(state, buffObj, effectiveLogCtx);
     _maybeRecalcMaxAmmo(state, buffObj);
+    _trackCsChange(state, buffObj);
     return;
   }
   _pushBuffCore(state, buffObj, effectiveLogCtx);
   _maybeRecalcMaxAmmo(state, buffObj);
+  _trackCsChange(state, buffObj);
+}
+
+// CS buff 推入时记录受影响单位，供 battle.js flushCsChanged 分派 CS_BUFF_CHANGED 事件。
+function _trackCsChange(state, buffObj) {
+  if (!(buffObj.chargeSpeedPct ?? 0) || !state._pendingCsChangedIds) return;
+  if (buffObj.unitId === null) {
+    for (const u of state.squad) state._pendingCsChangedIds.add(u.id);
+  } else {
+    state._pendingCsChangedIds.add(buffObj.unitId);
+  }
 }
 
 // ─── 回合制 Buff 消耗 ──────────────────────────────────────────────────────

@@ -120,11 +120,27 @@ function flushCoverHeal(state) {
 }
 
 /**
+ * 分派 CS_BUFF_CHANGED 触发：消费 state._pendingCsChangedIds（由 pushBuff → _trackCsChange 填充）。
+ * 每个受影响单位独立分派一次非团队触发，供蓄力速度依赖转化技能（如 Red Hood S1 P2）重算。
+ * 先清空集合再迭代，防止 CS_BUFF_CHANGED handler 内再次推入 CS buff 时产生重入循环。
+ */
+function flushCsChanged(state) {
+  if (!state._pendingCsChangedIds.size) return;
+  const ids = [...state._pendingCsChangedIds];
+  state._pendingCsChangedIds.clear();
+  for (const uid of ids) {
+    const u = state.squad.find(u => u.id === uid);
+    if (u) executeSkillTriggers(state, 'CS_BUFF_CHANGED', { unit: u });
+  }
+}
+
+/**
  * 进入 Burst 1 阶段时触发的被动效果（槽填满那一 tick 立即触发，不依赖 B1 单位是否 cast）。
  * 触发时机：burstPhase 从 0 变为 1（共享槽填满）。
  */
 function applyEnterBurst1Passives(state) {
   executeSkillTriggers(state, 'ENTER_BURST_I');
+  flushCsChanged(state);
 }
 
 /**
@@ -133,6 +149,7 @@ function applyEnterBurst1Passives(state) {
  */
 function applyEnterBurst2Passives(state) {
   executeSkillTriggers(state, 'ENTER_BURST_II');
+  flushCsChanged(state);
 }
 
 /**
@@ -141,6 +158,7 @@ function applyEnterBurst2Passives(state) {
  */
 function applyEnterBurst3Passives(state) {
   executeSkillTriggers(state, 'ENTER_BURST_III');
+  flushCsChanged(state);
   flushHealReceived(state);
 }
 
@@ -154,6 +172,7 @@ function applyBurstISkills(state) {
   b1.burstCdRemaining = b1.burstSkillCooltime;
   state.burstCastersThisRotation?.add(b1.id);
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: b1 });
+  flushCsChanged(state);
   flushHealReceived(state);
   flushShieldReceived(state);
   return b1;
@@ -167,6 +186,7 @@ function applyBurstIISkills(state) {
   b2.burstCdRemaining = b2.burstSkillCooltime;
   state.burstCastersThisRotation?.add(b2.id);
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: b2 });
+  flushCsChanged(state);
   flushHealReceived(state);
   flushShieldReceived(state);
   return b2;
@@ -211,6 +231,7 @@ function applyFullBurstSkills(state, events) {
 
     const prePendingLen = state.pendingSkillHits.length;
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: step3 });
+    flushCsChanged(state);
 
     // B3 期间新增的延迟命中将在全爆裂窗口内触发（届时 fullBurstActive=true），需屏蔽补正
     for (let i = prePendingLen; i < state.pendingSkillHits.length; i++) {
@@ -233,6 +254,7 @@ function applyFullBurstSkills(state, events) {
   // 3. ENTER_FULL_BURST 被动触发（此时 fullBurstActive 已为 true）
   const prePendingLenFull = state.pendingSkillHits.length;
   executeSkillTriggers(state, 'ENTER_FULL_BURST');
+  flushCsChanged(state);
   flushHealReceived(state);
 
   // ENTER_FULL_BURST 期间新增的延迟命中同样屏蔽全爆裂补正
@@ -256,6 +278,7 @@ function applyFullBurstSkills(state, events) {
 /** 爆裂结束后的冷却效果与清理。 */
 function applyBurstEndSkills(state) {
   executeSkillTriggers(state, 'FULL_BURST_END');
+  flushCsChanged(state);
   flushHealReceived(state);
 }
 
@@ -615,6 +638,9 @@ export function initBattle(config) {
     // Populated during applyBurstISkills / applyBurstIISkills / applyFullBurstSkills.
     // Cleared when a new rotation begins (gauge fills → burstPhase 0→1).
     burstCastersThisRotation: new Set(),
+    // 本 tick 内被推入含 chargeSpeedPct 的 buff 的单位 ID 集合。
+    // 由 pushBuff → _trackCsChange 填充，由 flushCsChanged 消费分派 CS_BUFF_CHANGED。
+    _pendingCsChangedIds:     new Set(),
     // 全队普通攻击命中计数，由 skill-executor.onShotFired 在每次射击时自增。
     squadShotCount: 0,
     fullBurstCount: 0,
@@ -660,6 +686,7 @@ export function initBattle(config) {
   executeSkillTriggers(state, 'PROGRAM_INIT');
   // BATTLE_START: dispatch all declarative battle-start triggers (e.g. LM Bubble debuff).
   executeSkillTriggers(state, 'BATTLE_START');
+  flushCsChanged(state);
 
   // Note: fav item collection skill effects are applied at unit creation (favNormalAttackDamageMult,
   // favChargeDmgPct, maxAmmo via ammoPct). coreDmgPct is not modeled. DEF▲ etc. are ignored.
@@ -763,8 +790,9 @@ export function tick(state) {
     }
   }
 
-  // 清理过期 buff — 移除前收集需要重算 maxAmmo 的单位 ID
+  // 清理过期 buff — 移除前收集需要重算 maxAmmo 的单位 ID，以及 CS buff 过期的单位 ID
   const _ammoRecalcIds = new Set();
+  const _csExpiredIds  = new Set();
   for (const b of state.buffs) {
     if (b.endTick <= state.tick) {
       if (state.buffLog)
@@ -776,6 +804,13 @@ export function tick(state) {
           for (const u of state.squad) _ammoRecalcIds.add(u.id);
         }
       }
+      if (b.chargeSpeedPct) {
+        if (b.unitId != null) {
+          _csExpiredIds.add(b.unitId);
+        } else {
+          for (const u of state.squad) _csExpiredIds.add(u.id);
+        }
+      }
     }
   }
   state.buffs = state.buffs.filter(b => b.endTick > state.tick);
@@ -784,6 +819,12 @@ export function tick(state) {
   for (const uid of _ammoRecalcIds) {
     const u = state.squad.find(u => u.id === uid);
     if (u) recalcMaxAmmo(state, u);
+  }
+
+  // CS buff 过期后通知受影响单位重算（此时过期 buff 已移除，getBuffSums 返回更新后的值）
+  for (const uid of _csExpiredIds) {
+    const u = state.squad.find(u => u.id === uid);
+    if (u) executeSkillTriggers(state, 'CS_BUFF_CHANGED', { unit: u });
   }
 
   // ── 持续伤害（DoT）池 ────────────────────────────────────────────────────────
@@ -1343,6 +1384,7 @@ export function tick(state) {
       // 双重命中：SHOT_COUNT 已由 fireShotCountTriggers 处理，decrementRoundBuffs 已在第一次命中后调用，均跳过。
       onShotFired(state, unit, { sums, isCharged, hitPart, ammoAfterShot: unit.ammoLeft },
         isDoubleHit ? { skipShotCount: true, skipRoundDecrement: true } : undefined);
+      flushCsChanged(state);
       flushHealReceived(state);
       flushShieldReceived(state);
       flushCoverHeal(state);
@@ -1377,6 +1419,7 @@ export function tick(state) {
       if (milestone500) state.lastMilestone500 = cur500;
       if (milestone400 || milestone500) {
         executeSkillTriggers(state, 'AMMO_MILESTONE', { milestone400, milestone500 });
+        flushCsChanged(state);
       }
     } // 内层射击循环结束
   } // 单位循环结束
