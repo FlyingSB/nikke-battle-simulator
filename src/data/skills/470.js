@@ -89,6 +89,10 @@ export default {
     // [TODO] S2 Part2（Beast Cage）：全员 DEF ▲50.68% RH.DEF 10s
     // [TODO] S2 Part3（The Last Howl）：自身攻击伤害→HP 回复 23.04% 10s
     // S2 Part4（Red Wolf）：自身 ATK ▲71.42% 10s — inline 于 Burst handler
+    // [TODO] 用法2：AllStep B1 奇数轮/偶数轮 — Beast Cage 效果（全员 ATK ▲77.55% 施者ATK · 10s）
+    // [TODO] 用法3：用法2补充 — 首轮额外使用一次 Beast Cage（利用一次性 -40s CD）
+    // [TODO] 用法4：首轮其他角色推进爆裂链，第二轮 Red Hood 独自 B1+B2+B3 推全爆裂，之后退回用法1
+    //         配合暖机 CD 缩减角色（Liter / Helm: Aquamarine / Volume / Dolla）在冷却真空期抢时间
   },
 
   // ── Red Wolf

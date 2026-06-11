@@ -941,7 +941,8 @@ export function createStore() {
         slot.corporation  = saved.corporation ?? slot.corporation;
         slot.element      = saved.element     ?? slot.element;
         slot.weaponType   = saved.weaponType  ?? slot.weaponType;
-        slot.burstStep    = saved.burstStep   ?? slot.burstStep;
+        const savedStep   = saved.burstStep ?? slot.burstStep;
+        slot.burstStep    = savedStep === 'AllStep' ? 'Step3' : savedStep;
         slot.grade        = saved.grade       ?? 0;
         slot.core         = saved.core        ?? 0;
         slot.bondLevel    = saved.bondLevel   ?? 1;
@@ -1003,7 +1004,9 @@ export function createStore() {
       slot.corporation = char.corporation;
       slot.element     = char.element;
       slot.weaponType  = char.weaponType;
-      slot.burstStep   = char.burstStep ?? 'Step3';
+      // AllStep（如 Red Hood）目前仅支持用法1（纯 B3），默认映射为 Step3。
+      // TODO: 将来在 UI 提供选项支持用法2（B1奇/偶轮）、用法3（B1+首轮-40s）、用法4（首轮补位+第二轮独推全爆裂）。
+      slot.burstStep   = char.burstStep === 'AllStep' ? 'Step3' : (char.burstStep ?? 'Step3');
       slot.active      = true;
       slot._nikkeData  = null;
       slot._cubeData   = null;

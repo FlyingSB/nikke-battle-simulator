@@ -118,6 +118,7 @@ export default {
           caster.skillState.rapiPendingProjectileCount = 0;
           caster.skillState.rapiProjectileBuffEndTick  = 0;
           pushBuff(state, { name: 'Attachable Projectiles P1', unitId: caster.id,
+            elementAdvantageVsElectric:    true,
             projectileAttachmentDamagePct: attachBonus,
             projectileExplosionDamagePct:  explosionBonus,
             endTick: Infinity });

@@ -83,6 +83,7 @@ export function getBuffSums(state, unitId) {
   sums.atkPct  = unit.equipAtkPct  ?? 0;
   sums.atkFlat = unit.equipAtkFlat ?? 0;
   let pierce = false;
+  let elementAdvantageVsElectric = false;
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
     if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
@@ -91,8 +92,9 @@ export function getBuffSums(state, unitId) {
     const k = b.stacks ?? 1;
     for (const f of BUFF_NUMERIC_FIELDS) sums[f] += (b[f] ?? 0) * k;
     if (b.pierce) pierce = true;
+    if (b.elementAdvantageVsElectric) elementAdvantageVsElectric = true;
   }
-  return { ...sums, pierce };
+  return { ...sums, pierce, elementAdvantageVsElectric };
 }
 
 // ─── 敌人承伤汇总 ─────────────────────────────────────────────────────────────
@@ -493,7 +495,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     coreDmgIncrement,
     distanceZone:      distanceZoneForHit,
     isFullBurst,
-    attackerElement:   unit.element,
+    attackerElement:   (sums.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
     defenderElement:   state.enemyElement,
     elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantagePct ?? 0),
     isCharged:         charged,
