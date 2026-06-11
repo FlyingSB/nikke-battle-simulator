@@ -178,6 +178,7 @@ export default {
           caster.reloadTick = 0;
 
           caster.skillState.weaponSwitchHitMult          = hitMult;
+          caster.skillState.weaponSwitchMaxAmmo          = 1;
           caster.skillState.weaponSwitchType             = 'Charged';
           caster.skillState.weaponSwitchEndTick          = Infinity;
           caster.skillState.weaponSwitchRoundsLeft       = 1;

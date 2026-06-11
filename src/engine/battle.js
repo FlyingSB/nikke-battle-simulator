@@ -1256,7 +1256,10 @@ export function tick(state) {
       unit.skillDamageCount[shotLabel] = (unit.skillDamageCount[shotLabel] ?? 0) + (isDoubleHit ? 2 : 1);
       // 普通射击的逐发详细日志
       if (state.hitLog) {
-        const effectiveMaxAmmo = unit.maxAmmo;  // 由 recalcMaxAmmo 维护的当前最大弹匣
+        // 武器切换期间临时武器弹匣上限固定，不受魔方/珍藏品/技能影响
+        const effectiveMaxAmmo = weaponSwitchActive
+          ? (unit.skillState.weaponSwitchMaxAmmo ?? unit.maxAmmo)
+          : unit.maxAmmo;
         state.hitLog.push({
           _seq: state._logSeq++,
           tick: state.tick, unitId: unit.id, label: shotLabel,

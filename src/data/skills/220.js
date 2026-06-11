@@ -107,6 +107,7 @@ export default {
           // 原子性批量写入 weaponSwitch 状态（Cat3 TODO 见上方注释）
           Object.assign(caster.skillState, {
             weaponSwitchHitMult:          hitMult,
+            weaponSwitchMaxAmmo:          1,
             weaponSwitchType:             'Charged',
             weaponSwitchEndTick:          Infinity,
             weaponSwitchRoundsLeft:       1,

@@ -169,6 +169,7 @@ export default {
             caster.skillState.rhNormalAmmoSaved             = caster.ammoLeft;
             caster.ammoLeft                                 = 99;
             caster.skillState.weaponSwitchHitMult           = weaponSwitchHitMult;
+            caster.skillState.weaponSwitchMaxAmmo           = 99;
             caster.skillState.weaponSwitchType              = 'SR';
             caster.skillState.weaponSwitchEndTick           = end10;
             caster.skillState.weaponSwitchChargeTimeTicks   = 19;
