@@ -512,41 +512,74 @@ select.input { cursor: pointer; }
   background: var(--surface3);
   border: 1px solid var(--border2);
   border-radius: var(--r);
-  padding: 6px 4px;
+  padding: 4px 0;
   font-size: 0.68rem;
   pointer-events: none;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
   min-width: 200px;
 }
 
-.dmg-tooltip-table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.dmg-tooltip-table td {
-  padding: 2px 8px;
-  white-space: nowrap;
-  line-height: 1.5;
-}
-
-.dmg-tooltip-table td:first-child {
-  color: var(--text-dim);
-  text-align: left;
-}
-
-.dmg-tooltip-table td:last-child {
-  font-family: var(--font-mono);
-  color: var(--text);
-  text-align: right;
-}
-
-.dmg-tooltip-table tr:last-child td {
+/* ── 分段容器 ── */
+.dmg-tip-sect {
+  padding: 4px 0 2px;
   border-top: 1px solid var(--border2);
-  padding-top: 4px;
-  color: var(--accent3);
-  font-weight: 600;
 }
+.dmg-tip-sect:first-child { border-top: none; }
+
+/* 次一级 flat 段：虚线上边框 */
+.dmg-tip-sect--sub {
+  border-top: 1px dashed var(--border);
+}
+
+/* 段标题：小字、uppercase、低饱和灰 */
+.dmg-tip-hd {
+  font-size: 0.72em;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 0 10px 1px;
+  opacity: 0.7;
+}
+
+/* 数据行 */
+.dmg-tip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 0 10px;
+  line-height: 1.55;
+}
+
+/* 左列：buff/来源名称 */
+.dmg-tip-lbl {
+  color: var(--text-dim);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 右列数值类型 */
+.dmg-tip-pct  { font-family: var(--font-mono); color: var(--accent);  white-space: nowrap; flex-shrink: 0; }
+.dmg-tip-flat { font-family: var(--font-mono); color: var(--accent3); white-space: nowrap; flex-shrink: 0; }
+.dmg-tip-neg  { font-family: var(--font-mono); color: var(--accent2); white-space: nowrap; flex-shrink: 0; }
+.dmg-tip-num  { font-family: var(--font-mono); color: var(--text);    white-space: nowrap; flex-shrink: 0; }
+.dmg-tip-note { color: var(--text-dim); font-style: italic;           white-space: nowrap; flex-shrink: 0; }
+
+/* 最终伤害 */
+.dmg-tip-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 4px 10px 2px;
+  margin-top: 2px;
+  border-top: 1px solid var(--border2);
+}
+.dmg-tip-result-lbl { color: var(--text-dim); letter-spacing: 0.04em; }
+.dmg-tip-result-val { font-family: var(--font-mono); font-weight: 700; color: var(--accent3); }
 
 /* ── 技能 tooltip ────────────────────────────────────────── */
 .log-label--tip { cursor: help; }

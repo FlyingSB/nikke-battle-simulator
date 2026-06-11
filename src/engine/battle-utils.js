@@ -552,14 +552,20 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       isDistributed, distributedDamagePct,
       isCore, coreDmgIncrement, damage,
       elementDmgPct: unit.stats.elementDmgPct ?? 0,
+      equipElementDmgPct: unit.stats.equipElementDmgPct ?? 0,
+      equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0,
       elemMult: bd.elemMult,
       chargeMult: bd.chargeMult,
       distanceAdv: distanceZoneForHit !== null && hasDistanceAdvantage(unit.weaponType, distanceZoneForHit),
       buffBreakdown: [
         ...state.buffs
           .filter(b => b.unitId === null || b.unitId === unit.id)
-          .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: b.attackDamagePct ?? 0, sequentialAttackDamagePct: b.sequentialAttackDamagePct ?? 0, elementAdvantagePct: b.elementAdvantagePct ?? 0, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null, sourceLineIdx: b._sourceLineIdx ?? null }))
-          .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct),
+          .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0,
+            attackDamagePct: (b.attackDamagePct ?? 0)
+              + (extraAtkDmgPct > 0 ? (b.projectileAttachmentDamagePct ?? 0) : 0)
+              + (projectileExplosionDamagePct > 0 ? (b.projectileExplosionDamagePct ?? 0) : 0),
+            sequentialAttackDamagePct: b.sequentialAttackDamagePct ?? 0, elementAdvantagePct: b.elementAdvantagePct ?? 0, coreDamagePct: b.coreDamagePct ?? 0, chargeDamagePct: b.chargeDamagePct ?? 0, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null, sourceLineIdx: b._sourceLineIdx ?? null }))
+          .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct),
         ...getEnemyDebuffBreakdown(state),
       ],
     });

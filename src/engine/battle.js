@@ -1174,10 +1174,11 @@ export function tick(state) {
                    && (b.roundsLeft === undefined || b.roundsLeft > 0))
         .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0,
                      attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0),
-                     pierceDamagePct: b.pierceDamagePct ?? 0,
+                     pierceDamagePct: b.pierceDamagePct ?? 0, coreDamagePct: b.coreDamagePct ?? 0,
+                     chargeDamagePct: b.chargeDamagePct ?? 0,
                      sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null,
                      sourcePartIdx: b._sourcePartIdx ?? null }))
-        .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct);
+        .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct);
       let _hit1BreakdownBufs = null, _hit2BreakdownBufs = null;
       if (isDoubleHit && state.hitLog) _hit1BreakdownBufs = _snapActiveBufs();
 
@@ -1269,6 +1270,8 @@ export function tick(state) {
           coreDmgIncrement: (unit.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0),
           damage,
           elementDmgPct: unit.stats.elementDmgPct ?? 0,
+          equipElementDmgPct: unit.stats.equipElementDmgPct ?? 0,
+          equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0,
           elemMult: bd.elemMult,
           chargeMult: bd.chargeMult,
           // 武器切换期间距离加成仍按原始武器判定（游戏实测规则）
@@ -1282,8 +1285,8 @@ export function tick(state) {
           buffBreakdown: [
             ...(_hit1BreakdownBufs ?? state.buffs
               .filter(b => b.unitId === null || b.unitId === unit.id)
-              .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0), pierceDamagePct: b.pierceDamagePct ?? 0, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null }))
-              .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct)),
+              .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0), pierceDamagePct: b.pierceDamagePct ?? 0, coreDamagePct: b.coreDamagePct ?? 0, chargeDamagePct: b.chargeDamagePct ?? 0, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null }))
+              .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct)),
             ...getEnemyDebuffBreakdown(state),
           ],
         });
@@ -1304,6 +1307,8 @@ export function tick(state) {
             coreDmgIncrement: (unit.coreDmgIncrement ?? 0) + (isCore ? (sums2log.coreDamagePct ?? 0) : 0),
             damage: damage2,
             elementDmgPct: unit.stats.elementDmgPct ?? 0,
+            equipElementDmgPct: unit.stats.equipElementDmgPct ?? 0,
+            equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0,
             elemMult: bd.elemMult,
             chargeMult: bd.chargeMult,
             distanceAdv: hasDistanceAdvantage(unit.weaponType, state.distanceZone)

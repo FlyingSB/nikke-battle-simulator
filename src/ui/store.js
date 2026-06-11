@@ -574,100 +574,177 @@ function _numFmt(v) {
 }
 
 function buildDmgTooltipHTML(h) {
-  const rows = [];
-  const r = (name, val) => rows.push([name, val]);
-
-  const atkPct    = h.atkPct   ?? 0;
-  const atkFlat   = h.atkFlat  ?? 0;
-  const enemyDef  = h.enemyDef ?? 0;
-  const hitMult   = h.hitMult  ?? 1;
-  const favMult   = h.favNormalAttackDamageMult ?? 1;
-  const isCrit    = h.isCrit   ?? false;
-  const critInc   = h.critDmgInc ?? 0;
-  const isCore    = h.isCore   ?? false;
-  const coreInc   = h.coreDmgIncrement ?? 0;
-  const distAdv   = h.distanceAdv ?? false;
-  const isFB      = h.isFullBurst ?? false;
-  const elemMult  = h.elemMult ?? 1;
-  const chargeMult= h.chargeMult ?? 1;
-  const atkDmgPct    = h.attackDamagePct ?? 0;
-  const dmgTaken     = h.damageTakenPct ?? 0;
-  const piercePct    = h.pierceDamagePct ?? 0;
+  const bd           = h.buffBreakdown ?? [];
+  const enemyDef     = h.enemyDef ?? 0;
+  const hitMult      = h.hitMult  ?? 1;
+  const favMult      = h.favNormalAttackDamageMult ?? 1;
+  const isCrit       = h.isCrit   ?? false;
+  const critInc      = h.critDmgInc ?? 0;
+  const isCore       = h.isCore   ?? false;
+  const coreInc      = h.coreDmgIncrement ?? 0;
+  const distAdv      = h.distanceAdv ?? false;
+  const isFB         = h.isFullBurst ?? false;
+  const elemMult     = h.elemMult ?? 1;
+  const chargeMult   = h.chargeMult ?? 1;
   const sustainedPct = h.sustainedDamagePct ?? 0;
   const truePct      = h.trueDamagePct ?? 0;
   const isTrueDmg    = h.isTrueDamage ?? false;
 
-  // 基础攻击段
-  r('基础攻击力', `(${_numFmt(h.atk ?? 0)}`);
-  if (atkPct !== 0) {
-    r('—', '*(100%');
-    r('攻击力增加', `+${_pct(atkPct)})`);
-  }
-  if (atkFlat !== 0) {
-    r('攻击力增加（固定）', `+${_numFmt(atkFlat)}`);
-  }
-  r('敌人防御力', isTrueDmg ? `-0（真实伤害，无视防御）)` : `-${_numFmt(enemyDef)})`);
-  r('武器伤害系数', `*${_pct(hitMult)}`);
-  if (favMult !== 1) {
-    r('普通攻击倍率（珍藏品）', `*${_pct(favMult)}`);
+  const coreBufs     = isCore ? bd.filter(b => Math.abs(b.coreDamagePct ?? 0) > 0.0001) : [];
+  const coreBufSum   = coreBufs.reduce((s, b) => s + (b.coreDamagePct ?? 0), 0);
+  const coreResidual = (isCore && coreInc > 0.0001) ? Math.max(0, coreInc - coreBufSum) : 0;
+
+  // ── 分段构建器 ──────────────────────────────────────────────
+  const sects = [];
+  const addSect = (title, sub = false) => {
+    const s = { title, sub, items: [] };
+    sects.push(s);
+    return s;
+  };
+  const addItem = (s, lbl, val, type = 'pct') => s.items.push({ lbl, val, type });
+  const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // ── 基础攻击力 ──
+  {
+    const s = addSect('基础攻击力');
+    addItem(s, '', _numFmt(h.atk ?? 0), 'num');
   }
 
-  // CommonMultiplier
-  const cmBonuses = [];
-  if (isCrit)  cmBonuses.push(['暴击伤害加成', _BASE_CRIT_DAMAGE + critInc]);
-  if (isCore)  cmBonuses.push(['核心伤害加成', _BASE_CORE_DAMAGE + coreInc]);
-  if (distAdv) cmBonuses.push(['距离优势', _DISTANCE_ADV_BONUS]);
-  if (isFB)    cmBonuses.push(['Full Burst 加成', _FULL_BURST_BONUS]);
-  if (cmBonuses.length > 0) {
-    r('—', '*(100%');
-    cmBonuses.forEach(([name, val], i) => {
-      r(name, `+${_pct(val)}${i === cmBonuses.length - 1 ? ')' : ''}`);
-    });
+  // ── 攻击力系数（ATK%）──
+  const atkPctBufs   = bd.filter(b => Math.abs(b.atkPct ?? 0) > 0.0001);
+  const atkPctBufSum = atkPctBufs.reduce((s, b) => s + (b.atkPct ?? 0), 0);
+  const atkPctEquip  = (h.atkPct ?? 0) - atkPctBufSum;
+  if (Math.abs(h.atkPct ?? 0) > 0.0001) {
+    const s = addSect('攻击力系数');
+    if (Math.abs(atkPctEquip) > 0.0001) addItem(s, '装备', `+${_pct(atkPctEquip)}`);
+    atkPctBufs.forEach(b => addItem(s, b.name, `+${_pct(b.atkPct)}`));
   }
 
-  // ElementMultiplier
+  // ── 固定加成（次一级 sub-section）──
+  const atkFlatBufs   = bd.filter(b => Math.abs(b.atkFlat ?? 0) > 0.0001);
+  const atkFlatBufSum = atkFlatBufs.reduce((s, b) => s + (b.atkFlat ?? 0), 0);
+  const atkFlatEquip  = (h.atkFlat ?? 0) - atkFlatBufSum;
+  if (Math.abs(h.atkFlat ?? 0) > 0.0001) {
+    const s = addSect('固定加成', true);
+    if (Math.abs(atkFlatEquip) > 0.0001) addItem(s, '装备', `+${_numFmt(atkFlatEquip)}`, 'flat');
+    atkFlatBufs.forEach(b => addItem(s, b.name, `+${_numFmt(b.atkFlat)}`, 'flat'));
+  }
+
+  // ── 防御力 ──
+  {
+    const s = addSect('防御力');
+    addItem(s, '', isTrueDmg ? '真实伤害·无视防御' : `−${_numFmt(enemyDef)}`, isTrueDmg ? 'note' : 'neg');
+  }
+
+  // ── 伤害系数 ──
+  {
+    const s = addSect('伤害系数');
+    addItem(s, '', `×${_pct(hitMult)}`, 'pct');
+    if (favMult !== 1) addItem(s, '珍藏品普攻倍率', `×${_pct(favMult)}`, 'pct');
+  }
+
+  // ── 通用系数（暴击 / 核心 / 距离 / Full Burst）──
+  if (isCrit || isCore || distAdv || isFB) {
+    const s = addSect('通用系数');
+    if (isCrit) {
+      addItem(s, '暴击伤害加成', `+${_pct(_BASE_CRIT_DAMAGE + critInc)}`);
+    }
+    if (isCore) {
+      addItem(s, '核心（基础）', `+${_pct(_BASE_CORE_DAMAGE)}`);
+      coreBufs.forEach(b => addItem(s, b.name, `+${_pct(b.coreDamagePct)}`));
+      if (coreResidual > 0.0001) addItem(s, '核心伤害增加', `+${_pct(coreResidual)}`);
+    }
+    if (distAdv) addItem(s, '距离优势',  `+${_pct(_DISTANCE_ADV_BONUS)}`);
+    if (isFB)    addItem(s, 'Full Burst', `+${_pct(_FULL_BURST_BONUS)}`);
+  }
+
+  // ── 优越代码加成 ──
   if (elemMult > 1.0001) {
-    const extra = elemMult - 1 - _ELEM_ADV_BASE;
-    r('—', '*(100%');
-    if (extra > 0.0001) {
-      r('基础优越代码伤害增加', `+${_pct(_ELEM_ADV_BASE)}`);
-      r('优越代码伤害增加', `+${_pct(extra)})`);
+    const equipElemPct = h.equipElementDmgPct ?? 0;
+    const cubeElemPct  = (h.elementDmgPct ?? 0) - equipElemPct;
+    const elemBufs     = bd.filter(b => Math.abs(b.elementAdvantagePct ?? 0) > 0.0001);
+    const s = addSect('优越代码加成');
+    addItem(s, '基础', `+${_pct(_ELEM_ADV_BASE)}`);
+    if (Math.abs(equipElemPct) > 0.0001) addItem(s, '装备', `+${_pct(equipElemPct)}`);
+    if (Math.abs(cubeElemPct)  > 0.0001) addItem(s, '魔方', `+${_pct(cubeElemPct)}`);
+    elemBufs.forEach(b => addItem(s, b.name, `+${_pct(b.elementAdvantagePct)}`));
+  }
+
+  // ── 蓄力系数 ──
+  if (Math.abs(chargeMult - 1) > 0.0001) {
+    const chargeBufs   = bd.filter(b => Math.abs(b.chargeDamagePct ?? 0) > 0.0001);
+    const chargeBufSum = chargeBufs.reduce((s, b) => s + (b.chargeDamagePct ?? 0), 0);
+    const equipCharge  = h.equipChargeDmgPct ?? 0;
+    const chargeBase   = chargeMult - equipCharge - chargeBufSum;
+    const s = addSect('蓄力系数');
+    if (Math.abs(equipCharge) > 0.0001 || chargeBufs.length > 0) {
+      addItem(s, '武器基础', `${_pct(chargeBase)}`);
+      if (Math.abs(equipCharge) > 0.0001) addItem(s, '装备', `+${_pct(equipCharge)}`);
+      chargeBufs.forEach(b => addItem(s, b.name, `+${_pct(b.chargeDamagePct)}`));
     } else {
-      r('基础优越代码伤害增加', `+${_pct(_ELEM_ADV_BASE)})`);
+      addItem(s, '', `×${_pct(chargeMult)}`, 'pct');
     }
   }
 
-  // ChargeDamageMultiplier
-  if (Math.abs(chargeMult - 1) > 0.0001) {
-    r('蓄力伤害系数', `*${_pct(chargeMult)}`);
+  // ── 伤害加成（ExtraMultiplier）──
+  const extraBufs = bd.filter(b =>
+    Math.abs(b.attackDamagePct           ?? 0) > 0.0001 ||
+    Math.abs(b.pierceDamagePct           ?? 0) > 0.0001 ||
+    Math.abs(b.sequentialAttackDamagePct ?? 0) > 0.0001
+  );
+  const extraFallback = extraBufs.length === 0 && (
+    Math.abs(h.attackDamagePct           ?? 0) > 0.0001 ||
+    Math.abs(h.pierceDamagePct           ?? 0) > 0.0001 ||
+    Math.abs(h.sequentialAttackDamagePct ?? 0) > 0.0001
+  );
+  const hasExtra = extraBufs.length > 0 || extraFallback
+    || Math.abs(sustainedPct) > 0.0001 || Math.abs(truePct) > 0.0001;
+
+  if (hasExtra) {
+    const s = addSect('伤害加成');
+    if (extraBufs.length > 0) {
+      extraBufs.forEach(b => {
+        if (Math.abs(b.attackDamagePct           ?? 0) > 0.0001) addItem(s, b.name, `+${_pct(b.attackDamagePct)}`);
+        if (Math.abs(b.pierceDamagePct           ?? 0) > 0.0001) addItem(s, b.name, `+${_pct(b.pierceDamagePct)}`);
+        if (Math.abs(b.sequentialAttackDamagePct ?? 0) > 0.0001) addItem(s, b.name, `+${_pct(b.sequentialAttackDamagePct)}`);
+      });
+    } else {
+      if (Math.abs(h.attackDamagePct           ?? 0) > 0.0001) addItem(s, '攻击伤害增加',     `+${_pct(h.attackDamagePct)}`);
+      if (Math.abs(h.pierceDamagePct           ?? 0) > 0.0001) addItem(s, '穿透伤害增加',     `+${_pct(h.pierceDamagePct)}`);
+      if (Math.abs(h.sequentialAttackDamagePct ?? 0) > 0.0001) addItem(s, '依次攻击伤害增加', `+${_pct(h.sequentialAttackDamagePct)}`);
+    }
+    if (Math.abs(sustainedPct) > 0.0001) addItem(s, '持续伤害增加',       `+${_pct(sustainedPct)}`);
+    if (Math.abs(truePct)      > 0.0001) addItem(s, '无视防御力伤害增加', `+${_pct(truePct)}`);
   }
 
-  // ExtraMultiplier（§3.5）
-  const seqAtkPct = h.sequentialAttackDamagePct ?? 0;
-  const extraLines = [];
-  if (Math.abs(atkDmgPct)    > 0.0001) extraLines.push(['攻击伤害增加',      _pct(atkDmgPct)]);
-  if (Math.abs(piercePct)    > 0.0001) extraLines.push(['穿透伤害增加',      _pct(piercePct)]);
-  if (Math.abs(seqAtkPct)    > 0.0001) extraLines.push(['依次攻击伤害增加',  _pct(seqAtkPct)]);
-  if (Math.abs(sustainedPct) > 0.0001) extraLines.push(['持续伤害增加',      _pct(sustainedPct)]);
-  if (Math.abs(truePct)      > 0.0001) extraLines.push(['无视防御力伤害增加', _pct(truePct)]);
-  if (extraLines.length > 0) {
-    r('—', '*(100%');
-    extraLines.forEach(([name, val], i) =>
-      r(name, `+${val}${i === extraLines.length - 1 ? ')' : ''}`));
+  // ── 受创加深（DamageTakenLikeMultiplier）──
+  const debuffBufs = bd.filter(b => b.isEnemyDebuff && Math.abs(b.damageTakenPct ?? 0) > 0.0001);
+  if (debuffBufs.length > 0) {
+    const s = addSect('受创加深');
+    debuffBufs.forEach(b => addItem(s, b.name, `+${_pct(b.damageTakenPct)}`));
+  } else if (Math.abs(h.damageTakenPct ?? 0) > 0.0001) {
+    const s = addSect('受创加深');
+    addItem(s, '受创伤害增加', `+${_pct(h.damageTakenPct)}`);
   }
 
-  // DamageTakenLikeMultiplier
-  if (Math.abs(dmgTaken) > 0.0001) {
-    r('—', '*(100%');
-    r('受创伤害增加', `+${_pct(dmgTaken)})`);
-  }
+  // ── 渲染 ────────────────────────────────────────────────────
+  const typeClass = t =>
+    t === 'flat' ? 'dmg-tip-flat' :
+    t === 'neg'  ? 'dmg-tip-neg'  :
+    t === 'num'  ? 'dmg-tip-num'  :
+    t === 'note' ? 'dmg-tip-note' : 'dmg-tip-pct';
 
-  r('—', `=${_numFmt(h.damage ?? 0)}`);
+  const sectHtml = sects.map(s => {
+    const hdHtml   = `<div class="dmg-tip-hd">${esc(s.title)}</div>`;
+    const rowsHtml = s.items.map(({ lbl, val, type }) =>
+      `<div class="dmg-tip-row"><span class="dmg-tip-lbl">${esc(lbl)}</span><span class="${typeClass(type)}">${val}</span></div>`
+    ).join('');
+    return `<div class="dmg-tip-sect${s.sub ? ' dmg-tip-sect--sub' : ''}">${hdHtml}${rowsHtml}</div>`;
+  }).join('');
 
-  const trs = rows.map(([n, v]) =>
-    `<tr><td>${n}</td><td>${v}</td></tr>`
-  ).join('');
-  return `<table class="dmg-tooltip-table">${trs}</table>`;
+  const resultHtml = `<div class="dmg-tip-result"><span class="dmg-tip-result-lbl">最终伤害</span><span class="dmg-tip-result-val">${_numFmt(h.damage ?? 0)}</span></div>`;
+
+  return `<div class="dmg-tip">${sectHtml}${resultHtml}</div>`;
 }
 
 // ─── store 工厂 ────────────────────────────────────────────────────────────────
