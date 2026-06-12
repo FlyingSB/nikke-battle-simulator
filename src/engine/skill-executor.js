@@ -412,9 +412,14 @@ export function onShotFired(state, unit, shotCtx, opts = {}) {
     for (const skillKey of ['skill1', 'skill2', 'burst']) {
       const skill = charSkills[skillKey];
       if (!skill?.triggers) continue;
-      for (const tdef of skill.triggers) {
+      for (const [tdefIdx, tdef] of skill.triggers.entries()) {
         if (tdef.on !== 'SQUAD_SHOT_COUNT') continue;
-        if (tdef.handler) tdef.handler(state, caster, { shootingUnit: unit });
+        if (tdef.handler) {
+          const logCtx = buildLogCtx(caster, skillKey, tdefIdx, tdef, skill, 'SQUAD_SHOT_COUNT');
+          state._logCtx = logCtx;
+          tdef.handler(state, caster, { shootingUnit: unit });
+          state._logCtx = null;
+        }
       }
     }
   }

@@ -35,7 +35,7 @@ export default {
           if (!s1 || lv <= 0) return;
           const mult = getSkillValue(s1, 1, lv) / 100;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, 'S1_burst_weapon_hit');
+          fireSkillHit(state, caster, mult, sums, 'S1 P2');
         },
       },
       // S1 SSR Fervor（被动）：战斗开始 → 激活 Fervor 状态（用于 S2 与 Burst）
@@ -147,7 +147,7 @@ export default {
           caster.skillState.weaponSwitchRoundsLeft    = 0;
           caster.skillState.weaponSwitchUnlimitedAmmo = true;
 
-          pushBuff(state, { name: 'Fair and Square! P1 L3', unitId: caster.id,
+          pushBuff(state, { name: 'Fair and Square! P1 L6', unitId: caster.id,
             lifeStealPct: lsPct, endTick: end10 });
 
           const s1   = caster.ssrFavSkills?.skill1;
@@ -156,9 +156,6 @@ export default {
             const fervorSec   = getSkillValue(s1, 3, s1Lv);
             const fervorTicks = Math.round(TICK_RATE * fervorSec);
             caster.burstCdRemaining = Math.max(0, caster.burstCdRemaining - fervorTicks);
-            if (state.buffLog)
-              state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
-                name: 'Bring It On! P3 L2', unitId: caster.id, reductionTicks: fervorTicks });
           }
         },
       },
@@ -171,7 +168,7 @@ export default {
           if (!burstSkill || lv <= 0) return false;
           const atkPct = getSkillValue(burstSkill, 8, lv) / 100;
           if (atkPct <= 0) return false;
-          pushBuff(state, { name: 'Fair and Square! P2 L3', unitId: null,
+          pushBuff(state, { name: 'Fair and Square! P2', unitId: null,
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },

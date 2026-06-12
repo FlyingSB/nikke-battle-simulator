@@ -76,7 +76,7 @@ export default {
             const atkFlat = Math.round(caster.stats.atk * atkPct);
             for (const u of state.squad) {
               if (u.element !== 'Water') continue;
-              pushBuff(state, { name: 'Hello Ghost P2 L1', unitId: u.id,
+              pushBuff(state, { name: 'Hello Ghost P2 L4', unitId: u.id,
                 atkFlat, endTick: Infinity });
             }
           }
@@ -86,7 +86,7 @@ export default {
             const elemAdvPct = getSkillValue(caster.rawSkill1, 6, lv) / 100;
             for (const u of state.squad) {
               if (u.element !== 'Water') continue;
-              pushBuff(state, { name: 'Hello Ghost P2 L2', unitId: u.id,
+              pushBuff(state, { name: 'Hello Ghost P2 L6', unitId: u.id,
                 elementAdvantagePct: elemAdvPct, endTick: Infinity });
             }
           }
@@ -188,7 +188,7 @@ export default {
           // 幽灵减少后，检查 Elem Adv buff 条件（需 ≥4 幽灵）
           const newGhosts = caster.skillState.ebs_ghostCount;
           if (newGhosts < 4) {
-            state.buffs = state.buffs.filter(b => b.name !== 'Hello Ghost P2 L2');
+            state.buffs = state.buffs.filter(b => b.name !== 'Hello Ghost P2 L6');
           }
           // ATK buff（Hello Ghost P2 L1）：非13模式至少保留1幽灵，13模式后剩4幽灵，均 ≥1，故不移除
         },

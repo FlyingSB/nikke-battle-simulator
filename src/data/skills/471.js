@@ -155,7 +155,7 @@ export default {
         handler(state, caster) {
           const p05   = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const end10 = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'Shades of White P3 L2', unitId: caster.id,
+          pushBuff(state, { name: 'Shades of White P3', unitId: caster.id,
             atkPct: p05, endTick: end10 });
         },
       },
@@ -168,9 +168,9 @@ export default {
           const lv = caster.skillLevels[1];
           const p07 = getSkillValue(caster.rawSkill2, 6, lv) / 100;
           const p09 = getSkillValue(caster.rawSkill2, 8, lv) / 100;
-          pushBuff(state, { name: 'Shades of White P4 L1', unitId: caster.id,
-            chargeDamagePct: p07, endTick: state.tick + 1 });
           pushBuff(state, { name: 'Shades of White P4 L2', unitId: caster.id,
+            chargeDamagePct: p07, endTick: state.tick + 1 });
+          pushBuff(state, { name: 'Shades of White P4 L3', unitId: caster.id,
             sequentialAttackDamagePct: p09, endTick: state.tick + 1 });
         },
       },
