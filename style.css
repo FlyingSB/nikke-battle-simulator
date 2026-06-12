@@ -796,3 +796,11 @@ select.input { cursor: pointer; }
 .no-spin::-webkit-outer-spin-button,
 .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .no-spin { -moz-appearance: textfield; }
+
+/* ── 敌人配置预设 ──────────────────────────────────────────── */
+.card-title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.enemy-preset-controls { display: flex; align-items: center; gap: 4px; }
+.enemy-preset-select   { max-width: 130px; }

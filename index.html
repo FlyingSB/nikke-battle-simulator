@@ -100,10 +100,32 @@
 
           <!-- 敌人配置 -->
           <section class="card">
-            <h2 class="card-title">🎯 敌人配置</h2>
+            <div class="card-title-row">
+              <h2 class="card-title" style="margin-bottom:0">🎯 敌人配置</h2>
+              <div class="enemy-preset-controls">
+                <select class="input input-sm enemy-preset-select"
+                  :value="$store.sim.selectedPresetId ?? ''"
+                  @change="$store.sim.loadEnemyPreset($event.target.value)">
+                  <option value="">已保存配置…</option>
+                  <template x-for="p in $store.sim.enemyPresets" :key="p.id">
+                    <option :value="p.id" x-text="p.name"></option>
+                  </template>
+                </select>
+                <button class="btn btn-ghost btn-sm"
+                  :disabled="!$store.sim.selectedPresetId"
+                  @click="$store.sim.renameEnemyPreset($store.sim.selectedPresetId)"
+                  title="重命名">✎</button>
+                <button class="btn btn-ghost btn-sm"
+                  :disabled="!$store.sim.selectedPresetId"
+                  @click="$store.sim.deleteEnemyPreset($store.sim.selectedPresetId)"
+                  title="删除">×</button>
+              </div>
+            </div>
             <div class="field-group">
               <label class="field-label">代码</label>
-              <select class="input" x-model="$store.sim.enemy.element">
+              <select class="input"
+                :value="$store.sim.enemy.element"
+                @change="$store.sim.enemy.element = $event.target.value; $store.sim.selectedPresetId = null">
                 <option value="Fire">燃烧</option>
                 <option value="Water">水冷</option>
                 <option value="Wind">风压</option>

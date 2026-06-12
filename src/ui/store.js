@@ -40,7 +40,8 @@ const CLASS_LABEL   = { Attacker: '火力型', Defender: '防御型', Supporter:
 const CORP_LABEL    = { ELYSION: '极乐净土', MISSILIS: '米西利斯', TETRA: '泰特拉', PILGRIM: '朝圣者', ABNORMAL: '反常' };
 const ELEMENT_LABEL = { Fire: '燃烧', Water: '水冷', Wind: '风压', Electric: '电击', Iron: '铁甲' };
 
-const STORAGE_KEY = 'nikke-sim-v1';
+const STORAGE_KEY        = 'nikke-sim-v1';
+const ENEMY_PRESETS_KEY  = 'nikke-enemy-presets-v1';
 
 const EQUIP_SLOTS = ['head', 'torso', 'arms', 'legs'];
 const EQUIP_SLOT_LABELS = { head: '头部', torso: '躯干', arms: '手臂', legs: '腿部' };
@@ -817,6 +818,10 @@ export function createStore() {
       _nextId: 4,
     },
 
+    // 敌人配置预设
+    enemyPresets:     [],
+    selectedPresetId: null,
+
     // 模拟选项
     iterations:    30,
     burstStepSecs: 0.6,
@@ -937,6 +942,7 @@ export function createStore() {
         try { this._restoreSnapshot(JSON.parse(_saved)); } catch {}
       }
 
+      this._loadEnemyPresetsFromStorage();
       this.loading = false;
     },
 
@@ -1186,6 +1192,7 @@ export function createStore() {
     // ── 敌人行动 ──────────────────────────────────────────────────────────────
 
     addEnemyAction() {
+      this.selectedPresetId = null;
       this.enemy.actions.push({ id: this.enemy._nextId++, startTimeS: 0, type: 'def', value: 500 });
     },
 
@@ -1196,18 +1203,89 @@ export function createStore() {
     },
 
     removeEnemyAction(id) {
+      this.selectedPresetId = null;
       this.enemy.actions = this.enemy.actions.filter(a => a.id !== id);
     },
 
     updateEnemyAction(id, field, val) {
       const action = this.enemy.actions.find(a => a.id === id);
       if (!action) return;
+      this.selectedPresetId = null;
       if (field === 'type') {
         // 类型切换时重置值为合理默认
         const defaults = { def: 500, core: 'NONE', position: 'MID' };
         action.value = defaults[val] ?? 500;
       }
       action[field] = val;
+    },
+
+    // ── 敌人配置预设 ──────────────────────────────────────────────────────────
+
+    _loadEnemyPresetsFromStorage() {
+      try {
+        const raw = localStorage.getItem(ENEMY_PRESETS_KEY);
+        this.enemyPresets = raw ? JSON.parse(raw) : [];
+      } catch {
+        this.enemyPresets = [];
+      }
+    },
+
+    _saveEnemyPresetsToStorage() {
+      localStorage.setItem(ENEMY_PRESETS_KEY, JSON.stringify(this.enemyPresets));
+    },
+
+    _getEnemyConfigSignature() {
+      const actions = this.enemy.actions
+        .map(({ startTimeS, type, value }) => `${startTimeS}|${type}|${value}`)
+        .join(',');
+      return `${this.enemy.element}:${this.enemy.type}:${actions}`;
+    },
+
+    saveEnemyPresetIfNew() {
+      const sig = this._getEnemyConfigSignature();
+      if (this.enemyPresets.some(p => p._sig === sig)) return;
+      const now = Date.now();
+      const d   = new Date(now);
+      const pad = n => String(n).padStart(2, '0');
+      const name = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      this.enemyPresets.push({
+        id:        `preset_${now}`,
+        name,
+        createdAt: now,
+        _sig:      sig,
+        config: {
+          element: this.enemy.element,
+          type:    this.enemy.type,
+          actions: this.enemy.actions.map(({ startTimeS, type, value }) => ({ startTimeS, type, value })),
+        },
+      });
+      this._saveEnemyPresetsToStorage();
+    },
+
+    loadEnemyPreset(id) {
+      if (!id) return;
+      const preset = this.enemyPresets.find(p => p.id === id);
+      if (!preset) return;
+      this.enemy.element = preset.config.element;
+      this.enemy.type    = preset.config.type;
+      this.enemy.actions = preset.config.actions.map((a, i) => ({ ...a, id: i + 1 }));
+      this.enemy._nextId = preset.config.actions.length + 1;
+      this.selectedPresetId = id;
+    },
+
+    deleteEnemyPreset(id) {
+      this.enemyPresets = this.enemyPresets.filter(p => p.id !== id);
+      if (this.selectedPresetId === id) this.selectedPresetId = null;
+      this._saveEnemyPresetsToStorage();
+    },
+
+    renameEnemyPreset(id) {
+      const preset = this.enemyPresets.find(p => p.id === id);
+      if (!preset) return;
+      const name = prompt('请输入新名称：', preset.name);
+      if (name === null || name.trim() === '') return;
+      preset.name = name.trim();
+      this._saveEnemyPresetsToStorage();
     },
 
     // ── 魔方 ──────────────────────────────────────────────────────────────────
@@ -1544,6 +1622,7 @@ export function createStore() {
         this.hitLogRaw     = single.hitLog;
         this.battleLogRaw  = single.log ?? [];
         this._rebuildLog();
+        this.saveEnemyPresetIfNew();
         _postTrace(baseConfig, single.hitLog, single.log ?? [], { ...mcResult, iterations: iters });
       } catch (err) {
         console.error('模拟出错:', err);
