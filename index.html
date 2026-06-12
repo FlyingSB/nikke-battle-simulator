@@ -101,12 +101,12 @@
           <!-- 敌人配置 -->
           <section class="card">
             <div class="card-title-row">
-              <h2 class="card-title" style="margin-bottom:0">🎯 敌人配置</h2>
+              <h2 class="card-title" style="margin-bottom:0;white-space:nowrap">🎯 敌人配置</h2>
               <div class="enemy-preset-controls">
                 <select class="input input-sm enemy-preset-select"
                   :value="$store.sim.selectedPresetId ?? ''"
                   @change="$store.sim.loadEnemyPreset($event.target.value)">
-                  <option value="">已保存配置…</option>
+                  <option value="">已保存…</option>
                   <template x-for="p in $store.sim.enemyPresets" :key="p.id">
                     <option :value="p.id" x-text="p.name"></option>
                   </template>
@@ -121,9 +121,9 @@
                   title="删除">×</button>
               </div>
             </div>
-            <div class="field-group">
-              <label class="field-label">代码</label>
-              <select class="input"
+            <div class="enemy-element-inline">
+              <label class="enemy-inline-label">代码</label>
+              <select class="input input-sm"
                 :value="$store.sim.enemy.element"
                 @change="$store.sim.enemy.element = $event.target.value; $store.sim.selectedPresetId = null">
                 <option value="Fire">燃烧</option>

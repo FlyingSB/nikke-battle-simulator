@@ -799,8 +799,10 @@ select.input { cursor: pointer; }
 
 /* ── 敌人配置预设 ──────────────────────────────────────────── */
 .card-title-row {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+  justify-content: space-between; margin-bottom: 10px; flex-wrap: nowrap;
 }
-.enemy-preset-controls { display: flex; align-items: center; gap: 4px; }
-.enemy-preset-select   { max-width: 130px; }
+.enemy-element-inline  { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.enemy-inline-label    { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+.enemy-preset-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.enemy-preset-select   { max-width: 90px; }
