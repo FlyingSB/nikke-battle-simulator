@@ -607,15 +607,79 @@
                   <div class="log-header">
                     <h3 class="sub-title" style="white-space:nowrap">战斗日志</h3>
                     <div class="log-filters" x-show="$store.sim.hitLogRows.length > 0">
-                      <template x-for="name in $store.sim.logUnitNames()" :key="name">
-                        <button class="log-filter-btn"
-                          :class="!$store.sim.logHiddenUnits.includes(name) ? 'log-filter-btn--active' : ''"
-                          @click="$store.sim.toggleLogUnit(name)"
-                          x-text="name"></button>
-                      </template>
-                      <button class="log-filter-btn"
-                        :class="$store.sim.showLogNormal ? 'log-filter-btn--active' : ''"
-                        @click="$store.sim.showLogNormal = !$store.sim.showLogNormal">普通攻击</button>
+
+                      <!-- 下拉菜单1：角色 -->
+                      <div class="log-dropdown" x-data="{ open: false }">
+                        <button class="log-dropdown-btn"
+                          :class="$store.sim.logHiddenUnits.length ? 'log-dropdown-btn--active' : ''"
+                          @click="open = !open" @click.outside="open = false">
+                          角色<span class="dd-caret" x-text="open ? ' ▲' : ' ▼'"></span>
+                        </button>
+                        <div class="log-dropdown-menu" x-show="open" x-cloak>
+                          <template x-for="name in $store.sim.logUnitNames()" :key="name">
+                            <label class="log-dropdown-item">
+                              <input type="checkbox"
+                                :checked="!$store.sim.logHiddenUnits.includes(name)"
+                                @change="$store.sim.toggleLogUnit(name)">
+                              <span x-text="name"></span>
+                            </label>
+                          </template>
+                        </div>
+                      </div>
+
+                      <!-- 下拉菜单2：技能 -->
+                      <div class="log-dropdown" x-data="{ open: false, menuMaxH: '60vh' }" @click.outside="open = false">
+                        <button class="log-dropdown-btn"
+                          :class="($store.sim.showLogNormal || $store.sim.logHiddenSkillLabels.length) ? 'log-dropdown-btn--active' : ''"
+                          @click="open = !open; if(open){ const r=$el.getBoundingClientRect(); menuMaxH=Math.max(120, window.innerHeight-r.bottom-12)+'px'; }">
+                          技能<span class="dd-caret" x-text="open ? ' ▲' : ' ▼'"></span>
+                        </button>
+                        <div class="log-dropdown-menu log-dropdown-menu--scrollable" x-show="open" x-cloak
+                          :style="'max-height:' + menuMaxH">
+                          <label class="log-dropdown-item">
+                            <input type="checkbox"
+                              :checked="$store.sim.showLogNormal"
+                              @change="$store.sim.showLogNormal = !$store.sim.showLogNormal">
+                            <span>普通攻击</span>
+                          </label>
+                          <hr class="log-dropdown-sep">
+                          <template x-for="label in $store.sim.logAllSkillLabels()" :key="label">
+                            <label class="log-dropdown-item">
+                              <input type="checkbox"
+                                :checked="!$store.sim.logHiddenSkillLabels.includes(label)"
+                                @change="$store.sim.toggleLogSkill(label)">
+                              <span x-text="label"></span>
+                            </label>
+                          </template>
+                        </div>
+                      </div>
+
+                      <!-- 下拉菜单3：Buff 轨道 -->
+                      <div class="log-dropdown" x-data="{ open: false, menuMaxH: '60vh' }" @click.outside="open = false">
+                        <button class="log-dropdown-btn"
+                          :class="$store.sim.logActiveBuffTracks.length ? 'log-dropdown-btn--active' : ''"
+                          @click="open = !open; if(open){ const r=$el.getBoundingClientRect(); menuMaxH=Math.max(120, window.innerHeight-r.bottom-12)+'px'; }">
+                          Buff 轨道
+                          <span x-show="$store.sim.logActiveBuffTracks.length" x-text="'(' + $store.sim.logActiveBuffTracks.length + ')'"></span>
+                          <span class="dd-caret" x-text="open ? ' ▲' : ' ▼'"></span>
+                        </button>
+                        <div class="log-dropdown-menu log-dropdown-menu--scrollable" x-show="open" x-cloak
+                          :style="'max-height:' + menuMaxH">
+                          <template x-for="bname in $store.sim.logAllBuffNames()" :key="bname">
+                            <label class="log-dropdown-item">
+                              <span class="buff-track-dot"
+                                :style="$store.sim.logActiveBuffTracks.includes(bname)
+                                  ? 'background:' + $store.sim.buffTrackColorFor(bname) + ';border-color:' + $store.sim.buffTrackColorFor(bname)
+                                  : ''"></span>
+                              <input type="checkbox"
+                                :checked="$store.sim.logActiveBuffTracks.includes(bname)"
+                                @change="$store.sim.toggleBuffTrack(bname)">
+                              <span x-text="bname"></span>
+                            </label>
+                          </template>
+                        </div>
+                      </div>
+
                     </div>
                     <div class="log-mode-btns">
                       <button class="btn btn-sm"
@@ -630,6 +694,13 @@
                     <table class="log-table">
                       <thead>
                         <tr>
+                          <!-- Full Burst 轨道列 -->
+                          <th class="log-track-hd" title="Full Burst"></th>
+                          <!-- Buff 轨道列（动态） -->
+                          <template x-for="bname in $store.sim.logActiveBuffTracks" :key="'h-' + bname">
+                            <th class="log-track-hd" :title="bname"
+                              :style="'border-bottom: 2px solid ' + $store.sim.buffTrackColorFor(bname)"></th>
+                          </template>
                           <th class="log-line-hd">#</th>
                           <th>时间</th>
                           <th>施展者</th>
@@ -642,7 +713,14 @@
                       </thead>
                       <tbody>
                         <template x-for="(row, ri) in $store.sim.filteredLogRows()" :key="ri">
-                          <tr :class="(row.kind === 'event' ? 'log-row--event log-row--ev-' + row.eventType + (row.isDamage ? ' log-row--ev-skill-damage' : '') : '') + (row.inFullBurst ? ' log-row--in-fb' : '')">
+                          <tr :class="row.kind === 'event' ? 'log-row--event log-row--ev-' + row.eventType + (row.isDamage ? ' log-row--ev-skill-damage' : '') : ''">
+                            <!-- Full Burst 轨道格 -->
+                            <td class="log-track" :class="row.inFullBurst ? 'log-track--fb' : ''"></td>
+                            <!-- Buff 轨道格（动态） -->
+                            <template x-for="bname in $store.sim.logActiveBuffTracks" :key="'t-' + bname">
+                              <td class="log-track"
+                                :style="$store.sim.rowHasBuffTrack(row, bname) ? 'background:' + $store.sim.buffTrackColorFor(bname) : ''"></td>
+                            </template>
                             <td class="log-line" x-text="ri + 1"></td>
                             <td class="log-time mono" x-text="row.kind !== 'event' && row.tickEnd > row.tickStart ? $store.sim.formatTick(row.tickStart) + '~' + $store.sim.formatTick(row.tickEnd) : $store.sim.formatTick(row.tickStart)"></td>
                             <td x-text="row.name"></td>
@@ -664,6 +742,10 @@
                                 <span class="buff-tag"
                                   @mouseenter="$store.sim.showBuffTooltip($event, buff)"
                                   @mouseleave="$store.sim.hideBuffTooltip()"
+                                  @click="$store.sim.toggleBuffTrack(buff.name)"
+                                  :style="$store.sim.logActiveBuffTracks.includes(buff.name)
+                                    ? 'text-decoration:none;border-bottom:2px solid ' + $store.sim.buffTrackColorFor(buff.name)
+                                    : ''"
                                   x-text="(bi > 0 ? ' / ' : '') + buff.name"></span>
                               </template>
                               <span x-show="!(row.buffArr && row.buffArr.length)" x-text="row.buffDesc"></span>
@@ -678,7 +760,7 @@
                           </tr>
                         </template>
                         <template x-if="!$store.sim.hitLogRows.length">
-                          <tr><td colspan="8" class="log-empty">无伤害记录</td></tr>
+                          <tr><td colspan="99" class="log-empty">无伤害记录</td></tr>
                         </template>
                       </tbody>
                     </table>

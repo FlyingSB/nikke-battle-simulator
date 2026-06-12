@@ -444,6 +444,42 @@ select.input { cursor: pointer; }
 .log-filter-btn--active { background: var(--accent-dim); border-color: var(--accent); color: var(--text); }
 .log-filter-btn--active:hover { background: var(--accent); }
 
+/* ── 日志筛选下拉菜单 ────────────────────────────────────── */
+.log-dropdown {
+  position: relative;
+}
+.log-dropdown-btn {
+  padding: 2px 8px; border-radius: var(--r-sm); border: 1px solid var(--border2);
+  background: var(--surface2); color: var(--text-muted);
+  font-size: 0.62rem; cursor: pointer; line-height: 1.6; white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+  display: flex; align-items: center; gap: 4px;
+}
+.log-dropdown-btn:hover { border-color: var(--border2); color: var(--text-dim); background: var(--surface3); }
+.log-dropdown-btn--active { border-color: var(--accent); color: var(--text); }
+.log-dropdown-btn .dd-caret { font-size: 0.55rem; opacity: 0.6; }
+.log-dropdown-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+  background: var(--surface3); border: 1px solid var(--border2);
+  border-radius: var(--r-sm); padding: 4px 0;
+  width: max-content; min-width: 140px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  font-size: 0.63rem;
+}
+.log-dropdown-menu--scrollable { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+.log-dropdown-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 10px; cursor: pointer; color: var(--text-dim);
+  user-select: none; white-space: nowrap;
+}
+.log-dropdown-item:hover { background: var(--surface2); color: var(--text); }
+.log-dropdown-item input[type=checkbox] { accent-color: var(--accent); cursor: pointer; width: 12px; height: 12px; }
+.log-dropdown-sep { border: none; border-top: 1px solid var(--border); margin: 3px 0; }
+.buff-track-dot {
+  width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0;
+  border: 1px solid var(--border2); background: var(--surface2);
+}
+
 /* ── Battle log ──────────────────────────────────────────── */
 .log-header {
   display: flex; align-items: center;
@@ -482,7 +518,7 @@ select.input { cursor: pointer; }
 .hit-tag--core { color: #f19d89; }
 .hit-tag--dist { color: #1df7e3; }
 .log-empty { text-align: center; color: var(--text-muted); padding: 14px; }
-.buff-tag  { cursor: help; text-decoration: underline dotted var(--text-muted); }
+.buff-tag  { cursor: pointer; text-decoration: underline dotted var(--text-muted); }
 
 /* 事件行 */
 .log-row--event td { background: var(--surface2); border-bottom: 1px solid var(--border); }
@@ -501,7 +537,18 @@ select.input { cursor: pointer; }
 .log-row--ev-skill_trigger .log-label      { color: var(--accent); font-style: normal; }
 .log-row--ev-skill_trigger .log-buff       { color: var(--text-muted); font-style: italic; }
 .log-row--ev-skill-damage .log-label       { color: var(--text); font-style: normal; }
-.log-row--in-fb td:first-child { border-left: 2px solid var(--accent3); }
+/* 轨道列（Full Burst + Buff 轨道） */
+.log-track-hd {
+  width: 2px; min-width: 2px; max-width: 2px;
+  padding: 0 !important;
+  background: var(--surface3);
+}
+.log-track {
+  width: 2px; min-width: 2px; max-width: 2px;
+  padding: 0 !important;
+  transition: background 0.1s;
+}
+.log-track--fb { background: var(--accent3); }
 
 /* ── 伤害分解 tooltip ────────────────────────────────────────── */
 .log-dmg--tip { cursor: help; text-decoration: underline dotted var(--text-dim); }

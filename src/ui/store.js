@@ -187,6 +187,16 @@ function fmtPct(n) {
   return (n * 100).toFixed(2) + '%';
 }
 
+// 30 种预置轨道颜色，超出后循环使用
+const BUFF_TRACK_COLORS = [
+  '#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6',
+  '#1abc9c','#e67e22','#16a085','#8e44ad','#2980b9',
+  '#27ae60','#d35400','#c0392b','#f1c40f','#7f8c8d',
+  '#e91e63','#00bcd4','#8bc34a','#ff5722','#607d8b',
+  '#673ab7','#009688','#ff9800','#795548','#03a9f4',
+  '#4caf50','#ff4444','#2196f3','#ffeb3b','#9c27b0',
+];
+
 function fmtTime(sec) {
   if (!sec && sec !== 0) return '—';
   const m = Math.floor(sec / 60);
@@ -796,9 +806,11 @@ export function createStore() {
     hitLogRaw:     null,
     battleLogRaw:  null,
     simRunning:    false,
-    logMode:       'aggregate',
-    logHiddenUnits: [],
-    showLogNormal:  false,
+    logMode:             'aggregate',
+    logHiddenUnits:      [],
+    logHiddenSkillLabels: [],
+    logActiveBuffTracks: [],
+    showLogNormal:       false,
     _squadLookup:  null,
 
     // 常量（模板使用）
@@ -1502,6 +1514,8 @@ export function createStore() {
 
     _rebuildLog() {
       if (!this.hitLogRaw || !this.result) { this.hitLogRows = []; return; }
+      this.logHiddenSkillLabels = [];
+      this.logActiveBuffTracks  = [];
       const unitNames = Object.fromEntries(
         (this.result.units ?? []).map(u => [u.id, u.name])
       );
@@ -1539,13 +1553,18 @@ export function createStore() {
     },
 
     filteredLogRows() {
-      const noUnitFilter  = this.logHiddenUnits.length === 0;
-      const showNormal    = this.showLogNormal;
-      if (noUnitFilter && showNormal) return this.hitLogRows;
-      const hiddenSet = new Set(this.logHiddenUnits);
+      const hiddenUnits  = new Set(this.logHiddenUnits);
+      const hiddenSkills = new Set(this.logHiddenSkillLabels);
+      const showNormal   = this.showLogNormal;
       return this.hitLogRows.filter(row => {
-        if (!showNormal && row.kind !== 'event' && row.label === '普通攻击') return false;
-        if (row.name && hiddenSet.has(row.name)) return false;
+        if (row.kind === 'event') {
+          // skill_trigger 事件行参与技能过滤；其余事件行（burst/reload 等）始终显示
+          if (row.eventType === 'skill_trigger' && hiddenSkills.has(row.label)) return false;
+          return true;
+        }
+        if (!showNormal && row.label === '普通攻击') return false;
+        if (hiddenSkills.has(row.label)) return false;
+        if (row.name && hiddenUnits.has(row.name)) return false;
         return true;
       });
     },
@@ -1554,6 +1573,65 @@ export function createStore() {
       const idx = this.logHiddenUnits.indexOf(name);
       if (idx >= 0) this.logHiddenUnits.splice(idx, 1);
       else this.logHiddenUnits.push(name);
+    },
+
+    toggleLogSkill(label) {
+      const idx = this.logHiddenSkillLabels.indexOf(label);
+      if (idx >= 0) this.logHiddenSkillLabels.splice(idx, 1);
+      else this.logHiddenSkillLabels.push(label);
+    },
+
+    toggleBuffTrack(name) {
+      const idx = this.logActiveBuffTracks.indexOf(name);
+      if (idx >= 0) this.logActiveBuffTracks.splice(idx, 1);
+      else this.logActiveBuffTracks.push(name);
+    },
+
+    buffTrackColorFor(name) {
+      const idx = this.logActiveBuffTracks.indexOf(name);
+      if (idx < 0) return '';
+      return BUFF_TRACK_COLORS[idx % BUFF_TRACK_COLORS.length];
+    },
+
+    rowHasBuffTrack(row, buffName) {
+      return row.buffArr?.some(b => b.name === buffName) ?? false;
+    },
+
+    logAllSkillLabels() {
+      const unitSlots = new Map(
+        (this.result?.units ?? []).map((u, i) => [u.name, i])
+      );
+      const seen = new Map(); // label → sortKey
+      for (const row of this.hitLogRows) {
+        if (row.kind === 'event' && row.eventType !== 'skill_trigger') continue;
+        if (row.label === '普通攻击' || !row.label) continue;
+        if (seen.has(row.label)) continue;
+        const slot = unitSlots.get(row.name) ?? 99;
+        const sk   = row.skillKey ?? row.label;
+        const skillType = /^S1\b/.test(sk) ? 0 : /^S2\b/.test(sk) ? 1 : /^Burst\b/i.test(sk) ? 2 : 99;
+        const pm   = sk.match(/P(\d+)/) ?? row.label?.match(/P(\d+)/);
+        const part = pm ? parseInt(pm[1]) - 1 : 0;
+        seen.set(row.label, slot * 100000 + skillType * 1000 + part);
+      }
+      return [...seen.entries()].sort((a, b) => a[1] - b[1]).map(([label]) => label);
+    },
+
+    logAllBuffNames() {
+      const unitSlots = new Map(
+        (this.result?.units ?? []).map((u, i) => [u.id, i])
+      );
+      const seen = new Map(); // name → sortKey
+      for (const row of this.hitLogRows) {
+        for (const b of (row.buffArr ?? [])) {
+          if (!b.name || seen.has(b.name)) continue;
+          const slot = unitSlots.get(b.sourceCaster) ?? 99;
+          const sk   = b.sourceSkillLabel ?? '';
+          const skillType = /^S1\b/.test(sk) ? 0 : /^S2\b/.test(sk) ? 1 : /^Burst\b/i.test(sk) ? 2 : 99;
+          const part = b.sourcePartIdx ?? 0;
+          seen.set(b.name, slot * 100000 + skillType * 1000 + part);
+        }
+      }
+      return [...seen.entries()].sort((a, b) => a[1] - b[1]).map(([name]) => name);
     },
 
     showDmgTooltip(event, hitData) {
