@@ -596,8 +596,10 @@ export function initBattle(config) {
     enemyDef:           config.enemy.def ?? 0,
     enemyElement:       config.enemy.element ?? 'Iron',
     isStageTarget:      true,
-    enemyHasCore:       config.enemy.hasCore ?? false,
-    enemyCoreProtected: config.enemy.coreProtected ?? false,
+    enemyHasCore:         config.enemy.hasCore ?? false,
+    enemyCoreProtected:   config.enemy.coreProtected ?? false,
+    // 穿透双判核心：穿透攻击命中核心时同时产生一次核心伤害和一次体部伤害。
+    enemyCorePierceDual:  config.enemy.corePierceDual ?? false,
     // Active enemy zone for distance-based damage. Updated on each non-CANNOT_BE_AIMED phase entry.
     // config.enemy.distance overrides the phase schedule entirely (legacy / test usage).
     distanceZone:       config.enemy.distance ?? (initialZone !== 'CANNOT_BE_AIMED' ? initialZone : null),
@@ -784,8 +786,9 @@ export function tick(state) {
   for (const a of state.enemyCoreActions) {
     if (a.startTick === state.tick) {
       events.push({ type: 'enemy_action', tick: state.tick, actionType: 'core', value: a.value });
-      state.enemyHasCore       = a.value !== 'NONE';
-      state.enemyCoreProtected = a.value === 'PROTECTED';
+      state.enemyHasCore        = a.value !== 'NONE';
+      state.enemyCoreProtected  = a.value === 'PROTECTED';
+      state.enemyCorePierceDual = a.value === 'PIERCE_DUAL';
       break;
     }
   }
@@ -1126,6 +1129,8 @@ export function tick(state) {
         state.enemyCoreProtected ? (isPierce && coreRoll) : coreRoll
       );
       const hitPart = isCore ? 'core' : 'body';
+      // 穿透双判核心：穿透攻击命中核心时，额外产生一次体部伤害。
+      const isPierceDualBody = state.enemyCorePierceDual && isPierce && isCore;
 
       const { damage, breakdown: bd } = calcDamage({
         atk:               unit.stats.atk,
@@ -1156,6 +1161,41 @@ export function tick(state) {
                              ...(isPierce ? { pierceDamageMult: sums.pierceDamagePct } : {}) },
         damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
       });
+
+      // ── 穿透双判核心：额外体部伤害（与核心命中同时产生，使用相同 buff 快照，独立判定暴击）──
+      let damagePierceDualBody = 0, isCritPierceDualBody = false;
+      if (isPierceDualBody) {
+        isCritPierceDualBody = rollCrit(effectiveCritRate);
+        ({ damage: damagePierceDualBody } = calcDamage({
+          atk:               unit.stats.atk,
+          atkMultiplier:     1 + sums.atkPct,
+          otherAtkIncrement: sums.atkFlat,
+          enemyDef:          state.enemyDef,
+          hitMultiplier:     hitMult,
+          weaponType:        effectiveWeaponType,
+          isCrit:            isCritPierceDualBody,
+          critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
+          hitPart:           'body',
+          coreDmgIncrement:  unit.coreDmgIncrement,
+          distanceZone:      state.distanceZone,
+          isFullBurst:       state.fullBurstActive,
+          attackerElement:   (sums.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
+          defenderElement:   state.enemyElement,
+          elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantagePct ?? 0),
+          isCharged,
+          fullChargeDamage:  weaponSwitchActive && unit.skillState.weaponSwitchFullChargeDamage != null
+            ? unit.skillState.weaponSwitchFullChargeDamage
+            : unit.fullChargeDamage,
+          favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
+          chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
+          favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
+          extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct
+                               + (effectiveWeaponType === 'RL' ? sums.projectileExplosionDamagePct : 0),
+                               damageToPartsMult: sums.damageToPartsPct ?? 0,
+                               pierceDamageMult: sums.pierceDamagePct },
+          damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
+        }));
+      }
 
       // ── Zwei 爆裂双重命中（游戏实机特性/bug）──────────────────────────────
       // weaponSwitchDoubleHit=true 时，武器切换后的一次射击产生两次独立伤害：
@@ -1241,10 +1281,11 @@ export function tick(state) {
           if (--b.roundsLeft <= 0) state.buffs.splice(bi, 1);
         }
       }
-      unit.hitCount += isDoubleHit ? 2 : 1;
+      unit.hitCount += (isDoubleHit ? 2 : 1) + (isPierceDualBody ? 1 : 0);
       if (isCrit) unit.critCount++;
       if (isDoubleHit && isCrit2) unit.critCount++;
-      unit.totalDamage += damage + damage2;
+      if (isPierceDualBody && isCritPierceDualBody) unit.critCount++;
+      unit.totalDamage += damage + damage2 + damagePierceDualBody;
       // 调试：按单位记录普通射击伤害
       // 武器切换期间用 burst 技能名标记，与普通攻击分离统计
       unit.skillDamage        ??= {};
@@ -1252,8 +1293,8 @@ export function tick(state) {
       const shotLabel = weaponSwitchActive
         ? `Burst${unit.rawBurst?.name_localkey ? ' ' + unit.rawBurst.name_localkey : ''}`
         : 'normal_shot';
-      unit.skillDamage[shotLabel]      = (unit.skillDamage[shotLabel]      ?? 0) + damage + damage2;
-      unit.skillDamageCount[shotLabel] = (unit.skillDamageCount[shotLabel] ?? 0) + (isDoubleHit ? 2 : 1);
+      unit.skillDamage[shotLabel]      = (unit.skillDamage[shotLabel]      ?? 0) + damage + damage2 + damagePierceDualBody;
+      unit.skillDamageCount[shotLabel] = (unit.skillDamageCount[shotLabel] ?? 0) + (isDoubleHit ? 2 : 1) + (isPierceDualBody ? 1 : 0);
       // 普通射击的逐发详细日志
       if (state.hitLog) {
         // 武器切换期间临时武器弹匣上限固定，不受魔方/珍藏品/技能影响
@@ -1293,6 +1334,39 @@ export function tick(state) {
             ...getEnemyDebuffBreakdown(state),
           ],
         });
+        // 穿透双判核心额外体部伤害单独记录
+        if (isPierceDualBody) {
+          state.hitLog.push({
+            _seq: state._logSeq++,
+            tick: state.tick, unitId: unit.id, label: shotLabel + '_pierce_body',
+            atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
+            hitMult, isCrit: isCritPierceDualBody, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
+            favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
+            attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct, isFullBurst: state.fullBurstActive,
+            damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: state.enemyDef,
+            isPierce, pierceDamagePct: sums.pierceDamagePct ?? 0,
+            ammoBeforeShot, hitPart: 'body', isCore: false,
+            coreDmgIncrement: unit.coreDmgIncrement ?? 0,
+            damage: damagePierceDualBody,
+            elementDmgPct: unit.stats.elementDmgPct ?? 0,
+            equipElementDmgPct: unit.stats.equipElementDmgPct ?? 0,
+            equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0,
+            elemMult: bd.elemMult,
+            chargeMult: bd.chargeMult,
+            distanceAdv: hasDistanceAdvantage(unit.weaponType, state.distanceZone)
+                         || (unit.skillState.extraDistZones?.includes(state.distanceZone) ?? false),
+            ammoLeft: unit.ammoLeft,
+            maxAmmo: effectiveMaxAmmo,
+            isUnlimitedAmmo: isUnlimitedAmmoShot,
+            buffBreakdown: [
+              ...state.buffs
+                .filter(b => b.unitId === null || b.unitId === unit.id)
+                .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0), pierceDamagePct: b.pierceDamagePct ?? 0, coreDamagePct: b.coreDamagePct ?? 0, chargeDamagePct: b.chargeDamagePct ?? 0, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null }))
+                .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct),
+              ...getEnemyDebuffBreakdown(state),
+            ],
+          });
+        }
         // 双重命中第二次伤害单独记录
         if (isDoubleHit) {
           const sums2log = getBuffSums(state, unit.id);
