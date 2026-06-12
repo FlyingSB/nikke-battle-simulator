@@ -609,10 +609,10 @@
                     <div class="log-filters" x-show="$store.sim.hitLogRows.length > 0">
 
                       <!-- 下拉菜单1：角色 -->
-                      <div class="log-dropdown" x-data="{ open: false }">
+                      <div class="log-dropdown" x-data="{ open: false }" @click.outside="open = false">
                         <button class="log-dropdown-btn"
                           :class="$store.sim.logHiddenUnits.length ? 'log-dropdown-btn--active' : ''"
-                          @click="open = !open" @click.outside="open = false">
+                          @click="open = !open">
                           角色<span class="dd-caret" x-text="open ? ' ▲' : ' ▼'"></span>
                         </button>
                         <div class="log-dropdown-menu" x-show="open" x-cloak>
@@ -722,7 +722,7 @@
                                 :style="$store.sim.rowHasBuffTrack(row, bname) ? 'background:' + $store.sim.buffTrackColorFor(bname) : ''"></td>
                             </template>
                             <td class="log-line" x-text="ri + 1"></td>
-                            <td class="log-time mono" x-text="row.kind !== 'event' && row.tickEnd > row.tickStart ? $store.sim.formatTick(row.tickStart) + '~' + $store.sim.formatTick(row.tickEnd) : $store.sim.formatTick(row.tickStart)"></td>
+                            <td class="log-time mono" x-text="$store.sim.formatLogTime(row)"></td>
                             <td x-text="row.name"></td>
                             <td class="log-label log-label--tip"
                               @mouseenter="$store.sim.showSkillTooltip($event, row)"

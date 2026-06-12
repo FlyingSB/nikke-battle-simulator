@@ -198,8 +198,9 @@ function _emitBuffEvent(state, buffObj, logCtx) {
     unitName: logCtx.unitName, skillLabel: logCtx.skillLabel, slot: logCtx.slot ?? null,
     partIdx: logCtx.partIdx, trigger: logCtx.trigger ?? '',
     lineIdx: logCtx.lineIdx ?? null,
-    target: targetName,
+    target:   targetName,
     buffName: buffObj.name,
+    endTick:  buffObj.endTick,
   });
 }
 
@@ -219,7 +220,8 @@ function _pushBuffCore(state, buffObj, logCtx = null) {
     // 仅纯永久 buff（无回合制）刷新时视为无实质变化，不记录日志
     const isInfiniteRefresh = existing.endTick === Infinity && buffObj.endTick === Infinity
       && buffObj.endRounds === undefined;
-    if (logCtx && !isInfiniteRefresh) _emitBuffEvent(state, buffObj, logCtx);
+    // 传入 post-refresh endTick（Math.max 之后），确保事件记录的是最终到期时刻
+    if (logCtx && !isInfiniteRefresh) _emitBuffEvent(state, { ...buffObj, endTick: existing.endTick }, logCtx);
     return;
   }
   // 初次推入：设置 roundsLeft（回合制）和 stacks（初始层数为 1）

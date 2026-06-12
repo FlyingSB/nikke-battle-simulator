@@ -429,9 +429,9 @@ function _countLinesInPart(skill, partIdx) {
   return Math.max(1, (raw ?? '').split('\n').filter(s => s.trim() !== '').length);
 }
 
-function buildEventRows(eventLog, squadLookup = null) {
+function buildEventRows(eventLog, squadLookup = null, logMode = 'detail') {
   if (!eventLog?.length) return [];
-  return eventLog.map(e => {
+  const raw = eventLog.map(e => {
     // burst_i with no caster = 队伍无 B1 单位时的跳过占位事件，不显示
     if (e.type === 'burst_i' && !e.unitName) return null;
     let name = '', label = '', target = '';
@@ -465,6 +465,7 @@ function buildEventRows(eventLog, squadLookup = null) {
     return {
       tickStart:  e.tick,
       tickEnd:    e.tick,
+      _endTick:   e.endTick ?? null,  // buff 到期 tick，仅 skill_trigger+buffName 有效
       kind:       'event',
       eventType:  e.type,
       trigger:    e.trigger ?? null,
@@ -477,6 +478,7 @@ function buildEventRows(eventLog, squadLookup = null) {
       partIdx:    e.partIdx ?? null,
       lineIdx:    e.lineIdx ?? null,
       target,
+      buffName:   e.buffName ?? null,
       buffDesc:   e.buffName ?? '',
       buffArr:    e.buffName && e.unitName
         ? [{ name: e.buffName, sourceCaster: e.unitName, sourceSkillLabel: e.skillLabel ?? null, sourcePartIdx: e.partIdx ?? null, sourceLineIdx: e.lineIdx ?? null }]
@@ -488,6 +490,34 @@ function buildEventRows(eventLog, squadLookup = null) {
       _seq:       e._seq ?? null,
     };
   }).filter(Boolean);
+
+  if (logMode !== 'aggregate') return raw;
+
+  // 聚合模式：同名+同目标的 buff 在持续时间内刷新时合并为一条
+  const out = [];
+  // key: `${buffName}|${target}` → 当前开放的合并组
+  const open = new Map();
+
+  for (const row of raw) {
+    if (row.eventType !== 'skill_trigger' || !row.buffName) {
+      out.push(row);
+      continue;
+    }
+    const key = `${row.buffName}|${row.target}`;
+    const grp = open.get(key);
+    if (grp && row.tickStart <= grp._endTick) {
+      // 在持续时间内刷新：合并到现有组
+      grp.tickEnd  = row.tickStart;
+      grp._endTick = row._endTick ?? grp._endTick;
+      grp.count++;
+    } else {
+      // buff 已过期或首次出现：关闭旧组，开新组
+      if (grp) out.push(grp);
+      open.set(key, { ...row });
+    }
+  }
+  for (const grp of open.values()) out.push(grp);
+  return out.sort((a, b) => a.tickStart - b.tickStart || (a._seq ?? Infinity) - (b._seq ?? Infinity));
 }
 
 function buildAggregateLog(hitLog, unitNames) {
@@ -841,6 +871,17 @@ export function createStore() {
     fmtPct,
     fmtTime,
     formatTick,
+
+    formatLogTime(row) {
+      const s = formatTick(row.tickStart);
+      // buff 事件行：用 _endTick 作为范围终点（显示 buff 实际过期时刻）
+      if (row.buffName && row._endTick != null) {
+        if (row._endTick === Infinity) return s + '~∞';
+        if (row._endTick > row.tickStart) return s + '~' + formatTick(row._endTick);
+      }
+      if (row.tickEnd > row.tickStart) return s + '~' + formatTick(row.tickEnd);
+      return s;
+    },
 
     // ── 计算辅助 ──
     get activeSlotData() { return this.team[this.activeSlot]; },
@@ -1522,7 +1563,7 @@ export function createStore() {
       const hitRows   = this.logMode === 'detail'
         ? buildDetailLog(this.hitLogRaw, unitNames)
         : buildAggregateLog(this.hitLogRaw, unitNames);
-      const eventRows = buildEventRows(this.battleLogRaw, this._squadLookup);
+      const eventRows = buildEventRows(this.battleLogRaw, this._squadLookup, this.logMode);
       this.hitLogRows = [...hitRows, ...eventRows].sort((a, b) => {
         const dt = a.tickStart - b.tickStart;
         if (dt !== 0) return dt;
@@ -1558,7 +1599,9 @@ export function createStore() {
       const showNormal   = this.showLogNormal;
       return this.hitLogRows.filter(row => {
         if (row.kind === 'event') {
-          // skill_trigger 事件行参与技能过滤；其余事件行（burst/reload 等）始终显示
+          // 有归属角色的事件行（skill_trigger/reload/burst_i 等）参与角色筛选
+          if (row.name && hiddenUnits.has(row.name)) return false;
+          // skill_trigger 额外参与技能筛选
           if (row.eventType === 'skill_trigger' && hiddenSkills.has(row.label)) return false;
           return true;
         }
