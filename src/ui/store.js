@@ -823,8 +823,9 @@ export function createStore() {
     selectedPresetId: null,
 
     // 模拟选项
-    iterations:    30,
-    burstStepSecs: 0.6,
+    iterations:         30,
+    burstStepSecs:      0.6,
+    ebsLastBurstOnly: true,
 
     // 队伍
     activeSlot:   0,
@@ -890,6 +891,11 @@ export function createStore() {
 
     // ── 计算辅助 ──
     get activeSlotData() { return this.team[this.activeSlot]; },
+
+    // 队伍中是否有 Elegg: Boom and Shock / EBS（resource_id: 502）
+    get hasEbsBoomAndShock() {
+      return this.team.some(s => s.active && s.resourceId === 502);
+    },
 
     maxBond(grade, corp) { return maxBond(grade, corp); },
 
@@ -1007,8 +1013,9 @@ export function createStore() {
           actions:  this.enemy.actions.map(a => ({ ...a })),
           _nextId:  this.enemy._nextId,
         },
-        iterations:    this.iterations,
-        burstStepSecs: this.burstStepSecs,
+        iterations:         this.iterations,
+        burstStepSecs:      this.burstStepSecs,
+        ebsLastBurstOnly: this.ebsLastBurstOnly,
         team: this.team.map(slot => ({
           active:       slot.active,
           resourceId:   slot.resourceId,
@@ -1064,8 +1071,9 @@ export function createStore() {
           this.enemy._nextId = 4;
         }
       }
-      if (state.iterations      != null) this.iterations      = state.iterations;
-      if (state.burstStepSecs   != null) this.burstStepSecs   = state.burstStepSecs;
+      if (state.iterations          != null) this.iterations          = state.iterations;
+      if (state.burstStepSecs       != null) this.burstStepSecs       = state.burstStepSecs;
+      if (state.ebsLastBurstOnly  != null) this.ebsLastBurstOnly  = state.ebsLastBurstOnly;
       if (!Array.isArray(state.team)) return;
       state.team.forEach((saved, i) => {
         if (i >= this.team.length || !saved) return;
@@ -1611,8 +1619,9 @@ export function createStore() {
             ...(defActions.length  ? { defActions  } : {}),
             ...(coreActions.length ? { coreActions } : {}),
           },
-          duration:      180,
-          burstStepSecs: this.burstStepSecs,
+          duration:           180,
+          burstStepSecs:      this.burstStepSecs,
+          ebsLastBurstOnly: this.ebsLastBurstOnly,
         };
 
         const iters     = Math.max(1, Math.min(100, Number(this.iterations) || 30));

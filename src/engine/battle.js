@@ -212,11 +212,35 @@ function applyBurstIISkills(state) {
  */
 function applyFullBurstSkills(state, events) {
   // 1. 按 §6.0 从左到右选第一个 CD 就绪的 B3 单位施放；其余本轮无法施放。
-  const step3 = state.squad.find(u =>
-    (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
-    u.canBurst !== false &&
-    u.burstCdRemaining <= 0
-  ) ?? null;
+  // ebsLastBurstOnly 策略：非最后一轮跳过 EBS；最后一轮时 EBS 优先于其他 B3。
+  const _hasEbsFlag = state.squad.some(u => u.ebsLastBurstOnly);
+  let step3;
+  if (_hasEbsFlag) {
+    const _ebsGaugeRefill = state.burstCycleStartTick - state.lastBurstEndTick;
+    const _ebsRemaining   = MAX_TICKS - state.tick - TICK_RATE * 10;
+    const _ebsIsLastCycle = _ebsGaugeRefill > 0 && _ebsRemaining <= _ebsGaugeRefill;
+    if (_ebsIsLastCycle) {
+      // 最后一轮：先尝试选 EBS，没有则回退正常顺序
+      step3 = state.squad.find(u =>
+        (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
+        u.canBurst !== false && u.burstCdRemaining <= 0 && u.ebsLastBurstOnly
+      ) ?? state.squad.find(u =>
+        (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
+        u.canBurst !== false && u.burstCdRemaining <= 0
+      ) ?? null;
+    } else {
+      // 非最后一轮：跳过 EBS，选其他 B3
+      step3 = state.squad.find(u =>
+        (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
+        u.canBurst !== false && u.burstCdRemaining <= 0 && !u.ebsLastBurstOnly
+      ) ?? null;
+    }
+  } else {
+    step3 = state.squad.find(u =>
+      (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
+      u.canBurst !== false && u.burstCdRemaining <= 0
+    ) ?? null;
+  }
 
   const firstFired = step3;
 
@@ -576,6 +600,8 @@ export function initBattle(config) {
     };
     // 安装 maxAmmo 只读 getter（只能通过 recalcMaxAmmo 写入），同时设置 ammoLeft 初值。
     initUnitMaxAmmo(unit, initialMaxAmmo);
+    // EBS 最后一轮策略：仅在战斗最后一个爆裂循环中使用爆裂技能
+    if (config.ebsLastBurstOnly && cfg.characterId === 502) unit.ebsLastBurstOnly = true;
     return unit;
   });
 
@@ -646,6 +672,9 @@ export function initBattle(config) {
     // 全队普通攻击命中计数，由 skill-executor.onShotFired 在每次射击时自增。
     squadShotCount: 0,
     fullBurstCount: 0,
+    // EBS 最后一轮策略：追踪 burst 循环节奏
+    lastBurstEndTick:    0,  // 上次 full burst 结束的 tick（初始=0=战斗开始）
+    burstCycleStartTick: 0,  // 当前循环 burst gauge 填满（burstPhase 0→1）时的 tick
     // Deferred skill hits: [{ fireTick, caster, mult, sums, isCharged, label, opts }]
     // Processed at the start of each tick before unit loops.
     pendingSkillHits: [],
@@ -870,9 +899,10 @@ export function tick(state) {
 
   // Full Burst 窗口到期 → 共享槽清零，团队需重新填充
   if (state.fullBurstActive && state.tick >= state.fullBurstTick) {
-    state.fullBurstActive = false;
-    state.burstPhase      = 0;
-    state.burstGauge      = 0;
+    state.fullBurstActive  = false;
+    state.burstPhase       = 0;
+    state.burstGauge       = 0;
+    state.lastBurstEndTick = state.tick;
     events.push({ type: 'burst_end', tick: state.tick });
     applyBurstEndSkills(state);
   }
@@ -935,12 +965,23 @@ export function tick(state) {
   // 阶段 3：等待 B3 冷却 — 每 tick 重试，直到有 B3 单位冷却结束（或无 B3 单位则立即触发）。
   // fullBurstActive 由 applyFullBurstSkills 在 B3 全部施放完毕后设置（文档 §6.5 时序）。
   if (state.burstPhase === 3 && !state.fullBurstActive && state.burstPhaseTick === Infinity) {
+    // ebsLastBurstOnly：非最后一轮时跳过 EBS（其他 B3 照常触发全爆裂）
+    const _hasEbsFlag2    = state.squad.some(u => u.ebsLastBurstOnly);
+    let _ebsIsLastCycle2  = false;
+    if (_hasEbsFlag2) {
+      const _ebsGaugeRefill = state.burstCycleStartTick - state.lastBurstEndTick;
+      const _ebsRemaining   = MAX_TICKS - state.tick - TICK_RATE * 10;
+      _ebsIsLastCycle2 = _ebsGaugeRefill > 0 && _ebsRemaining <= _ebsGaugeRefill;
+    }
     const hasB3 = state.squad.some(u =>
-      (u.burstStep === 'Step3' || u.burstStep === 'StepFull') && u.canBurst !== false
+      (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
+      u.canBurst !== false &&
+      !(_hasEbsFlag2 && u.ebsLastBurstOnly && !_ebsIsLastCycle2)
     );
     const b3Ready = !hasB3 || state.squad.some(u =>
       (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
-      u.canBurst !== false && u.burstCdRemaining <= 0
+      u.canBurst !== false && u.burstCdRemaining <= 0 &&
+      !(_hasEbsFlag2 && u.ebsLastBurstOnly && !_ebsIsLastCycle2)
     );
     if (b3Ready) {
       state.burstPhaseTimeoutTick = 0;
@@ -953,8 +994,9 @@ export function tick(state) {
 
   // 共享槽填满 → 进入阶段 1（等待 B1 冷却；若冷却已结束立即尝试）
   if (state.burstPhase === 0 && state.burstGauge >= BURST_GAUGE_MAX) {
-    state.burstPhase          = 1;
-    state.burstPhaseTick      = Infinity;
+    state.burstCycleStartTick  = state.tick;   // 记录本轮 gauge 填满时刻
+    state.burstPhase           = 1;
+    state.burstPhaseTick       = Infinity;
     state.burstPhaseTimeoutTick = state.tick + TICK_RATE * 10;
     state.burstCastersThisRotation = new Set();
     // 进入 Burst 1 阶段时立即触发被动（不依赖 B1 是否 cast）

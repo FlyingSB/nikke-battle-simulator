@@ -156,7 +156,27 @@ export default {
         handler(state, caster) {
           const lv      = caster.skillLevels[2];
           const ghosts  = caster.skillState.ebs_ghostCount ?? 0;
-          const preSums = getBuffSums(state, caster.id);  // 含 S2 ATK buff
+          // 在 BURST_SKILL_USE 时捕获（含 S2 Ghostbuster ATK buff）；ENTER_FULL_BURST 效果在此之后才推入，不影响此 sums
+          const preSums = getBuffSums(state, caster.id);
+          // 同步快照 buffBreakdown，确保伤害气泡展示与实际计算一致，不混入 ENTER_FULL_BURST 之后推入的 buff
+          const preBuffBreakdown = state.buffs
+            .filter(b => (b.unitId === null || b.unitId === caster.id)
+              && !(b.roundsLeft !== undefined && b.roundsLeft <= 0)
+              && !(b.endTick !== undefined && b.endTick !== Infinity && b.endTick <= state.tick))
+            .map(b => ({
+              name: b.name,
+              atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0,
+              attackDamagePct: b.attackDamagePct ?? 0,
+              sequentialAttackDamagePct: b.sequentialAttackDamagePct ?? 0,
+              elementAdvantagePct: b.elementAdvantagePct ?? 0,
+              coreDamagePct: b.coreDamagePct ?? 0,
+              chargeDamagePct: b.chargeDamagePct ?? 0,
+              sourceCaster: b._sourceCaster ?? null,
+              sourceSkillLabel: b._sourceSkillLabel ?? null,
+              sourcePartIdx: b._sourcePartIdx ?? null,
+              sourceLineIdx: b._sourceLineIdx ?? null,
+            }))
+            .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct);
           const delay   = Math.round(0.2 * TICK_RATE);
 
           if (ghosts === 13) {
@@ -167,7 +187,7 @@ export default {
                 fireTick: state.tick + delay * (h + 1),
                 caster, mult: hitPct, sums: preSums,
                 isCharged: false, label: 'Burst',
-                opts: {},
+                opts: { preBuffBreakdown },
               });
             }
             caster.skillState.ebs_ghostCount = ghosts - 9;  // 13 - 9 = 4
@@ -179,7 +199,7 @@ export default {
                 fireTick: state.tick + delay * (h + 1),
                 caster, mult: hitPct, sums: preSums,
                 isCharged: false, label: 'Burst',
-                opts: {},
+                opts: { preBuffBreakdown },
               });
             }
             caster.skillState.ebs_ghostCount = Math.max(1, ghosts - 6);

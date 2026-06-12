@@ -135,6 +135,8 @@ body {
 .field-group:last-child { margin-bottom: 0; }
 .field-label { font-size: 0.7rem; color: var(--text-dim); }
 .field-hint  { font-size: 0.65rem; color: var(--text-muted); }
+.checkbox-label { display: flex; align-items: flex-start; gap: 6px; cursor: pointer; font-size: 0.7rem; color: var(--text-dim); line-height: 1.4; }
+.checkbox-label input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
 
 .input {
   background: var(--bg); color: var(--text);

@@ -231,6 +231,16 @@
                 <span>0.1s</span><span>0.6s</span>
               </div>
             </div>
+            <!-- 角色专属策略选项 -->
+            <template x-if="$store.sim.hasEbsBoomAndShock">
+              <div class="field-group mt-1">
+                <label class="checkbox-label">
+                  <input type="checkbox" x-model="$store.sim.ebsLastBurstOnly">
+                  <span>Elegg: Boom and Shock 在战斗的最后一个爆裂循环中使用爆裂技能</span>
+                </label>
+              </div>
+            </template>
+
             <button class="btn btn-primary btn-block mt-1"
               :disabled="$store.sim.simRunning"
               @click="$store.sim.runSimulate()">
