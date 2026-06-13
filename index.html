@@ -742,6 +742,7 @@
                           <th>Buff</th>
                           <th style="text-align:right">伤害</th>
                           <th x-show="$store.sim.logMode === 'detail'" style="text-align:right">弹药</th>
+                          <th x-show="$store.sim.logMode === 'detail'" style="text-align:right">充能</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -790,6 +791,8 @@
                               @mouseleave="$store.sim.hideDmgTooltip()"></td>
                             <td class="log-ammo mono" x-show="$store.sim.logMode === 'detail'"
                               x-text="row.charge ?? ''"></td>
+                            <td class="log-gauge mono" x-show="$store.sim.logMode === 'detail'"
+                              x-text="$store.sim.fmtGauge(row.gauge)"></td>
                           </tr>
                         </template>
                         <template x-if="!$store.sim.hitLogRows.length">

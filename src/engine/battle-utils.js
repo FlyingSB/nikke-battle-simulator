@@ -202,6 +202,7 @@ function _emitBuffEvent(state, buffObj, logCtx) {
     target:   targetName,
     buffName: buffObj.name,
     endTick:  buffObj.endTick,
+    gaugeAfter: state.burstGauge,
   });
 }
 
@@ -330,6 +331,8 @@ export function addBurstGauge(state, unitName, source, energy) {
   if (state.burstEnergyLog) {
     state.burstEnergyLog.push({ tick: state.tick, unitName, source, energyAdded: energy, gaugeAfter: state.burstGauge });
   }
+  // handler 路径（state._logCtx 存在）时向战斗日志推入充能事件，用于纯充能技能（如 LM S1 P4）
+  _emitSkillEvent(state, '爆裂槽');
 }
 
 // ─── 技能事件日志辅助 ──────────────────────────────────────────────────────
@@ -353,6 +356,7 @@ function _emitSkillEvent(state, target, override = null) {
     partIdx: ctx.partIdx, trigger: ctx.trigger ?? '',
     lineIdx: ctx.lineIdx ?? null,
     target,
+    gaugeAfter: state.burstGauge,
   });
 }
 
@@ -538,6 +542,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     state.hitLog.push({
       _seq: state._logSeq++,
       tick: state.tick, unitId: unit.id, label: label ?? 'skill',
+      gaugeAfter: state.burstGauge,
       atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
       hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
       attackDamagePct: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct,

@@ -184,6 +184,7 @@ function applyEffects(state, caster, targets, effects, ctx, logCtx = null) {
             partIdx: logCtx.partIdx, trigger: logCtx.trigger ?? '',
             lineIdx: logCtx.lineIdx ?? null,
             target: '敌人',
+            gaugeAfter: state.burstGauge,
           });
         }
         break;
@@ -213,6 +214,7 @@ function applyEffects(state, caster, targets, effects, ctx, logCtx = null) {
             partIdx: logCtx.partIdx, trigger: logCtx.trigger ?? '',
             lineIdx: logCtx.lineIdx ?? null,
             target: '全体队友',
+            gaugeAfter: state.burstGauge,
           });
         }
         for (const t of targets) {
@@ -225,6 +227,7 @@ function applyEffects(state, caster, targets, effects, ctx, logCtx = null) {
               partIdx: logCtx.partIdx, trigger: logCtx.trigger ?? '',
               lineIdx: logCtx.lineIdx ?? null,
               target: t.name,
+              gaugeAfter: state.burstGauge,
             });
           }
           // 分派 HEAL_RECEIVED（Crown S2 等通过此触发响应）

@@ -903,7 +903,7 @@ export function tick(state) {
     state.burstPhase       = 0;
     state.burstGauge       = 0;
     state.lastBurstEndTick = state.tick;
-    events.push({ type: 'burst_end', tick: state.tick });
+    events.push({ type: 'burst_end', tick: state.tick, gaugeAfter: 0 });
     applyBurstEndSkills(state);
   }
 
@@ -914,7 +914,7 @@ export function tick(state) {
     state.burstPhase          = 0;
     state.burstPhaseTimeoutTick = 0;
     state.burstGauge          = 0;
-    events.push({ type: 'burst_timeout', tick: state.tick });
+    events.push({ type: 'burst_timeout', tick: state.tick, gaugeAfter: 0 });
   }
 
   // 阶段 1：等待 B1 冷却 — 每 tick 重试，直到有 B1 单位冷却结束。
@@ -1346,6 +1346,7 @@ export function tick(state) {
         state.hitLog.push({
           _seq: state._logSeq++,
           tick: state.tick, unitId: unit.id, label: shotLabel,
+          gaugeAfter: state.burstGauge,
           atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
           hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
           favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
@@ -1381,6 +1382,7 @@ export function tick(state) {
           state.hitLog.push({
             _seq: state._logSeq++,
             tick: state.tick, unitId: unit.id, label: shotLabel + '_pierce_body',
+            gaugeAfter: state.burstGauge,
             atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
             hitMult, isCrit: isCritPierceDualBody, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
             favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
@@ -1415,6 +1417,7 @@ export function tick(state) {
           state.hitLog.push({
             _seq: state._logSeq++,
             tick: state.tick, unitId: unit.id, label: shotLabel + '_2',
+            gaugeAfter: state.burstGauge,
             atk: unit.stats.atk, atkPct: sums2log.atkPct, atkFlat: sums2log.atkFlat,
             hitMult, isCrit: isCrit2, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums2log.critDamagePct,
             favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,

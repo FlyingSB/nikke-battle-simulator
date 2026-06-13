@@ -488,6 +488,7 @@ function buildEventRows(eventLog, squadLookup = null, logMode = 'detail') {
       count:      1,
       isCrit:     false,
       isCA:       e.isCA,  // 透传 Combat Assist 标志（用于 tooltip partIdx 定位）
+      gauge:      e.gaugeAfter ?? null,
       _seq:       e._seq ?? null,
     };
   }).filter(Boolean);
@@ -594,6 +595,7 @@ function buildDetailLog(hitLog, unitNames) {
     maxAmmo:    h.maxAmmo,
     isFullBurst:h.isFullBurst,
     charge:     h.isUnlimitedAmmo ? '-' : (h.ammoLeft != null ? `${h.ammoLeft}/${h.maxAmmo}` : '—'),
+    gauge:      h.gaugeAfter ?? null,
     _hit:       h,
     _seq:       h._seq ?? null,
   }));
@@ -877,6 +879,10 @@ export function createStore() {
     fmtPct,
     fmtTime,
     formatTick,
+    fmtGauge(gauge) {
+      if (gauge == null) return '—';
+      return (gauge / 10000).toFixed(1) + '%';
+    },
 
     formatLogTime(row) {
       const s = formatTick(row.tickStart);
@@ -1663,11 +1669,15 @@ export function createStore() {
         return _logRowOrder(a) - _logRowOrder(b);
       });
       // 标记 Full Burst 区间内的行（从 full_burst 事件到 burst_end/burst_timeout，含首尾）
+      // 并做充能列 fill-forward：每行继承上一行的 gauge 值，直到出现新值
       let inFB = false;
+      let lastGauge = null;
       for (const row of this.hitLogRows) {
         if (row.kind === 'event' && row.eventType === 'full_burst') inFB = true;
         row.inFullBurst = inFB;
         if (row.kind === 'event' && (row.eventType === 'burst_end' || row.eventType === 'burst_timeout')) inFB = false;
+        if (row.gauge != null) lastGauge = row.gauge;
+        else row.gauge = lastGauge;
       }
     },
 

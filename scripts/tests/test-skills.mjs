@@ -290,13 +290,13 @@ section('T9: Moran SSR burst — handler sets weaponSwitch + lifeSteal + ATK buf
   eq('weaponSwitchRoundsLeft = 0',            caster.skillState.weaponSwitchRoundsLeft,     0);
 
   // Life steal buff (self only)
-  const lsBuff = state.buffs.find(b => b.name === 'Fair and Square! P1 L3');
+  const lsBuff = state.buffs.find(b => b.name === 'Fair and Square! P1 L6');
   eq('lifeSteal buff pushed',                 !!lsBuff,               true);
   eq('lifeStealPct = lv10 value',             lsBuff?.lifeStealPct,   parseFloat('36.14') / 100);
   eq('lifeSteal unitId = caster (self)',       lsBuff?.unitId,         unitId);
 
   // ATK flat buff for all allies (SSR)
-  const atkBuff = state.buffs.find(b => b.name === 'Fair and Square! P2 L3');
+  const atkBuff = state.buffs.find(b => b.name === 'Fair and Square! P2');
   eq('ATK flat buff pushed (SSR)',            !!atkBuff,              true);
   eq('ATK flat unitId = null (global)',        atkBuff?.unitId,        null);
   eq('ATK flat = round(atk * 42.57%)',         atkBuff?.atkFlat,       Math.round(100000 * parseFloat('42.57') / 100));
