@@ -56,17 +56,17 @@ option_id = state_effect_id_prefix × 100 + level   (level 1–15)
 |---------------|---------|--------|-------|--------|
 | `IncElementDmg` | `elementDmgPct` | 70005 | 9.54% | 29.16% |
 | `StatAccuracyCircle` | `hitRatePct` | 70006 | 4.77% | 14.63% |
-| `StatAmmoLoad` | `bonusAmmo` | 70007 | 27.84% | 85.37% |
+| `StatAmmoLoad` | `ammoPct` | 70007 | 27.84% | 85.37% |
 | `StatAtk` | `atkPct` | 70008 | 4.77% | 14.63% |
 | `StatChargeDamage` | `chargeDmgPct` | 70009 | 4.77% | 14.63% |
 | `StatChargeTime` | `chargeSpeedPct` | 70010 | 1.98% | 6.09% |
 | `StatCritical` | `critRatePct` | 70011 | 2.30% | 7.07% |
 | `StatCriticalDamage` | `critDamagePct` | 70012 | 6.64% | 20.36% |
-| `StatDef` | `defFlat` | 70013 | 4.77% | 14.63% |
+| `StatDef` | `defPct` | 70013 | 4.77% | 14.63% |
 
 > **引擎特殊处理**  
-> `bonusAmmo`：以小数 pct 存储，应用为 `Math.round(baseAmmo × pct)`，不直接相加。  
-> `defFlat`：实际是 pct，应用为 `def += Math.round(def × pct)`。  
+> `ammoPct`：以小数 pct 存储，应用为 `Math.round(baseAmmo × pct)`，不直接相加。  
+> `defPct`：实际是 pct，应用为 `def += Math.round(def × pct)`。  
 > 相关文件：`src/data/account-loader.js`（`_OPTION_GROUPS` / `_OPTION_MAP`）、`src/engine/stats.js`。
 
 ---
@@ -151,6 +151,10 @@ SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个
 | ❌ | Anis: Star | [`17.json`](../src/data/static/nikke/17.json) | [`17.js`](../src/data/skills/17.js) |
 | ❌ | Neon: Vision Eye | [`18.json`](../src/data/static/nikke/18.json) | [`18.js`](../src/data/skills/18.js) |
 | ✔️ | Miranda | [`32.json`](../src/data/static/nikke/32.json) | [`32.js`](../src/data/skills/32.js) |
+| ❌ | D: Killer Wife | [`43.json`](../src/data/static/nikke/43.json) | [`43.js`](../src/data/skills/43.js) |
+| ❌ | Brid: Silent Track | [`73.json`](../src/data/static/nikke/73.json) | [`73.js`](../src/data/skills/73.js) |
+| ❌ | Soline: Frost Ticket | [`74.json`](../src/data/static/nikke/74.json) | [`74.js`](../src/data/skills/74.js) |
+| ❌ | Diesel: Winter Sweets | [`75.json`](../src/data/static/nikke/75.json) | [`75.js`](../src/data/skills/75.js) |
 | ✔️ | Liter | [`82.json`](../src/data/static/nikke/82.json) | [`82.js`](../src/data/skills/82.js) |
 | ❌ | Drake | [`101.json`](../src/data/static/nikke/101.json) | [`101.js`](../src/data/skills/101.js) |
 | ✔️ | Maxwell | [`102.json`](../src/data/static/nikke/102.json) | [`102.js`](../src/data/skills/102.js) |
@@ -159,9 +163,10 @@ SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个
 | ❌ | Maiden: Ice Rose | [`183.json`](../src/data/static/nikke/183.json) | [`183.js`](../src/data/skills/183.js) |
 | ❌ | Alice | [`191.json`](../src/data/static/nikke/191.json) | [`191.js`](../src/data/skills/191.js) |
 | ❌ | Tove（SSR：Fire Starter） | [`192.json`](../src/data/static/nikke/192.json) | [`192.js`](../src/data/skills/192.js) |
+| ❌ | Ludmilla: Winter Owner | [`194.json`](../src/data/static/nikke/194.json) | [`194.js`](../src/data/skills/194.js) |
 | ✔️ | Snow White | [`220.json`](../src/data/static/nikke/220.json) | [`220.js`](../src/data/skills/220.js) |
-| ✔️ | Nayuta | [`223.json`](../src/data/static/nikke/223.json) | [`223.js`](../src/data/skills/223.js) |
 | ❌ | Scarlet | [`222.json`](../src/data/static/nikke/222.json) | [`222.js`](../src/data/skills/222.js) |
+| ✔️ | Nayuta | [`223.json`](../src/data/static/nikke/223.json) | [`223.js`](../src/data/skills/223.js) |
 | ✔️ | Scarlet: Black Shadow | [`225.json`](../src/data/static/nikke/225.json) | [`225.js`](../src/data/skills/225.js) |
 | ❌ | Dorothy: Serendipity | [`234.json`](../src/data/static/nikke/234.json) | [`234.js`](../src/data/skills/234.js) |
 | ✔️ | Liberalio | [`262.json`](../src/data/static/nikke/262.json) | [`262.js`](../src/data/skills/262.js) |
@@ -169,34 +174,30 @@ SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个
 | ❌ | Noir | [`271.json`](../src/data/static/nikke/271.json) | [`271.js`](../src/data/skills/271.js) |
 | ❌ | Rouge | [`272.json`](../src/data/static/nikke/272.json) | [`272.js`](../src/data/skills/272.js) |
 | ✔️ | Moran | [`281.json`](../src/data/static/nikke/281.json) | [`281.js`](../src/data/skills/281.js) |
+| ❌ | Privaty: Unkind Maid | [`313.json`](../src/data/static/nikke/313.json) | [`313.js`](../src/data/skills/313.js) |
+| ❌ | Soda: Twinkling Bunny | [`314.json`](../src/data/static/nikke/314.json) | [`314.js`](../src/data/skills/314.js) |
+| ❌ | Ade: Agent Bunny | [`315.json`](../src/data/static/nikke/315.json) | [`315.js`](../src/data/skills/315.js) |
+| ✔️ | Velvet | [`316.json`](../src/data/static/nikke/316.json) | [`316.js`](../src/data/skills/316.js) |
 | ✔️ | Crown | [`330.json`](../src/data/static/nikke/330.json) | [`330.js`](../src/data/skills/330.js) |
 | ✔️ | Helm | [`352.json`](../src/data/static/nikke/352.json) | [`352.js`](../src/data/skills/352.js) |
 | ✔️ | Helm: Aquamarine | [`353.json`](../src/data/static/nikke/353.json) | [`353.js`](../src/data/skills/353.js) |
 | ❌ | Mast: Romantic Maid | [`354.json`](../src/data/static/nikke/354.json) | [`354.js`](../src/data/skills/354.js) |
 | ❌ | Anchor: Innocent Maid | [`355.json`](../src/data/static/nikke/355.json) | [`355.js`](../src/data/skills/355.js) |
+| ✔️ | Zwei（SSR：Four-Leaf Clover Bookmark） | [`390.json`](../src/data/static/nikke/390.json) | [`390.js`](../src/data/skills/390.js) |
+| ❌ | Volume | [`431.json`](../src/data/static/nikke/431.json) | [`431.js`](../src/data/skills/431.js) |
+| ✔️ | Naga | [`450.json`](../src/data/static/nikke/450.json) | [`450.js`](../src/data/skills/450.js) |
 | ✔️ | Red Hood | [`470.json`](../src/data/static/nikke/470.json) | [`470.js`](../src/data/skills/470.js) |
 | ✔️ | Snow White: Heavy Arms | [`471.json`](../src/data/static/nikke/471.json) | [`471.js`](../src/data/skills/471.js) |
+| ✔️ | Elegg: Boom and Shock | [`502.json`](../src/data/static/nikke/502.json) | [`502.js`](../src/data/skills/502.js) |
 | ❌ | Cinderella | [`511.json`](../src/data/static/nikke/511.json) | [`511.js`](../src/data/skills/511.js) |
 | ✔️ | Little Mermaid | [`513.json`](../src/data/static/nikke/513.json) | [`513.js`](../src/data/skills/513.js) |
-| ❌ | Asuka: WILLE | [`835.json`](../src/data/static/nikke/835.json) | [`835.js`](../src/data/skills/835.js) |
-| ❌ | Ade: Agent Bunny | [`315.json`](../src/data/static/nikke/315.json) | [`315.js`](../src/data/skills/315.js) |
-| ✔️ | Naga | [`450.json`](../src/data/static/nikke/450.json) | [`450.js`](../src/data/skills/450.js) |
-| ❌ | Raven | [`851.json`](../src/data/static/nikke/851.json) | [`851.js`](../src/data/skills/851.js) |
-| ❌ | Diesel: Winter Sweets | [`75.json`](../src/data/static/nikke/75.json) | [`75.js`](../src/data/skills/75.js) |
 | ❌ | Grave | [`514.json`](../src/data/static/nikke/514.json) | [`514.js`](../src/data/skills/514.js) |
-| ❌ | Brid: Silent Track | [`73.json`](../src/data/static/nikke/73.json) | [`73.js`](../src/data/skills/73.js) |
-| ❌ | Volume | [`431.json`](../src/data/static/nikke/431.json) | [`431.js`](../src/data/skills/431.js) |
-| ❌ | D: Killer Wife | [`43.json`](../src/data/static/nikke/43.json) | [`43.js`](../src/data/skills/43.js) |
-| ❌ | EVE | [`850.json`](../src/data/static/nikke/850.json) | [`850.js`](../src/data/skills/850.js) |
 | ❌ | Arcana: Fortune Mate | [`583.json`](../src/data/static/nikke/583.json) | [`583.js`](../src/data/skills/583.js) |
-| ✔️ | Elegg: Boom and Shock | [`502.json`](../src/data/static/nikke/502.json) | [`502.js`](../src/data/skills/502.js) |
-| ❌ | Mari | [`832.json`](../src/data/static/nikke/832.json) | [`832.js`](../src/data/skills/832.js) |
-| ❌ | Soda: Twinkling Bunny | [`314.json`](../src/data/static/nikke/314.json) | [`314.js`](../src/data/skills/314.js) |
-| ❌ | Privaty: Unkind Maid | [`313.json`](../src/data/static/nikke/313.json) | [`313.js`](../src/data/skills/313.js) |
-| ❌ | Ada | [`840.json`](../src/data/static/nikke/840.json) | [`840.js`](../src/data/skills/840.js) |
-| ❌ | Soline: Frost Ticket | [`74.json`](../src/data/static/nikke/74.json) | [`74.js`](../src/data/skills/74.js) |
-| ✔️ | Velvet | [`316.json`](../src/data/static/nikke/316.json) | [`316.js`](../src/data/skills/316.js) |
-| ❌ | Ludmilla: Winter Owner | [`194.json`](../src/data/static/nikke/194.json) | [`194.js`](../src/data/skills/194.js) |
 | ✔️ | Mint | [`600.json`](../src/data/static/nikke/600.json) | [`600.js`](../src/data/skills/600.js) |
 | ❌ | Prika | [`601.json`](../src/data/static/nikke/601.json) | [`601.js`](../src/data/skills/601.js) |
-| ✔️ | Zwei（SSR：Four-Leaf Clover Bookmark） | [`390.json`](../src/data/static/nikke/390.json) | [`390.js`](../src/data/skills/390.js) |
+| ❌ | Mari | [`832.json`](../src/data/static/nikke/832.json) | [`832.js`](../src/data/skills/832.js) |
+| ❌ | Rei (Tentative Name) | [`834.json`](../src/data/static/nikke/834.json) | [`834.js`](../src/data/skills/834.js) |
+| ❌ | Asuka: WILLE | [`835.json`](../src/data/static/nikke/835.json) | [`835.js`](../src/data/skills/835.js) |
+| ❌ | Ada | [`840.json`](../src/data/static/nikke/840.json) | [`840.js`](../src/data/skills/840.js) |
+| ❌ | EVE | [`850.json`](../src/data/static/nikke/850.json) | [`850.js`](../src/data/skills/850.js) |
+| ❌ | Raven | [`851.json`](../src/data/static/nikke/851.json) | [`851.js`](../src/data/skills/851.js) |

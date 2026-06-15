@@ -823,8 +823,9 @@ export function tick(state) {
   }
 
   // 清理过期 buff — 移除前收集需要重算 maxAmmo 的单位 ID，以及 CS buff 过期的单位 ID
-  const _ammoRecalcIds = new Set();
-  const _csExpiredIds  = new Set();
+  const _ammoRecalcIds  = new Set();
+  const _csExpiredIds   = new Set();
+  const _expiredBuffs   = [];
   for (const b of state.buffs) {
     if (b.endTick <= state.tick) {
       if (state.buffLog)
@@ -843,6 +844,7 @@ export function tick(state) {
           for (const u of state.squad) _csExpiredIds.add(u.id);
         }
       }
+      _expiredBuffs.push(b);
     }
   }
   state.buffs = state.buffs.filter(b => b.endTick > state.tick);
@@ -857,6 +859,11 @@ export function tick(state) {
   for (const uid of _csExpiredIds) {
     const u = state.squad.find(u => u.id === uid);
     if (u) executeSkillTriggers(state, 'CS_BUFF_CHANGED', { unit: u });
+  }
+
+  // BUFF_EXPIRE：过期 buff 已移除，逐个通知技能系统
+  for (const b of _expiredBuffs) {
+    executeSkillTriggers(state, 'BUFF_EXPIRE', { buffName: b.name, buffUnitId: b.unitId });
   }
 
   // ── 持续伤害（DoT）池 ────────────────────────────────────────────────────────
@@ -1518,9 +1525,12 @@ export function tick(state) {
 
       // MG ramp：ROF per-shot ramp up（内联保留，非声明式）
       if (unit.mgCurrentRof != null) {
+        const mgHeatMult = 1 + state.buffs
+          .filter(b => (b.unitId === null || b.unitId === unit.id) && b.endTick > state.tick)
+          .reduce((a, b) => a + (b.mgHeatSpeedPct ?? 0), 0);
         unit.mgCurrentRof = Math.min(
           unit.mgMaxRof,
-          unit.mgCurrentRof + unit.mgRofChangePerShot
+          unit.mgCurrentRof + unit.mgRofChangePerShot * mgHeatMult
         );
       }
 

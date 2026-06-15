@@ -27,6 +27,8 @@
  *   CS_BUFF_CHANGED     含 chargeSpeedPct 的 buff 被推入或过期时（ctx.unit = 受影响单位）
  *                       由 pushBuff → _trackCsChange → flushCsChanged / buff 过期清理 分派；
  *                       供需要感知自身蓄力速度变化的技能（如 Red Hood S1 P2）使用
+ *   BUFF_EXPIRE         任意 buff 自然过期时（团队触发；ctx.buffName = 过期 buff 名，ctx.buffUnitId = 所属单位 id）
+ *                       每个过期 buff 单独派发一次；在过期 buff 已从 state.buffs 移除后触发
  *
  * 作用范围（target 字段）：
  *   SELF                     自身（caster）
@@ -73,7 +75,7 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
 const TEAM_TRIGGERS = new Set([
   'PROGRAM_INIT',
   'BATTLE_START', 'ENTER_BURST_I', 'ENTER_BURST_II', 'ENTER_BURST_III', 'ENTER_FULL_BURST', 'FULL_BURST_END',
-  'AMMO_MILESTONE', 'HEAL_RECEIVED', 'COVER_HEAL',
+  'AMMO_MILESTONE', 'HEAL_RECEIVED', 'COVER_HEAL', 'BUFF_EXPIRE',
 ]);
 
 // 根据触发定义和施放者计算 logCtx，供 applyEffects / pushBuff 使用

@@ -827,34 +827,35 @@ section('T16: B3 直接伤害默认/非默认结算配置审计');
   }
 
   // ── Asuka: WILLE (835): 【已实测】非默认 — Annihilation 在 Annihilation State 结束时（≈9s 后）发动 ──
-  // S1 Part1 的 ATK▲ / Attack Damage▲ buff 与 annihilationStateEndTick 同时失效；
+  // S1 P1 的 ATK▲ / Attack Damage▲ buff 与 Annihilation State 哨兵 buff 同时失效；
   // Annihilation 发动时重算 sums（不含已失效 buff），若仍在全爆裂期间享受 +50%。
   {
-    // BURST_SKILL_USE：正确设置 annihilationStateEndTick，9s buff 同步到期
+    // BURST_SKILL_USE：推入 Annihilation State 哨兵 buff，9s 各 buff 同步到期
     const burstTrigger = SKILL_TRAITS[835]?.burst?.triggers?.find(t => t.on === 'BURST_SKILL_USE');
     const state = makeState(835);
     const caster = state.squad[0];
     caster.ammoLeft = 0; caster.maxAmmo = 100;
-    caster.skillState = { annihilationStateEndTick: 0, annihilationFired: false };
+    caster.skillState = { annihilationFired: false };
     caster.rawBurst   = rawSkill([21, 46.8, 6.62, 36, 9, 9]);
     burstTrigger.handler(state, caster, {});
-    const asEnd = caster.skillState.annihilationStateEndTick;
-    eq('Asuka BURST_SKILL_USE 设置 annihilationStateEndTick = 9×TICK_RATE', asEnd, 9 * TICK_RATE);
+    const annBuff = state.buffs.find(b => b.name === 'Annihilation State' && b.unitId === caster.id);
+    const asEnd   = annBuff?.endTick ?? 0;
+    eq('Asuka BURST_SKILL_USE 推入 Annihilation State buff，endTick = 9×TICK_RATE', asEnd, 9 * TICK_RATE);
     eq('Asuka BURST_SKILL_USE 不设置 asuka_burstSumsSnapshot（非默认不需快照）',
       caster.skillState.asuka_burstSumsSnapshot, undefined);
-    // ATK▲ 和 AttackDmg▲ buff 的 endTick 与 annihilationStateEndTick 相同（同时失效）
-    const atkBuff    = state.buffs.find(b => b.name === 'Annihilation State P1 L3');
-    const atkDmgBuff = state.buffs.find(b => b.name === 'Annihilation State P1 L4');
-    eq('Annihilation State P1 L3.endTick === annihilationStateEndTick（buff 与 Annihilation 同时到期）',
+    // ATK▲ 和 AttackDmg▲ buff 的 endTick 与 Annihilation State 哨兵 buff 相同（同时失效）
+    const atkBuff    = state.buffs.find(b => b.name === 'Annihilation State P1 L6');
+    const atkDmgBuff = state.buffs.find(b => b.name === 'Annihilation State P1 L7');
+    eq('Annihilation State P1 L6.endTick 与 Annihilation State buff 同步到期',
       atkBuff?.endTick, asEnd);
-    eq('Annihilation State P1 L4.endTick === annihilationStateEndTick（buff 与 Annihilation 同时到期）',
+    eq('Annihilation State P1 L7.endTick 与 Annihilation State buff 同步到期',
       atkDmgBuff?.endTick, asEnd);
   }
   {
-    // INTERVAL 调用 fireAnnihilation；BURST_SKILL_USE 无快照（源码检查）
-    const intervalSrc = SKILL_TRAITS[835]?.burst?.triggers?.find(
-      t => t.on === 'INTERVAL')?.handler?.toString() ?? '';
-    eq('Asuka INTERVAL handler 调用 fireAnnihilation', intervalSrc.includes('fireAnnihilation'), true);
+    // BUFF_EXPIRE handler 在 Annihilation State 到期时发动 Annihilation；BURST_SKILL_USE 无快照（源码检查）
+    const expireSrc = SKILL_TRAITS[835]?.burst?.triggers?.find(
+      t => t.on === 'BUFF_EXPIRE')?.handler?.toString() ?? '';
+    eq('Asuka BUFF_EXPIRE handler 检查 annihilationFired 标志', expireSrc.includes('annihilationFired'), true);
     const burstSrc = SKILL_TRAITS[835]?.burst?.triggers?.find(
       t => t.on === 'BURST_SKILL_USE')?.handler?.toString() ?? '';
     eq('Asuka BURST_SKILL_USE 源码不含 asuka_burstSumsSnapshot（非默认，不预捕获）',

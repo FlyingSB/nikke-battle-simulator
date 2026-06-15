@@ -29,6 +29,7 @@ export const BUFF_NUMERIC_FIELDS = [
   'maxAmmoPct', 'maxAmmoFlat',
   'trueDamagePct', 'atkSpeedPct', 'sequentialAttackDamagePct',
   'damageToPartsPct',
+  'mgHeatSpeedPct',
 ];
 
 // ─── 最大装弹数管理 ─────────────────────────────────────────────────────────
