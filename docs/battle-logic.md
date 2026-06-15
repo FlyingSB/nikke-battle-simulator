@@ -91,7 +91,7 @@ BaseDamage   = max(0, effectiveAtk) × hitMultiplier × favNormalAttackDamageMul
 - `atkPct` 汇总：equipAtkPct + 所有生效 buff 的 atkPct（加法叠加）。
 - `atkFlat` 汇总：equipAtkFlat + 所有生效 buff 的 atkFlat。
 - `hitMultiplier`：普通攻击为 `shot_detail.damage / 10000`；技能伤害为技能描述中的百分比。
-- `favNormalAttackDamageMult`：珍藏品 "Normal Attack Damage ▲"（SMG/SG 珍藏品），直接乘在 BaseDamage 上，是**独立乘法**，与 ExtraMultiplier 不相加；**仅加成于该珍藏品对应武器类型的普通攻击**（SMG 珍藏品仅加成 SMG 普攻，SG 珍藏品仅加成 SG 普攻）。
+- `favNormalAttackDamageMult`：珍藏品 "Normal Attack Damage ▲"（SMG/SG 珍藏品），直接乘在 BaseDamage 上，是**独立乘法**，与 ExtraMultiplier 不相加；**仅加成于该珍藏品对应武器类型的普通攻击**（SMG 珍藏品仅加成 SMG 普攻，SG 珍藏品仅加成 SG 普攻）；**武器切换（`WEAPON_SWITCH`）期间不生效**（视为 1.0）。
 - **True Damage**：effectiveDef = 0（完全忽略防御）。
 
 ### 3.2 CommonMultiplier
