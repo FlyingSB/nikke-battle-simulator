@@ -506,7 +506,7 @@ select.input { cursor: pointer; }
   color: var(--text-dim); vertical-align: top;
 }
 .log-table tr:last-child td { border-bottom: none; }
-.log-table tr:hover td { background: var(--surface3); }
+.log-table tr:hover td:not(.log-track) { background: var(--surface3); }
 .log-line     { color: var(--text-muted); text-align: right; white-space: nowrap; user-select: none; }
 .log-line-hd  { width: 28px; text-align: right; }
 .log-time  { color: var(--text-muted); white-space: nowrap; }
