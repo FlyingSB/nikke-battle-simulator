@@ -113,28 +113,21 @@ export default {
           const bLv  = caster.skillLevels[2];
           const end9 = state.tick + TICK_RATE * 9;
 
-          // Annihilation State 哨兵 buff（S1 P2 / S2 P1 / Rei S1 P3 凭此判断是否有效）
-          pushBuff(state, { name: 'Annihilation State', unitId: caster.id, endTick: end9 });
           caster.skillState.annihilationFired = false;
 
           // Effect 1: Normal Attack Damage Multiplier ▼40%（9s，负 buff）
-          pushBuff(state, { name: 'Annihilation State P1 L4', unitId: caster.id,
-            normalAttackDamagePct: -0.40, endTick: end9 });
+          // Effect 3: ATK ▲p02%（9s）
+          const atkPct = getSkillValue(caster.rawBurst, 1, bLv) / 100;
+          // Effect 4: Attack Damage ▲p04%（9s）
+          const atkDmgPct = getSkillValue(caster.rawBurst, 3, bLv) / 100;
+          // Annihilation State 哨兵 buff（S1 P2 / S2 P1 / Rei S1 P3 凭此判断是否有效）
+          pushBuff(state, { name: 'Annihilation State', unitId: caster.id,
+            normalAttackDamagePct: -0.40, atkPct: atkPct, attackDamagePct: atkDmgPct, endTick: end9 });
 
           // Effect 2: 装填 p01% 弹匣
           const reloadPct = getSkillValue(caster.rawBurst, 0, bLv) / 100;
           caster.ammoLeft = Math.min(caster.maxAmmo,
             caster.ammoLeft + Math.floor(caster.maxAmmo * reloadPct));
-
-          // Effect 3: ATK ▲p02%（9s）
-          const atkPct = getSkillValue(caster.rawBurst, 1, bLv) / 100;
-          pushBuff(state, { name: 'Annihilation State P1 L6', unitId: caster.id,
-            atkPct, endTick: end9 });
-
-          // Effect 4: Attack Damage ▲p04%（9s）
-          const atkDmgPct = getSkillValue(caster.rawBurst, 3, bLv) / 100;
-          pushBuff(state, { name: 'Annihilation State P1 L7', unitId: caster.id,
-            attackDamagePct: atkDmgPct, endTick: end9 });
         },
       },
 
@@ -154,16 +147,17 @@ export default {
           // ATF 叠层伤害（【已实测】非默认：Annihilation 在 Annihilation State 结束时（≈9s 后）发动，
           //   S1 P1 的 ATK▲ 和 Attack Damage▲ buff 与 Annihilation State buff 同时失效，
           //   sums 在发动时重算（不含已过期的 Annihilation State buff），
+          //   先造成伤害，再清空Anti A.T. Field
           //   若仍处于全爆裂期间则享受全爆裂+50%补正）
           const atfBuff = state.buffs.find(b =>
             b.name === 'Anti A.T. Field' && b.unitId === ENEMY_UNIT_ID && b.endTick > state.tick);
           const stacks = atfBuff?.stacks ?? 0;
           if (stacks > 0) {
-            state.buffs = state.buffs.filter(b =>
-              !(b.name === 'Anti A.T. Field' && b.unitId === ENEMY_UNIT_ID));
             const annMult = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]) / 100;
             const sums    = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, annMult * stacks, sums);
+            fireSkillHit(state, caster, annMult * stacks, sums, 'Burst P2');
+            state.buffs = state.buffs.filter(b =>
+              !(b.name === 'Anti A.T. Field' && b.unitId === ENEMY_UNIT_ID));
           }
 
           // ── S2 Part2 ──
@@ -175,9 +169,9 @@ export default {
               mgHeatSpeedPct: -1, endTick: state.tick + TICK_RATE * 3 }, {
                 unitName: caster.name,
                 skillLabel: caster.rawSkill2?.name_localkey ?? 'S2',
-                slot: 'S2',
+                slot: null,
                 partIdx: 1,
-                lineIdx: 5,
+                lineIdx: 3,
                 trigger: state._logCtx?.trigger ?? 'BUFF_EXPIRE',
               });
           }

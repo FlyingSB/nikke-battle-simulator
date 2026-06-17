@@ -89,7 +89,7 @@ export default {
   // p07: [20.08, 22.21, 24.34, 26.48, 28.61, 30.74, 32.87, 35.0, 37.13, 39.26] (Damage Taken%)
   // p08: [10, ...] (Damage Taken duration, const)
   //
-  // Indomitability / Max HP ▲ 为防御效果，不建模。
+  // Indomitability 为防御效果，不建模。Max HP ▲ 通过 maxHpPct buff 实现。
   // Damage Taken debuff 通过 buff 的 endTick 机制管理：battle.js 过期循环读取
   // b.enemyDamageTakenPct 并从 state.enemyDamageTakenPct 中减去，精度至单 tick。
   // 刷新时（buff 仍活跃）pushBuff 仅延长 endTick，不重复累加 enemyDamageTakenPct。
@@ -103,6 +103,20 @@ export default {
           const pct    = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const amount = Math.round(caster.stats.hp * pct);
           pushHoT(state, ALL_ALLIES, amount, 8);
+        },
+      },
+
+      // Part2：HP% 最低的 1 名友军（不含自身）→ Max HP ▲ p05% for 10s
+      {
+        on: 'BURST_SKILL_USE',
+        handler(state, caster) {
+          const pct    = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
+          const end    = state.tick + TICK_RATE * 10;
+          const target = [...state.squad]
+            .filter(u => u.id !== caster.id)
+            .sort((a, b) => (a.unitHp / a.stats.hp) - (b.unitHp / b.stats.hp))[0];
+          if (!target) return;
+          pushBuff(state, { name: 'Showtime P2', unitId: target.id, maxHpPct: pct, endTick: end });
         },
       },
 

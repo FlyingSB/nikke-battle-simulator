@@ -175,7 +175,7 @@ export default {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'Asceticism P1 L1', unitId: null,
+          pushBuff(state, { name: 'Asceticism P1', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 15 });
         },
       },

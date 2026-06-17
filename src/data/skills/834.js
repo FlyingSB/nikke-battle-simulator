@@ -157,7 +157,7 @@ export default {
           const lv      = caster.skillLevels[2];
           const sums    = getBuffSums(state, caster.id);
           const hitMult = getSkillValue(caster.rawBurst, 4, lv) / 100;
-          fireSkillHit(state, caster, hitMult, sums);
+          fireSkillHit(state, caster, hitMult, sums, 'Burst');
         },
       },
     ],
