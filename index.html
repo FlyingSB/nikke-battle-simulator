@@ -185,6 +185,7 @@
                           <option value="EXPOSED">暴露核心</option>
                           <option value="PROTECTED">保护核心</option>
                           <option value="PIERCE_DUAL">穿透双判核心</option>
+                          <option value="PARTS">命中零件</option>
                           <option value="NONE">无核心</option>
                         </select>
                       </template>
@@ -770,6 +771,8 @@
                                 x-show="row._hit && row.isCrit">暴击</span>
                               <span class="hit-tag hit-tag--core"
                                 x-show="row._hit && row.isCore">命中核心</span>
+                              <span class="hit-tag hit-tag--parts"
+                                x-show="row._hit && row.isParts">命中零件</span>
                               <span class="hit-tag hit-tag--dist"
                                 x-show="row._hit && row.distanceAdv">优势距离</span>
                               <template x-for="(buff, bi) in (row.buffArr ?? [])" :key="bi">

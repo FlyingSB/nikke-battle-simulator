@@ -518,7 +518,8 @@ select.input { cursor: pointer; }
 .hit-tag   { font-size: 0.6rem; font-weight: 600; margin-right: 3px; }
 .hit-tag--crit { color: #f29c15; }
 .hit-tag--core { color: #f19d89; }
-.hit-tag--dist { color: #1df7e3; }
+.hit-tag--dist  { color: #1df7e3; }
+.hit-tag--parts { color: #a8e06a; }
 .log-empty { text-align: center; color: var(--text-muted); padding: 14px; }
 .buff-tag  { cursor: pointer; text-decoration: underline dotted var(--text-muted); }
 

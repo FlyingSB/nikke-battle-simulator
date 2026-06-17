@@ -65,6 +65,7 @@
  *   { type: 'IN_FULL_BURST' }
  *   { type: 'IS_CHARGED' }
  *   { type: 'IS_CORE_HIT' }  — ctx.hitPart === 'core'
+ *   { type: 'IS_PARTS_HIT' } — ctx.hitPart === 'parts'
  */
 
 import { SKILL_TRAITS } from '../data/skill-traits.js';
@@ -113,6 +114,8 @@ function checkOne(state, caster, cond, ctx) {
       return !!ctx.isCharged;
     case 'IS_CORE_HIT':
       return ctx.hitPart === 'core';
+    case 'IS_PARTS_HIT':
+      return ctx.hitPart === 'parts';
     case 'HEALED_UNIT_IS_SELF':
       return ctx.unit?.id === caster.id;
     default:
@@ -422,7 +425,7 @@ export function onShotFired(state, unit, shotCtx, opts = {}) {
         if (tdef.handler) {
           const logCtx = buildLogCtx(caster, skillKey, tdefIdx, tdef, skill, 'SQUAD_SHOT_COUNT');
           state._logCtx = logCtx;
-          tdef.handler(state, caster, { shootingUnit: unit });
+          tdef.handler(state, caster, { shootingUnit: unit, hitPart: shotCtx.hitPart });
           state._logCtx = null;
         }
       }
@@ -504,6 +507,22 @@ export function onShotFired(state, unit, shotCtx, opts = {}) {
           if (!checkConditions(state, unit, tdef, ctx)) break;
           {
             const logCtx = buildLogCtx(unit, skillKey, tdefIdx, tdef, skill, 'CORE_HIT');
+            if (tdef.handler) {
+              state._logCtx = logCtx;
+              ctx.logCtx = logCtx;
+              tdef.handler(state, unit, ctx);
+              state._logCtx = null;
+            } else {
+              applyEffects(state, unit, resolveTargets(state, unit, tdef.target, tdef.targetOpts), tdef.effects ?? [], ctx, logCtx);
+            }
+          }
+          break;
+
+        case 'PARTS_HIT':
+          if (shotCtx.hitPart !== 'parts') break;
+          if (!checkConditions(state, unit, tdef, ctx)) break;
+          {
+            const logCtx = buildLogCtx(unit, skillKey, tdefIdx, tdef, skill, 'PARTS_HIT');
             if (tdef.handler) {
               state._logCtx = logCtx;
               ctx.logCtx = logCtx;

@@ -130,6 +130,31 @@ section('T8b: Core + coreDmgIncrement');
   eq('core+increment', damage, 900);
 }
 
+// ── T8c: Parts hit ────────────────────────────────────────────────────────────
+
+section('T8c: Parts hit — no extra');
+{
+  // hitPart='parts' 无 damageToPartsMult → 与 body 相同，damage = 400
+  const { damage } = calcDamage({ ...BASE, hitPart: 'parts' });
+  eq('parts no extra', damage, 400);
+}
+
+section('T8d: Parts hit — damageToPartsMult applies');
+{
+  // extraMult = 1 + 0.25 = 1.25; damage = floor(400 × 1.25) = 500
+  const { damage } = calcDamage({ ...BASE, hitPart: 'parts',
+    extra: { damageToPartsMult: 0.25 } });
+  eq('parts+extra', damage, 500);
+}
+
+section('T8e: Body hit — damageToPartsMult does NOT apply');
+{
+  // hitPart='body' 时 damageToPartsMult 不计入，damage = 400
+  const { damage } = calcDamage({ ...BASE, hitPart: 'body',
+    extra: { damageToPartsMult: 0.25 } });
+  eq('body ignores parts extra', damage, 400);
+}
+
 // ── T9: Crit + Core ───────────────────────────────────────────────────────────
 
 section('T9: Crit + Core combined');

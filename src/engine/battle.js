@@ -626,6 +626,8 @@ export function initBattle(config) {
     enemyCoreProtected:   config.enemy.coreProtected ?? false,
     // 穿透双判核心：穿透攻击命中核心时同时产生一次核心伤害和一次体部伤害。
     enemyCorePierceDual:  config.enemy.corePierceDual ?? false,
+    // 命中零件：所有实弹均命中敌人可破坏零件（不命中核心/躯体）。
+    enemyHasParts:        config.enemy.hasParts ?? false,
     // Active enemy zone for distance-based damage. Updated on each non-CANNOT_BE_AIMED phase entry.
     // config.enemy.distance overrides the phase schedule entirely (legacy / test usage).
     distanceZone:       config.enemy.distance ?? (initialZone !== 'CANNOT_BE_AIMED' ? initialZone : null),
@@ -815,9 +817,10 @@ export function tick(state) {
   for (const a of state.enemyCoreActions) {
     if (a.startTick === state.tick) {
       events.push({ type: 'enemy_action', tick: state.tick, actionType: 'core', value: a.value });
-      state.enemyHasCore        = a.value !== 'NONE';
+      state.enemyHasCore        = a.value !== 'NONE' && a.value !== 'PARTS';
       state.enemyCoreProtected  = a.value === 'PROTECTED';
       state.enemyCorePierceDual = a.value === 'PIERCE_DUAL';
+      state.enemyHasParts       = a.value === 'PARTS';
       break;
     }
   }
@@ -1177,7 +1180,8 @@ export function tick(state) {
       const isCore = state.enemyHasCore && (
         state.enemyCoreProtected ? (isPierce && coreRoll) : coreRoll
       );
-      const hitPart = isCore ? 'core' : 'body';
+      const isParts = !isCore && state.enemyHasParts;
+      const hitPart = isCore ? 'core' : isParts ? 'parts' : 'body';
       // 穿透双判核心：穿透攻击命中核心时，额外产生一次体部伤害。
       const isPierceDualBody = state.enemyCorePierceDual && isPierce && isCore;
 
@@ -1360,7 +1364,7 @@ export function tick(state) {
           attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct, isFullBurst: state.fullBurstActive,
           damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: state.enemyDef,
           isPierce, pierceDamagePct: isPierce ? (sums.pierceDamagePct ?? 0) : 0,
-          ammoBeforeShot, hitPart, isCore,
+          ammoBeforeShot, hitPart, isCore, isParts,
           coreDmgIncrement: (unit.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0),
           damage,
           elementDmgPct: unit.stats.elementDmgPct ?? 0,
@@ -1432,7 +1436,7 @@ export function tick(state) {
             isFullBurst: state.fullBurstActive,
             damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: state.enemyDef,
             isPierce, pierceDamagePct: isPierce ? (sums2log.pierceDamagePct ?? 0) : 0,
-            ammoBeforeShot, hitPart, isCore,
+            ammoBeforeShot, hitPart, isCore, isParts,
             coreDmgIncrement: (unit.coreDmgIncrement ?? 0) + (isCore ? (sums2log.coreDamagePct ?? 0) : 0),
             damage: damage2,
             elementDmgPct: unit.stats.elementDmgPct ?? 0,

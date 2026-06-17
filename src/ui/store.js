@@ -1616,9 +1616,10 @@ export function createStore() {
           squad:    squadConfig,
           enemy: {
             def:            Number(initDefAction?.value) || 100,
-            hasCore:        initCore !== 'NONE',
+            hasCore:        initCore !== 'NONE' && initCore !== 'PARTS',
             coreProtected:  initCore === 'PROTECTED',
             corePierceDual: initCore === 'PIERCE_DUAL',
+            hasParts:       initCore === 'PARTS',
             element:        this.enemy.element,
             type:           this.enemy.type,
             phases:         positionPhases,
