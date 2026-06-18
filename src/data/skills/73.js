@@ -15,7 +15,6 @@ export default {
   // p01 duration (const): [10, ...]
   // p02 skill damage%: [375.82, 404.73, 433.64, 462.54, 491.45, 520.36, 549.27, 578.18, 607.09, 636]
   //
-  // 注：Wind Code 筛选在单 Boss 场景中等同于全体敌人，不额外过滤。
   skill1: {
     groupId: 20731,
     triggers: [
@@ -25,10 +24,12 @@ export default {
           const lv  = caster.skillLevels[0];
           const end = state.tick + TICK_RATE * 10;
 
-          // Wind Code 敌人承伤 ▲ p00% 10s
-          const dtPct      = getSkillValue(caster.rawSkill1, 0, lv) / 100;
-          pushBuff(state, { name: 'Ignition Sequence', unitId: null,
-            enemyDamageTakenPct: dtPct, endTick: end });
+          // Wind Code 敌人承伤 ▲ p00% 10s（仅对风属性敌人生效）
+          if (state.enemyElement === 'Wind') {
+            const dtPct = getSkillValue(caster.rawSkill1, 0, lv) / 100;
+            pushBuff(state, { name: 'Ignition Sequence', unitId: '__enemy__', isDebuff: true,
+              enemyDamageTakenPct: dtPct, endTick: end });
+          }
 
           // 全体敌人技能伤害 p02%
           const dmgPct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
@@ -58,15 +59,16 @@ export default {
   skill2: {
     groupId: 20732,
     triggers: [
-      // 每 10 发 → Wind Code 敌人承伤 ▲ p02% 10s
+      // 每 10 发 → Wind Code 敌人承伤 ▲ p02% 10s（仅对风属性敌人生效）
       {
         on: 'SHOT_COUNT',
         opts: { every: 10, counterKey: 'brid_s2_windCount' },
         handler(state, caster) {
+          if (state.enemyElement !== 'Wind') return;
           const lv  = caster.skillLevels[1];
           const end = state.tick + TICK_RATE * 10;
 
-          const dtPct      = getSkillValue(caster.rawSkill2, 2, lv) / 100;
+          const dtPct = getSkillValue(caster.rawSkill2, 2, lv) / 100;
           pushBuff(state, { name: 'Journey Ahead', unitId: '__enemy__', isDebuff: true,
             enemyDamageTakenPct: dtPct, endTick: end });
         },
