@@ -14,6 +14,7 @@
 
 import { calcDamage, calcExpectedDamage, hasDistanceAdvantage, getElementAdvantage } from '../../src/engine/damage.js';
 import { applyGradeCore } from '../../src/engine/stats.js';
+import { fireSkillHit, getBuffSums, pushBuff } from '../../src/engine/battle-utils.js';
 import {
   ELEMENT_ADVANTAGE_BASE,
   DISTANCE_ADVANTAGE_BONUS,
@@ -1072,6 +1073,106 @@ section('T34: Maiden: Ice Rose — burst energy per full charge (game-verified)'
   eq('FC 武器充能 (36400 × 2.5)',     fcWeaponEnergy,              91_000);
   eq('FC S2 技能充能',                 fcS2Energy,                  36_400);
   eq('FC 总充能（游戏实测 127400）',   fcWeaponEnergy + fcS2Energy, 127_400);
+}
+
+// ── T35–T37: fireSkillHit buffBreakdown 管线 ──────────────────────────────────
+//
+// 验证各条件性 buff 字段在 buffBreakdown 中按预期出现 / 不出现。
+// 最小 state：无全爆裂、无防御、无敌人承伤。
+
+function makeHitState() {
+  const unit = {
+    id: 1, equipAtkPct: 0, equipAtkFlat: 0,
+    stats: { atk: 10_000, critRate: 0, critDmg: 0.50, elementDmgPct: 0, chargeDmgPct: 0 },
+    weaponType: 'AR', element: 'Iron',
+    totalDamage: 0, skillDamage: {}, skillDamageCount: {},
+    fullChargeDamage: 10_000, favNormalAttackDamageMult: 1,
+  };
+  const state = {
+    tick: 0, buffs: [], hitLog: [],
+    fullBurstActive: false, fullBurstActive_global: false,
+    enemyDef: 0, enemyElement: 'Iron', distanceZone: null,
+    enemyDamageTakenPct: 0, burstGauge: 0, _logSeq: 0,
+    squad: [unit],
+    dots: [],
+  };
+  return { state, unit };
+}
+
+// ── T35: trueDamagePct ────────────────────────────────────────────────────────
+//
+// trueDamagePct buff 仅在 isTrueDamage=true 命中时出现在 buffBreakdown。
+// DEF 被忽略时伤害更高，且 buffBreakdown 中有该 buff 记录。
+
+section('T35: fireSkillHit buffBreakdown — trueDamagePct 出现条件');
+{
+  // trueDamagePct buff 推入 → isTrueDamage=true 时应在 buffBreakdown 中
+  const { state, unit } = makeHitState();
+  pushBuff(state, { name: 'TrueTest', unitId: unit.id, trueDamagePct: 0.50, endTick: Infinity });
+  const sums = getBuffSums(state, unit.id);
+  fireSkillHit(state, unit, 1.0, sums, 'T35-hit', { isTrueDamage: true });
+  const entry = state.hitLog[0];
+  const bd = entry?.buffBreakdown?.find(b => b.name === 'TrueTest');
+  eq('T35: trueDamagePct buff 出现在 buffBreakdown', bd != null, true);
+  near('T35: buffBreakdown.trueDamagePct 值正确', bd?.trueDamagePct ?? -1, 0.50);
+
+  // isTrueDamage=false 时不出现
+  const { state: s2, unit: u2 } = makeHitState();
+  pushBuff(s2, { name: 'TrueTest', unitId: u2.id, trueDamagePct: 0.50, endTick: Infinity });
+  const sums2 = getBuffSums(s2, u2.id);
+  fireSkillHit(s2, u2, 1.0, sums2, 'T35-hit-notrue', { isTrueDamage: false });
+  const bd2 = s2.hitLog[0]?.buffBreakdown?.find(b => b.name === 'TrueTest');
+  eq('T35: isTrueDamage=false 时 trueDamagePct 不出现', bd2, undefined);
+}
+
+// ── T36: damageToPartsPct ─────────────────────────────────────────────────────
+//
+// damageToPartsPct buff 仅在 hitPart='parts' 命中时出现在 buffBreakdown。
+
+section('T36: fireSkillHit buffBreakdown — damageToPartsPct 出现条件');
+{
+  const { state, unit } = makeHitState();
+  pushBuff(state, { name: 'PartsTest', unitId: unit.id, damageToPartsPct: 0.30, endTick: Infinity });
+  const sums = getBuffSums(state, unit.id);
+  fireSkillHit(state, unit, 1.0, sums, 'T36-hit', { hitPart: 'parts' });
+  const bd = state.hitLog[0]?.buffBreakdown?.find(b => b.name === 'PartsTest');
+  eq('T36: damageToPartsPct buff 出现在 buffBreakdown (hitPart=parts)', bd != null, true);
+  near('T36: buffBreakdown.damageToPartsPct 值正确', bd?.damageToPartsPct ?? -1, 0.30);
+
+  // hitPart='body' 时不出现
+  const { state: s2, unit: u2 } = makeHitState();
+  pushBuff(s2, { name: 'PartsTest', unitId: u2.id, damageToPartsPct: 0.30, endTick: Infinity });
+  const sums2 = getBuffSums(s2, u2.id);
+  fireSkillHit(s2, u2, 1.0, sums2, 'T36-hit-body', { hitPart: 'body' });
+  const bd2 = s2.hitLog[0]?.buffBreakdown?.find(b => b.name === 'PartsTest');
+  eq('T36: hitPart=body 时 damageToPartsPct 不出现', bd2, undefined);
+}
+
+// ── T37: sustainedDamagePct（含叠层）─────────────────────────────────────────
+//
+// sustainedDamagePct buff 仅在 sustainedDamage=true 时出现，且叠层数参与值计算。
+
+section('T37: fireSkillHit buffBreakdown — sustainedDamagePct 出现条件及叠层');
+{
+  const { state, unit } = makeHitState();
+  // 2 层 buff，每层 0.20 → 合计贡献 0.40
+  pushBuff(state, { name: 'SustainTest', unitId: unit.id, sustainedDamagePct: 0.20,
+    endTick: Infinity, stackLimit: 2 });
+  pushBuff(state, { name: 'SustainTest', unitId: unit.id, sustainedDamagePct: 0.20,
+    endTick: Infinity, stackLimit: 2 });
+  const sums = getBuffSums(state, unit.id);
+  fireSkillHit(state, unit, 1.0, sums, 'T37-hit', { sustainedDamage: true });
+  const bd = state.hitLog[0]?.buffBreakdown?.find(b => b.name === 'SustainTest');
+  eq('T37: sustainedDamagePct buff 出现在 buffBreakdown', bd != null, true);
+  near('T37: 叠层 2 时 buffBreakdown.sustainedDamagePct = 0.20×2 = 0.40', bd?.sustainedDamagePct ?? -1, 0.40);
+
+  // sustainedDamage=false 时不出现
+  const { state: s2, unit: u2 } = makeHitState();
+  pushBuff(s2, { name: 'SustainTest', unitId: u2.id, sustainedDamagePct: 0.20, endTick: Infinity });
+  const sums2 = getBuffSums(s2, u2.id);
+  fireSkillHit(s2, u2, 1.0, sums2, 'T37-hit-nosustain', { sustainedDamage: false });
+  const bd2 = s2.hitLog[0]?.buffBreakdown?.find(b => b.name === 'SustainTest');
+  eq('T37: sustainedDamage=false 时 sustainedDamagePct 不出现', bd2, undefined);
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────

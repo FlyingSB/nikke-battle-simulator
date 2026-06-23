@@ -24,37 +24,40 @@ export default {
   skill1: {
     groupId: 20751,
     triggers: [
-      // BURST_SKILL_USE 先于 ENTER_FULL_BURST 触发；此处仅标记本体本轮已使用爆裂，供状态判断使用
-      {
-        on: 'BURST_SKILL_USE',
-        handler(state, caster) {
-          caster.skillState.dws_burstUsedFlag = true;
-        },
-      },
-      // 进入全爆裂：首次分配 Intro/Highlight 状态（永久暴击伤害加成），每次给予 10s 持续伤害加成
+      // 进入全爆裂：首次分配 Intro/Highlight 状态 buff（永久暴击伤害加成），每次给予 10s 持续伤害加成
       {
         on: 'ENTER_FULL_BURST',
         handler(state, caster) {
           const lv = caster.skillLevels[0];
 
-          if (!caster.skillState.dws_statusSet) {
-            caster.skillState.dws_statusSet = true;
-            caster.skillState.dws_status    = caster.skillState.dws_burstUsedFlag ? 'intro' : 'highlight';
-            const cdIdx = caster.skillState.dws_status === 'intro' ? 0 : 1;
-            const cdPct = getSkillValue(caster.rawSkill1, cdIdx, lv) / 100;
-            // 永久暴击伤害加成，不可驱散，复活后保留
-            pushBuff(state, { name: 'Ah Ah, Mic Test P1 L2', unitId: caster.id,
-              critDamagePct: cdPct, endTick: Infinity });
+          let isIntro     = state.buffs.some(b => b.unitId === caster.id && b.name === 'Intro');
+          let isHighlight = state.buffs.some(b => b.unitId === caster.id && b.name === 'Highlight');
+
+          // 首次进入全爆裂：根据本轮是否释放了自身爆裂技能分配状态 buff（永久，不可驱散）
+          if (!isIntro && !isHighlight) {
+            if (state.burstCastersThisRotation.has(caster.id)) {
+              const cdPct = getSkillValue(caster.rawSkill1, 0, lv) / 100;
+              pushBuff(state, { name: 'Intro', unitId: caster.id,
+                critDamagePct: cdPct, endTick: Infinity });
+              isIntro = true;
+            } else {
+              const cdPct = getSkillValue(caster.rawSkill1, 1, lv) / 100;
+              pushBuff(state, { name: 'Highlight', unitId: caster.id,
+                critDamagePct: cdPct, endTick: Infinity }, { ...state._logCtx, partIdx: 1 });
+              isHighlight = true;
+            }
           }
 
-          if (caster.skillState.dws_status === 'intro') {
+          if (isIntro) {
             const sdPct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-            pushBuff(state, { name: 'Ah Ah, Mic Test P3 L2', unitId: caster.id,
-              sustainedDamagePct: sdPct, endTick: state.tick + TICK_RATE * 10 });
-          } else if (caster.skillState.dws_status === 'highlight') {
+            pushBuff(state, { name: 'Ah Ah, Mic Test P3', unitId: caster.id,
+              sustainedDamagePct: sdPct, endTick: state.tick + TICK_RATE * 10 },
+              { ...state._logCtx, partIdx: 2 });
+          } else {
             const sdPct = getSkillValue(caster.rawSkill1, 4, lv) / 100;
-            pushBuff(state, { name: 'Ah Ah, Mic Test P4 L2', unitId: caster.id,
-              sustainedDamagePct: sdPct, endTick: state.tick + TICK_RATE * 10 });
+            pushBuff(state, { name: 'Ah Ah, Mic Test P4', unitId: caster.id,
+              sustainedDamagePct: sdPct, endTick: state.tick + TICK_RATE * 10 },
+              { ...state._logCtx, partIdx: 3 });
           }
         },
       },
@@ -85,22 +88,16 @@ export default {
   skill2: {
     groupId: 20752,
     triggers: [
+      {},
+      {},
       // S2 Part3: 全蓄力 → 自身持续伤害▲ p01%/层 3s，叠加至 2 层（刷新计时器）
       {
         on: 'FULL_CHARGE',
         handler(state, caster) {
           const lv  = caster.skillLevels[1];
           const pct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
-          const end = state.tick + TICK_RATE * 3;
-          const existing = state.buffs.find(b => b.name === "I'm Gonna Sing Now!" && b.unitId === caster.id);
-          if (existing) {
-            existing.stackCount          = Math.min(2, (existing.stackCount ?? 1) + 1);
-            existing.sustainedDamagePct = existing.stackCount * pct;
-            existing.endTick            = end;
-          } else {
-            pushBuff(state, { name: "I'm Gonna Sing Now!", unitId: caster.id,
-              sustainedDamagePct: pct, endTick: end, stackCount: 1 });
-          }
+          pushBuff(state, { name: "I'm Gonna Sing Now!", unitId: caster.id,
+            sustainedDamagePct: pct, endTick: state.tick + TICK_RATE * 3, stackLimit: 2 });
         },
       },
       // S2 Part4: 进入全爆裂 → 对舞台目标每秒 p06% ATK 持续伤害 DoT，持续 9s
@@ -118,7 +115,7 @@ export default {
           } else {
             state.dots.push({
               casterId:      caster.id,
-              label:         'S2 P2',
+              label:         'S2 P4',
               dotName:       'dws_s2_fb_dot',
               multPerStack:  mult,
               stacks:        1,
@@ -164,13 +161,13 @@ export default {
         handler(state, caster) {
           const lv = caster.skillLevels[2];
 
-          // 全体敌人承伤▲ p07% 10s（刷新时仅延长 endTick，不重复累加）
+          // P1: 全体敌人承伤▲ p07% 10s
           const dtPct      = getSkillValue(caster.rawBurst, 7, lv) / 100;
           const dtEnd      = state.tick + TICK_RATE * 10;
           pushBuff(state, { name: 'La La La ♬', unitId: '__enemy__', isDebuff: true,
             enemyDamageTakenPct: dtPct, endTick: dtEnd });
 
-          // 全体敌人 DoT p00%/sec + 舞台目标额外 DoT p05%/sec，持续 9s
+          // P1+P2: 全体敌人 DoT p00%/sec + 舞台目标额外 DoT p05%/sec，持续 9s
           const dotAllMult   = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const dotStageMult = state.isStageTarget ? getSkillValue(caster.rawBurst, 5, lv) / 100 : 0;
           const totalMult    = dotAllMult + dotStageMult;
@@ -191,6 +188,30 @@ export default {
               intervalTicks: TICK_RATE,
               sustainedDamage: true,
             });
+          }
+
+          // P3+P4: Highlight 状态时才触发（首轮 BURST_SKILL_USE 发生在 ENTER_FULL_BURST 之前，Highlight 尚未分配，自然跳过）
+          const isHighlight = state.buffs.some(b => b.unitId === caster.id && b.name === 'Ah Ah, Mic Test Highlight');
+          if (isHighlight) {
+            const npEnd = state.tick + TICK_RATE * 1;
+            // P3: 对所有队友（除自身）施加 Noise Pollution；有 Mute 层的队友免疫（层数由 P4 消耗，P3 不额外扣层）
+            for (const unit of state.squad) {
+              if (unit.id === caster.id) continue;
+              const hasMute = state.buffs.some(b => b.unitId === unit.id && b.name === 'Mute'
+                && (b.endTick === Infinity || b.endTick > state.tick) && (b.stacks ?? 1) > 0);
+              if (!hasMute) {
+                pushBuff(state, { name: 'Noise Pollution', unitId: unit.id,
+                  hitRatePct: -1.0, endTick: npEnd });
+              }
+            }
+            // P4: 所有队友 Mute 叠层▼1；归零则令 endTick = state.tick 使 buff 当 tick 失效
+            for (const unit of state.squad) {
+              const mute = state.buffs.find(b => b.unitId === unit.id && b.name === 'Mute'
+                && (b.endTick === Infinity || b.endTick > state.tick) && (b.stacks ?? 1) > 0);
+              if (!mute) continue;
+              mute.stacks = (mute.stacks ?? 1) - 1;
+              if (mute.stacks <= 0) mute.endTick = state.tick;
+            }
           }
         },
       },

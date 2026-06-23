@@ -72,8 +72,9 @@ export default {
           // 每 5 次全蓄力：全员攻击伤害 ▲ p03% 10s（同名 buff 刷新）
           if (cnt % 5 === 0) {
             const atkDmgPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
-            pushBuff(state, { name: 'Assault Formation P2', unitId: null,
-              attackDamagePct: atkDmgPct, endTick: state.tick + TICK_RATE * 10 });
+            pushBuff(state, { name: 'Assault Formation', unitId: null,
+              attackDamagePct: atkDmgPct, endTick: state.tick + TICK_RATE * 10 },
+              { ...state._logCtx, partIdx: 1 });
           }
 
           // 每 8 次全蓄力：全员爆裂冷却 ▼ p01s
@@ -83,9 +84,6 @@ export default {
             for (const u of state.squad) {
               u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
             }
-            if (state.buffLog)
-              state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
-                name: 'Assault Formation P1 L2', unitId: null, reductionTicks });
           }
         },
       },
