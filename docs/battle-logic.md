@@ -666,6 +666,7 @@ burstPhase = 0（充能中）
 - 每 tick 开头触发所有 `nextFireTick <= tick` 的条目。
 - 总倍率 = `multPerStack × stacks`。
 - DoT 使用 `fireSkillHit` 计算，不受普通攻击 hitMult 规则约束。
+- DoT 每次伤害都要根据当前最新状态计算伤害值
 
 ---
 
