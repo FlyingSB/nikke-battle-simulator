@@ -21,6 +21,7 @@ import {
 import {
   pushBuff, getBuffSums, decrementRoundBuffs, parseSkillDuration, TICK_RATE,
 } from '../../src/engine/battle-utils.js';
+import { getSkillValue } from '../../src/data/models.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
 
 // ── T1: getSkillTraits — unknown ids ─────────────────────────────────────────
@@ -843,13 +844,14 @@ section('T16: B3 直接伤害默认/非默认结算配置审计');
     eq('Asuka BURST_SKILL_USE 推入 Annihilation State buff，endTick = 9×TICK_RATE', asEnd, 9 * TICK_RATE);
     eq('Asuka BURST_SKILL_USE 不设置 asuka_burstSumsSnapshot（非默认不需快照）',
       caster.skillState.asuka_burstSumsSnapshot, undefined);
-    // ATK▲ 和 AttackDmg▲ buff 的 endTick 与 Annihilation State 哨兵 buff 相同（同时失效）
-    const atkBuff    = state.buffs.find(b => b.name === 'Annihilation State P1 L6');
-    const atkDmgBuff = state.buffs.find(b => b.name === 'Annihilation State P1 L7');
-    eq('Annihilation State P1 L6.endTick 与 Annihilation State buff 同步到期',
-      atkBuff?.endTick, asEnd);
-    eq('Annihilation State P1 L7.endTick 与 Annihilation State buff 同步到期',
-      atkDmgBuff?.endTick, asEnd);
+    // ATK▲（原 P1 L6）与 Attack Damage▲（原 P1 L7）已合并进单个 Annihilation State 哨兵 buff，
+    // 与 normalAttackDamagePct 一同携带，随该 buff 同时失效（endTick = asEnd，已在上方校验）
+    const bLv          = caster.skillLevels[2];
+    const expAtkPct    = getSkillValue(caster.rawBurst, 1, bLv) / 100;
+    const expAtkDmgPct = getSkillValue(caster.rawBurst, 3, bLv) / 100;
+    eq('Annihilation State buff 携带 atkPct（合并自原 P1 L6）', annBuff?.atkPct, expAtkPct);
+    eq('Annihilation State buff 携带 attackDamagePct（合并自原 P1 L7）', annBuff?.attackDamagePct, expAtkDmgPct);
+    eq('Annihilation State buff 携带 normalAttackDamagePct -0.40', annBuff?.normalAttackDamagePct, -0.40);
   }
   {
     // BUFF_EXPIRE handler 在 Annihilation State 到期时发动 Annihilation；BURST_SKILL_USE 无快照（源码检查）
