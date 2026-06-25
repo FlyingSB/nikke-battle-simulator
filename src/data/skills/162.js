@@ -26,7 +26,7 @@ function fireRestraintChains(state, caster) {
   } else {
     state.dots.push({
       casterId:      caster.id,
-      label:         'S1 P2',
+      label:         'S1 P4 Ensnaring Chains',
       dotName:       'mhbc_ensnaring',
       multPerStack:  dotMult,
       stacks:        chains,
@@ -191,7 +191,7 @@ export default {
 
           state.dots.push({
             casterId:      caster.id,
-            label:         'Burst',
+            label:         'Burst Dragging Chain',
             dotName:       'mhbc_dragging',
             multPerStack:  draggingMult,
             stacks,
