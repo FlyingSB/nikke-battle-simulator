@@ -9,10 +9,15 @@ export const BURST_GAUGE_MAX = 1_000_000;
 
 /**
  * 每发射击提供的爆裂能量来源（游戏内测试 + 社区 BBS 已确认）：
- *   target_burst_energy_pershot  — 命中主要敌方目标
+ *   target_burst_energy_pershot  — 命中主要敌方目标的充能。
+ *                                  ⚠ SG 武器：该值为【每发弹丸】命中的充能，一次射击 N 发
+ *                                  弹丸全部命中 → 本次射击充能 = N × target_burst_energy_pershot
+ *                                  （如 Brid: Silent Track 4000 × 10 弹丸 = 40000）。详见 battle-logic §6.1。
  *   burst_energy_pershot         — 命中掩体 / 护盾 / 非主目标部位
  *   对空射击                      — 0 能量
- *   full_charge_burst_energy     — SR/RL 全蓄力射击时的附加能量（叠加在以上之上）
+ *   full_charge_damage           — SR/RL 全蓄力倍率：满蓄射击充能 = target_burst_energy_pershot ×
+ *                                  (full_charge_damage / 10000)，与蓄力伤害一致（乘法，非加法）。
+ *                                  注：CDN 另有 full_charge_burst_energy 字段，引擎不使用它。
  * 所有值均来自 CDN 数据中每个角色的 shot_detail。
  */
 
@@ -105,7 +110,8 @@ export const WEAPON_HIT_MULT = {
 };
 
 /**
- * SR/RL 进行全蓄力射击并命中主要目标时，
- * full_charge_burst_energy 会叠加在 target_burst_energy_pershot 之上。
- * 例如 Alice：56000（普通命中）+ 35000（全蓄力加成）= 每次蓄力命中 91000
+ * SR/RL 进行全蓄力射击并命中主要目标时，充能按蓄力伤害倍率放大（乘法，非加法）：
+ *   full_charge 充能 = target_burst_energy_pershot × (full_charge_damage / 10000)
+ * 例如 Alice：56000 × (35000 / 10000) = 每次蓄力命中 196000。
+ * （游戏实测确认为乘法；CDN 的 full_charge_burst_energy 字段引擎不使用。）
  */

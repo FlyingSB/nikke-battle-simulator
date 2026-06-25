@@ -270,6 +270,12 @@
                 x-show="slot.resourceId"
                 :style="slot.resourceId ? 'background-image:url(src/data/static/images/sm/' + String(slot.resourceId).padStart(3,'0') + '_00.webp)' : ''">
               </div>
+              <!-- Focus（受控）角色选择：仅蓄力武器（SR/RL）显示；点击切换，吃充能加成 -->
+              <span class="slot-focus-badge"
+                x-show="!!slot.resourceId && ['SR','RL'].includes(slot.weaponType)"
+                :class="{ 'slot-focus-badge--on': $store.sim.focusSlot === i }"
+                @click.stop="$store.sim.focusSlot = ($store.sim.focusSlot === i ? null : i)"
+                title="设为 Focus（受控）角色 — 仅蓄力武器获得充能加成；再次点击取消">F</span>
               <span class="slot-tab-name" x-text="slot.resourceId ? slot.name : '空'"></span>
             </button>
           </template>
@@ -794,8 +800,12 @@
                               @mouseleave="$store.sim.hideDmgTooltip()"></td>
                             <td class="log-ammo mono" x-show="$store.sim.logMode === 'detail'"
                               x-text="row.charge ?? ''"></td>
-                            <td class="log-gauge mono" x-show="$store.sim.logMode === 'detail'"
-                              x-text="$store.sim.fmtGauge(row.gauge)"></td>
+                            <td class="log-gauge mono"
+                              :class="row.gaugeAdded != null ? 'log-gauge--tip' : ''"
+                              x-show="$store.sim.logMode === 'detail'"
+                              x-text="$store.sim.fmtGaugeAdded(row)"
+                              @mouseenter="row.gaugeAdded != null && $store.sim.showGaugeTooltip($event, row)"
+                              @mouseleave="$store.sim.hideGaugeTooltip()"></td>
                           </tr>
                         </template>
                         <template x-if="!$store.sim.hitLogRows.length">
@@ -852,6 +862,7 @@
   <div id="dmg-tooltip"   class="dmg-tooltip"   style="display:none"></div>
   <div id="skill-tooltip" class="skill-tooltip" style="display:none"></div>
   <div id="buff-tooltip"  class="skill-tooltip" style="display:none"></div>
+  <div id="gauge-tooltip" class="gauge-tooltip" style="display:none"></div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

@@ -171,12 +171,13 @@ export default {
               elementAdvantagePct: b.elementAdvantagePct ?? 0,
               coreDamagePct: b.coreDamagePct ?? 0,
               chargeDamagePct: b.chargeDamagePct ?? 0,
+              critDamagePct: b.critDamagePct ?? 0,
               sourceCaster: b._sourceCaster ?? null,
               sourceSkillLabel: b._sourceSkillLabel ?? null,
               sourcePartIdx: b._sourcePartIdx ?? null,
               sourceLineIdx: b._sourceLineIdx ?? null,
             }))
-            .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct);
+            .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct);
           const delay   = Math.round(0.2 * TICK_RATE);
 
           if (ghosts === 13) {

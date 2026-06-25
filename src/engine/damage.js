@@ -36,10 +36,11 @@
  *
  * ── 爆裂能量（通过测试校准） ─────────────────────────────────────────────
  * 爆裂槽总量                    = 1,000,000
- * target_burst_energy_pershot  = 每次命中敌人获得的能量
+ * target_burst_energy_pershot  = 每次命中敌人获得的能量（SG 为每发弹丸，见 battle-logic §6.1）
  * burst_energy_pershot         = 每次命中掩体 / 非主目标获得的能量
  * 对空射击                      = 0 能量
- * full_charge_burst_energy     = SR/RL 全蓄力射击的额外爆裂能量（叠加在上述之上）
+ * SR/RL 全蓄力                  = 充能 × (full_charge_damage / 10000)，乘法（非加法）；
+ *                                CDN 的 full_charge_burst_energy 字段引擎不使用
  *
  * ── 射速（通过测试校准） ───────────────────────────────────────────────
  * rate_of_fire 单位 = 每分钟发射数（RPM）

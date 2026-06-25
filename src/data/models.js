@@ -348,7 +348,7 @@ export function getBaseStats(nikkeData, level) {
  * @property {number}  burstEnergyPerShot         非目标命中时每发的能量（掩体 / miss）
  * @property {number}  targetBurstEnergyPerShot   命中敌方主目标时每发的能量
  *   队伍合计需 1,000,000 才能触发 burst。MG/AR：~500 掩体 / ~1000 敌人。
- * @property {number}  fullChargeBurstEnergy      SR/RL 全蓄力射击的额外爆裂能量
+ * @property {number}  fullChargeBurstEnergy      CDN 原始字段 full_charge_burst_energy；引擎不使用（全蓄力充能取 × full_charge_damage/10000，见 constants.js）
  * @property {object|null} skill1   原始 skill1_detail CDN 对象
  * @property {object|null} skill2   原始 skill2_detail CDN 对象
  * @property {object|null} burst    原始 ulti_skill_detail CDN 对象

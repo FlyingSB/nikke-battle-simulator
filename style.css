@@ -236,6 +236,21 @@ select.input { cursor: pointer; }
   text-align: center; color: var(--text-muted);
 }
 .slot-tab--filled .slot-tab-name { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
+/* Focus（受控）角色徽标 — 蓄力武器槽位右上角，点击切换，吃充能加成 */
+.slot-focus-badge {
+  position: absolute; top: 2px; right: 2px; z-index: 3;
+  width: 15px; height: 15px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.5rem; font-weight: 700; line-height: 1;
+  background: rgba(0,0,0,0.55); color: var(--text-muted);
+  border: 1px solid var(--text-muted);
+  cursor: pointer; transition: all 0.12s;
+}
+.slot-focus-badge:hover { border-color: var(--accent3); color: var(--accent3); }
+.slot-focus-badge--on {
+  background: var(--accent3); color: #1a1a1a; border-color: var(--accent3);
+  box-shadow: 0 0 5px rgba(240,165,0,0.7);
+}
 /* ── Slot detail ─────────────────────────────────────────── */
 .slot-detail { flex: 1; min-height: 0; overflow-x: hidden; }
 
@@ -515,6 +530,8 @@ select.input { cursor: pointer; }
 .log-buff  { color: var(--text-muted); font-size: 0.6rem; max-width: 100px; }
 .log-dmg   { color: var(--text); text-align: right; white-space: nowrap; }
 .log-ammo  { color: var(--text-muted); text-align: right; }
+/* 充能列：右对齐，固定到能完整显示【1,000,000】（含千分位）的宽度，避免空值时列宽塌缩 */
+.log-gauge { color: var(--text-muted); text-align: right; white-space: nowrap; min-width: 9ch; }
 .hit-tag   { font-size: 0.6rem; font-weight: 600; margin-right: 3px; }
 .hit-tag--crit { color: #f29c15; }
 .hit-tag--core { color: #f19d89; }
@@ -555,6 +572,22 @@ select.input { cursor: pointer; }
 
 /* ── 伤害分解 tooltip ────────────────────────────────────────── */
 .log-dmg--tip { cursor: help; text-decoration: underline dotted var(--text-dim); }
+
+/* ── 充能气泡 ────────────────────────────────────────────────── */
+.log-gauge--tip { cursor: help; text-decoration: underline dotted var(--text-dim); }
+.gauge-tooltip {
+  position: fixed;
+  z-index: 999;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  padding: 4px 8px;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
 
 .dmg-tooltip {
   position: fixed;
@@ -616,6 +649,7 @@ select.input { cursor: pointer; }
 .dmg-tip-flat { font-family: var(--font-mono); color: var(--accent3); white-space: nowrap; flex-shrink: 0; }
 .dmg-tip-neg  { font-family: var(--font-mono); color: var(--accent2); white-space: nowrap; flex-shrink: 0; }
 .dmg-tip-num  { font-family: var(--font-mono); color: var(--text);    white-space: nowrap; flex-shrink: 0; }
+.dmg-tip-mult { font-family: var(--font-mono); color: var(--purple);  white-space: nowrap; flex-shrink: 0; }
 .dmg-tip-note { color: var(--text-dim); font-style: italic;           white-space: nowrap; flex-shrink: 0; }
 
 /* 最终伤害 */

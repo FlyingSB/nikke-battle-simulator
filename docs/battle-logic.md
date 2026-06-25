@@ -62,7 +62,7 @@
 - **critRate**：基础 0.15 + 装备 critRatePct。
 - **critDmg**：基础 0.50 + 装备 critDamagePct（传入 `calcDamage` 的 `critDmgIncrement`）。
 - **chargeSpeedPct**：装备词条 + 魔方 Adjutant 被动之和。
-- **reloadSpeedPct**：仅来自魔方（Resilience Quick Reload HC），不叠加装备词条。
+- **reloadSpeedPct**：仅来自魔方（Resilience Quick Reload HC），不叠加装备词条。`computeFinalStats` 算入 `stats.reloadSpeedPct` 后，由 `initBattle` 作为永久 buff（`Cube Reload`）推入 `state.buffs`，使换弹时长计算（§5.2）通过 `getBuffSums().reloadSpeedPct` 统一读取；若不推入则会被静默丢弃（换弹按基础时长计算）。
 - **elementDmgPct**：装备词条 + 魔方 Anti Code HC 之和。
 - **bonusAmmo（装备词条弹药）**：使用 grouped-ROUND 规则 —— 相同 pct 词条分组，每组 `Math.round(baseAmmo × pct × count)`，OL 最多 4 槽。
 
@@ -275,14 +275,14 @@ chargeTick = now + effectiveCharge
 2. **固定蓄力覆盖**（`fixedChargeTimeTicks`，如 Anis:Star 爆裂期间）：忽略技能类蓄速 buff，仅保留 `stats.chargeSpeedPct`（装备/魔方加成）。
 3. **Alice Wonderland 快速攻击**：当 `effectiveCharge ≤ round(chargeTimeTicks × 0.0048)`（99.52% 蓄速阈值）时，跳过前后摇，以固定 15 t（= round(60×10/40)）连射。
 
-#### 4.3.6 换弹后（DOWN_Charge 专属重置）
+#### 4.3.6 换弹后（蓄力武器统一重置）
 
-DOWN_Charge 型换弹完成后立即重置：
+蓄力武器（UP 型 / DOWN_Charge 型均含）换弹完成后回到**与战斗开始相同的初始状态**：必须重新经过 前摇 + 蓄力 才打出第一发，**绝不立即补射**。重置公式与初始 `chargeTick`（§4.3.4）完全一致——使用**基础**蓄力时长，不折减蓄速、不含后摇：
 ```
-chargeTick = reloadEndTick + effectiveCharge
+chargeTick = reloadEndTick + foreswingTicks + chargeTimeTicks
 ```
 
-UP 型换弹后不需特殊处理：若换弹完成时 `chargeTick` 已到期，下一 tick 直接开火（普通发间逻辑自然覆盖）。
+物理含义：换弹后枪膛回到待击发状态，等价于重新瞄准（前摇）＋蓄力一发。例如 Diesel: Winter Sweets（RL，前摇 0.2s + 蓄力 1.0s）换弹完成后约 1.2s 才打出换弹后第一发，与首发节奏一致。
 
 #### 4.3.7 HIDDEN 退出后（chargeTick 重置）
 
@@ -315,19 +315,35 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 - 蓄力武器爆裂充能：`baseEnergy × (fullChargeDamage / 10000)`（全蓄力加成）。
 - **部分蓄力击发（游戏实际 vs 模拟器假设）：** 实际游戏中，SR/RL 无需蓄满即可击发；伤害与爆裂充能按实际蓄力程度等比缩减，仅限全蓄力触发的效果（`FULL_CHARGE` 技能触发、全蓄力专属增益）在未满蓄时不生效。模拟器默认所有 SR/RL 普通攻击均在全蓄力时击发（`isCharged=true`），不建模中途击发场景。
 
-### 4.4 MG 起速模型
+### 4.4 非蓄力武器射击节奏（rate_of_fire 累加器）
+
+适用 AR / SMG / MG / SG（`chargeTimeTicks = 0` 且 CDN `rate_of_fire > 0`）。
+
+**累加器模型**：每 tick `shotAccumulator += rof / 60 / TICK_RATE`（RPM → 发/tick），`shotsThisTick = floor(shotAccumulator)`，发射后扣除整数部分（保留小数，避免高 ROF 的逐 tick 取整损失）。`rof` 可被攻速 buff（`atkSpeedPct`）与 MG 起速（`mgCurrentRof`）覆盖。
+
+**起手立即击发**：`shotAccumulator` 初值为 **1**（而非 0），使开局第一发立即击发，不必空等一个完整射击间隔。物理含义：战斗开始时枪已对准目标。换弹完成后同样重置为 1（见 §5.2），与开局节奏一致。
+
+> **历史偏差（已修复）**：此前累加器从 0 起，每个弹匣首发都要多等一个完整间隔（如 Brid: Silent Track 90 RPM ＝ 0.667s），开局与每次换弹后各损失约一个间隔，导致整体射击数偏低、战斗偏慢。实测帧数据校准（Brid 首弹匣第 9 发 @322t、换弹完成 @396t）后，修正模型误差 ≤3 tick。
+
+**换弹后摇**：非蓄力武器换弹相位额外计入末发后摇 `reloadRecoveryTicks`（CDN `spot_last_delay`），见 §5.2。
+
+> **与蓄力武器对比（§4.3.6）**：蓄力武器换弹后**绝不立即补射**，须重新经过前摇＋蓄力才打出首发；非蓄力武器换弹后**立即**恢复射击节奏（累加器重置为 1）。两者机制相反。
+
+### 4.5 MG 起速模型
 
 - 起始射速 = `rate_of_fire`（CDN 值，RPM）。
 - 每发射击后：`mgCurrentRof += mgRofChangePerShot`，上限 `mgMaxRof`。
 - 不开火时（`shotsThisTick === 0`）：`mgCurrentRof -= mgRofDecayPerTick`，下限 `mgStartRof`。
 
-### 4.5 SG 弹丸
+### 4.6 SG 弹丸
 
 - `shotCount`：每次射击的弹丸数（来自 `shot_detail.shot_count`）。
 - `shot_detail.damage` 为所有弹丸合计伤害（`hitMultiplier` 已含合计）。
 - 弹丸数变化**不影响**伤害计算（模拟器假设 100% 命中）；核心命中率固定 0.20。
+- 弹丸数**影响爆裂充能**：`target_burst_energy_pershot` 按【每发弹丸】计，详见 §6.1。
+- **【TODO】SG 弹丸命中率（按距离区域 + 敌人体型）：** 模拟器当前假设 SG 弹丸 100% 命中，但实机中 SG 散布使部分弹丸 MISS，**伤害与充能均按比例折损**，且**因距离区域和敌人体型差异巨大**。实测 Brid: Silent Track 对 BIGARMS（体型有空洞，易漏弹）弹丸命中率：NEAR 425/460≈92.4%、MID 269/350≈76.9%、FAR 343/510≈67.3%（数据见 dev/game-data.md）。命中率建模需区分距离区域、敌人体型，且应同时作用于伤害与充能 —— 实现复杂，暂未建模，导致 SG 角色伤害与充能略偏高。
 
-### 4.6 武器切换（WEAPON_SWITCH 效果）
+### 4.7 武器切换（WEAPON_SWITCH 效果）
 
 - 期间覆盖 `hitMult`、`weaponType`（可选）、是否蓄力。
 - 支持时间制（`seconds`）和回合制（`endRounds`，每发消耗 1 回合）。
@@ -382,11 +398,14 @@ finalMaxAmmo = Math.max(1, rawMax)
 
 1. `ammoLeft <= 0`（且无限装弹未激活）时进入装填。
 2. 有效换弹速度：`fixedReloadSpeedPct`（若存在）覆盖所有其他加成；否则使用 `sums.reloadSpeedPct`。
-3. 装填时长：`Math.round(reloadTicks / (1 + effectiveReloadSpeed))`。
+3. 装填时长：`Math.round(reloadTicks × Math.max(0, 1 − effectiveReloadSpeed)) + reloadRecoveryTicks`。
+   - **折减部分**：乘法折减（非除以 `1 + speed`）；换弹速度 ≥100% 时为 0（瞬间装填）。例：基础 2s、换弹速度 +29.69% → `120 × 0.7031 ≈ 84 tick ≈ 1.41s`。
+   - **`reloadRecoveryTicks`（末发后摇）**：非蓄力武器的 CDN `spot_last_delay`（`maintain_fire_stance > 0` 时覆盖），**不受换弹速度折减**；蓄力武器为 0。例：Brid: Silent Track 基础 1.5s、换弹速度 +29.69%、后摇 0.2s → `90 × 0.7031 + 12 ＝ 63 + 12 ＝ 75 tick ≈ 1.25s`。
 4. **装填完成时**计算本次应恢复的弹药量（不在装填开始时计算）：
    - 分段装填（`reloadFraction < 1`）：`Math.min(effectiveMax, Math.round(maxAmmo × reloadFraction))`。
    - 默认一次装满：`effectiveMax`。
 5. `effectiveMax` 即 `unit.maxAmmo`（已含所有 buff 和技能效果的缓存值，由 5.1.2 的时机维护）。
+6. **装填完成后重置射击周期**：非蓄力武器 `shotAccumulator = 1`（立即恢复射击，见 §4.4）；蓄力武器 `shotAccumulator = 0` 且重置 `chargeTick`（须重新前摇＋蓄力，见 §4.3.6）。
 
 ### 5.3 Bastion 魔方（Reload Up HC）
 
@@ -416,10 +435,17 @@ finalMaxAmmo = Math.max(1, rawMax)
 
 ### 6.1 共享爆裂槽
 
-- 总量：1,000,000。
+- 总量：1,000,000（实测确认，固定值）。
 - 来源：每次普通攻击命中敌人，增加 `targetBurstEnergyPerShot`（CDN 值，已是目标命中值）。
-- SR/RL 全蓄力加成：`baseEnergy × (fullChargeDamage / 10000)`。
-- buff 的 `burstGaugeFlat` 加成：叠加到 `baseEnergy`，然后整体乘以全蓄力系数。
+- **Focus（受控）机制 — 蓄力武器充能加成：** 实机同时仅 1 个受控（Focus）角色、可随时切换；模拟器简化为用户在 UI 指定 1 个固定 Focus 槽位（`focusSlot`，仅蓄力武器槽位可选）。蓄力武器（SR/RL）每次普通攻击充能：
+  - **非Focus：** `targetBurstEnergyPerShot`（**无全蓄力倍率**）。
+  - **Focus：** `targetBurstEnergyPerShot × (fullChargeBurstEnergy / 10000)`（`full_charge_burst_energy` 作百分比系数）。
+  - 加成**仅限蓄力武器**；非蓄力武器无论是否 Focus 均为 `targetBurstEnergyPerShot`。
+  - 实测验证（G=1,000,000，Privaty 每发 4000）：非Focus Yulha(target 55000)单刷 19 发=⌈1M/55000⌉、Centi(69000)15 发、Trina(72000)14 发、Alice/D:KW(56000)18 发，均 = target；Focus Alice = 56000×3.5 = 196000。
+  - **⚠ 影响很大：** Focus 角色蓄力充能可达非Focus 的 2.5–3.5 倍，直接改变整局爆裂循环数。同一队伍实测：Focus Alice 11 次循环、Focus Diesel: Winter Sweets 10 次循环（数据见 dev/game-data.md）。因此 `focusSlot` 的选择必须与实机打法一致，否则循环数与伤害都会偏差。
+- **技能附加伤害命中也充能**，每次 = `targetBurstEnergyPerShot`（如 Privaty S2P1、Neon: Vision Eye S1P2、A2 S2P1、Maiden: Ice Rose S2P3、Scarlet: Black Shadow S1 多段）。属独立于「武器普通攻击」的充能源。【TODO 逐角色建模】
+- **SG 武器（每发弹丸独立充能）：** `targetBurstEnergyPerShot` 是【每发弹丸】命中敌人的充能值。一次射击发射 `shotCount` 发弹丸，全部命中时本次射击充能 = `shotCount × targetBurstEnergyPerShot`（如 Brid: Silent Track 4000 × 10 弹丸 = 每次射击 40000）。模拟器假设 100% 命中，故按满弹丸数计。
+- buff 的 `burstGaugeFlat` 加成：叠加到 `baseEnergy`（按每次射击计、不乘弹丸数），Focus 蓄力时整体再乘以全蓄力系数。
 - **仅 `burstPhase === 0` 时累积**；B1–Full Burst 期间停止充能。
 - Full Burst 结束后重置为 0。
 

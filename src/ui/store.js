@@ -690,7 +690,14 @@ function buildDmgTooltipHTML(h) {
   if (isCrit || isCore || distAdv || isFB) {
     const s = addSect('通用系数');
     if (isCrit) {
-      addItem(s, '暴击伤害加成', `+${_pct(_BASE_CRIT_DAMAGE + critInc)}`);
+      // 展开到每个 buff：基础 50% + 装备效果残量 + 各具名 buff
+      // critInc = (装备 critDamagePct) + (buff critDamagePct 之和)，残量即装备来源
+      const critBufs   = bd.filter(b => Math.abs(b.critDamagePct ?? 0) > 0.0001);
+      const critBufSum = critBufs.reduce((acc, b) => acc + (b.critDamagePct ?? 0), 0);
+      const critEquip  = critInc - critBufSum;
+      addItem(s, '暴击（基础）', `+${_pct(_BASE_CRIT_DAMAGE)}`);
+      if (Math.abs(critEquip) > 0.0001) addItem(s, '装备', `+${_pct(critEquip)}`);
+      critBufs.forEach(b => addItem(s, b.name, `+${_pct(b.critDamagePct)}`));
     }
     if (isCore) {
       addItem(s, '核心（基础）', `+${_pct(_BASE_CORE_DAMAGE)}`);
@@ -714,19 +721,22 @@ function buildDmgTooltipHTML(h) {
   }
 
   // ── 蓄力系数 ──
+  // chargeMult = 武器基础×(1+珍藏品) + 装备 + 各 buff，逐来源拆分展示
   if (Math.abs(chargeMult - 1) > 0.0001) {
     const chargeBufs   = bd.filter(b => Math.abs(b.chargeDamagePct ?? 0) > 0.0001);
-    const chargeBufSum = chargeBufs.reduce((s, b) => s + (b.chargeDamagePct ?? 0), 0);
+    const chargeBufSum = chargeBufs.reduce((acc, b) => acc + (b.chargeDamagePct ?? 0), 0);
     const equipCharge  = h.equipChargeDmgPct ?? 0;
-    const chargeBase   = chargeMult - equipCharge - chargeBufSum;
+    const favChargePct = h.favChargeDmgPct ?? 0;
+    // 珍藏品对武器基础是乘算：chargeMult = 武器基础×(1+珍藏品) + 装备 + buff
+    // 先剥离装备/buff，再按珍藏品比例还原出纯武器基础
+    const baseWithFav  = chargeMult - equipCharge - chargeBufSum;
+    const weaponBase   = baseWithFav / (1 + favChargePct);
     const s = addSect('蓄力系数');
-    if (Math.abs(equipCharge) > 0.0001 || chargeBufs.length > 0) {
-      addItem(s, '武器基础', `${_pct(chargeBase)}`);
-      if (Math.abs(equipCharge) > 0.0001) addItem(s, '装备', `+${_pct(equipCharge)}`);
-      chargeBufs.forEach(b => addItem(s, b.name, `+${_pct(b.chargeDamagePct)}`));
-    } else {
-      addItem(s, '', `×${_pct(chargeMult)}`, 'pct');
-    }
+    addItem(s, '武器基础', `${_pct(weaponBase)}`);
+    // 珍藏品显示原始蓄力伤害数值（与游戏内一致），乘算用 × 前缀 + 区分色
+    if (Math.abs(favChargePct) > 0.0001) addItem(s, '珍藏品', `×${_pct(favChargePct)}`, 'mult');
+    if (Math.abs(equipCharge)  > 0.0001) addItem(s, '装备',   `+${_pct(equipCharge)}`);
+    chargeBufs.forEach(b => addItem(s, b.name, `+${_pct(b.chargeDamagePct)}`));
   }
 
   // ── 伤害加成（ExtraMultiplier）──
@@ -756,8 +766,20 @@ function buildDmgTooltipHTML(h) {
       if (Math.abs(h.pierceDamagePct           ?? 0) > 0.0001) addItem(s, '穿透伤害增加',     `+${_pct(h.pierceDamagePct)}`);
       if (Math.abs(h.sequentialAttackDamagePct ?? 0) > 0.0001) addItem(s, '依次攻击伤害增加', `+${_pct(h.sequentialAttackDamagePct)}`);
     }
-    if (Math.abs(sustainedPct) > 0.0001) addItem(s, '持续伤害增加',       `+${_pct(sustainedPct)}`);
-    if (Math.abs(truePct)      > 0.0001) addItem(s, '无视防御力伤害增加', `+${_pct(truePct)}`);
+    if (Math.abs(sustainedPct) > 0.0001) {
+      // 展开到每个 buff，剩余非具名来源归入"持续伤害增加"
+      const sustainedBufs = bd.filter(b => Math.abs(b.sustainedDamagePct ?? 0) > 0.0001);
+      const sustainedResidual = sustainedPct - sustainedBufs.reduce((acc, b) => acc + (b.sustainedDamagePct ?? 0), 0);
+      sustainedBufs.forEach(b => addItem(s, b.name, `+${_pct(b.sustainedDamagePct)}`));
+      if (Math.abs(sustainedResidual) > 0.0001) addItem(s, '持续伤害增加', `+${_pct(sustainedResidual)}`);
+    }
+    if (Math.abs(truePct) > 0.0001) {
+      // 展开到每个 buff，剩余非具名来源归入"无视防御力伤害增加"
+      const trueBufs = bd.filter(b => Math.abs(b.trueDamagePct ?? 0) > 0.0001);
+      const trueResidual = truePct - trueBufs.reduce((acc, b) => acc + (b.trueDamagePct ?? 0), 0);
+      trueBufs.forEach(b => addItem(s, b.name, `+${_pct(b.trueDamagePct)}`));
+      if (Math.abs(trueResidual) > 0.0001) addItem(s, '无视防御力伤害增加', `+${_pct(trueResidual)}`);
+    }
   }
 
   // ── 受创加深（DamageTakenLikeMultiplier）──
@@ -775,7 +797,8 @@ function buildDmgTooltipHTML(h) {
     t === 'flat' ? 'dmg-tip-flat' :
     t === 'neg'  ? 'dmg-tip-neg'  :
     t === 'num'  ? 'dmg-tip-num'  :
-    t === 'note' ? 'dmg-tip-note' : 'dmg-tip-pct';
+    t === 'note' ? 'dmg-tip-note' :
+    t === 'mult' ? 'dmg-tip-mult' : 'dmg-tip-pct';
 
   const sectHtml = sects.map(s => {
     const hdHtml   = `<div class="dmg-tip-hd">${esc(s.title)}</div>`;
@@ -831,6 +854,10 @@ export function createStore() {
 
     // 队伍
     activeSlot:   0,
+    // Focus（受控）角色的队伍槽位下标（0–4），null = 无人受控（全员非Focus）。
+    // 实机同时仅 1 个受控角色、可随时切换；模拟器简化为用户指定 1 个固定 Focus。
+    // 仅影响蓄力武器（SR/RL）的充能：Focus 蓄力角色每发充能 × (full_charge_burst_energy/10000)。
+    focusSlot:    null,
     team:         Array.from({ length: 5 }, (_, i) => defaultSlot(i === 0)),
 
     // 角色选择器
@@ -879,9 +906,9 @@ export function createStore() {
     fmtPct,
     fmtTime,
     formatTick,
-    fmtGauge(gauge) {
-      if (gauge == null) return '—';
-      return (gauge / 10000).toFixed(1) + '%';
+    // 充能列：展示该行事件产生的充能增量（带千分位分隔符）；无有效充能则留空
+    fmtGaugeAdded(row) {
+      return row.gaugeAdded != null ? fmtNum(row.gaugeAdded) : '';
     },
 
     formatLogTime(row) {
@@ -1022,6 +1049,7 @@ export function createStore() {
         iterations:         this.iterations,
         burstStepSecs:      this.burstStepSecs,
         ebsLastBurstOnly: this.ebsLastBurstOnly,
+        focusSlot:          this.focusSlot,
         team: this.team.map(slot => ({
           active:       slot.active,
           resourceId:   slot.resourceId,
@@ -1080,6 +1108,7 @@ export function createStore() {
       if (state.iterations          != null) this.iterations          = state.iterations;
       if (state.burstStepSecs       != null) this.burstStepSecs       = state.burstStepSecs;
       if (state.ebsLastBurstOnly  != null) this.ebsLastBurstOnly  = state.ebsLastBurstOnly;
+      if (state.focusSlot !== undefined)   this.focusSlot         = state.focusSlot;
       if (!Array.isArray(state.team)) return;
       state.team.forEach((saved, i) => {
         if (i >= this.team.length || !saved) return;
@@ -1180,6 +1209,8 @@ export function createStore() {
 
     clearSlot(i) {
       this.team[i] = defaultSlot(false);
+      // 清空的若是 Focus 槽位，取消 Focus（避免指向空槽）
+      if (this.focusSlot === i) this.focusSlot = null;
     },
 
     // ── 极限突破与好感度 ──────────────────────────────────────────────────────
@@ -1554,6 +1585,8 @@ export function createStore() {
             reloadTicks:           nd ? Math.round((nd.shot_detail?.reload_time ?? 200) / 100 * 60) : undefined,
             burstEnergyPerShot:    nd?.shot_detail?.burst_energy_pershot,
             fullChargeBurstEnergy: nd?.shot_detail?.full_charge_burst_energy ?? 0,
+            // 受控（Focus）角色：按队伍槽位引用匹配（activeSlots 元素是 this.team 的引用）。
+            isFocus:               this.focusSlot != null && slot === this.team[this.focusSlot],
             chargeTimeTicks:       isChargeWeapon ? Math.round((nd?.shot_detail?.charge_time ?? 0) / 100 * 60) : 0,
             // DOWN_Charge 型（持续按住自动连发）：发间无前后摇，只计蓄力时长。
             // 当前库中仅 Liberalio（SR）及少数 RL（Cinderella 等）为此类型。
@@ -1568,6 +1601,13 @@ export function createStore() {
                   ? nd.shot_detail.maintain_fire_stance
                   : (nd?.shot_detail?.spot_last_delay ?? 16.67))) / 100 * 60)
               : 0,
+            // 非蓄力武器（AR/SMG/MG/SG）：末发后摇（spot_last_delay）计入换弹相位。
+            // maintain_fire_stance > 0 时覆盖。无 CDN 数据则为 0（不加后摇）。
+            reloadRecoveryTicks:   isChargeWeapon
+              ? 0
+              : Math.round(((nd?.shot_detail?.maintain_fire_stance > 0
+                  ? nd.shot_detail.maintain_fire_stance
+                  : (nd?.shot_detail?.spot_last_delay ?? 0))) / 100 * 60),
             burstSkillCooltime:    nd ? Math.round(
               ((nd.ulti_skill_detail?.skill_cooltime_list?.[(slot.skills[2] >= 1 ? slot.skills[2] : 1) - 1]
                 ?? nd.ulti_skill_detail?.skill_cooltime
@@ -1649,10 +1689,14 @@ export function createStore() {
       }
     },
 
-    _rebuildLog() {
+    // preserveFilters：切换聚合/详细模式时保留当前的角色、技能、Buff 轨道筛选；
+    // 重新模拟时则不传，让筛选恢复默认（全部显示）。
+    _rebuildLog(preserveFilters = false) {
       if (!this.hitLogRaw || !this.result) { this.hitLogRows = []; return; }
-      this.logHiddenSkillLabels = [];
-      this.logActiveBuffTracks  = [];
+      if (!preserveFilters) {
+        this.logHiddenSkillLabels = [];
+        this.logActiveBuffTracks  = [];
+      }
       const unitNames = Object.fromEntries(
         (this.result.units ?? []).map(u => [u.id, u.name])
       );
@@ -1670,21 +1714,36 @@ export function createStore() {
         return _logRowOrder(a) - _logRowOrder(b);
       });
       // 标记 Full Burst 区间内的行（从 full_burst 事件到 burst_end/burst_timeout，含首尾）
-      // 并做充能列 fill-forward：每行继承上一行的 gauge 值，直到出现新值
+      // 充能列：每行展示该行事件实际产生的充能增量（delta），并记录变动前后的累计能量供悬浮气泡使用。
+      // row.gauge 为引擎记录的事件后累计能量（gaugeAfter，已 cap 到 BURST_GAUGE_MAX）；
+      // delta = 本行 gaugeAfter − 上一已知 gaugeAfter。仅 delta>0 视为有效充能；
+      // 满能量（增量被 cap 为 0）、能量重置（burst_end/timeout）、未触碰能量的事件均不展示。
       let inFB = false;
-      let lastGauge = null;
+      let prevGauge = 0;  // 上一已知累计能量，战斗起始为 0
       for (const row of this.hitLogRows) {
         if (row.kind === 'event' && row.eventType === 'full_burst') inFB = true;
         row.inFullBurst = inFB;
         if (row.kind === 'event' && (row.eventType === 'burst_end' || row.eventType === 'burst_timeout')) inFB = false;
-        if (row.gauge != null) lastGauge = row.gauge;
-        else row.gauge = lastGauge;
+        if (row.gauge != null) {
+          const delta = row.gauge - prevGauge;
+          if (delta > 0) {
+            row.gaugeAdded  = delta;
+            row.gaugeBefore = prevGauge;
+            row.gaugeAfter  = row.gauge;
+          } else {
+            row.gaugeAdded = null;
+          }
+          prevGauge = row.gauge;
+        } else {
+          row.gaugeAdded = null;
+        }
       }
     },
 
     setLogMode(mode) {
       this.logMode = mode;
-      this._rebuildLog();
+      // 切换聚合/详细只改变行的呈现方式，保留用户已有的角色/技能/Buff 轨道筛选。
+      this._rebuildLog(true);
     },
 
     logUnitNames() {
@@ -1795,6 +1854,29 @@ export function createStore() {
 
     hideDmgTooltip() {
       const tip = document.getElementById('dmg-tooltip');
+      if (tip) tip.style.display = 'none';
+    },
+
+    // ── 充能气泡：展示本行事件的充能变动（变动前 -> 变动后） ──────────────────
+    showGaugeTooltip(event, row) {
+      if (row.gaugeAdded == null) return;
+      const tip = document.getElementById('gauge-tooltip');
+      if (!tip) return;
+      tip.textContent = `${fmtNum(row.gaugeBefore)}->${fmtNum(row.gaugeAfter)}`;
+      tip.style.left = '-9999px';
+      tip.style.top  = '0px';
+      tip.style.display = 'block';
+      const rect = tip.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let x = event.clientX + 16, y = event.clientY + 8;
+      if (x + rect.width  > vw) x = event.clientX - rect.width  - 8;
+      if (y + rect.height > vh) y = event.clientY - rect.height - 8;
+      tip.style.left = x + 'px';
+      tip.style.top  = y + 'px';
+    },
+
+    hideGaugeTooltip() {
+      const tip = document.getElementById('gauge-tooltip');
       if (tip) tip.style.display = 'none';
     },
 
