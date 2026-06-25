@@ -800,12 +800,17 @@ export function tick(state) {
     if (newZone !== state.currentPhaseZone) {
       state.currentPhaseZone = newZone;
       if (newZone === 'HIDDEN') {
-        // HIDDEN 阶段所有单位开始装填。
-        // 仍有弹药的单位：保存当前弹药，将 ammoLeft 置 0 以便下一 tick
-        // 启动装填机制。敌人再次出现时，若装填未完成，弹药会恢复
-        // （自愿装填被打断）。
-        // 本已 0 弹药的单位（正在装填）：其装填继续不中断。
+        // 进入 HIDDEN：所有单位停止攻击（已触发的技能、DoT 仍正常造成伤害，
+        // 见 tick() 上方的 DoT/延迟命中处理，不受此分支影响）。各单位按弹匣状态分流：
+        //   · 弹匣已满，或正处于武器切换（特殊武器）中 → 待命，不装填、保留弹药。
+        //   · 弹匣未满且非空（>0）→ 开始装填：保存当前弹药、将 ammoLeft 置 0，
+        //     下一 tick 由装填机制接管。敌人再次出现时若装填未完成，弹药会恢复
+        //     （自愿装填被打断，弹匣剩余不变）。
+        //   · 弹匣已空（==0，本就在装填）→ 装填继续不中断。
         for (const u of state.squad) {
+          const weaponSwitching = (u.skillState?.weaponSwitchEndTick ?? 0) > 0
+            && state.tick <= u.skillState.weaponSwitchEndTick;
+          if (weaponSwitching || u.ammoLeft >= u.maxAmmo) continue; // 待命，不装填
           if (u.ammoLeft > 0) {
             u.ammoBeforeHidden = u.ammoLeft;
             u.ammoLeft  = 0;

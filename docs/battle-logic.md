@@ -419,10 +419,20 @@ finalMaxAmmo = Math.max(1, rawMax)
 
 ### 5.5 HIDDEN 阶段弹药
 
-- 进入 HIDDEN：仍有弹药的单位保存 `ammoBeforeHidden`，将 `ammoLeft` 置 0，触发装填（下一 tick 开始）。
-- 离开 HIDDEN：若装填仍在进行，恢复 `ammoBeforeHidden`，取消装填（自愿装填被打断）。
-- 已在装填中的单位：装填继续不中断。
+HIDDEN 期间全队停止攻击，按弹匣状态分流（机制详述见 §11.2）：
+
+- **进入 HIDDEN**
+  - 弹匣已满，或正处于武器切换（特殊武器）中 → **待命**：不装填、保留弹药。
+  - 弹匣未满且非空（`0 < ammoLeft < maxAmmo`）→ **开始装填**：保存 `ammoBeforeHidden`，将 `ammoLeft` 置 0，下一 tick 由装填机制接管。
+  - 弹匣已空（`ammoLeft == 0`，本就在装填）→ 装填继续不中断。
+- **离开 HIDDEN**
+  - 待命单位 → 直接恢复攻击。
+  - 自愿装填仍在进行（`ammoBeforeHidden > 0` 且 `reloadTick` 未到）→ 恢复 `ammoBeforeHidden`、取消装填（**弹匣剩余不变**），恢复攻击。
+  - 装填已在 HIDDEN 内完成 → 弹匣已满，保持。
+  - 弹匣已空的单位 → 装填继续，直到装满。
 - SR/RL 蓄力 `chargeTick` 在 HIDDEN 退出时同步重置，见 §4.3.7。
+
+> **注意**：弹匣已满的单位**不**触发装填，因此 HIDDEN 不会误触发其 `RELOAD_END` 技能（§5.4）。
 
 ---
 
@@ -710,9 +720,24 @@ burstPhase = 0（充能中）
 ### 11.2 阶段调度（enemyPhases）
 
 - 配置为 `{ startTick, zone }` 数组，按 startTick 升序。
-- 支持区间：`NEAR` / `MID` / `FAR` / `HIDDEN`（不可瞄准）。
-- `HIDDEN` 阶段：所有单位停止射击，触发装填（ammoLeft → 0）。
-- 离开 HIDDEN：恢复被中断的自愿装填（原弹药恢复）；SR/RL 蓄力 `chargeTick` 同步重置（见 §4.3.7）。
+- 支持区间（Zone）：`NEAR`（近）/ `MID`（中）/ `FAR`（远）/ `HIDDEN`（隐藏，不可瞄准）。
+- `NEAR/MID/FAR` 决定 `distanceZone`，影响距离优势加成（见 §4.2）；`HIDDEN` 不更新 `distanceZone`。
+- 实测阶段表（BIGARMS 模式1/模式2 等）见 `dev/game-data.md`。
+
+#### HIDDEN（隐藏）阶段
+
+`HIDDEN` 期间敌人无法被瞄准，全队**无法普通攻击**；但**已经触发的技能与 DoT 仍正常造成伤害**（DoT 池、延迟技能命中、HoT 在 tick 内于射击判定之前结算，不受 HIDDEN 影响）。
+
+- **进入 HIDDEN — 全队停止攻击，按状态分流：**
+  - 弹匣已满，或正处于武器切换（特殊武器装备切换）中的角色 → **直接待命**（不装填、保留弹药）。
+  - 弹匣未满的角色 → **开始装弹**。
+  - （已在装弹中的角色装填继续不中断。）
+- **离开 HIDDEN（进入 NEAR/MID/FAR）：**
+  - 待命角色 → 立即开始攻击。
+  - 正在装弹且**弹匣非空**的角色 → 停止装弹，**弹匣剩余不变**，开始攻击（自愿装填被打断）。
+  - 弹匣已空的角色 → 装填继续，直到装满。
+  - SR/RL 蓄力 `chargeTick` 同步重置（放弃瞄准等价后摇，须重新前摇＋蓄力，见 §4.3.7）。
+- 弹药字段层面的具体处理见 §5.5。
 
 ### 11.3 可攻击部位
 
