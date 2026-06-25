@@ -151,17 +151,17 @@ SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个
 | ❌ | Anis: Star | [`17.json`](../src/data/static/nikke/17.json) | [`17.js`](../src/data/skills/17.js) |
 | ❌ | Neon: Vision Eye | [`18.json`](../src/data/static/nikke/18.json) | [`18.js`](../src/data/skills/18.js) |
 | ✔️ | Miranda | [`32.json`](../src/data/static/nikke/32.json) | [`32.js`](../src/data/skills/32.js) |
-| ❌ | D: Killer Wife | [`43.json`](../src/data/static/nikke/43.json) | [`43.js`](../src/data/skills/43.js) |
-| ❌ | Brid: Silent Track | [`73.json`](../src/data/static/nikke/73.json) | [`73.js`](../src/data/skills/73.js) |
+| ✔️ | D: Killer Wife | [`43.json`](../src/data/static/nikke/43.json) | [`43.js`](../src/data/skills/43.js) |
+| ✔️ | Brid: Silent Track | [`73.json`](../src/data/static/nikke/73.json) | [`73.js`](../src/data/skills/73.js) |
 | ❌ | Soline: Frost Ticket | [`74.json`](../src/data/static/nikke/74.json) | [`74.js`](../src/data/skills/74.js) |
-| ❌ | Diesel: Winter Sweets | [`75.json`](../src/data/static/nikke/75.json) | [`75.js`](../src/data/skills/75.js) |
+| ✔️ | Diesel: Winter Sweets | [`75.json`](../src/data/static/nikke/75.json) | [`75.js`](../src/data/skills/75.js) |
 | ✔️ | Liter | [`82.json`](../src/data/static/nikke/82.json) | [`82.js`](../src/data/skills/82.js) |
 | ❌ | Drake | [`101.json`](../src/data/static/nikke/101.json) | [`101.js`](../src/data/skills/101.js) |
 | ✔️ | Maxwell | [`102.json`](../src/data/static/nikke/102.json) | [`102.js`](../src/data/skills/102.js) |
 | ❌ | Mihara: Bonding Chain | [`162.json`](../src/data/static/nikke/162.json) | [`162.js`](../src/data/skills/162.js) |
 | ✔️ | Privaty（SSR：Central Government Special Medal） | [`170.json`](../src/data/static/nikke/170.json) | [`170.js`](../src/data/skills/170.js) |
 | ❌ | Maiden: Ice Rose | [`183.json`](../src/data/static/nikke/183.json) | [`183.js`](../src/data/skills/183.js) |
-| ❌ | Alice | [`191.json`](../src/data/static/nikke/191.json) | [`191.js`](../src/data/skills/191.js) |
+| ✔️ | Alice | [`191.json`](../src/data/static/nikke/191.json) | [`191.js`](../src/data/skills/191.js) |
 | ❌ | Tove（SSR：Fire Starter） | [`192.json`](../src/data/static/nikke/192.json) | [`192.js`](../src/data/skills/192.js) |
 | ❌ | Ludmilla: Winter Owner | [`194.json`](../src/data/static/nikke/194.json) | [`194.js`](../src/data/skills/194.js) |
 | ✔️ | Snow White | [`220.json`](../src/data/static/nikke/220.json) | [`220.js`](../src/data/skills/220.js) |
