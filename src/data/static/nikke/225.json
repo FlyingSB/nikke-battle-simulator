@@ -5,7 +5,7 @@
   "resource_id": 225,
   "additional_skins": [],
   "name_code": 5105,
-  "order": 10145,
+  "order": 10149,
   "original_rare": "SSR",
   "grade_core_id": 1,
   "grow_grade": 422502,
@@ -48,13 +48,17 @@
       "group_id": 5000003,
       "weak_element_id": 100001,
       "element_name_localekey": "Wind",
-      "element_code_name_localekey": "CODE: A.N.M.I.",
-      "element_desc_localekey": "Injects CODE: A.N.M.I. to all iron-type enemies, dealing 10% additional damage.",
+      "element_code_name_localekey": "Code: A.N.M.I.",
+      "element_desc_localekey": "Injects Code: A.N.M.I. to all iron-type enemies, dealing 10% additional damage.",
       "element_icon": "icn_element_wind"
     }
   ],
   "piece_detail": {
     "id": 5100225,
+    "inventory_filter": [
+      "etc"
+    ],
+    "order": 22500,
     "name_localkey": "Scarlet: Black Shadow's Spare Body",
     "description_localkey": "Can be used for Nikkes' Limit Breaks.\nIf a Nikke's Limit Break has reached the max level, any additional Spare Bodies for that Nikke will be converted to Body Labels.",
     "resource_id": 225,
@@ -217,7 +221,7 @@
     "level_up_cost_id": 30102,
     "icon": "icn_skill_damage_01",
     "name_localkey": "Fleetly Fading: Breakthrough",
-    "description_localkey": "■ Activates when attacking with Full Charge.\n<color=#00AEFF>Effect changes according to the number of attack(s). Effect of each phase does not stack.</color>\nThree times: Affects {description_value_01} enemy unit(s) with the lowest <word_group=10025>final</word_group> DEF.\n<color=#00AEFF>Deals {description_value_02}% of <word_group=10025>final</word_group> ATK as damage.</color>\nSix times: Affects <word_group=10020>enemies within attack range</word_group>.\n<color=#00AEFF>Deals {description_value_03}% of <word_group=10025>final</word_group> ATK as <word_group=10019>Distributed Damage</word_group>.</color>\nNine times: Affects all enemies.\n<color=#00AEFF>Deals {description_value_04}% of <word_group=10025>final</word_group> ATK as <word_group=10019>Distributed Damage</word_group>.</color>",
+    "description_localkey": "■ Activates when performing a Full Charge attack.\n<color=#00AEFF>Effects vary according to the number of attacks. Only one effect is triggered at a time.</color>\nThree times: Affects the {description_value_01} enemy unit(s) with the lowest <word_group=10025>final</word_group> DEF.\n<color=#00AEFF>Deals {description_value_02}% of <word_group=10025>final</word_group> ATK as damage.</color>\nSix times: Affects <word_group=10020>enemies within range</word_group>.\n<color=#00AEFF>Deals {description_value_03}% of <word_group=10025>final</word_group> ATK as <word_group=10019>Distributed Damage</word_group>.</color>\nNine times: Affects all enemies.\n<color=#00AEFF>Deals {description_value_04}% of <word_group=10025>final</word_group> ATK as <word_group=10019>Distributed Damage</word_group>.</color>",
     "info_description_localkey": "Skill 1",
     "description_value_list": [
       {
@@ -236,44 +240,44 @@
       },
       {
         "description_value": [
-          "193.33",
-          "199.68",
-          "206.03",
-          "212.38",
-          "218.73",
-          "225.07",
-          "231.42",
-          "237.77",
-          "244.12",
-          "250.47"
+          "218.46",
+          "225.63",
+          "232.81",
+          "239.98",
+          "247.16",
+          "254.32",
+          "261.5",
+          "268.68",
+          "275.85",
+          "283.03"
         ]
       },
       {
         "description_value": [
-          "328.57",
-          "347.61",
-          "366.66",
-          "385.71",
-          "404.76",
-          "423.8",
-          "442.85",
-          "461.9",
-          "480.95",
-          "500"
+          "371.28",
+          "392.79",
+          "414.32",
+          "435.85",
+          "457.37",
+          "478.89",
+          "500.42",
+          "521.94",
+          "543.47",
+          "565"
         ]
       },
       {
         "description_value": [
-          "390.47",
-          "430.47",
-          "470.47",
-          "510.47",
-          "550.47",
-          "590.47",
-          "630.47",
-          "670.47",
-          "710.47",
-          "750.47"
+          "441.23",
+          "486.43",
+          "531.63",
+          "576.83",
+          "622.03",
+          "667.23",
+          "712.43",
+          "757.63",
+          "802.83",
+          "848.03"
         ]
       },
       {},
@@ -389,16 +393,16 @@
       },
       {
         "description_value": [
-          "85.32",
-          "92.52",
-          "99.72",
-          "106.92",
-          "114.12",
-          "121.32",
-          "128.52",
-          "135.72",
-          "142.92",
-          "150.12"
+          "96.41",
+          "104.54",
+          "112.68",
+          "120.81",
+          "128.95",
+          "137.09",
+          "145.22",
+          "153.36",
+          "161.49",
+          "169.63"
         ]
       },
       {
