@@ -843,3 +843,12 @@ select.input { cursor: pointer; }
 .enemy-inline-label    { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
 .enemy-preset-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .enemy-preset-select   { max-width: 90px; }
+
+/* 敌人距离编辑（连续距离数值 + 隐藏切换） */
+.pos-editor            { display: inline-flex; align-items: center; gap: 4px; }
+.pos-editor .input-sm  { width: 52px; }
+.pos-hidden-toggle     { display: inline-flex; align-items: center; gap: 2px; font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+/* 命中校准（CORE0 / D0 / HitRate 系数 c） */
+.hit-cal-row           { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.hit-cal-row label     { display: inline-flex; align-items: center; gap: 3px; font-size: 0.72rem; color: var(--muted); }
+.hit-cal-row .input-sm { width: 56px; }

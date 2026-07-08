@@ -10,30 +10,25 @@ function calcMinEffRangePct(state, caster) {
   return stacksPct + burstPct;
 }
 
-// 判断当前敌人位置是否处于 Ade 的"有效射程"内（即能触发优势射程加成的距离）。
-// SR 默认优势射程为 FAR；Minimum Effective Range 累积值扩展触发条件：
-//   ≥  44% → MID 也计入有效射程
-//   ≥  99% → NEAR 也计入有效射程（即所有距离均触发）
-// TODO: 实现更精确的射程模型（当前阈值为近似值）
-function isInEffectiveRange(state, caster) {
-  const zone = state.distanceZone;
-  if (!zone || zone === 'HIDDEN') return false;
-  if (zone === 'FAR') return true;
+// Ade 的有效射程下界（连续距离刻度）。SR 默认优势射程 min=45（FAR）；
+// Minimum Effective Range 累积值扩展下界：≥44% → 35（MID 也计入）；≥99% → 20（NEAR 也计入）。
+// 阈值距离取自 constants.ZONE_TO_DISTANCE（NEAR20/MID35/FAR45），与几何命中模型同刻度。
+function effRangeMin(state, caster) {
   const total = calcMinEffRangePct(state, caster);
-  if (zone === 'MID')  return total >= 44;
-  if (zone === 'NEAR') return total >= 99;
-  return false;
+  return total >= 99 ? 20 : total >= 44 ? 35 : 45;
 }
 
-// 根据当前 Minimum Effective Range 累积值同步 extraDistZones。
-// extraDistZones 由 battle.js 在伤害计算时读取，使扩展后的射程区间产生实际优势射程加成。
-// 应在每次 Spy Lens 叠层或爆裂技能改变状态后调用。
-function syncExtraDistZones(state, caster) {
-  const total = calcMinEffRangePct(state, caster);
-  const zones = [];
-  if (total >= 44) zones.push('MID');
-  if (total >= 99) zones.push('NEAR');
-  caster.skillState.extraDistZones = zones;
+// 判断当前敌人是否处于 Ade 的"有效射程"内（触发优势射程加成 / 全蓄力条件）。
+function isInEffectiveRange(state, caster) {
+  const d = state.enemyDistance;
+  if (d == null) return false;                 // HIDDEN / 不可瞄准
+  return d >= effRangeMin(state, caster);       // 其 SR 上界为 100，enemyDistance≤100 恒满足
+}
+
+// 同步 caster.skillState.effRangeMin —— battle.js 的 unitDistanceAdvantage 读取它，
+// 取 min(bonusRangeMin, effRangeMin) 作为优势射程下界。每次 Spy Lens 叠层或爆裂改变状态后调用。
+function syncEffRangeMin(state, caster) {
+  caster.skillState.effRangeMin = effRangeMin(state, caster);
 }
 
 export default {
@@ -68,7 +63,7 @@ export default {
 
       // Part2：任意全蓄力（不需在有效射程内）→ 自身 Spy Lens 叠层（最多 10 层，5s 内未刷新则清零）
       // 达到满层（10 层）时激活 S2 Part2 的 pierce + ATK% 持续效果
-      // 每次叠层后同步 extraDistZones，使下一发射击立即享受扩展的优势射程
+      // 每次叠层后同步 effRangeMin，使下一发射击立即享受扩展的优势射程
       {
         on: 'FULL_CHARGE',
         handler(state, caster) {
@@ -83,7 +78,7 @@ export default {
           caster.skillState.aabSpyLensStacks  = stacks;
           caster.skillState.aabSpyLensEndTick = now + TICK_RATE * 5;
 
-          syncExtraDistZones(state, caster);
+          syncEffRangeMin(state, caster);
 
           // 首次达到满层时激活 S2 Part2（pierce 持续 + ATK% 持续）
           if (stacks >= 10 && !caster.skillState.aabS2FullyStacked) {
@@ -129,7 +124,7 @@ export default {
   // ── Cutting-Edge Agent Equipment
   // ■ Affects self.
   //   Minimum Effective Range ▲ {p00=55.56}% for {p01=10} sec.
-  //   → 记录 aabBurstMinEffRangeEndTick，并同步 extraDistZones
+  //   → 记录 aabBurstMinEffRangeEndTick，并同步 effRangeMin
   // ■ Affects all allies.
   //   Attack Damage ▲ {p02}% for {p03=10} sec.
   //   Pierce Damage ▲ {p04}% for {p05=10} sec.
@@ -150,9 +145,9 @@ export default {
           const lv    = caster.skillLevels[2];
           const end10 = state.tick + TICK_RATE * 10;
 
-          // 自身：Minimum Effective Range ▲55.56%（10s），立即同步 extraDistZones
+          // 自身：Minimum Effective Range ▲55.56%（10s），立即同步 effRangeMin
           caster.skillState.aabBurstMinEffRangeEndTick = end10;
-          syncExtraDistZones(state, caster);
+          syncEffRangeMin(state, caster);
 
           // 全队：Attack Damage + Pierce Damage
           const atkDmgPct = getSkillValue(caster.rawBurst, 2, lv) / 100;

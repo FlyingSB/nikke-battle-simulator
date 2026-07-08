@@ -12,12 +12,14 @@
  *
  */
 
-import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
+import { calcDamage, rollCrit } from './damage.js';
+import { rng, setRng } from './rng.js';
 import { computeFinalStats } from './stats.js';
-import { WEAPON_AMMO, WEAPON_HIT_MULT } from './constants.js';
+import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAULT, HITRATE_CORE_COEF_DEFAULT } from './constants.js';
+import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, initUnitMaxAmmo, recalcMaxAmmo } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, initUnitMaxAmmo, recalcMaxAmmo, unitDistanceAdvantage } from './battle-utils.js';
 import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -63,6 +65,18 @@ function getPhaseAtTick(phases, tick) {
     if (tick >= phases[i].startTick) return phases[i].zone;
   }
   return phases[0]?.zone ?? 'NEAR';
+}
+
+/**
+ * 相位值 → 连续距离（0..100）。
+ * 数字直接用；离散标签 NEAR/MID/FAR 按默认映射；HIDDEN/CANNOT_BE_AIMED 及未知 → null（不可瞄准/无优势）。
+ * @param {number|string|null} v
+ * @returns {number|null}
+ */
+function phaseToDistance(v) {
+  if (typeof v === 'number') return v;
+  if (v == null) return null;
+  return ZONE_TO_DISTANCE[v] ?? null;
 }
 
 /**
@@ -396,6 +410,14 @@ export function initBattle(config) {
     // store.js 从 CDN spot_first_delay / spot_last_delay / maintain_fire_stance 计算并传入。
     // 默认 10t（≈16.67 百分秒）仅在无 CDN 数据时兜底；通常 CDN 值为 12t（20 百分秒）。
     const isChargWeapon = ['SR', 'RL', 'Charged'].includes(wt);
+    // 命中率散布档：从 CDN 原始 shot_detail 读取 auto 散布字段（缺失回退手动字段）。
+    const _sd = cfg._nikkeData?.shot_detail;
+    const accProfile = parseAccuracyProfile(_sd ? {
+      startAccuracyScale:    _sd.auto_start_accuracy_circle_scale ?? _sd.start_accuracy_circle_scale ?? null,
+      endAccuracyScale:      _sd.auto_end_accuracy_circle_scale   ?? _sd.end_accuracy_circle_scale   ?? null,
+      accuracyChangePerShot: _sd.auto_accuracy_change_pershot     ?? _sd.accuracy_change_pershot     ?? 0,
+      accuracyChangeSpeed:   _sd.auto_accuracy_change_speed       ?? _sd.accuracy_change_speed       ?? 0,
+    } : null, wt);
     // MG 起速武器（rate_of_fire_change_pershot > 0）：开火/换弹后从起始 RPM 逐发加速。
     // 起速武器不种子 shotAccumulator（见下），第一发需等满起始 RPM 的发间，否则会跳过最慢的预热段。
     const hasMgRamp = (cfg._nikkeData?.shot_detail?.rate_of_fire_change_pershot ?? 0) > 0;
@@ -542,11 +564,10 @@ export function initBattle(config) {
       favNormalAttackDamageMult: 1 + (collFx?.attackDmgPct ?? 0),
       // Fav item "Charge Damage Multiplier ▲" (SR/RL items) — multiplies shot_detail.damage specifically.
       favChargeDmgPct:          collFx?.chargeDmgPct ?? 0,
-      // Fraction of normal shots that hit the enemy core (0=none, 1=all).
-      // MG/SR/RL/Charged default to 1 (always hit core). SMG defaults to 0.033.
-      // SG: 核心命中率 = 20% + 0.8 × HitRate；HitRate 属性待建模，当前固定 20%。
-      // TODO: HitRate 属性建模后，改为 0.20 + 0.8 * (stats.hitRatePct ?? 0)。
-      coreHitRateMult:          cfg.coreHitRateMult ?? (wt === 'SMG' ? 0.033 : wt === 'SG' ? 0.20 : 1),
+      // 普通射击核心命中率现由几何模型 accuracy.js:coreHitChance 计算（散布圆 vs 核心透视半径，
+      // 受 HitRate 收圆），不再使用按武器类型硬编码的 coreHitRateMult。武器切换仍用切换武器类型的
+      // 内联常量（见射击循环 pCore 分支）。cfg.coreHitRateMult 仅供个别测试覆盖。
+      coreHitRateMult:          cfg.coreHitRateMult ?? 1,
       // SG 武器每次射击发射的弹丸数（shot_detail.shot_count）。
       // 每发弹丸造成 1/N 的普通攻击伤害（shot_detail.damage 为所有弹丸合计）。
       // 技能改变弹丸数时，每次射击总伤害不变，仅改变单发弹丸伤害。
@@ -602,6 +623,16 @@ export function initBattle(config) {
       // 第一发需等满（蓄力时长 / 起始 RPM 发间），MG 起速武器据此保留最慢的预热首发。
       shotAccumulator:  (isChargWeapon || hasMgRamp) ? 0 : 1,
       skillState: {},
+      // 命中率散布 ramp 运行态（accuracy.js）。核心命中率几何模型使用。
+      accAlwaysCore:     accProfile.alwaysCore,
+      accStartScale:     accProfile.startScale,
+      accEndScale:       accProfile.endScale,
+      accChangePerShot:  accProfile.changePerShot,
+      accRecoverPerTick: accProfile.changeSpeed / TICK_RATE,
+      accCurrentScale:   accProfile.startScale,
+      // 距离优势区间（各角色 CDN bonusrange_min/max）。
+      bonusRangeMin:     cfg._nikkeData?.bonusrange_min ?? cfg.bonusRangeMin ?? 0,
+      bonusRangeMax:     cfg._nikkeData?.bonusrange_max ?? cfg.bonusRangeMax ?? 0,
       // MG 武器逐发起速参数（非 MG 或无起速时均为 null）。
       // 保存在单位上而非 skillState，因为这是武器物理属性，不是技能效果。
       mgCurrentRof:       cfg._nikkeData?.shot_detail?.rate_of_fire_change_pershot > 0
@@ -675,12 +706,16 @@ export function initBattle(config) {
     enemyCorePierceDual:  config.enemy.corePierceDual ?? false,
     // 命中零件：所有实弹均命中敌人可破坏零件（不命中核心/躯体）。
     enemyHasParts:        config.enemy.hasParts ?? false,
-    // Active enemy zone for distance-based damage. Updated on each non-CANNOT_BE_AIMED phase entry.
-    // config.enemy.distance overrides the phase schedule entirely (legacy / test usage).
-    distanceZone:       config.enemy.distance ?? (initialZone !== 'CANNOT_BE_AIMED' ? initialZone : null),
-    // Phase schedule and current zone tracker.
+    // 敌人连续距离（0..100，与 bonusrange 同刻度）。由相位时间表派生；null=不可瞄准（无优势）。
+    // config.enemy.distance 可整体覆盖（legacy / test；接受数字或旧 zone 标签）。
+    enemyDistance:      phaseToDistance(config.enemy.distance ?? initialZone),
+    // Phase schedule and current zone tracker（HIDDEN 停火判定用 currentPhaseZone）。
     enemyPhases,
     currentPhaseZone:   initialZone,
+    // 命中率核心命中模型校准常量（敌人配置 UI 可覆盖）。
+    accCore0:           config.enemy.core0   ?? CORE0_DEFAULT,
+    accD0:              config.enemy.d0      ?? D0_DEFAULT,
+    accHitCoef:         config.enemy.hitCoef ?? HITRATE_CORE_COEF_DEFAULT,
     // 防御力/核心状态的定时行动（startTick 升序，不含初始值）
     enemyDefActions:    config.enemy.defActions  ?? [],
     enemyCoreActions:   config.enemy.coreActions ?? [],
@@ -819,8 +854,8 @@ export function tick(state) {
           // ammoLeft==0 情况：原有装填继续自然进行
         }
       } else {
-        // 进入可瞄准的 zone — 更新伤害计算用的 distance zone。
-        state.distanceZone = newZone;
+        // 进入可瞄准的相位 — 更新伤害计算用的连续距离（CANNOT_BE_AIMED → null，无优势）。
+        state.enemyDistance = phaseToDistance(newZone);
         // 对自愿 HIDDEN 装填未完成的单位恢复原弹药。
         for (const u of state.squad) {
           if (u.ammoBeforeHidden > 0) {
@@ -1118,10 +1153,11 @@ export function tick(state) {
         unit.reloadStartTick = state.tick;
       }
       if (state.tick < unit.reloadTick) {
-        // 换弹期间枪管停转，MG ROF 衰减
+        // 换弹期间枪管停转，MG ROF 衰减 + 散布恢复（MG 重新预热）
         if (unit.mgCurrentRof != null && unit.mgRofDecayPerTick > 0) {
           unit.mgCurrentRof = Math.max(unit.mgStartRof, unit.mgCurrentRof - unit.mgRofDecayPerTick);
         }
+        recoverAccuracy(unit, 1);
         continue;
       }
       // unit.maxAmmo 由 recalcMaxAmmo 维护，始终反映当前所有效果的最终弹匣上限。
@@ -1165,6 +1201,7 @@ export function tick(state) {
       if (unit.mgCurrentRof != null && unit.mgRofDecayPerTick > 0) {
         unit.mgCurrentRof = Math.max(unit.mgStartRof, unit.mgCurrentRof - unit.mgRofDecayPerTick);
       }
+      recoverAccuracy(unit, 1);
       continue;
     }
 
@@ -1213,7 +1250,7 @@ export function tick(state) {
       shotsThisTick         = Math.floor(unit.shotAccumulator);
       unit.shotAccumulator -= shotsThisTick;
     } else {
-      shotsThisTick = Math.random() < (ATTACK_SPEED[unit.weaponType] ?? 0.20) ? 1 : 0;
+      shotsThisTick = rng() < (ATTACK_SPEED[unit.weaponType] ?? 0.20) ? 1 : 0;
     }
     if (shotsThisTick === 0) continue;
 
@@ -1244,16 +1281,28 @@ export function tick(state) {
       // 核心被保护（enemyCoreProtected=true）：仅穿透攻击可命中核心。
       const isPierce = (weaponSwitchActive && unit.skillState.weaponSwitchPierce)
         || sums.pierce;
-      // 切换武器核心命中率：SMG=3.3%、SG=20%；SR/RL/Charged 及其他均为 100%。
-      // 使用已解析的 effectiveWeaponType，可正确处理 weaponSwitchType=null 时回退到基础武器类型的情况。
-      const coreHitRateMult = weaponSwitchActive
+      // 距离优势（bonusrange 连续距离；含 Ade 扩展有效射程 effRangeMin）。
+      const distAdv = unitDistanceAdvantage(unit, state.enemyDistance);
+      // 核心命中率：
+      //   · 武器切换：沿用切换武器类型硬编码核心率（缺乏切换武器散布数据）。
+      //   · 普通射击：几何模型 coreHitChance（散布圆 vs 核心透视半径，受 HitRate 收圆）。
+      //     SR/RL 等精准武器 alwaysCore=1；SG 逐弹丸判定见下方拆分。
+      const pCore = weaponSwitchActive
         ? (effectiveWeaponType === 'SMG' ? 0.033
           : effectiveWeaponType === 'SG'  ? 0.20 : 1.0)
-        : (unit.coreHitRateMult ?? 1);
-      const coreRoll = coreHitRateMult >= 1 || Math.random() < coreHitRateMult;
+        : coreHitChance({
+            alwaysCore:   unit.accAlwaysCore,
+            currentScale: unit.accCurrentScale,
+            hitRatePct:   (unit.stats.hitRatePct ?? 0) + (sums.hitRatePct ?? 0),
+            distance:     state.enemyDistance,
+            CORE0: state.accCore0, D0: state.accD0, coef: state.accHitCoef,
+          });
+      const coreRoll = pCore >= 1 || rng() < pCore;
       const isCore = state.enemyHasCore && (
         state.enemyCoreProtected ? (isPierce && coreRoll) : coreRoll
       );
+      // 推进散布收束（MG 暖机；AR/SMG/SG 恒定）。判定用推进前的 currentScale，判定后推进。
+      rampAccuracyOnShot(unit);
       const isParts = !isCore && state.enemyHasParts;
       const hitPart = isCore ? 'core' : isParts ? 'parts' : 'body';
       // 穿透双判核心：穿透攻击命中核心时，额外产生一次体部伤害。
@@ -1270,7 +1319,7 @@ export function tick(state) {
         critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
         hitPart,
         coreDmgIncrement:  unit.coreDmgIncrement + (isCore ? (sums.coreDamagePct ?? 0) : 0),
-        distanceZone:      state.distanceZone,
+        distanceAdvantage: distAdv,
         isFullBurst:       state.fullBurstActive,
         attackerElement:   (sums.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
         defenderElement:   state.enemyElement,
@@ -1304,7 +1353,7 @@ export function tick(state) {
           critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
           hitPart:           'body',
           coreDmgIncrement:  unit.coreDmgIncrement,
-          distanceZone:      state.distanceZone,
+          distanceAdvantage: distAdv,
           isFullBurst:       state.fullBurstActive,
           attackerElement:   (sums.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
           defenderElement:   state.enemyElement,
@@ -1374,7 +1423,7 @@ export function tick(state) {
           critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums2.critDamagePct,
           hitPart,
           coreDmgIncrement:  unit.coreDmgIncrement + (isCore ? (sums2.coreDamagePct ?? 0) : 0),
-          distanceZone:      state.distanceZone,
+          distanceAdvantage: distAdv,
           isFullBurst:       state.fullBurstActive,
           attackerElement:   (sums2.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
           defenderElement:   state.enemyElement,
@@ -1465,9 +1514,7 @@ export function tick(state) {
           elemMult: bd.elemMult,
           chargeMult: bd.chargeMult,
           // 武器切换期间距离加成仍按原始武器判定（游戏实测规则）
-          // extraDistZones：角色技能扩展的额外优势射程区间（如 Ade 的 Minimum Effective Range）
-          distanceAdv: hasDistanceAdvantage(unit.weaponType, state.distanceZone)
-                       || (unit.skillState.extraDistZones?.includes(state.distanceZone) ?? false),
+          distanceAdv: distAdv,
           ammoLeft: unit.ammoLeft,
           maxAmmo: effectiveMaxAmmo,
           isUnlimitedAmmo: isUnlimitedAmmoShot,
@@ -1500,8 +1547,7 @@ export function tick(state) {
             equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0, favChargeDmgPct: unit.favChargeDmgPct ?? 0,
             elemMult: bd.elemMult,
             chargeMult: bd.chargeMult,
-            distanceAdv: hasDistanceAdvantage(unit.weaponType, state.distanceZone)
-                         || (unit.skillState.extraDistZones?.includes(state.distanceZone) ?? false),
+            distanceAdv: distAdv,
             ammoLeft: unit.ammoLeft,
             maxAmmo: effectiveMaxAmmo,
             isUnlimitedAmmo: isUnlimitedAmmoShot,
@@ -1536,8 +1582,7 @@ export function tick(state) {
             equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0, favChargeDmgPct: unit.favChargeDmgPct ?? 0,
             elemMult: bd.elemMult,
             chargeMult: bd.chargeMult,
-            distanceAdv: hasDistanceAdvantage(unit.weaponType, state.distanceZone)
-                         || (unit.skillState.extraDistZones?.includes(state.distanceZone) ?? false),
+            distanceAdv: distAdv,
             ammoLeft: unit.ammoLeft,
             maxAmmo: effectiveMaxAmmo,
             isUnlimitedAmmo: isUnlimitedAmmoShot,
@@ -1652,16 +1697,22 @@ export function tick(state) {
  * @returns {BattleResult}
  */
 export function simulate(config) {
-  const state     = initBattle(config);
-  const allEvents = [];
+  // 注入随机源（config.rng 缺省时用 Math.random）；结束后恢复默认，避免污染后续调用。
+  setRng(config.rng);
+  try {
+    const state     = initBattle(config);
+    const allEvents = [];
 
-  while (true) {
-    const { over, events } = tick(state);
-    allEvents.push(...events);
-    if (over) break;
+    while (true) {
+      const { over, events } = tick(state);
+      allEvents.push(...events);
+      if (over) break;
+    }
+
+    return buildResult(state, allEvents);
+  } finally {
+    setRng(null);
   }
-
-  return buildResult(state, allEvents);
 }
 
 /**

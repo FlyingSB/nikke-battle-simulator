@@ -45,12 +45,12 @@ export const ELEMENT_ADVANTAGE_BASE = 0.10;
 /** 武器在其最佳射程区间射击时的加成。 */
 export const DISTANCE_ADVANTAGE_BONUS = 0.30;
 
-/** @type {Record<string, string[]>} */
-export const DISTANCE_ZONES = {
-  NEAR: ['SG', 'SMG'],
-  MID:  ['AR', 'MG'],
-  FAR:  ['SR'],
-};
+/**
+ * 优势射程改由各角色 CDN 的 bonusrange_min/max 判定（敌人连续距离 ∈ [min,max]），
+ * 见 damage.js:hasDistanceAdvantage。旧的按武器类型分档 DISTANCE_ZONES 已废弃。
+ * 离散相位标签 → 连续距离的默认映射（可被敌人配置 UI 覆盖）：
+ */
+export const ZONE_TO_DISTANCE = { NEAR: 20, MID: 35, FAR: 55 };
 
 // ── Full Burst ────────────────────────────────────────────────────────────
 
@@ -115,3 +115,15 @@ export const WEAPON_HIT_MULT = {
  * 例如 Alice：56000 × (35000 / 10000) = 每次蓄力命中 196000。
  * （游戏实测确认为乘法；CDN 的 full_charge_burst_energy 字段引擎不使用。）
  */
+
+// ── 命中率（HitRate）核心命中模型 ────────────────────────────────────────
+/**
+ * 数据实证默认值（dev/game-data.md，2026-07-07 训练场实测拟合）。均可被敌人配置 UI 覆盖。
+ *   核心屏幕半径 r_core(d) = CORE0 · max(0, 1 − d/D0)
+ *   有效散布     R_eff     = currentScale / (1 + HITRATE_CORE_COEF · HitRate)
+ *   核心命中率   P_core    = clamp((r_core / R_eff)², 0, 1)
+ * 武器散布 currentScale 取各角色 auto 散布 scale（SG 250 / SMG 110 / AR 75 / MG 250→10），不设常量。
+ */
+export const CORE0_DEFAULT             = 55;   // d=0 时核心屏幕半径（SMG/SG 交叉验证）
+export const D0_DEFAULT                = 77;   // 核心缩为 0 的距离（线性透视外推）
+export const HITRATE_CORE_COEF_DEFAULT = 4.5;  // HitRate 收圆系数（Drake 三档拟合）

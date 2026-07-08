@@ -160,15 +160,18 @@
                     </td>
                     <td>
                       <template x-if="idx < 3">
-                        <span class="action-fixed-cell" x-text="({def:'DEF',core:'核心',position:'位置'})[action.type]"></span>
+                        <span class="action-fixed-cell"
+                          :title="action.type === 'position' ? '优势距离(+30%)——敌人距离 ∈ 该武器 bonusrange 区间时触发：\nSG   0–25\nSMG  15–35\nAR   25–45\nMG   35–55\nSR   45–100（例外 Harran 25–45）\nRL   无优势距离' : ''"
+                          x-text="({def:'DEF',core:'核心',position:'距离'})[action.type]"></span>
                       </template>
                       <template x-if="idx >= 3">
                         <select class="input input-sm"
                           :value="action.type"
+                          :title="action.type === 'position' ? '优势距离(+30%)——敌人距离 ∈ 该武器 bonusrange 区间时触发：\nSG   0–25\nSMG  15–35\nAR   25–45\nMG   35–55\nSR   45–100（例外 Harran 25–45）\nRL   无优势距离' : ''"
                           @change="$store.sim.updateEnemyAction(action.id, 'type', $event.target.value)">
                           <option value="def">DEF</option>
                           <option value="core">核心</option>
-                          <option value="position">位置</option>
+                          <option value="position">距离</option>
                         </select>
                       </template>
                     </td>
@@ -190,14 +193,17 @@
                         </select>
                       </template>
                       <template x-if="action.type === 'position'">
-                        <select class="input input-sm"
-                          :value="action.value"
-                          @change="$store.sim.updateEnemyAction(action.id, 'value', $event.target.value)">
-                          <option value="NEAR">近</option>
-                          <option value="MID">中</option>
-                          <option value="FAR">远</option>
-                          <option value="HIDDEN">隐藏</option>
-                        </select>
+                        <span class="pos-editor">
+                          <input class="input input-sm no-spin" type="number" min="0" max="100" step="1"
+                            :disabled="action.value === 'HIDDEN'"
+                            :value="action.value === 'HIDDEN' ? '' : action.value"
+                            @input="$store.sim.updateEnemyAction(action.id, 'value', +$event.target.value)"
+                            title="敌人距离 0-100（近大远小，与优势射程 bonusrange 同刻度）&#10;优势距离(+30%)区间：&#10;SG 0–25  SMG 15–35  AR 25–45&#10;MG 35–55  SR 45–100  RL 无&#10;例外 Harran(SR) 25–45">
+                          <label class="pos-hidden-toggle">
+                            <input type="checkbox" :checked="action.value === 'HIDDEN'"
+                              @change="$store.sim.updateEnemyAction(action.id, 'value', $event.target.checked ? 'HIDDEN' : 35)">隐藏
+                          </label>
+                        </span>
                       </template>
                     </td>
                     <td>
@@ -210,6 +216,25 @@
               </tbody>
             </table>
             <button class="btn-add-action" @click="$store.sim.addEnemyAction()">＋ 添加行动</button>
+
+            <div class="section-sub mt-1">命中校准（核心命中率模型）</div>
+            <div class="hit-cal-row" title="核心命中率 P=clamp((CORE0·(1−d/D0)/(scale/(1+c·HitRate)))²,0,1)；实证默认 55/77/4.5">
+              <label>CORE0
+                <input class="input input-sm no-spin" type="number" min="0" step="1"
+                  :value="$store.sim.enemy.core0"
+                  @input="$store.sim.enemy.core0 = +$event.target.value; $store.sim.selectedPresetId = null">
+              </label>
+              <label>D0
+                <input class="input input-sm no-spin" type="number" min="1" step="1"
+                  :value="$store.sim.enemy.d0"
+                  @input="$store.sim.enemy.d0 = +$event.target.value; $store.sim.selectedPresetId = null">
+              </label>
+              <label>HitRate系数 c
+                <input class="input input-sm no-spin" type="number" min="0" step="0.1"
+                  :value="$store.sim.enemy.hitCoef"
+                  @input="$store.sim.enemy.hitCoef = +$event.target.value; $store.sim.selectedPresetId = null">
+              </label>
+            </div>
           </section>
 
           <!-- 模拟选项 -->

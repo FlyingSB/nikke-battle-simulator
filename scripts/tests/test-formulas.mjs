@@ -177,52 +177,33 @@ section('T10: Full Burst bonus');
 
 // ── T11: Distance advantage ───────────────────────────────────────────────────
 
-section('T11: Distance advantage');
+section('T11: Distance advantage (bonusrange 连续距离)');
 {
-  // SMG in NEAR → +0.30; commonMult = 1.30; damage = floor(400 × 1.30) = 520
-  const { damage } = calcDamage({ ...BASE, weaponType: 'SMG', distanceZone: 'NEAR' });
-  eq('SMG NEAR', damage, 520);
+  // distanceAdvantage=true → +0.30；commonMult = 1.30；damage = floor(400 × 1.30) = 520
+  const { damage } = calcDamage({ ...BASE, distanceAdvantage: true });
+  eq('advantage → +30%', damage, 520);
   near('DISTANCE_ADVANTAGE_BONUS', DISTANCE_ADVANTAGE_BONUS, 0.30);
 }
 {
-  // SMG in MID → no advantage
-  const { damage } = calcDamage({ ...BASE, weaponType: 'SMG', distanceZone: 'MID' });
-  eq('SMG MID (no advantage)', damage, 400);
+  const { damage } = calcDamage({ ...BASE, distanceAdvantage: false });
+  eq('no advantage', damage, 400);
 }
 {
-  // AR in MID → advantage; damage = 520
-  const { damage } = calcDamage({ ...BASE, weaponType: 'AR', distanceZone: 'MID' });
-  eq('AR MID', damage, 520);
+  // hasDistanceAdvantage(distance, min, max)：各武器真实 bonusrange 区间
+  // SG(0-25) SMG(15-35) AR(25-45) MG(35-55) SR(45-100) RL(0-0)
+  eq('SG d=20 ∈ [0,25]',  hasDistanceAdvantage(20, 0, 25),  true);
+  eq('SG d=30 ∉ [0,25]',  hasDistanceAdvantage(30, 0, 25),  false);
+  eq('SMG d=30 ∈ [15,35]', hasDistanceAdvantage(30, 15, 35), true);
+  eq('AR d=30 ∈ [25,45]',  hasDistanceAdvantage(30, 25, 45), true);   // d=30 SMG 与 AR 同时优势（重叠）
+  eq('MG d=40 ∈ [35,55]',  hasDistanceAdvantage(40, 35, 55), true);
+  eq('SR d=50 ∈ [45,100]', hasDistanceAdvantage(50, 45, 100), true);
+  eq('AR d=50 ∉ [25,45]',  hasDistanceAdvantage(50, 25, 45), false);
 }
 {
-  // MG in MID → advantage
-  const { damage } = calcDamage({ ...BASE, weaponType: 'MG', distanceZone: 'MID' });
-  eq('MG MID', damage, 520);
-}
-{
-  // SR in FAR → advantage
-  const { damage } = calcDamage({ ...BASE, weaponType: 'SR', distanceZone: 'FAR' });
-  eq('SR FAR', damage, 520);
-}
-{
-  // SG in NEAR → advantage
-  const { damage } = calcDamage({ ...BASE, weaponType: 'SG', distanceZone: 'NEAR' });
-  eq('SG NEAR', damage, 520);
-}
-{
-  // SG and MG in non-optimal zones → no advantage
-  eq('SG MID  (no advantage)', hasDistanceAdvantage('SG', 'MID'),  false);
-  eq('SG FAR  (no advantage)', hasDistanceAdvantage('SG', 'FAR'),  false);
-  eq('MG NEAR (no advantage)', hasDistanceAdvantage('MG', 'NEAR'), false);
-  eq('MG FAR  (no advantage)', hasDistanceAdvantage('MG', 'FAR'),  false);
-  eq('AR NEAR (no advantage)', hasDistanceAdvantage('AR', 'NEAR'), false);
-  eq('SR MID  (no advantage)', hasDistanceAdvantage('SR', 'MID'),  false);
-}
-{
-  // RL has no favoured zone
-  eq('RL NEAR (no advantage)', hasDistanceAdvantage('RL', 'NEAR'), false);
-  eq('RL MID  (no advantage)', hasDistanceAdvantage('RL', 'MID'),  false);
-  eq('RL FAR  (no advantage)', hasDistanceAdvantage('RL', 'FAR'),  false);
+  // RL bonusrange=(0,0) 永不触发；distance=null 无优势
+  eq('RL (0,0) d=0 → false',  hasDistanceAdvantage(0, 0, 0),   false);
+  eq('RL (0,0) d=10 → false', hasDistanceAdvantage(10, 0, 0),  false);
+  eq('distance=null → false', hasDistanceAdvantage(null, 0, 100), false);
 }
 
 // ── T12: Element advantage ────────────────────────────────────────────────────
@@ -404,7 +385,7 @@ section('T17: All multipliers stacked');
     weaponType:       'AR',
     isCrit:           true,
     hitPart: 'core',
-    distanceZone:     'MID',
+    distanceAdvantage: true,
     isFullBurst:      true,
     attackerElement:  'Wind',
     defenderElement:  'Iron',
@@ -1091,7 +1072,7 @@ function makeHitState() {
   const state = {
     tick: 0, buffs: [], hitLog: [],
     fullBurstActive: false, fullBurstActive_global: false,
-    enemyDef: 0, enemyElement: 'Iron', distanceZone: null,
+    enemyDef: 0, enemyElement: 'Iron', enemyDistance: null,
     enemyDamageTakenPct: 0, burstGauge: 0, _logSeq: 0,
     squad: [unit],
     dots: [],

@@ -342,7 +342,7 @@ const BATTLE_EVENT_COLS = {
   burst_end:    () => ({ name: '',               label: '',       desc: 'Full Burst 结束' }),
   burst_timeout:() => ({ name: '',               label: '',       desc: 'Full Burst 超时' }),
   reload:       e => ({ name: e.unitName ?? '', label: '',       desc: '装填' }),
-  phase_change:       e => ({ name: '',              label: '敌人行动', desc: `位置 → ${{ NEAR:'近', MID:'中', FAR:'远', HIDDEN:'隐藏' }[e.zone] ?? e.zone}` }),
+  phase_change:       e => ({ name: '',              label: '敌人行动', desc: `位置 → ${e.zone === 'HIDDEN' ? '隐藏' : typeof e.zone === 'number' ? '距离 ' + e.zone : ({ NEAR:'近', MID:'中', FAR:'远' }[e.zone] ?? e.zone)}` }),
   enemy_action:       e => {
     const desc = e.actionType === 'def'
       ? `DEF → ${e.value}`
@@ -833,12 +833,16 @@ export function createStore() {
     enemy: {
       element:  'Iron',
       type:     'Boss',
+      // 命中率核心命中模型校准常量（实证默认；见 dev/game-data.md）。
+      core0:    55,   // d=0 时核心屏幕半径
+      d0:       77,   // 核心缩为 0 的距离
+      hitCoef:  4.5,  // HitRate 收圆系数
       // 行动阶段：前3条固定（时间=0，类型固定），后续可增删
-      // 默认值参考联盟射击场 BIGARMS
+      // 默认值参考联盟射击场 BIGARMS。position 值为连续距离（0-100，与 bonusrange 同刻度）或 'HIDDEN'。
       actions: [
         { id: 1, startTimeS: 0, type: 'def',      value: 100 },
         { id: 2, startTimeS: 0, type: 'core',     value: 'EXPOSED' },
-        { id: 3, startTimeS: 0, type: 'position', value: 'MID' },
+        { id: 3, startTimeS: 0, type: 'position', value: 35 },
       ],
       _nextId: 4,
     },
@@ -1043,6 +1047,9 @@ export function createStore() {
         enemy: {
           element:  this.enemy.element,
           type:     this.enemy.type,
+          core0:    this.enemy.core0,
+          d0:       this.enemy.d0,
+          hitCoef:  this.enemy.hitCoef,
           actions:  this.enemy.actions.map(a => ({ ...a })),
           _nextId:  this.enemy._nextId,
         },
@@ -1083,20 +1090,28 @@ export function createStore() {
       if (state.corpResearch)   Object.assign(this.corpResearch,  state.corpResearch);
       if (state.enemy) {
         const e = state.enemy;
+        // 命中率校准常量（旧存档缺失 → 实证默认）。
+        this.enemy.core0   = e.core0   ?? this.enemy.core0;
+        this.enemy.d0      = e.d0      ?? this.enemy.d0;
+        this.enemy.hitCoef = e.hitCoef ?? this.enemy.hitCoef;
+        // 旧 position 值 NEAR/MID/FAR → 连续距离数字（HIDDEN 保留）。
+        const ZONE_NUM = { NEAR: 20, MID: 35, FAR: 55 };
+        const migratePos = v => (v in ZONE_NUM ? ZONE_NUM[v] : v);
         if (Array.isArray(e.actions)) {
           // 新格式
           this.enemy.element  = e.element  ?? this.enemy.element;
           this.enemy.type     = e.type     ?? this.enemy.type;
-          this.enemy.actions  = e.actions.map(a => ({ ...a }));
+          this.enemy.actions  = e.actions.map(a =>
+            a.type === 'position' ? { ...a, value: migratePos(a.value) } : { ...a });
           this.enemy._nextId  = e._nextId  ?? (this.enemy.actions.reduce((m, a) => Math.max(m, a.id), 0) + 1);
         } else {
           // 旧格式迁移：def/hasCore/distNear/distMid/distFar → actions
           this.enemy.element = e.element ?? this.enemy.element;
           this.enemy.type    = e.type    ?? this.enemy.type;
           const coreVal = e.hasCore ? 'EXPOSED' : 'NONE';
-          let posVal = 'MID';
-          if ((e.distNear ?? 0) > 0) posVal = 'NEAR';
-          else if ((e.distFar ?? 0) > 0) posVal = 'FAR';
+          let posVal = 35;
+          if ((e.distNear ?? 0) > 0) posVal = 20;
+          else if ((e.distFar ?? 0) > 0) posVal = 55;
           this.enemy.actions = [
             { id: 1, startTimeS: 0, type: 'def',      value: e.def ?? 500 },
             { id: 2, startTimeS: 0, type: 'core',     value: coreVal },
@@ -1258,7 +1273,7 @@ export function createStore() {
       this.selectedPresetId = null;
       if (field === 'type') {
         // 类型切换时重置值为合理默认
-        const defaults = { def: 500, core: 'NONE', position: 'MID' };
+        const defaults = { def: 500, core: 'NONE', position: 35 };
         action.value = defaults[val] ?? 500;
       }
       action[field] = val;
@@ -1283,7 +1298,7 @@ export function createStore() {
       const actions = this.enemy.actions
         .map(({ startTimeS, type, value }) => `${startTimeS}|${type}|${value}`)
         .join(',');
-      return `${this.enemy.element}:${this.enemy.type}:${actions}`;
+      return `${this.enemy.element}:${this.enemy.type}:${this.enemy.core0}/${this.enemy.d0}/${this.enemy.hitCoef}:${actions}`;
     },
 
     saveEnemyPresetIfNew() {
@@ -1301,6 +1316,9 @@ export function createStore() {
         config: {
           element: this.enemy.element,
           type:    this.enemy.type,
+          core0:   this.enemy.core0,
+          d0:      this.enemy.d0,
+          hitCoef: this.enemy.hitCoef,
           actions: this.enemy.actions.map(({ startTimeS, type, value }) => ({ startTimeS, type, value })),
         },
       });
@@ -1313,7 +1331,12 @@ export function createStore() {
       if (!preset) return;
       this.enemy.element = preset.config.element;
       this.enemy.type    = preset.config.type;
-      this.enemy.actions = preset.config.actions.map((a, i) => ({ ...a, id: i + 1 }));
+      this.enemy.core0   = preset.config.core0   ?? this.enemy.core0;
+      this.enemy.d0      = preset.config.d0      ?? this.enemy.d0;
+      this.enemy.hitCoef = preset.config.hitCoef ?? this.enemy.hitCoef;
+      const ZONE_NUM = { NEAR: 20, MID: 35, FAR: 55 };
+      this.enemy.actions = preset.config.actions.map((a, i) =>
+        a.type === 'position' && a.value in ZONE_NUM ? { ...a, value: ZONE_NUM[a.value], id: i + 1 } : { ...a, id: i + 1 });
       this.enemy._nextId = preset.config.actions.length + 1;
       this.selectedPresetId = id;
     },
@@ -1641,7 +1664,13 @@ export function createStore() {
         const initCore = initCoreAction?.value ?? 'NONE';
         const positionPhases = enemyActions
           .filter(a => a.type === 'position')
-          .map(a => ({ startTick: Math.round(Number(a.startTimeS) * ENEMY_TICK_RATE), zone: a.value }))
+          .map(a => {
+            // position 值为连续距离（数字）或特殊态字符串（HIDDEN 等）。数字字符串统一转数字，
+            // 引擎 phaseToDistance 再把旧 NEAR/MID/FAR 标签映射为默认距离。
+            const v = a.value;
+            const zone = (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) ? Number(v) : v;
+            return { startTick: Math.round(Number(a.startTimeS) * ENEMY_TICK_RATE), zone };
+          })
           .sort((x, y) => x.startTick - y.startTick);
         const defActions = enemyActions
           .filter(a => a.type === 'def' && a.startTimeS > 0)
@@ -1663,6 +1692,10 @@ export function createStore() {
             element:        this.enemy.element,
             type:           this.enemy.type,
             phases:         positionPhases,
+            // 命中率核心命中模型校准常量（UI 可调）。
+            core0:          Number(this.enemy.core0)  || 55,
+            d0:             Number(this.enemy.d0)     || 77,
+            hitCoef:        Number(this.enemy.hitCoef) || 4.5,
             ...(defActions.length  ? { defActions  } : {}),
             ...(coreActions.length ? { coreActions } : {}),
           },

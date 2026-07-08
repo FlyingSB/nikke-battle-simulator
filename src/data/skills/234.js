@@ -56,7 +56,7 @@ export default {
   // p02: [23.4, 25.32, 27.24, 29.16, 31.08, 33, 34.92, 36.84, 38.76, 40.68] (Hit Rate%)
   //
   // Pierce damage ▲ 仅在 dorothy234_s1_pierce buff 生效期间（S1 激活后 3 发）产生收益。
-  // Hit Rate ▲ 进入 buff 系统，当前未应用于核心命中率计算（SG coreHitRateMult TODO）。
+  // Hit Rate ▲ 进入 buff 系统，经 sums.hitRatePct 收缩散布圆，提升核心命中率（见 accuracy.js coreHitChance）。
   skill2: {
     groupId: 22342,
     triggers: [

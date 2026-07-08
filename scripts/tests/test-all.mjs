@@ -22,6 +22,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const SUITES = [
   { name: 'Formulas',   file: 'test-formulas.mjs',   note: 'pure math, no I/O'                      },
+  { name: 'Accuracy',   file: 'test-accuracy.mjs',   note: 'HitRate core-hit model, no I/O'          },
   { name: 'Skills',     file: 'test-skills.mjs',     note: 'skill traits registry'                   },
   { name: 'RapiB1/B3',   file: 'test-rapi-burst.mjs',   note: 'Rapi burst-step & Combat Assist, no I/O' },
   { name: 'Cinderella', file: 'test-cinderella.mjs', note: 'Cinderella skill fixes, no I/O'           },

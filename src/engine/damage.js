@@ -51,13 +51,13 @@
 
 import {
   ELEMENT_ADVANTAGE_BASE,
-  DISTANCE_ZONES,
   DISTANCE_ADVANTAGE_BONUS,
   FULL_BURST_BONUS,
   BASE_CRIT_DAMAGE,
   BASE_CORE_DAMAGE,
   CHARGE_DAMAGE_BASE,
 } from './constants.js';
+import { rng } from './rng.js';
 
 // ─── 代码克制表 ────────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ const ELEMENT_CHART = {
  * @property {number}        [critDmgIncrement=0]  在基础 50% 暴击伤害之上的附加值
  * @property {'body'|'core'|'parts'|'intercept_parts'} [hitPart='body']
  * @property {number}        [coreDmgIncrement=0]  在基础 100% 核心伤害之上的附加值
- * @property {DistanceZone}  [distanceZone=null]   武器当前的有效射程区间
+ * @property {boolean}       [distanceAdvantage=false] 是否处于优势射程（敌人距离 ∈ [bonusrange_min,max]）
  * @property {boolean}       [isFullBurst=false]
  * @property {string}        [attackerElement]
  * @property {string}        [defenderElement]
@@ -145,7 +145,7 @@ export function calcDamage(input) {
     critDmgIncrement    = 0,
     hitPart             = 'body',
     coreDmgIncrement    = 0,
-    distanceZone        = null,
+    distanceAdvantage   = false,
     isFullBurst         = false,
     attackerElement,
     defenderElement,
@@ -170,7 +170,7 @@ export function calcDamage(input) {
   let commonMult = 1;
   if (isCrit)              commonMult += BASE_CRIT_DAMAGE + critDmgIncrement;
   if (hitPart === 'core') commonMult += BASE_CORE_DAMAGE + coreDmgIncrement;
-  if (distanceZone && hasDistanceAdvantage(weaponType, distanceZone)) commonMult += DISTANCE_ADVANTAGE_BONUS;
+  if (distanceAdvantage) commonMult += DISTANCE_ADVANTAGE_BONUS;
   if (isFullBurst)    commonMult += FULL_BURST_BONUS;
 
   // ── ElementMultiplier ──
@@ -203,9 +203,17 @@ export function calcDamage(input) {
 
 // ─── 辅助函数 ──────────────────────────────────────────────────────────────
 
-/** @param {string} weaponType @param {DistanceZone} zone */
-export function hasDistanceAdvantage(weaponType, zone) {
-  return DISTANCE_ZONES[zone]?.includes(weaponType) ?? false;
+/**
+ * 是否处于优势射程：敌人连续距离落在角色的 [bonusRangeMin, bonusRangeMax] 区间内。
+ * bonusrange 为 (0,0) 的武器（RL）永不触发；distance=null（不可瞄准）时无优势。
+ * @param {number|null} distance      敌人连续距离（0..100）
+ * @param {number} bonusRangeMin
+ * @param {number} bonusRangeMax
+ * @returns {boolean}
+ */
+export function hasDistanceAdvantage(distance, bonusRangeMin, bonusRangeMax) {
+  if (distance == null || !(bonusRangeMax > 0)) return false;
+  return distance >= bonusRangeMin && distance <= bonusRangeMax;
 }
 
 /** @param {string} attackerElem @param {string} defenderElem */
@@ -240,7 +248,7 @@ function sumExtra(extra, input) {
  * @returns {boolean}
  */
 export function rollCrit(critRate) {
-  return Math.random() < critRate;
+  return rng() < critRate;
 }
 
 /**

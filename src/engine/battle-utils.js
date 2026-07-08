@@ -7,6 +7,21 @@ import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
 
 export const TICK_RATE       = 60;         // 每秒 tick 数
 
+/**
+ * 判定某单位当前是否处于优势射程。优势 ⟺ 敌人连续距离 ∈ [有效min, bonusRangeMax]。
+ * 有效 min 取 bonusRangeMin 与技能扩展的 skillState.effRangeMin 中的较小者（如 Ade 的 Minimum Effective Range）。
+ * @param {object} unit  含 bonusRangeMin/Max、可选 skillState.effRangeMin
+ * @param {number|null} distance  敌人连续距离
+ * @returns {boolean}
+ */
+export function unitDistanceAdvantage(unit, distance) {
+  const advMin = Math.min(
+    unit.bonusRangeMin ?? Infinity,
+    unit.skillState?.effRangeMin ?? Infinity,
+  );
+  return hasDistanceAdvantage(distance, advMin, unit.bonusRangeMax ?? 0);
+}
+
 // unit.maxAmmo 的内部存储 key（模块私有）。
 // 仅 recalcMaxAmmo 可写；外部通过 getter 只读，严格模式下赋值抛出 TypeError。
 const _maxAmmo = Symbol('maxAmmo');
@@ -497,7 +512,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
   // Projectile Explosion 伤害：受 projectileExplosionDamagePct 加成（累加至 extraAtkDmgPct）
   const projectileExplosionDamagePct = opts.projectileExplosion ? (sums.projectileExplosionDamagePct ?? 0) : 0;
   const isTrueDamage       = opts.isTrueDamage ?? false;
-  const distanceZoneForHit = opts.applyDistanceAdv ? (state.distanceZone ?? null) : null;
+  const distAdvForHit      = opts.applyDistanceAdv ? unitDistanceAdvantage(unit, state.enemyDistance) : false;
   // B3 爆裂技能施放时 fullBurstActive 尚未置为 true，直接命中自然不受 +50% 补正。
   // 延迟命中（pendingSkillHits）由引擎统一标记 suppressFullBurst:true（affectedByFullBurst 的除外）。
   const isFullBurst = state.fullBurstActive &&
@@ -513,7 +528,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
     hitPart,
     coreDmgIncrement,
-    distanceZone:      distanceZoneForHit,
+    distanceAdvantage: distAdvForHit,
     isFullBurst,
     attackerElement:   (sums.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
     defenderElement:   state.enemyElement,
@@ -565,7 +580,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0,
       elemMult: bd.elemMult,
       chargeMult: bd.chargeMult,
-      distanceAdv: distanceZoneForHit !== null && hasDistanceAdvantage(unit.weaponType, distanceZoneForHit),
+      distanceAdv: distAdvForHit,
       buffBreakdown: [
         ...(opts.preBuffBreakdown ?? state.buffs
           .filter(b => (b.unitId === null || b.unitId === unit.id)

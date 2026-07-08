@@ -442,6 +442,18 @@ export function parseNikkeDetail(raw) {
     rateOfFireChange:     sd.rate_of_fire_change_pershot ?? 0,
     rateOfFireResetTime:  (sd.rate_of_fire_reset_time    ?? 0) / 100,
 
+    // 散布圆（accuracy circle）— 命中率机制用。自动战斗优先 auto_* 字段，缺失回退手动字段。
+    // 数值为 CDN scale 原值（如标准 SG=250、SMG=110、AR=75、MG=250→10）。SR/RL 无收束意义（恒核心命中）。
+    startAccuracyScale:    sd.auto_start_accuracy_circle_scale ?? sd.start_accuracy_circle_scale ?? null,
+    endAccuracyScale:      sd.auto_end_accuracy_circle_scale   ?? sd.end_accuracy_circle_scale   ?? null,
+    accuracyChangePerShot: sd.auto_accuracy_change_pershot     ?? sd.accuracy_change_pershot     ?? 0,
+    accuracyChangeSpeed:   sd.auto_accuracy_change_speed       ?? sd.accuracy_change_speed       ?? 0,
+    spotExplosionRange:    sd.spot_explosion_range ?? 0,
+
+    // 距离优势区间（顶层字段，非 shot_detail）：优势 ⟺ 敌人距离 ∈ [min, max]。RL 为 (0,0) 永不触发。
+    bonusRangeMin: raw.bonusrange_min ?? 0,
+    bonusRangeMax: raw.bonusrange_max ?? 0,
+
     // 爆裂能量
     burstEnergyPerShot:       req(sd, 'burst_energy_pershot', 'shot_detail'),
     targetBurstEnergyPerShot: req(sd, 'target_burst_energy_pershot', 'shot_detail'),
