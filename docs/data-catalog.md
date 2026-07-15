@@ -15,7 +15,7 @@ URL 哈希随游戏补丁变化，版本号记录在 [`src/data/manifest.js`](..
 
 | 文件 | 内容说明 |
 |------|---------|
-| [`characters.json`](../src/data/static/characters.json) | 角色花名册（英文名，189 个角色） |
+| [`characters.json`](../src/data/static/characters.json) | 角色花名册（英文名，194 个角色） |
 | [`levels.json`](../src/data/static/levels.json) | 进阶 / 升级表 |
 | [`attractive.json`](../src/data/static/attractive.json) | 吸引力系统数据 |
 | [`recycleRoom.json`](../src/data/static/recycleRoom.json) | 回收室数据 |
@@ -178,6 +178,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个
 | ❌ | Soda: Twinkling Bunny | [`314.json`](../src/data/static/nikke/314.json) | [`314.js`](../src/data/skills/314.js) |
 | ❌ | Ade: Agent Bunny | [`315.json`](../src/data/static/nikke/315.json) | [`315.js`](../src/data/skills/315.js) |
 | ✔️ | Velvet | [`316.json`](../src/data/static/nikke/316.json) | [`316.js`](../src/data/skills/316.js) |
+| ❌ | Marciana: Marine Study | [`322.json`](../src/data/static/nikke/322.json) | [`322.js`](../src/data/skills/322.js) |
 | ✔️ | Crown | [`330.json`](../src/data/static/nikke/330.json) | [`330.js`](../src/data/skills/330.js) |
 | ✔️ | Helm | [`352.json`](../src/data/static/nikke/352.json) | [`352.js`](../src/data/skills/352.js) |
 | ✔️ | Helm: Aquamarine | [`353.json`](../src/data/static/nikke/353.json) | [`353.js`](../src/data/skills/353.js) |
@@ -192,6 +193,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个
 | ❌ | Cinderella | [`511.json`](../src/data/static/nikke/511.json) | [`511.js`](../src/data/skills/511.js) |
 | ✔️ | Little Mermaid | [`513.json`](../src/data/static/nikke/513.json) | [`513.js`](../src/data/skills/513.js) |
 | ❌ | Grave | [`514.json`](../src/data/static/nikke/514.json) | [`514.js`](../src/data/skills/514.js) |
+| ❌ | Cinderella: Crystal Wave | [`515.json`](../src/data/static/nikke/515.json) | [`515.js`](../src/data/skills/515.js) |
 | ❌ | Arcana: Fortune Mate | [`583.json`](../src/data/static/nikke/583.json) | [`583.js`](../src/data/skills/583.js) |
 | ✔️ | Mint | [`600.json`](../src/data/static/nikke/600.json) | [`600.js`](../src/data/skills/600.js) |
 | ❌ | Prika | [`601.json`](../src/data/static/nikke/601.json) | [`601.js`](../src/data/skills/601.js) |
