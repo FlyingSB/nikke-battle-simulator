@@ -60,7 +60,7 @@ async function main() {
   const FAV_SR_SR  = 100602; // Napping Commander Doll Ltd. (SR-weapon SR)
 
   const [rapiData, cubeData, favData] = await Promise.all([
-    loadNikkeData(RAPI_ID, 'RH_Rapi'),
+    loadNikkeData(RAPI_ID, 'Rapi: Red Hood'),
     loadCubeData(CUBE_RESIL),
     loadFavItemData(FAV_SR_SR),
   ]);
