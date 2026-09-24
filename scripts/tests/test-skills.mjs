@@ -22,6 +22,7 @@ import {
   pushBuff, getBuffSums, decrementRoundBuffs, parseSkillDuration, TICK_RATE,
 } from '../../src/engine/battle-utils.js';
 import { getSkillValue } from '../../src/data/models.js';
+import { onInterval } from '../../src/engine/skill-executor.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
 
 // ── T1: getSkillTraits — unknown ids ─────────────────────────────────────────
@@ -912,6 +913,46 @@ section('T16: B3 直接伤害默认/非默认结算配置审计');
     eq('Liberalio pendingSkillHits[0].sums 未设置（非默认）', hit.sums, undefined);
     eq('Liberalio pendingSkillHits[0].opts.affectedByFullBurst = true（非默认）', hit.opts?.affectedByFullBurst, true);
   }
+}
+
+// ── T17: onInterval — 同一技能多个 INTERVAL 触发器各自独立计时 ─────────────────
+// 回归：计时 key 曾按 skillKey 共享，第一个触发器推进计时器后第二个永远不触发
+// （Mari S2 P2 全员 ATK buff 从未出现在日志中）。
+
+section('T17: onInterval — 同技能多 INTERVAL 触发器独立计时（Mari S2 P1/P2）');
+{
+  const mockVals = { description_value_list: Array.from({ length: 5 }, () =>
+    ({ description_value: Array(10).fill('30.78') })
+  ) };
+  const state = {
+    tick: 0, buffs: [], buffLog: null, pendingHealReceived: [],
+    squad: [{
+      id: 832, name: 'Mari', equipAtkPct: 0, equipAtkFlat: 0,
+      stats: { atk: 100000 },
+      rawSkill1: mockVals, rawSkill2: mockVals, rawBurst: null,
+      skillLevels: [10, 10, 10],
+      skillState: {},
+    }],
+  };
+
+  // 同名 buff 重复触发时原地刷新 endTick，故按 endTick 变化检测触发时刻
+  const p1Ticks = [], p2Ticks = [];
+  let p1End = -1, p2End = -1;
+  for (state.tick = 0; state.tick <= TICK_RATE * 30; state.tick++) {
+    onInterval(state);
+    const p1 = state.buffs.find(b => b.name === 'Full Focus P1');
+    const p2 = state.buffs.find(b => b.name === 'Full Focus P2 L2');
+    if (p1 && p1.endTick !== p1End) { p1Ticks.push(state.tick); p1End = p1.endTick; }
+    if (p2 && p2.endTick !== p2End) { p2Ticks.push(state.tick); p2End = p2.endTick; }
+  }
+
+  const expected = [TICK_RATE * 10, TICK_RATE * 20, TICK_RATE * 30].join(',');
+  eq('P1 于 10s/20s/30s 触发', p1Ticks.join(','), expected);
+  eq('P2 于 10s/20s/30s 触发（回归：曾被 P1 抢占计时器而永不触发）', p2Ticks.join(','), expected);
+
+  const p2buff = state.buffs.find(b => b.name === 'Full Focus P2 L2');
+  eq('P2 为全员 buff（unitId: null）', p2buff?.unitId, null);
+  eq('P2 atkFlat = ATK × p01%', p2buff?.atkFlat, Math.round(100000 * 0.3078));
 }
 
 summary('Skill traits tests');

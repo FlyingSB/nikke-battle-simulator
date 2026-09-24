@@ -598,7 +598,8 @@ export function onInterval(state) {
         if (tdef.on !== 'INTERVAL') continue;
 
         const intervalTicks = Math.round((tdef.opts?.seconds ?? 1) * TICK_RATE);
-        const lastKey       = `intervalBattleLast_${skillKey}`;
+        // 按触发器下标独立计时：同一技能可有多个 INTERVAL 触发器（如 Mari S2 P1/P2）
+        const lastKey       = `intervalBattleLast_${skillKey}_${tdefIdx}`;
         // 首次：记录当前 tick，令第一次触发在 t+Ns
         if (caster.skillState[lastKey] == null) caster.skillState[lastKey] = state.tick;
         if (state.tick - caster.skillState[lastKey] < intervalTicks) continue;
@@ -667,7 +668,8 @@ export function onIntervalInBurst(state) {
         if (tdef.on !== 'INTERVAL_IN_BURST') continue;
 
         const intervalTicks = Math.round((tdef.opts?.seconds ?? 1) * TICK_RATE);
-        const lastKey       = `intervalLast_${skillKey}`;
+        // 按触发器下标独立计时，与 onInterval 同理
+        const lastKey       = `intervalLast_${skillKey}_${tdefIdx}`;
         // 每次全爆裂开始时重置，确保立即触发首次效果
         if (caster.skillState[lastKey] == null || caster.skillState[lastKey] < state.fullBurstStartTick) {
           caster.skillState[lastKey] = state.tick - intervalTicks;
