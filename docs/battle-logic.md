@@ -64,6 +64,17 @@
 - **chargeSpeedPct**：装备词条 + 魔方 Adjutant 被动之和。
 - **reloadSpeedPct**：仅来自魔方（Resilience Quick Reload HC），不叠加装备词条。`computeFinalStats` 算入 `stats.reloadSpeedPct` 后，由 `initBattle` 作为永久 buff（`Cube Reload`）推入 `state.buffs`，使换弹时长计算（§5.2）通过 `getBuffSums().reloadSpeedPct` 统一读取；若不推入则会被静默丢弃（换弹按基础时长计算）。
 - **elementDmgPct**：装备词条 + 魔方 Anti Code HC 之和。
+- **cubeBuffPcts**：魔方主技能中作为开战永久 buff 建模的效果，键为 buff 字段名；由 `initBattle` 作为永久 buff（`Cube`）推入 `state.buffs`，各伤害路径按命中类型从 `getBuffSums` 读取（如仅穿透命中吃 `pierceDamagePct`）。
+
+  | 魔方 | 技能 | buff 字段 |
+  |------|------|-----------|
+  | Vigor Cube | Priority: Health HC（Max HP ▲） | `maxHpPct` |
+  | Destruction Cube | Emergency Part Hit Up HC（Damage to Parts ▲） | `damageToPartsPct` |
+  | Piercing Cube | Pierce Hit Up HC（Pierce Damage ▲） | `pierceDamagePct` |
+  | Rupture Cube | True Damage Up HC（True Damage ▲） | `trueDamagePct` |
+  | Diffusion Cube | Diffusion HC（Distributed Damage ▲） | `distributedDamagePct` |
+
+  其余魔方主技能不建模：命中率（Assault）、蓄力伤害（Onslaught）、弹匣（Wingman）、爆裂充能（Quantum）、防御（Endurance）、减伤（Tempering）、治疗（Healing）、濒危 Max HP（Assist）、掩体 HP（Stealth）。
 - **bonusAmmo（装备词条弹药）**：使用 grouped-ROUND 规则 —— 相同 pct 词条分组，每组 `Math.round(baseAmmo × pct × count)`，OL 最多 4 槽。
 
 ---

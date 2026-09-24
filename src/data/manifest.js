@@ -63,6 +63,8 @@ export const CUBE_URLS = {
   10008: `${CDN_BASE}/jk-60/kx-96/130b31a68768adfe7ae41aee848b91bf.json`, // Piercing Cube
   10009: `${CDN_BASE}/qp-28/pb-21/65d2d6c8ff11d9bf1aac3f0f2e53ca8e.json`, // Assist Cube
   10010: `${CDN_BASE}/lr-30/vv-84/5cd65f71ac1a7c1218a0763f2256eb7c.json`, // Rupture Cube
+  10012: `${CDN_BASE}/ny-00/gt-72/58a1a48262e4cbc2ef8d527309f6da01.json`, // Stealth Cube
+  10013: `${CDN_BASE}/qf-69/lo-14/b05e40e21e8c8cff46d594859d1ba4e8.json`, // Diffusion Cube
 };
 
 /**
@@ -80,6 +82,8 @@ export const CUBE_NAMES = {
   10008: 'Piercing Cube',
   10009: 'Assist Cube',
   10010: 'Rupture Cube',
+  10012: 'Stealth Cube',
+  10013: 'Diffusion Cube',
   11001: 'Quantum Cube',
   12001: 'Endurance Cube',
   12002: 'Tempering Cube',

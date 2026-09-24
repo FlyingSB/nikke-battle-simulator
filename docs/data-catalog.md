@@ -95,6 +95,8 @@ option_id = state_effect_id_prefix × 100 + level   (level 1–15)
 | 1000313 | [`10007.json`](../src/data/static/cubes/10007.json) | Destruction Cube |
 | 1000314 | [`10008.json`](../src/data/static/cubes/10008.json) | Piercing Cube |
 | 1000315 | [`10010.json`](../src/data/static/cubes/10010.json) | Rupture Cube |
+| 1000316 | [`10012.json`](../src/data/static/cubes/10012.json) | Stealth Cube |
+| 1000317 | [`10013.json`](../src/data/static/cubes/10013.json) | Diffusion Cube |
 
 ### 珍藏品数据
 

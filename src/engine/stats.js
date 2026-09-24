@@ -73,7 +73,20 @@ import {
  * @property {number} chargeDmgPct       来自装备词条。以 chargeDmgStat: (1 + chargeDmgPct) 的形式传给 calcDamage()。
  * @property {number} chargeSpeedPct     来自装备词条（仅记录；会减少蓄力时间 — 当前模型未计算）
  * @property {number} hitRatePct         来自装备词条（仅记录；未建模 — 默认必定命中）
+ * @property {Object<string, number>} cubeBuffPcts  魔方开战永久 buff（键为 BUFF_NUMERIC_FIELDS 字段名），
+ *                                                  由 battle.js initBattle 作为「魔方」永久 buff 推入
  */
+
+// 魔方主技能中作为开战永久 buff 建模的效果：[描述匹配正则, buff 字段名]。
+// 匹配前先去除 <color>/<word_group> 标签。Max HP 须锚定「开战即生效」句式，
+// 以排除 Assist（HP 低于阈值时触发）和 Stealth（Max HP of cover）。
+const CUBE_BUFF_PATTERNS = [
+  [/^■ Activates (?:when entering|at the start of) battle\.\s*Max HP ▲/, 'maxHpPct'],       // Vigor
+  [/Damage to Parts ▲/,    'damageToPartsPct'],      // Destruction
+  [/Pierce Damage ▲/,      'pierceDamagePct'],       // Piercing
+  [/True Damage ▲/,        'trueDamagePct'],         // Rupture
+  [/Distributed Damage ▲/, 'distributedDamagePct'],  // Diffusion
+];
 
 export const SLOT_MAP = {
   head:  'Module_A',
@@ -181,6 +194,7 @@ export function computeFinalStats(slot, nikkeLevel, research) {
   let cubeElementDmgPct  = 0;
   let cubeChargeSpeedPct = 0;
   let cubeReloadSpeedPct = 0;
+  const cubeBuffPcts     = {};
   if (slot._cubeData && (slot.cube?.level ?? 0) > 0) {
     const cube      = normalizeCube(slot._cubeData);
     const cubeLevel = slot.cube.level;
@@ -198,11 +212,16 @@ export function computeFinalStats(slot, nikkeLevel, research) {
       if (skillLv === 0) continue;
       const vals = skill.description_value_list?.[0]?.description_value ?? [];
       const val  = parseFloat(vals[skillLv - 1] ?? '0') / 100;
-      const desc = skill.description_localkey ?? '';
+      const desc = (skill.description_localkey ?? '').replace(/<[^>]+>/g, '');
       if (desc.includes('Elemental Advantage'))          cubeElementDmgPct  += val;
       else if (desc.includes('Charge Speed'))            cubeChargeSpeedPct += val;
       else if (desc.includes('Reload Speed'))            cubeReloadSpeedPct += val;
+      else {
+        const hit = CUBE_BUFF_PATTERNS.find(([re]) => re.test(desc));
+        if (hit) cubeBuffPcts[hit[1]] = (cubeBuffPcts[hit[1]] ?? 0) + val;
+      }
       // "Activates when firing … Reload ▲ round(s)" → Bastion 战斗机制，在引擎中处理
+      // 其余（命中率、蓄力伤害、弹匣、爆裂充能、防御、减伤、治疗、掩体 HP、濒危 Max HP）不建模
     }
   }
 
@@ -254,6 +273,8 @@ export function computeFinalStats(slot, nikkeLevel, research) {
     chargeSpeedPct: (opts.chargeSpeedPct ?? 0) + cubeChargeSpeedPct,
     // 换弹速度：仅来自魔方（Resilience Quick Reload HC）
     reloadSpeedPct: cubeReloadSpeedPct,
+    // 魔方开战永久 buff（Max HP / 零件 / 穿透 / 真实 / 分摊伤害），由 initBattle 推入 state.buffs
+    cubeBuffPcts,
     hitRatePct:     opts.hitRatePct     ?? 0,
     equipDefPct,
   };

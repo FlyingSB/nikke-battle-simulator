@@ -863,6 +863,11 @@ export function initBattle(config) {
     // 但换弹时长只读 getBuffSums().reloadSpeedPct（buff 汇总），故须作为永久 buff 推入，否则被静默丢弃。
     if ((unit.stats.reloadSpeedPct ?? 0) !== 0)
       state.buffs.push({ name: 'Cube Reload', unitId: unit.id, reloadSpeedPct: unit.stats.reloadSpeedPct, endTick: Infinity });
+    // 魔方开战永久 buff（Vigor Max HP / Destruction 零件 / Piercing 穿透 / Rupture 真实 / Diffusion 分摊伤害）：
+    // 各伤害路径已按命中类型从 getBuffSums 读取对应字段（仅穿透命中吃 pierceDamagePct 等），故统一作为 buff 推入。
+    const cubeBuffPcts = unit.stats.cubeBuffPcts ?? {};
+    if (Object.keys(cubeBuffPcts).length > 0)
+      state.buffs.push({ name: 'Cube', unitId: unit.id, ...cubeBuffPcts, endTick: Infinity });
     recalcMaxAmmo(state, unit);   // 确认 unit.maxAmmo 与 initialMaxAmmo 一致
   }
 
