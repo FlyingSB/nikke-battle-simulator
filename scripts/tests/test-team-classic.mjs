@@ -417,6 +417,8 @@ async function main() {
         canBurst:         char.canBurst ?? true,
         level:            SYNCHRO_LEVEL,
         _computedStats:   squadStats[idx],
+        // CDN 原始角色数据 — initBattle 必填；引擎从中派生射速、核心倍率、squad、技能原始数据等
+        _nikkeData:       nd,
         // Fav item data — required by initBattle for collection skill permanent buffs and ammo bonus
         _favItemData:     favItemData[char.favItemId],
         favoriteItem:     { resourceId: char.favItemId, level: char.favLevel },
