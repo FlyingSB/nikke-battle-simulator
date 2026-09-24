@@ -586,16 +586,21 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
           .filter(b => (b.unitId === null || b.unitId === unit.id)
             && !(b.roundsLeft !== undefined && b.roundsLeft <= 0)
             && !(b.endTick !== undefined && b.endTick !== Infinity && b.endTick <= state.tick))
-          .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0,
-            attackDamagePct: (b.attackDamagePct ?? 0)
-              + (extraAtkDmgPct > 0 ? (b.projectileAttachmentDamagePct ?? 0) : 0)
-              + (projectileExplosionDamagePct > 0 ? (b.projectileExplosionDamagePct ?? 0) : 0),
-            sequentialAttackDamagePct: b.sequentialAttackDamagePct ?? 0, elementAdvantagePct: b.elementAdvantagePct ?? 0, coreDamagePct: b.coreDamagePct ?? 0, chargeDamagePct: b.chargeDamagePct ?? 0,
-            critDamagePct: b.critDamagePct ?? 0,
-            sustainedDamagePct: opts.sustainedDamage ? ((b.sustainedDamagePct ?? 0) * (b.stacks ?? 1)) : 0,
-            trueDamagePct: isTrueDamage ? (b.trueDamagePct ?? 0) : 0,
-            damageToPartsPct: hitPart === 'parts' ? (b.damageToPartsPct ?? 0) : 0,
-            sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null, sourceLineIdx: b._sourceLineIdx ?? null }))
+          .map(b => {
+            // 叠层 buff：分解条目记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
+            const k = b.stacks ?? 1;
+            return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k,
+              attackDamagePct: ((b.attackDamagePct ?? 0)
+                + (extraAtkDmgPct > 0 ? (b.projectileAttachmentDamagePct ?? 0) : 0)
+                + (projectileExplosionDamagePct > 0 ? (b.projectileExplosionDamagePct ?? 0) : 0)) * k,
+              sequentialAttackDamagePct: (b.sequentialAttackDamagePct ?? 0) * k, elementAdvantagePct: (b.elementAdvantagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k, chargeDamagePct: (b.chargeDamagePct ?? 0) * k,
+              critDamagePct: (b.critDamagePct ?? 0) * k,
+              sustainedDamagePct: opts.sustainedDamage ? ((b.sustainedDamagePct ?? 0) * k) : 0,
+              trueDamagePct: isTrueDamage ? (b.trueDamagePct ?? 0) * k : 0,
+              damageToPartsPct: hitPart === 'parts' ? (b.damageToPartsPct ?? 0) * k : 0,
+              stacks: k,
+              sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null, sourceLineIdx: b._sourceLineIdx ?? null };
+          })
           .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct || b.sustainedDamagePct || b.trueDamagePct || b.damageToPartsPct)),
         ...getEnemyDebuffBreakdown(state),
       ],

@@ -1388,12 +1388,17 @@ export function tick(state) {
       const _snapActiveBufs = () => state.buffs
         .filter(b => (b.unitId === null || b.unitId === unit.id)
                    && (b.roundsLeft === undefined || b.roundsLeft > 0))
-        .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0,
-                     attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0),
-                     pierceDamagePct: b.pierceDamagePct ?? 0, coreDamagePct: b.coreDamagePct ?? 0,
-                     chargeDamagePct: b.chargeDamagePct ?? 0, critDamagePct: b.critDamagePct ?? 0,
-                     sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null,
-                     sourcePartIdx: b._sourcePartIdx ?? null }))
+        .map(b => {
+          // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
+          const k = b.stacks ?? 1;
+          return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k,
+                   attackDamagePct: ((b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0)) * k,
+                   pierceDamagePct: (b.pierceDamagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k,
+                   chargeDamagePct: (b.chargeDamagePct ?? 0) * k, critDamagePct: (b.critDamagePct ?? 0) * k,
+                   stacks: k,
+                   sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null,
+                   sourcePartIdx: b._sourcePartIdx ?? null };
+        })
         .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct);
       let _hit1BreakdownBufs = null, _hit2BreakdownBufs = null;
       if (isDoubleHit && state.hitLog) _hit1BreakdownBufs = _snapActiveBufs();
@@ -1522,7 +1527,11 @@ export function tick(state) {
           buffBreakdown: [
             ...(_hit1BreakdownBufs ?? state.buffs
               .filter(b => b.unitId === null || b.unitId === unit.id)
-              .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0), pierceDamagePct: b.pierceDamagePct ?? 0, coreDamagePct: b.coreDamagePct ?? 0, chargeDamagePct: b.chargeDamagePct ?? 0, critDamagePct: b.critDamagePct ?? 0, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null }))
+              .map(b => {
+                // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
+                const k = b.stacks ?? 1;
+                return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k, attackDamagePct: ((b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0)) * k, pierceDamagePct: (b.pierceDamagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k, chargeDamagePct: (b.chargeDamagePct ?? 0) * k, critDamagePct: (b.critDamagePct ?? 0) * k, stacks: k, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null };
+              })
               .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct)),
             ...getEnemyDebuffBreakdown(state),
           ],
@@ -1554,7 +1563,11 @@ export function tick(state) {
             buffBreakdown: [
               ...state.buffs
                 .filter(b => b.unitId === null || b.unitId === unit.id)
-                .map(b => ({ name: b.name, atkFlat: b.atkFlat ?? 0, atkPct: b.atkPct ?? 0, attackDamagePct: (b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0), pierceDamagePct: b.pierceDamagePct ?? 0, coreDamagePct: b.coreDamagePct ?? 0, chargeDamagePct: b.chargeDamagePct ?? 0, critDamagePct: b.critDamagePct ?? 0, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null }))
+                .map(b => {
+                  // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
+                  const k = b.stacks ?? 1;
+                  return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k, attackDamagePct: ((b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0)) * k, pierceDamagePct: (b.pierceDamagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k, chargeDamagePct: (b.chargeDamagePct ?? 0) * k, critDamagePct: (b.critDamagePct ?? 0) * k, stacks: k, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null };
+                })
                 .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct),
               ...getEnemyDebuffBreakdown(state),
             ],
