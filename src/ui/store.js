@@ -855,6 +855,7 @@ export function createStore() {
     iterations:         30,
     burstStepSecs:      0.6,
     ebsLastBurstOnly: true,
+    mirLastBurstOnly: true,
 
     // 队伍
     activeSlot:   0,
@@ -929,9 +930,28 @@ export function createStore() {
     // ── 计算辅助 ──
     get activeSlotData() { return this.team[this.activeSlot]; },
 
-    // 队伍中是否有 Elegg: Boom and Shock / EBS（resource_id: 502）
+    // 队伍中 Burst 3 角色数量（StepFull 全阶段角色可充当 B3，一并计入）
+    get burst3Count() {
+      return this.team.filter(s =>
+        s.active && (s.burstStep === 'Step3' || s.burstStep === 'StepFull')
+      ).length;
+    },
+
+    // "最后一轮爆裂"策略选项显示条件：目标角色在队 且 队伍中有 3 名 Burst 3 角色
+    // （少于 3 名 B3 时跳过该角色会导致爆裂循环缺口，策略无意义）
+    _lastBurstOnlyAvailable(resourceId) {
+      return this.team.some(s => s.active && s.resourceId === resourceId) &&
+        this.burst3Count >= 3;
+    },
+
+    // Elegg: Boom and Shock / EBS（resource_id: 502）
     get hasEbsBoomAndShock() {
-      return this.team.some(s => s.active && s.resourceId === 502);
+      return this._lastBurstOnlyAvailable(502);
+    },
+
+    // Maiden: Ice Rose（resource_id: 183）
+    get hasMaidenIceRose() {
+      return this._lastBurstOnlyAvailable(183);
     },
 
     maxBond(grade, corp) { return maxBond(grade, corp); },
@@ -1056,6 +1076,7 @@ export function createStore() {
         iterations:         this.iterations,
         burstStepSecs:      this.burstStepSecs,
         ebsLastBurstOnly: this.ebsLastBurstOnly,
+        mirLastBurstOnly: this.mirLastBurstOnly,
         focusSlot:          this.focusSlot,
         team: this.team.map(slot => ({
           active:       slot.active,
@@ -1123,6 +1144,7 @@ export function createStore() {
       if (state.iterations          != null) this.iterations          = state.iterations;
       if (state.burstStepSecs       != null) this.burstStepSecs       = state.burstStepSecs;
       if (state.ebsLastBurstOnly  != null) this.ebsLastBurstOnly  = state.ebsLastBurstOnly;
+      if (state.mirLastBurstOnly  != null) this.mirLastBurstOnly  = state.mirLastBurstOnly;
       if (state.focusSlot !== undefined)   this.focusSlot         = state.focusSlot;
       if (!Array.isArray(state.team)) return;
       state.team.forEach((saved, i) => {
@@ -1701,7 +1723,9 @@ export function createStore() {
           },
           duration:           180,
           burstStepSecs:      this.burstStepSecs,
-          ebsLastBurstOnly: this.ebsLastBurstOnly,
+          // 选项不可见（角色不在队 / 不足 3 名 B3）时不向引擎传递该策略
+          ebsLastBurstOnly: this.hasEbsBoomAndShock && this.ebsLastBurstOnly,
+          mirLastBurstOnly: this.hasMaidenIceRose   && this.mirLastBurstOnly,
         };
 
         const iters     = Math.max(1, Math.min(100, Number(this.iterations) || 30));

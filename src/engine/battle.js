@@ -313,27 +313,27 @@ function applyBurstIISkills(state) {
  */
 function applyFullBurstSkills(state, events) {
   // 1. 按 §6.0 从左到右选第一个 CD 就绪的 B3 单位施放；其余本轮无法施放。
-  // ebsLastBurstOnly 策略：非最后一轮跳过 EBS；最后一轮时 EBS 优先于其他 B3。
-  const _hasEbsFlag = state.squad.some(u => u.ebsLastBurstOnly);
+  // lastBurstOnly 策略：非最后一轮跳过该单位；最后一轮时该单位优先于其他 B3。
+  const _hasLboFlag = state.squad.some(u => u.lastBurstOnly);
   let step3;
-  if (_hasEbsFlag) {
-    const _ebsGaugeRefill = state.burstCycleStartTick - state.lastBurstEndTick;
-    const _ebsRemaining   = MAX_TICKS - state.tick - TICK_RATE * 10;
-    const _ebsIsLastCycle = _ebsGaugeRefill > 0 && _ebsRemaining <= _ebsGaugeRefill;
-    if (_ebsIsLastCycle) {
-      // 最后一轮：先尝试选 EBS，没有则回退正常顺序
+  if (_hasLboFlag) {
+    const _lboGaugeRefill = state.burstCycleStartTick - state.lastBurstEndTick;
+    const _lboRemaining   = MAX_TICKS - state.tick - TICK_RATE * 10;
+    const _lboIsLastCycle = _lboGaugeRefill > 0 && _lboRemaining <= _lboGaugeRefill;
+    if (_lboIsLastCycle) {
+      // 最后一轮：先尝试选带策略标记的单位，没有则回退正常顺序
       step3 = state.squad.find(u =>
         (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
-        u.canBurst !== false && u.burstCdRemaining <= 0 && u.ebsLastBurstOnly
+        u.canBurst !== false && u.burstCdRemaining <= 0 && u.lastBurstOnly
       ) ?? state.squad.find(u =>
         (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
         u.canBurst !== false && u.burstCdRemaining <= 0
       ) ?? null;
     } else {
-      // 非最后一轮：跳过 EBS，选其他 B3
+      // 非最后一轮：跳过带策略标记的单位，选其他 B3
       step3 = state.squad.find(u =>
         (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
-        u.canBurst !== false && u.burstCdRemaining <= 0 && !u.ebsLastBurstOnly
+        u.canBurst !== false && u.burstCdRemaining <= 0 && !u.lastBurstOnly
       ) ?? null;
     }
   } else {
@@ -739,8 +739,10 @@ export function initBattle(config) {
     };
     // 安装 maxAmmo 只读 getter（只能通过 recalcMaxAmmo 写入），同时设置 ammoLeft 初值。
     initUnitMaxAmmo(unit, initialMaxAmmo);
-    // EBS 最后一轮策略：仅在战斗最后一个爆裂循环中使用爆裂技能
-    if (config.ebsLastBurstOnly && cfg.characterId === 502) unit.ebsLastBurstOnly = true;
+    // 最后一轮爆裂策略：仅在战斗最后一个爆裂循环中使用爆裂技能
+    // （EBS = Elegg: Boom and Shock 502；MIR = Maiden: Ice Rose 183）
+    if (config.ebsLastBurstOnly && cfg.characterId === 502) unit.lastBurstOnly = true;
+    if (config.mirLastBurstOnly && cfg.characterId === 183) unit.lastBurstOnly = true;
     return unit;
   });
 
@@ -1128,23 +1130,23 @@ export function tick(state) {
   // 阶段 3：等待 B3 冷却 — 每 tick 重试，直到有 B3 单位冷却结束（或无 B3 单位则立即触发）。
   // fullBurstActive 由 applyFullBurstSkills 在 B3 全部施放完毕后设置（文档 §6.5 时序）。
   if (state.burstPhase === 3 && !state.fullBurstActive && state.burstPhaseTick === Infinity) {
-    // ebsLastBurstOnly：非最后一轮时跳过 EBS（其他 B3 照常触发全爆裂）
-    const _hasEbsFlag2    = state.squad.some(u => u.ebsLastBurstOnly);
-    let _ebsIsLastCycle2  = false;
-    if (_hasEbsFlag2) {
-      const _ebsGaugeRefill = state.burstCycleStartTick - state.lastBurstEndTick;
-      const _ebsRemaining   = MAX_TICKS - state.tick - TICK_RATE * 10;
-      _ebsIsLastCycle2 = _ebsGaugeRefill > 0 && _ebsRemaining <= _ebsGaugeRefill;
+    // lastBurstOnly：非最后一轮时跳过带策略标记的单位（其他 B3 照常触发全爆裂）
+    const _hasLboFlag2    = state.squad.some(u => u.lastBurstOnly);
+    let _lboIsLastCycle2  = false;
+    if (_hasLboFlag2) {
+      const _lboGaugeRefill = state.burstCycleStartTick - state.lastBurstEndTick;
+      const _lboRemaining   = MAX_TICKS - state.tick - TICK_RATE * 10;
+      _lboIsLastCycle2 = _lboGaugeRefill > 0 && _lboRemaining <= _lboGaugeRefill;
     }
     const hasB3 = state.squad.some(u =>
       (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
       u.canBurst !== false &&
-      !(_hasEbsFlag2 && u.ebsLastBurstOnly && !_ebsIsLastCycle2)
+      !(_hasLboFlag2 && u.lastBurstOnly && !_lboIsLastCycle2)
     );
     const b3Ready = !hasB3 || state.squad.some(u =>
       (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
       u.canBurst !== false && u.burstCdRemaining <= 0 &&
-      !(_hasEbsFlag2 && u.ebsLastBurstOnly && !_ebsIsLastCycle2)
+      !(_hasLboFlag2 && u.lastBurstOnly && !_lboIsLastCycle2)
     );
     if (b3Ready) {
       state.burstPhaseTimeoutTick = 0;

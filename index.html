@@ -266,6 +266,14 @@
                 </label>
               </div>
             </template>
+            <template x-if="$store.sim.hasMaidenIceRose">
+              <div class="field-group mt-1">
+                <label class="checkbox-label">
+                  <input type="checkbox" x-model="$store.sim.mirLastBurstOnly">
+                  <span>Maiden: Ice Rose 在战斗的最后一个爆裂循环中使用爆裂技能</span>
+                </label>
+              </div>
+            </template>
 
             <button class="btn btn-primary btn-block mt-1"
               :disabled="$store.sim.simRunning"
