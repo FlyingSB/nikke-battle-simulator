@@ -1355,9 +1355,12 @@ export function tick(state) {
       //   · 武器切换：沿用切换武器类型硬编码核心率（缺乏切换武器散布数据）。
       //   · 普通射击：几何模型 coreHitChance（散布圆 vs 核心透视半径，受 HitRate 收圆）。
       //     SR/RL 等精准武器 alwaysCore=1；SG 逐弹丸判定见下方拆分。
+      // weaponSwitchCoreRate：技能显式指定切换武器核心率（如 Drake: Great Villain 的蓄力霰弹枪
+      // 以 'Charged' 类型获得蓄力倍率，但散布仍为霰弹 → 沿用 SG 核心率）。
       const pCore = weaponSwitchActive
-        ? (effectiveWeaponType === 'SMG' ? 0.033
-          : effectiveWeaponType === 'SG'  ? 0.20 : 1.0)
+        ? (unit.skillState.weaponSwitchCoreRate
+          ?? (effectiveWeaponType === 'SMG' ? 0.033
+            : effectiveWeaponType === 'SG'  ? 0.20 : 1.0))
         : coreHitChance({
             alwaysCore:   unit.accAlwaysCore,
             currentScale: unit.accCurrentScale,
@@ -1375,6 +1378,8 @@ export function tick(state) {
       const hitPart = isCore ? 'core' : isParts ? 'parts' : 'body';
       // 穿透双判核心：穿透攻击命中核心时，额外产生一次体部伤害。
       const isPierceDualBody = state.enemyCorePierceDual && isPierce && isCore;
+      // 普通攻击真实伤害（buff 标记 normalAttackTrueDamage）：无视防御 + trueDamagePct 加成。
+      const isTrueDamage = sums.normalAttackTrueDamage;
 
       const { damage, breakdown: bd } = calcDamage({
         atk:               unit.stats.atk,
@@ -1399,9 +1404,11 @@ export function tick(state) {
         favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
         chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
         favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
+        isTrueDamage,
         extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct
                              + (effectiveWeaponType === 'RL' ? sums.projectileExplosionDamagePct : 0),
                              damageToPartsMult: sums.damageToPartsPct ?? 0,
+                             trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
                              ...(isPierce ? { pierceDamageMult: sums.pierceDamagePct } : {}) },
         damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
       });
@@ -1433,9 +1440,11 @@ export function tick(state) {
           favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
           chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
           favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
+          isTrueDamage,
           extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct
                                + (effectiveWeaponType === 'RL' ? sums.projectileExplosionDamagePct : 0),
                                damageToPartsMult: sums.damageToPartsPct ?? 0,
+                               trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
                                pierceDamageMult: sums.pierceDamagePct },
           damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
         }));
@@ -1508,9 +1517,11 @@ export function tick(state) {
           favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
           chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums2.chargeDamagePct,
           favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
+          isTrueDamage:      sums2.normalAttackTrueDamage,
           extra:             { attackDamageMult: sums2.attackDamagePct + sums2.normalAttackDamagePct
                                + (effectiveWeaponType === 'RL' ? sums2.projectileExplosionDamagePct : 0),
                                damageToPartsMult: sums2.damageToPartsPct ?? 0,
+                               trueDamageMult: sums2.normalAttackTrueDamage ? (sums2.trueDamagePct ?? 0) : 0,
                                ...(isPierce ? { pierceDamageMult: sums2.pierceDamagePct } : {}) },
           damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
         }));
@@ -1536,11 +1547,13 @@ export function tick(state) {
       if (isPierceDualBody && isCritPierceDualBody) unit.critCount++;
       unit.totalDamage += damage + damage2 + damagePierceDualBody;
       // 调试：按单位记录普通射击伤害
-      // 武器切换期间用 burst 技能名标记，与普通攻击分离统计
+      // 武器切换期间用 burst 技能名标记，与普通攻击分离统计；
+      // 切换来源非爆裂技能时由技能显式指定 weaponSwitchLabel（如 Drake: Great Villain S1）
       unit.skillDamage        ??= {};
       unit.skillDamageCount   ??= {};
       const shotLabel = weaponSwitchActive
-        ? `Burst${unit.rawBurst?.name_localkey ? ' ' + unit.rawBurst.name_localkey : ''}`
+        ? (unit.skillState.weaponSwitchLabel
+          ?? `Burst${unit.rawBurst?.name_localkey ? ' ' + unit.rawBurst.name_localkey : ''}`)
         : 'normal_shot';
       unit.skillDamage[shotLabel]      = (unit.skillDamage[shotLabel]      ?? 0) + damage + damage2 + damagePierceDualBody;
       unit.skillDamageCount[shotLabel] = (unit.skillDamageCount[shotLabel] ?? 0) + (isDoubleHit ? 2 : 1) + (isPierceDualBody ? 1 : 0);
@@ -1576,7 +1589,9 @@ export function tick(state) {
           hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
           favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
           attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct, isFullBurst: state.fullBurstActive,
-          damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: state.enemyDef,
+          damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
+          enemyDef: isTrueDamage ? 0 : state.enemyDef,
+          isTrueDamage, trueDamagePct: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
           isPierce, pierceDamagePct: isPierce ? (sums.pierceDamagePct ?? 0) : 0,
           ammoBeforeShot, hitPart, isCore, isParts,
           coreDmgIncrement: (unit.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0),

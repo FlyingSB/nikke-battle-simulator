@@ -100,6 +100,8 @@ export function getBuffSums(state, unitId) {
   sums.atkFlat = unit.equipAtkFlat ?? 0;
   let pierce = false;
   let elementAdvantageVsElectric = false;
+  // 普通攻击造成真实伤害（无视防御，受 trueDamagePct 加成），如 Guilty/Sin Bunny Mode: Engage
+  let normalAttackTrueDamage = false;
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
     if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
@@ -110,8 +112,9 @@ export function getBuffSums(state, unitId) {
     for (const f of BUFF_NUMERIC_FIELDS) sums[f] += (b[f] ?? 0) * k;
     if (b.pierce) pierce = true;
     if (b.elementAdvantageVsElectric) elementAdvantageVsElectric = true;
+    if (b.normalAttackTrueDamage) normalAttackTrueDamage = true;
   }
-  return { ...sums, pierce, elementAdvantageVsElectric };
+  return { ...sums, pierce, elementAdvantageVsElectric, normalAttackTrueDamage };
 }
 
 // ─── 敌人承伤汇总 ─────────────────────────────────────────────────────────────

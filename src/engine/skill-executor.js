@@ -29,6 +29,12 @@
  *                       供需要感知自身蓄力速度变化的技能（如 Red Hood S1 P2）使用
  *   BUFF_EXPIRE         任意 buff 自然过期时（团队触发；ctx.buffName = 过期 buff 名，ctx.buffUnitId = 所属单位 id）
  *                       每个过期 buff 单独派发一次；在过期 buff 已从 state.buffs 移除后触发
+ *   ONE_MORE            Persona 联动「1 More」生效于 ctx.unit 时（非团队；由技能文件经
+ *                       src/data/skills/persona-shared.js 派发，如 Queen (Makoto) / Yukiko 爆裂技能）
+ *   FOLLOW_UP           Persona 联动「Follow Up」生效于 ctx.unit 时（非团队；同上，如 Yukiko S2 → 队友）
+ *   BUNNY_MODE_CHANGED  ctx.unit 的 Bunny Mode 形态变化后（非团队；由 src/data/skills/bunny-shared.js
+ *                       派发，Guilty: Mighty Bunny / Sin: Swift Bunny S2 据此刷新形态效果）
+ *   DURING_FULL_CHARGE  全蓄力击发之前（ctx.unit = 射击单位；推入的 buff 作用于本次射击，见 fireDuringFullChargeTriggers）
  *
  * 作用范围（target 字段）：
  *   SELF                     自身（caster）

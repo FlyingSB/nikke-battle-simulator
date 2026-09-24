@@ -22,7 +22,9 @@ import {
   pushBuff, getBuffSums, decrementRoundBuffs, parseSkillDuration, TICK_RATE,
 } from '../../src/engine/battle-utils.js';
 import { getSkillValue } from '../../src/data/models.js';
-import { onInterval } from '../../src/engine/skill-executor.js';
+import { onInterval, executeSkillTriggers } from '../../src/engine/skill-executor.js';
+import { BUNNY_STANCE, BUNNY_ENGAGE, getBunnyMode,
+         enterBunnyMode } from '../../src/data/skills/bunny-shared.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
 
 // ── T1: getSkillTraits — unknown ids ─────────────────────────────────────────
@@ -953,6 +955,193 @@ section('T17: onInterval — 同技能多 INTERVAL 触发器独立计时（Mari 
   const p2buff = state.buffs.find(b => b.name === 'Full Focus P2 L2');
   eq('P2 为全员 buff（unitId: null）', p2buff?.unitId, null);
   eq('P2 atkFlat = ATK × p01%', p2buff?.atkFlat, Math.round(100000 * 0.3078));
+}
+
+// ── T18–T21 共用：新角色 mock 单位 / 状态 ──────────────────────────────────────
+// rawSkill 仅含单等级数值（skillLevels 全为 1），数值取各技能 lv10 实际值。
+
+function mockRawSkill(vals) {
+  return { description_value_list: vals.map(v => ({ description_value: [String(v)] })) };
+}
+function mockUnit(id, overrides = {}) {
+  return {
+    id, name: `U${id}`, equipAtkPct: 0, equipAtkFlat: 0,
+    stats: { atk: 100000, hp: 1000000, critRate: 0, critDmg: 0.5 },
+    element: 'Fire', weaponType: 'SR', burstStep: 'Step3', fullChargeDamage: 25000,
+    totalDamage: 0, skillDamage: {}, skillDamageCount: {}, skillState: {},
+    skillLevels: [1, 1, 1], rawSkill1: null, rawSkill2: null, rawBurst: null,
+    ...overrides,
+  };
+}
+function mockState(squad, extra = {}) {
+  return {
+    tick: 0, buffs: [], buffLog: null, hitLog: null, pendingSkillEvents: null, _logSeq: 0,
+    enemyHp: 1e15, enemyDef: 0, enemyDamageTakenPct: 0, enemyElement: 'Wind',
+    fullBurstActive: false, burstPhase: 1, pendingHealReceived: [], squad, ...extra,
+  };
+}
+
+// ── T18: 普攻真实伤害标记 normalAttackTrueDamage ──────────────────────────────
+
+section('T18: getBuffSums — normalAttackTrueDamage 布尔标记聚合');
+{
+  const state = mockState([mockUnit(1)]);
+  eq('无 buff 时为 false', getBuffSums(state, 1).normalAttackTrueDamage, false);
+  pushBuff(state, { name: 'TD', unitId: 1, normalAttackTrueDamage: true, endTick: Infinity });
+  eq('标记 buff 生效后为 true', getBuffSums(state, 1).normalAttackTrueDamage, true);
+  eq('他人 buff 不影响', getBuffSums(mockState([mockUnit(2)], { buffs: state.buffs }), 2)
+    .normalAttackTrueDamage, false);
+}
+
+// ── T19: Bunny Mode（Guilty: Mighty Bunny 404 / Sin: Swift Bunny 405）──────────
+
+section('T19: Bunny Mode — 开局 Stance、形态带动、S2 形态 buff 切换、Mighty Stomp');
+{
+  const guilty = mockUnit(404, {
+    rawSkill1: mockRawSkill([20.1, 1]),
+    rawSkill2: mockRawSkill([370.08, 20.45, 40, 450.89]),
+    rawBurst:  mockRawSkill([77.35, 10, 101.3, 1, 1400, 1]),
+    ammoLeft: 4, maxAmmo: 6, targetBurstEnergyPerShot: 56000,
+    backswingTicks: 10, foreswingTicks: 10, chargeTimeTicks: 60,
+  });
+  const sin = mockUnit(405, {
+    rawSkill1: mockRawSkill([15.35, 100, 1, 52.12, 1, 1]),
+    rawSkill2: mockRawSkill([35.14, 75.12, 73.22, 5]),
+  });
+  const state = mockState([guilty, sin]);
+
+  executeSkillTriggers(state, 'BATTLE_START');
+  eq('Guilty 开局进入 Stance', getBunnyMode(guilty), BUNNY_STANCE);
+  eq('Sin 开局进入 Stance', getBunnyMode(sin), BUNNY_STANCE);
+  const enhance = state.buffs.find(b => b.name === 'Chain Enhance' && b.unitId === 404);
+  eq('Guilty Stance: Chain Enhance 蓄力伤害 +40%', enhance?.chargeDamagePct, 0.40);
+  eq('Sin Stance: Enhanced Bullets 暴击率 +35.14%',
+    state.buffs.find(b => b.name === 'Enhanced Bullets' && b.unitId === 405)?.critRatePct, 0.3514);
+  eq('Stance 普攻非真实伤害', getBuffSums(state, 404).normalAttackTrueDamage, false);
+
+  // Guilty 进入 Engage → 处于 Stance 的 Sin 被带动进入 Engage
+  enterBunnyMode(state, guilty, BUNNY_ENGAGE);
+  eq('Guilty 进入 Engage', getBunnyMode(guilty), BUNNY_ENGAGE);
+  eq('Sin 被带动进入 Engage', getBunnyMode(sin), BUNNY_ENGAGE);
+  eq('Chain Enhance 已移除', state.buffs.some(b => b.name === 'Chain Enhance'), false);
+  eq('Engage: Guilty 普攻真实伤害', getBuffSums(state, 404).normalAttackTrueDamage, true);
+  eq('Engage: Sin 普攻真实伤害', getBuffSums(state, 405).normalAttackTrueDamage, true);
+
+  // Mighty Stomp：暂存原武器弹药 → 1 回合切换 → 击发后恢复
+  enterBunnyMode(state, guilty, BUNNY_STANCE);
+  executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: guilty });
+  eq('Stomp 期间弹药 = 1', guilty.ammoLeft, 1);
+  eq('Stomp 回合制切换 1 回合', guilty.skillState.weaponSwitchRoundsLeft, 1);
+  eq('Stomp 发间固定 90t', guilty.chargeTick, 90);
+  eq('1 回合蓄力伤害 +1400%',
+    state.buffs.find(b => b.name === "I'm Finally Free...! L1")?.roundsLeft, 1);
+  state.tick = 90;
+  executeSkillTriggers(state, 'FULL_CHARGE', { unit: guilty, isCharged: true });
+  eq('Stomp 击发后恢复原武器弹药 4', guilty.ammoLeft, 4);
+  eq('Stomp 击发后按 UP 型重新前摇+蓄力（80t）', guilty.chargeTick, 90 + 80);
+  eq('Stance 全蓄力追加伤害命中 1 次', guilty.skillDamageCount['S2 P2'], 1);
+}
+
+// ── T20: Persona（Queen (Makoto) 870 / Yukiko 871）────────────────────────────
+
+section('T20: Persona — 1 More 条件、Baton Pass / Follow Up 目标与 FOLLOW_UP 派发');
+{
+  function personaSquad() {
+    const makoto = mockUnit(870, {
+      weaponType: 'SG',
+      rawSkill1: mockRawSkill([13.59, 14.78, 548.99, 548.99, 50.28, 15]),
+      rawSkill2: mockRawSkill([25.56, 17.95, 90.01, 10, 3, 35.2, 3, 0, 30]),
+      rawBurst:  mockRawSkill([1421.69, 30.27, 10]),
+    });
+    const yukiko = mockUnit(871, {
+      weaponType: 'MG',
+      rawSkill1: mockRawSkill([3, 5.7, 400.31, 65.37, 15]),
+      rawSkill2: mockRawSkill([3, 5.7, 90.01, 17.95, 48.15, 10, 3, 80.25, 25, 55.31]),
+      rawBurst:  mockRawSkill([1258.79, 45.33, 10]),
+    });
+    const other = mockUnit(9001);   // 非 Persona 的 B3 友军
+    return { makoto, yukiko, other };
+  }
+
+  // 风压代码敌人：Makoto 爆裂 → 1 More → S1 P3 伤害 + Baton Pass（仅 Persona B3 队友）
+  {
+    const { makoto, yukiko, other } = personaSquad();
+    const state = mockState([makoto, yukiko, other]);
+    executeSkillTriggers(state, 'BATTLE_START');
+    executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: makoto });
+    eq('Makoto 获得 1 More', state.buffs.some(b => b.name === '1 More' && b.unitId === 870), true);
+    eq('1 More → S1 P3 分摊伤害 1 次', makoto.skillDamageCount['S1 P3'], 1);
+    const baton = state.buffs.find(b => b.name === 'Baton Pass' && b.unitId === 871);
+    eq('Baton Pass → Yukiko atkFlat = 施法者 ATK × 35.2%', baton?.atkFlat, 35200);
+    eq('Baton Pass 层数上限 3', baton?.stackLimit, 3);
+    eq('Baton Pass 不给非 Persona 友军',
+      state.buffs.some(b => b.name === 'Baton Pass' && b.unitId === 9001), false);
+    eq('Baton Pass 不给自身',
+      state.buffs.some(b => b.name === 'Baton Pass' && b.unitId === 870), false);
+
+    // Yukiko 爆裂 → 1 More → Follow Up 给 Makoto → Makoto S1 P4（FOLLOW_UP）
+    executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: yukiko });
+    const follow = state.buffs.find(b => b.name === 'Follow Up' && b.unitId === 870);
+    eq('Follow Up → Makoto atkFlat = 施法者 ATK × 80.25%', follow?.atkFlat, 80250);
+    eq('Follow Up 持续 25s', follow?.endTick, 25 * TICK_RATE);
+    eq('FOLLOW_UP → Makoto S1 P4 分摊伤害 1 次', makoto.skillDamageCount['S1 P4'], 1);
+    eq('Yukiko 1 More → S1 P3 伤害 1 次', yukiko.skillDamageCount['S1 P3'], 1);
+    eq('Scarlet Flower 分摊伤害 +90.01%',
+      state.buffs.find(b => b.name === 'Scarlet Flower' && b.unitId === 871)?.distributedDamagePct,
+      0.9001);
+
+    // 全爆裂结束：解除 Fist of Justice! / Scarlet Flower
+    executeSkillTriggers(state, 'FULL_BURST_END');
+    eq('Fist of Justice! 于全爆裂结束解除',
+      state.buffs.some(b => b.name === 'Fist of Justice!'), false);
+    eq('Scarlet Flower 于全爆裂结束解除',
+      state.buffs.some(b => b.name === 'Scarlet Flower'), false);
+  }
+
+  // 非风压敌人：无 1 More，不触发 S1 P3 / Baton Pass
+  {
+    const { makoto, yukiko, other } = personaSquad();
+    const state = mockState([makoto, yukiko, other], { enemyElement: 'Iron' });
+    executeSkillTriggers(state, 'BATTLE_START');
+    executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: makoto });
+    eq('非风压敌人：无 1 More', state.buffs.some(b => b.name === '1 More'), false);
+    eq('非风压敌人：无 Baton Pass', state.buffs.some(b => b.name === 'Baton Pass'), false);
+    eq('非风压敌人：爆裂伤害照常', makoto.skillDamageCount['Burst'], 1);
+  }
+}
+
+// ── T21: Drake: Great Villain（104）Super Duper Overdrive ────────────────────
+
+section('T21: Drake: Great Villain — 全爆裂武器切换与结束移除弹药');
+{
+  const drake = mockUnit(104, {
+    weaponType: 'SG', ammoLeft: 9, maxAmmo: 9, reloadTick: 0,
+    rawSkill1: mockRawSkill([243.75, 6, 100]),
+    rawSkill2: mockRawSkill([6.23, 10.5, 4]),
+    rawBurst:  mockRawSkill([27.5, 25, 1350]),
+  });
+  const state = mockState([drake]);
+
+  executeSkillTriggers(state, 'ENTER_FULL_BURST');
+  const st = drake.skillState;
+  eq('切换后弹匣 = 6', drake.ammoLeft, 6);
+  eq('切换武器类型 Charged（获得蓄力倍率）', st.weaponSwitchType, 'Charged');
+  eq('切换武器伤害 243.75%', st.weaponSwitchHitMult, 2.4375);
+  eq('全蓄力伤害 300%', st.weaponSwitchFullChargeDamage, 30000);
+  eq('霰弹核心率 20%', st.weaponSwitchCoreRate, 0.20);
+  eq('固定蓄力 1.5s → 首发 90t', drake.chargeTick, 90);
+
+  state.tick = 600;
+  executeSkillTriggers(state, 'FULL_BURST_END');
+  eq('全爆裂结束：移除 100% 弹药', drake.ammoLeft, 0);
+  eq('切换已结束', st.weaponSwitchEndTick < state.tick, true);
+  eq('抑制引擎「切换结束补满弹匣」', st._weaponSwitchAmmoFilled, st.weaponSwitchEndTick);
+  const hpStack = state.buffs.find(b => b.name === 'Fashionably Late Villain');
+  eq('S2 P1 全队 Max HP flat = 施法者 HP × 10.5%', hpStack?.maxHpFlat, 105000);
+  eq('S2 P1 全队 buff（unitId: null）', hpStack?.unitId, null);
+  eq('S2 P2 ATK flat 按最终 MaxHP 刷新',
+    state.buffs.find(b => b.name === 'Fashionably Late')?.atkFlat,
+    Math.round((1000000 + 105000) * 0.0623));
 }
 
 summary('Skill traits tests');

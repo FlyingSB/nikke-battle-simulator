@@ -122,3 +122,35 @@
 **背景：** 从 battle.js 顶部注释迁移。优先级低，待 Boss 战模式正式支持时实现。
 
 **依赖 / 阻塞：** 无。
+
+---
+
+## 「可手动切换模式」模拟开关
+
+**内容：** 部分角色的形态 / 武器切换依赖手动操作（满蓄后继续按住、主动装填等），自动战斗永远不会触发。为这类角色在 UI 增加模拟开关（参照 `ebsLastBurstOnly` / `mirLastBurstOnly` 的 store → config 传递方式），让用户选择按「手动打法」模拟。
+
+涉及角色：
+- **Guilty: Mighty Bunny (404)**：S1「满蓄后按住 ≥1s」切换 Bunny Mode（Stance ↔ Engage）。当前开局进入 Stance 后恒不变；Engage 分支（普攻 / Mighty Stomp 真实伤害、全蓄力追加真实伤害）已在 `404.js` 实现并有测试（T19），缺触发入口。
+- **Sin: Swift Bunny (405)**：同上（S1 P3），Engage 分支（Noise Bullets 真实伤害、爆裂 P4 真实伤害）已在 `405.js` 实现。两人通过 `bunny-shared.js` `enterBunnyMode` 互相带动切换，开关应能表达「何时切换」（如开局即切 Engage / 按固定节奏切换）。
+- **Cinderella: Crystal Wave (515)**：S1「Preparation for Change 状态下装填满弹」切换 Snipe Mode（MG → 蓄力狙击，Pierce，全蓄力消耗 40 发）。当前整段未建模（见 `515.js` `[未建模]` 注释），角色恒为 MG 形态，S2 全爆裂恒走「非 Snipe Mode」分支。需先实现 Snipe Mode 武器切换与装填状态机，再接开关。
+- **Milk: Blooming Bunny (143)**：未建模。S1「非 Embarrassment 状态下满蓄持续 ≥X 秒」进入 Embarrassment（分摊伤害 + 强制减速装填 + ATK ▲），S2 / 爆裂技能围绕 Embarrassment / Overconfident 状态展开。建模时需同时支持自动（不触发）与手动两种打法。
+
+**原因：** 这些角色的手动打法与自动打法伤害差异很大（真实伤害、切枪），只模拟自动打法会低估手动玩家的实战表现。
+
+**背景：** 2026-09-24 建模 Guilty: Mighty Bunny / Sin: Swift Bunny 时加入。自动战斗判定依据：SR 满蓄即松手，不会产生「按住满蓄」时长。
+
+**依赖 / 阻塞：** Cinderella: Crystal Wave 依赖 Snipe Mode 建模；Milk: Blooming Bunny 依赖技能建模。Guilty / Sin 无依赖，可直接做。中等优先级。
+
+---
+
+## 修复：武器切换期间普攻珍藏品倍率错误生效
+
+**内容：** `battle.js` 射击循环主伤害路径的 `calcDamage` 调用传入 `favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1`，未在武器切换期间置 1；而穿透双判体部、双重命中两条路径以及 hitLog 记录均为 `weaponSwitchActive ? 1 : …`。改为与另两条路径一致即可。
+
+**原因：** 违反 `docs/battle-logic.md` §3.1「武器切换（`WEAPON_SWITCH`）期间不生效」规则，且 hitLog 记录的倍率（1.0）与实际计算不一致，导致战斗日志公式与伤害对不上。实测：Drake: Great Villain（SG 珍藏品 lv15）Super Duper Overdrive 每发伤害被多乘 ×1.0946。
+
+**影响范围：** 所有携带 SG / SMG 珍藏品（Normal Attack Damage Multiplier ▲）且会武器切换的角色，修复后其切换期间伤害会下降——需复核相关测试与已审核角色数值。
+
+**背景：** 2026-09-24 建模 Drake: Great Villain 时通过 trace 公式与实际伤害比对发现。
+
+**依赖 / 阻塞：** 无依赖。高优先级（伤害数值错误）。

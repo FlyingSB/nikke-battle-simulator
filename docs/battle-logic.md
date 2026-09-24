@@ -389,6 +389,7 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 - 期间可选无限装弹（`unlimitedAmmo: true`）。
 - 切换结束后可有 `backswingTicks` 的封锁期（`weaponSwitchPostBackswingEndTick`）。
 - 切换武器后，当前武器弹匣默认为满弹；若有技能在切换时显式设定弹药数，则以技能值为准。
+- 可选覆盖：`weaponSwitchCoreRate`（切换武器核心率，缺省按切换武器类型硬编码，见 §3.8）；`weaponSwitchLabel`（命中统计/日志标签，缺省为 `Burst <爆裂技能名>`，切换来源为 S1/S2 时应显式指定，如 Drake: Great Villain S1）。
 
 ---
 
@@ -579,6 +580,7 @@ burstPhase = 0（充能中）
 | `pierceDamagePct` | 穿透伤害% |
 | `distributedDamagePct` | 分摊伤害% |
 | `sustainedDamagePct` | 持续伤害%（原名 `sustainedDamageMult`，已重命名） |
+| `normalAttackTrueDamage` | 布尔标记：普通攻击（含武器切换射击）造成真实伤害——无视防御并计入 `trueDamagePct`（如 Guilty/Sin Bunny Mode: Engage） |
 | `stackLimit` | 叠加上限（默认 1；大于 1 时为可叠加效果，见 7.2） |
 | `isDebuff` | 是否为 debuff（影响免疫与驱散机制，见 7.3） |
 
@@ -638,6 +640,10 @@ burstPhase = 0（充能中）
 | `COVER_HEAL_RECEIVED` | 掩体受到治疗 | 团队 |
 | `CORE_HIT` | 命中敌人核心 | 非团队 |
 | `RELOAD_END` | 自然装填完成 | 非团队（不含技能补弹） |
+| `DURING_FULL_CHARGE` | 全蓄力击发之前（推入的 buff 作用于本次射击） | 非团队 |
+| `ONE_MORE` | Persona 联动「1 More」生效于 ctx.unit（技能文件派发） | 非团队 |
+| `FOLLOW_UP` | Persona 联动「Follow Up」生效于 ctx.unit（技能文件派发） | 非团队 |
+| `BUNNY_MODE_CHANGED` | ctx.unit 的 Bunny Mode 形态变化后（技能文件派发） | 非团队 |
 
 ### 8.2 作用范围（target 字段）
 
