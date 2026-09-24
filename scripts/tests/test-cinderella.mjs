@@ -82,9 +82,9 @@ section('Fix 1: S1 Part1 fires on ENTER_BURST_III, not ENTER_FULL_BURST');
   const s1Triggers = SKILL_TRAITS[511]?.skill1?.triggers ?? [];
 
   const enterB3Trigger = s1Triggers.find(t => t.on === 'ENTER_BURST_III' &&
-    t.handler?.toString().includes('Flawless Glass P1 L1'));
+    t.handler?.toString().includes('Flawless Glass P1'));
   const enterFBTrigger = s1Triggers.find(t => t.on === 'ENTER_FULL_BURST' &&
-    t.handler?.toString().includes('Flawless Glass P1 L1'));
+    t.handler?.toString().includes('Flawless Glass P1'));
 
   eq('S1 Part1 has ENTER_BURST_III handler', !!enterB3Trigger, true);
   eq('S1 Part1 has no ENTER_FULL_BURST atkFlat handler', !!enterFBTrigger, false);
@@ -95,7 +95,7 @@ section('Fix 1: S1 Part1 fires on ENTER_BURST_III, not ENTER_FULL_BURST');
 
   enterB3Trigger.handler(state, caster, {});
 
-  const atkFlatBuff = state.buffs.find(b => b.name === 'Flawless Glass P1 L1' && b.unitId === caster.id);
+  const atkFlatBuff = state.buffs.find(b => b.name === 'Flawless Glass P1' && b.unitId === caster.id);
   eq('atkFlat buff pushed after ENTER_BURST_III', !!atkFlatBuff, true);
 
   // 0 stacks → finalHp = 1,000,000 → atkFlat = round(1,000,000 × 2.71%)
@@ -135,7 +135,7 @@ section('Fix 2: S1 Part1 atkFlat uses getBuffSums maxHpPct (all sources)');
 
   enterB3Trigger.handler(state, caster, {});
 
-  const atkFlatBuff = state.buffs.find(b => b.name === 'Flawless Glass P1 L1');
+  const atkFlatBuff = state.buffs.find(b => b.name === 'Flawless Glass P1');
   // finalHp = 1,000,000 × (1 + 0.10) = 1,100,000 → atkFlat = round(1,100,000 × 0.0271)
   eq('atkFlat includes external maxHpPct (+10%)', atkFlatBuff?.atkFlat, Math.round(1_100_000 * 0.0271));
 
@@ -149,13 +149,13 @@ section('Fix 2: S1 Part1 atkFlat uses getBuffSums maxHpPct (all sources)');
 
   // Beautiful 12 stacks → atkFlat = round(1,192,000 × 0.0271)
   enterB3Trigger.handler(state2, caster2, {});
-  const atkFlatBuff2 = state2.buffs.find(b => b.name === 'Flawless Glass P1 L1');
+  const atkFlatBuff2 = state2.buffs.find(b => b.name === 'Flawless Glass P1');
   eq('atkFlat with Beautiful 12 stacks', atkFlatBuff2?.atkFlat, Math.round(1_192_000 * 0.0271));
 }
 
 // ── Fix 3: RELOAD_END removes Charge Speed buff ───────────────────────────────
 
-section('Fix 3: RELOAD_END removes Flawless Glass P2 L2 (natural reload only)');
+section('Fix 3: RELOAD_END removes Flawless Glass P2 (natural reload only)');
 {
   const s1Triggers       = SKILL_TRAITS[511]?.skill1?.triggers ?? [];
   const fullChargeTrigger = s1Triggers.find(t => t.on === 'FULL_CHARGE' &&
@@ -172,20 +172,28 @@ section('Fix 3: RELOAD_END removes Flawless Glass P2 L2 (natural reload only)');
   // Full charge → chargeSpd buff added
   fullChargeTrigger.handler(state, caster, {});
   const chargeSpdBuff = state.buffs.find(b =>
-    b.name === 'Flawless Glass P2 L2' && b.unitId === caster.id);
+    b.name === 'Flawless Glass P2' && b.unitId === caster.id);
   eq('chargeSpd buff present after FULL_CHARGE', !!chargeSpdBuff, true);
   eq('chargeSpd buff value = 100%', chargeSpdBuff?.chargeSpeedPct, 1.0);
 
   // RELOAD_END → buff removed
   reloadEndTrigger.handler(state, caster, {});
   const afterReload = state.buffs.find(b =>
-    b.name === 'Flawless Glass P2 L2' && b.unitId === caster.id);
+    b.name === 'Flawless Glass P2' && b.unitId === caster.id);
   eq('chargeSpd buff removed after RELOAD_END', afterReload, undefined);
 
   // Second FULL_CHARGE → buff re-added (before next natural reload)
   fullChargeTrigger.handler(state, caster, {});
   eq('chargeSpd buff re-added after second FULL_CHARGE',
-    !!state.buffs.find(b => b.name === 'Flawless Glass P2 L2' && b.unitId === caster.id), true);
+    !!state.buffs.find(b => b.name === 'Flawless Glass P2' && b.unitId === caster.id), true);
+
+  // 非叠加回归：buff 生效期间每发都是全蓄力（+100% 蓄速下连发 3 发/s），
+  // 重复触发不得新增副本，否则 buff 列表以每秒 3 条的速度膨胀
+  fullChargeTrigger.handler(state, caster, {});
+  fullChargeTrigger.handler(state, caster, {});
+  const p2Copies = state.buffs.filter(b =>
+    b.name === 'Flawless Glass P2' && b.unitId === caster.id).length;
+  eq('chargeSpd buff does not stack on repeated FULL_CHARGE', p2Copies, 1);
 }
 
 // ── Fix 6: S3 Part2 mult = Beautiful stacks × 28.9% ─────────────────────────

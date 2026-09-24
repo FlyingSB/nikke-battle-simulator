@@ -29,16 +29,20 @@ export default {
           const atkFlatPct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
           const atkFlat    = Math.round(finalHp * atkFlatPct);
           const endTick    = state.tick + TICK_RATE * 10;
-          const existing = state.buffs.find(b => b.name === 'Flawless Glass P1 L1' && b.unitId === caster.id);
+          const existing = state.buffs.find(b => b.name === 'Flawless Glass P1' && b.unitId === caster.id);
           if (existing) { existing.atkFlat = atkFlat; existing.endTick = endTick; }
-          else pushBuff(state, { name: 'Flawless Glass P1 L1', unitId: caster.id, atkFlat, endTick });
+          else pushBuff(state, { name: 'Flawless Glass P1', unitId: caster.id, atkFlat, endTick });
         },
       },
       // S1 Part2：全蓄力攻击 → 自身 Charge Speed ▲100%（自然装填到满后移除）
+      // 非叠加：buff 生效期间每发都是全蓄力，重复触发时只保持已有 buff，不再新增
       {
         on: 'FULL_CHARGE',
         handler(state, caster) {
-          pushBuff(state, { name: 'Flawless Glass P2 L2', unitId: caster.id,
+          const existing = state.buffs.find(b =>
+            b.name === 'Flawless Glass P2' && b.unitId === caster.id);
+          if (existing) return;
+          pushBuff(state, { name: 'Flawless Glass P2', unitId: caster.id,
             chargeSpeedPct: 1.0, endTick: Infinity });
         },
       },
@@ -46,17 +50,20 @@ export default {
         on: 'RELOAD_END',
         handler(state, caster) {
           state.buffs = state.buffs.filter(b =>
-            !(b.name === 'Flawless Glass P2 L2' && b.unitId === caster.id));
+            !(b.name === 'Flawless Glass P2' && b.unitId === caster.id));
         },
       },
       // S1 Part3：全蓄力命中 → [S1 param3]% ATK 附加技能伤害，同时附加对应充能
+      // partOverride=2：技能描述仅 3 个 ■ 段，RELOAD_END 触发器占了数组序号 2，
+      // 默认 tdefIdx=3 会让日志显示 P4；此处强制对齐到第 3 段（P3）
       {
         on: 'FULL_CHARGE',
+        partOverride: 2,
         handler(state, caster, ctx) {
           if (state.enemyHp <= 0) return;
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
           const hitMult = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
-          fireSkillHit(state, caster, hitMult, sums, 'S1');
+          fireSkillHit(state, caster, hitMult, sums, 'S1 P3');
           addBurstGauge(state, caster.name, 'S1_fc_bonus', caster.targetBurstEnergyPerShot ?? 0);
         },
       },

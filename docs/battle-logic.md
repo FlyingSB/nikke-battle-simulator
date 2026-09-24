@@ -285,8 +285,13 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 
 **DOWN_Charge 型：**
 ```
-chargeTick = now + effectiveCharge
+chargeTick = now + max(effectiveCharge, rofFloorTicks)
+rofFloorTicks = round(3600 / rate_of_fire)   // RPM 发间下限
 ```
+
+DOWN_Charge 型持续按住连发，发间受武器 `rate_of_fire`（RPM）下限约束：蓄速把 effectiveCharge 压至近零时（如 Cinderella S1 P2 +100% 蓄速 → 1 t），射速封顶在 RPM 对应发间。Cinderella 180 RPM → 20 t（3 发/s）；Liberalio 200 RPM → 18 t，远低于其 86 t 蓄力发间，不构成约束。UP 型不适用此下限（Scarlet:BS 实测 44 t 发间 < 其 rate_of_fire=60 对应的 60 t，证明 UP 型的 rate_of_fire 字段与发间无关）。
+
+**射后触发器重排：** `FULL_CHARGE` 等射后触发器（onShotFired 派发）在下一发调度**之后**执行，其推入的蓄速 buff（如 Cinderella S1 P2）真机中立即作用于紧接着开始的下一次蓄力。引擎在触发器执行完毕后用最新 buff 汇总重排一次 `chargeTick`（仅当其仍是本次引擎排定值，避免覆盖技能 handler 显式改写）。
 
 **特殊情况（按优先级）：**
 
@@ -294,14 +299,21 @@ chargeTick = now + effectiveCharge
 2. **固定蓄力覆盖**（`fixedChargeTimeTicks`，如 Anis:Star 爆裂期间）：忽略技能类蓄速 buff，仅保留 `stats.chargeSpeedPct`（装备/魔方加成）。
 3. **Alice Wonderland 快速攻击**：当 `effectiveCharge ≤ round(chargeTimeTicks × 0.0048)`（99.52% 蓄速阈值）时，跳过前后摇，以固定 15 t（= round(60×10/40)）连射。
 
-#### 4.3.6 换弹后（蓄力武器统一重置）
+#### 4.3.6 换弹后（蓄力武器重置）
 
-蓄力武器（UP 型 / DOWN_Charge 型均含）换弹完成后回到**与战斗开始相同的初始状态**：必须重新经过 前摇 + 蓄力 才打出第一发，**绝不立即补射**。重置公式与初始 `chargeTick`（§4.3.4）完全一致——使用**基础**蓄力时长，不折减蓄速、不含后摇：
+蓄力武器换弹完成后必须重新经过完整**基础**蓄力（不折减蓄速）才打出第一发，**绝不立即补射**：
+
+**UP 型**（与战斗开始的初始状态一致，含前摇）：
 ```
 chargeTick = reloadEndTick + foreswingTicks + chargeTimeTicks
 ```
 
-物理含义：换弹后枪膛回到待击发状态，等价于重新瞄准（前摇）＋蓄力一发。例如 Diesel: Winter Sweets（RL，前摇 0.2s + 蓄力 1.0s）换弹完成后约 1.2s 才打出换弹后第一发，与首发节奏一致。
+**DOWN_Charge 型**（持续按住，换弹期间不松手、无需重新瞄准，不含前摇）：
+```
+chargeTick = reloadEndTick + chargeTimeTicks
+```
+
+物理含义：UP 型换弹后枪膛回到待击发状态，等价于重新瞄准（前摇）＋蓄力一发。例如 Diesel: Winter Sweets（RL，前摇 0.2s + 蓄力 1.0s）换弹完成后约 1.2s 才打出换弹后第一发，与首发节奏一致。DOWN_Charge 型实测依据：Cinderella 33s = 88 发要求换弹后第一发 = 换弹完成 + 60 t（含前摇则预测 87 发，不符）。
 
 #### 4.3.7 HIDDEN 退出后（chargeTick 重置）
 
@@ -340,13 +352,20 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 
 **累加器模型**：每 tick `shotAccumulator += rof / 60 / TICK_RATE`（RPM → 发/tick），`shotsThisTick = floor(shotAccumulator)`，发射后扣除整数部分（保留小数，避免高 ROF 的逐 tick 取整损失）。`rof` 可被攻速 buff（`atkSpeedPct`）与 MG 起速（`mgCurrentRof`）覆盖。
 
-**起手立即击发**：`shotAccumulator` 初值为 **1**（而非 0），使开局第一发立即击发，不必空等一个完整射击间隔。物理含义：战斗开始时枪已对准目标。换弹完成后同样重置为 1（见 §5.2），与开局节奏一致。
+**起手立即击发**：`shotAccumulator` 初值为 **1**（而非 0），使开局第一发立即击发，不必空等一个完整射击间隔。物理含义：战斗开始时枪已对准目标。
 
 > **历史偏差（已修复）**：此前累加器从 0 起，每个弹匣首发都要多等一个完整间隔（如 Brid: Silent Track 90 RPM ＝ 0.667s），开局与每次换弹后各损失约一个间隔，导致整体射击数偏低、战斗偏慢。实测帧数据校准（Brid 首弹匣第 9 发 @322t、换弹完成 @396t）后，修正模型误差 ≤3 tick。
 
+**换弹与射击间隔并行消化**：换弹期间累加器按当前 RPM **继续累积，封顶 1 发**；换弹完成后保留累积值、不强制补射。由此：
+
+- 装填时长 ≥ RPM 发间（绝大多数情况，如 AR 2s 装填 vs 0.1s 发间）：累加器在换弹结束前已到 1，换弹完成第一发**立即击发**——与旧"重置为 1"行为完全一致。
+- 装填被换弹速度 buff 压缩到发间以内（如换弹速度总和 ≥100% 的瞬间装填）：下一发仍落在**「上一发 + RPM 发间」**，射击节奏回落到武器 RPM，不会出现"每次换弹完成即补射"的超频循环。
+
+> **实测校准（2026-07-17）**：Anis: Sparkling Summer（SG 90 RPM，弹匣 5）15 级 Resilience 魔方（+29.69%）+ S1 Sparkling Boost（+49.28%）+ 爆裂 Sparkling Wave（+27.72%）换弹速度总和 >100%，且爆裂弹匣 ▼73.92% 后仅剩 1 发。实测爆裂 9s 内攻击 14 次 ＝ 精确的 40t（0.667s）RPM 节奏。修复前引擎按"换弹完成即补射"跑出每 13t 一发（后摇 12t + 补射 1t），9s 内 28–31 次，快约 3 倍。
+
 **换弹后摇**：非蓄力武器换弹相位额外计入末发后摇 `reloadRecoveryTicks`（CDN `spot_last_delay`），见 §5.2。
 
-> **与蓄力武器对比（§4.3.6）**：蓄力武器换弹后**绝不立即补射**，须重新经过前摇＋蓄力才打出首发；非蓄力武器换弹后**立即**恢复射击节奏（累加器重置为 1）。两者机制相反。
+> **与蓄力武器对比（§4.3.6）**：蓄力武器换弹后**绝不立即补射**，须重新经过前摇＋蓄力才打出首发；非蓄力武器换弹后立即恢复 RPM 射击节奏（受上述并行累积约束）。两者机制相反。
 
 ### 4.5 MG 起速模型
 
@@ -425,7 +444,7 @@ finalMaxAmmo = Math.max(1, rawMax)
    - 分段装填（`reloadFraction < 1`）：`Math.min(effectiveMax, Math.round(maxAmmo × reloadFraction))`。
    - 默认一次装满：`effectiveMax`。
 5. `effectiveMax` 即 `unit.maxAmmo`（已含所有 buff 和技能效果的缓存值，由 5.1.2 的时机维护）。
-6. **装填完成后重置射击周期**：非蓄力武器 `shotAccumulator = 1`（立即恢复射击，见 §4.4）；蓄力武器 `shotAccumulator = 0` 且重置 `chargeTick`（须重新前摇＋蓄力，见 §4.3.6）。
+6. **装填完成后衔接射击周期**：非蓄力 RPM 武器保留换弹期间并行累积的 `shotAccumulator`（封顶 1；装填 ≥ 发间时已到 1 → 立即击发，装填 < 发间时下一发落在「上一发 + RPM 发间」，见 §4.4）；MG 起速武器 `shotAccumulator = 0`（重新预热）；蓄力武器 `shotAccumulator = 0` 且重置 `chargeTick`（须重新前摇＋蓄力，见 §4.3.6）。
 
 ### 5.3 Bastion 魔方（Reload Up HC）
 

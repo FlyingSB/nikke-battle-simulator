@@ -103,6 +103,67 @@ function aliceFastAttackNextTicks(state, unit, effectiveCharge) {
   return ticks;
 }
 
+/**
+ * DOWN_Charge 型发射间隔下限（tick）：武器 rate_of_fire RPM → 3600/RPM。
+ * 蓄速把蓄力压至近零时（如 Cinderella S1 P2 +100% 蓄速 → effectiveCharge≈1t），
+ * 持续按住的连发节奏仍受武器 RPM 约束，不可能一 tick 一发。
+ * 实测校准（2026-07-17）：Cinderella 180 RPM → 20t 发间，开场 33s 攻击 88 次
+ * （54 弹匣、1 次换弹、2 次全蓄力）精确吻合；Liberalio 200 RPM → 18t 远低于其
+ * 86t 蓄力发间，不受影响。UP 型不适用（发间由前摇+蓄力+后摇决定，见 game-data.md）。
+ * @param {object} unit
+ * @returns {number} 下限 ticks（非 DOWN_Charge 或无 RPM 数据时为 0）
+ */
+function downChargeRofFloorTicks(unit) {
+  return unit.isDownCharge && unit.rateOfFire > 0
+    ? Math.round(TICK_RATE * 60 / unit.rateOfFire) : 0;
+}
+
+/**
+ * 计算蓄力武器（SR/RL）下一发的发间 ticks（不含武器切换覆盖场景）。
+ * UP 型：backswing + foreswing + effectiveCharge；DOWN_Charge 型：仅 effectiveCharge（受 RPM 下限约束）。
+ * chargeSpeedPct 只缩短蓄力（瞄准）阶段，不影响 fore/backswing。
+ * immuneSkillChargeSpeed 只屏蔽技能/buff 来源的 chargeSpeedPct 与 chargeTimeReductionTicks；
+ * 装备词条与魔方技能带来的 unit.stats.chargeSpeedPct 始终生效，不受屏蔽。
+ * @param {object} state
+ * @param {object} unit
+ * @param {object} sums getBuffSums 汇总
+ * @returns {number} 发间 ticks
+ */
+function nextChargeShotDelayTicks(state, unit, sums) {
+  const csFromBuff    = unit.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
+  const flatReduction = unit.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
+  const afterPct      = Math.round(unit.chargeTimeTicks * (1 - Math.min(0.99, (unit.stats.chargeSpeedPct ?? 0) + csFromBuff)));
+  let effectiveCharge = Math.max(0, afterPct - flatReduction);
+  // 固定蓄力时间覆盖（如 Anis: Star 爆裂期间）：忽略技能类蓄力速度 buff，仅保留装备/魔方加成
+  if ((unit.skillState?.fixedChargeEndTick ?? 0) >= state.tick &&
+      unit.skillState.fixedChargeTimeTicks != null) {
+    effectiveCharge = Math.max(0, Math.round(
+      unit.skillState.fixedChargeTimeTicks * (1 - Math.min(0.99, unit.stats.chargeSpeedPct ?? 0)),
+    ));
+  }
+  // Alice Wonderland 快速攻击：40次/10s（每 15 ticks，fore/backswing 被规避）
+  const fastTicks = aliceFastAttackNextTicks(state, unit, effectiveCharge);
+  if (fastTicks != null) return fastTicks;
+  return (unit.isDownCharge ? 0 : unit.backswingTicks + unit.foreswingTicks)
+    + Math.max(effectiveCharge, downChargeRofFloorTicks(unit));
+}
+
+/**
+ * rate_of_fire 武器当前每 tick 发数（RPM ÷ 3600，含攻速 buff；MG 起速用 mgCurrentRof 覆盖）。
+ * 射击累加器与换弹期间的并行累积共用此值，保证两处节奏一致。
+ * @param {object} state
+ * @param {object} unit
+ * @returns {number} 每 tick 发数
+ */
+function shotsPerTick(state, unit) {
+  const baseRof = unit.mgCurrentRof ?? unit.rateOfFire;
+  // Attack speed ▲：从 buff 系统汇总，支持多来源叠加（Dorothy burst、TV S1 等）
+  const atkSpeedPct = state.buffs
+    .filter(b => (b.unitId === null || b.unitId === unit.id) && b.endTick > state.tick && (b.roundsLeft ?? 1) > 0)
+    .reduce((a, b) => a + (b.atkSpeedPct ?? 0), 0);
+  return baseRof * (1 + atkSpeedPct) / 60 / TICK_RATE;
+}
+
 // ─── Buff/伤害/回复辅助均已从 battle-utils.js 导入 ──────────────────────────
 // getBuffSums, pushBuff, addBurstGauge, applyHeal, fireSkillHit
 
@@ -876,7 +937,8 @@ export function tick(state) {
           const csFromBuff = u.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
           const flatRed    = u.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
           const afterPct   = Math.round(u.chargeTimeTicks * (1 - Math.min(0.99, (u.stats.chargeSpeedPct ?? 0) + csFromBuff)));
-          u.chargeTick     = state.tick + Math.max(0, afterPct - flatRed);
+          // 蓄速压至近零时同样受 RPM 发间下限约束（与射后调度一致）
+          u.chargeTick     = state.tick + Math.max(Math.max(0, afterPct - flatRed), downChargeRofFloorTicks(u));
         }
         // UP 型（松手触发）：HIDDEN 结束后同样重置为完整发间（后摇+前摇+蓄力）。
         // 实测：Helm 180s=121发，完整发间重置(84t)预测精确匹配；不重置则预测125（每次HIDDEN多1发）。
@@ -1153,6 +1215,13 @@ export function tick(state) {
         unit.reloadStartTick = state.tick;
       }
       if (state.tick < unit.reloadTick) {
+        // 换弹与射击间隔并行消化：换弹期间累加器按 RPM 继续累积（封顶 1 发），
+        // 换弹完成后下一发不早于「上一发 + RPM 发间」。换弹速度 buff 总和 ≥100%（瞬间装填）
+        // 时射击节奏回落到武器 RPM，而非「换弹完成即补射」的 13t 死循环。
+        // 实测校准（2026-07-17）：Anis SS（SG 90 RPM）15 级 Resilience 魔方 + S1 + 爆裂
+        // 换弹速度 >100%，爆裂 9s 内攻击 14 次 = 精确的 40t RPM 节奏。
+        if (unit.chargeTimeTicks === 0 && unit.mgCurrentRof == null && unit.rateOfFire > 0)
+          unit.shotAccumulator = Math.min(1, unit.shotAccumulator + shotsPerTick(state, unit));
         // 换弹期间枪管停转，MG ROF 衰减 + 散布恢复（MG 重新预热）
         if (unit.mgCurrentRof != null && unit.mgRofDecayPerTick > 0) {
           unit.mgCurrentRof = Math.max(unit.mgStartRof, unit.mgCurrentRof - unit.mgRofDecayPerTick);
@@ -1173,14 +1242,18 @@ export function tick(state) {
       // 立即补射），缺少 _seq 会让换弹后那一发在详情日志中错误地排在"装填"行之前，
       // 表现为"弹药到 0 后又打一发才装填、且装填未满"。赋予递增 _seq 还原真实执行顺序。
       events.push({ type: 'reload', tick: state.tick, unitId: unit.id, unitName: unit.name, ammoRefilled: unit.ammoLeft, maxAmmo: unit.maxAmmo, _seq: state._logSeq++ });
-      // 装填后射击周期重新开始。非蓄力武器种子 1：换弹完成后第一发立即击发（与开局一致）。
+      // 装填后射击周期衔接：非蓄力 RPM 武器保留换弹期间累积的累加器（封顶 1）——
+      // 装填时长 ≥ RPM 发间时累加器已到 1，换弹完成第一发立即击发（与旧行为一致）；
+      // 装填被换弹速度 buff 压缩到发间以内时，下一发仍落在「上一发 + RPM 发间」。
       // MG 起速武器种子 0：换弹期间 ROF 已衰减，需重新预热，第一发按当前 RPM 发间等待（与开局一致）。
-      unit.shotAccumulator = (unit.chargeTimeTicks > 0 || unit.mgCurrentRof != null) ? 0 : 1;
-      // 蓄力武器（UP / DOWN_Charge 均含）：换弹完成后回到与战斗开始相同的初始状态，
-      // 需重新经过 前摇 + 蓄力 才打出第一发，绝不立即补射。
-      // 与初始 chargeTick（见 initBattle：foreswingTicks + chargeTimeTicks，使用基础蓄力时长、不折减蓄速）一致。
+      unit.shotAccumulator = (unit.chargeTimeTicks > 0 || unit.mgCurrentRof != null)
+        ? 0 : Math.min(1, unit.rateOfFire > 0 ? unit.shotAccumulator : 1);
+      // 蓄力武器：换弹完成后需重新经过完整蓄力才打出第一发，绝不立即补射。
+      // UP 型：前摇 + 蓄力（与初始 chargeTick 一致，使用基础蓄力时长、不折减蓄速）。
+      // DOWN_Charge 型：仅蓄力，无前摇（持续按住，换弹期间不松手、无需重新瞄准）。
+      // 实测校准：Cinderella 33s=88 发要求换弹后第一发全蓄力 = 换弹完成 + 60t（不含前摇）。
       if (unit.chargeTimeTicks > 0) {
-        unit.chargeTick = state.tick + unit.foreswingTicks + unit.chargeTimeTicks;
+        unit.chargeTick = state.tick + (unit.isDownCharge ? 0 : unit.foreswingTicks) + unit.chargeTimeTicks;
         // Alice Wonderland 快速攻击期间换弹：装填完成后应按快速攻击发间续发，
         // 而非重新满蓄（否则会出现"打完最后一发→装填→隔一个完整蓄力周期才续发"的错误间隔）。
         if ((unit.skillState?.aliceWonderlandEndTick ?? 0) >= state.tick) {
@@ -1239,14 +1312,7 @@ export function tick(state) {
       // 蓄力武器：蓄力完成时打出 1 发，然后重置计时器。
       shotsThisTick = state.tick >= unit.chargeTick ? 1 : 0;
     } else if (unit.rateOfFire > 0) {
-      const baseRof = unit.mgCurrentRof ?? unit.rateOfFire;
-      // Attack speed ▲：从 buff 系统汇总，支持多来源叠加（Dorothy burst、TV S1 等）
-      const atkSpeedPct = state.buffs
-        .filter(b => (b.unitId === null || b.unitId === unit.id) && b.endTick > state.tick && (b.roundsLeft ?? 1) > 0)
-        .reduce((a, b) => a + (b.atkSpeedPct ?? 0), 0);
-      const rof = baseRof * (1 + atkSpeedPct);
-      const spt = rof / 60 / TICK_RATE; // RPM → 每 tick 发数
-      unit.shotAccumulator += spt;
+      unit.shotAccumulator += shotsPerTick(state, unit);
       shotsThisTick         = Math.floor(unit.shotAccumulator);
       unit.shotAccumulator -= shotsThisTick;
     } else {
@@ -1613,37 +1679,17 @@ export function tick(state) {
           state.pendingSkillEvents[i]._seq = state._logSeq++;
         }
       }
-      // 为下一发设置蓄力冷却（SR/RL）。
+      // 为下一发设置蓄力冷却（SR/RL）。发间计算细节见 nextChargeShotDelayTicks。
       // UP 型：backswing + foreswing + effectiveCharge（每次松手后需重新按下/瞄准）。
       // DOWN_Charge 型：仅 effectiveCharge（持续按住，无前后摇；第 1 发前摇已在初始 chargeTick 计入）。
-      // chargeSpeedPct 只缩短蓄力（瞄准）阶段，不影响 fore/backswing。
-      // immuneSkillChargeSpeed 只屏蔽技能/buff 来源的 chargeSpeedPct 与 chargeTimeReductionTicks；
-      // 装备词条与魔方技能带来的 unit.stats.chargeSpeedPct 始终生效，不受屏蔽。
+      let _engineScheduledChargeTick = null;
       if (effectiveChargeTimeTicks > 0) {
         if (weaponSwitchChargeTimeTicks > 0) {
           // 武器切换期间：直接使用切换武器的蓄力时长，不应用 fore/backswing
           unit.chargeTick = state.tick + weaponSwitchChargeTimeTicks;
         } else {
-          const csFromBuff           = unit.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
-          const flatReduction        = unit.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
-          const afterPct             = Math.round(unit.chargeTimeTicks * (1 - Math.min(0.99, (unit.stats.chargeSpeedPct ?? 0) + csFromBuff)));
-          let effectiveCharge         = Math.max(0, afterPct - flatReduction);
-          // 固定蓄力时间覆盖（如 Anis: Star 爆裂期间）：忽略技能类蓄力速度 buff，仅保留装备/魔方加成
-          if ((unit.skillState?.fixedChargeEndTick ?? 0) >= state.tick &&
-              unit.skillState.fixedChargeTimeTicks != null) {
-            effectiveCharge = Math.max(0, Math.round(
-              unit.skillState.fixedChargeTimeTicks * (1 - Math.min(0.99, unit.stats.chargeSpeedPct ?? 0)),
-            ));
-          }
-          // Alice Wonderland 快速攻击：40次/10s（每 15 ticks，fore/backswing 被规避）
-          const fastTicks = aliceFastAttackNextTicks(state, unit, effectiveCharge);
-          if (fastTicks != null) {
-            unit.chargeTick = state.tick + fastTicks;
-          } else {
-            unit.chargeTick = state.tick
-              + (unit.isDownCharge ? 0 : unit.backswingTicks + unit.foreswingTicks)
-              + effectiveCharge;
-          }
+          unit.chargeTick = state.tick + nextChargeShotDelayTicks(state, unit, sums);
+          _engineScheduledChargeTick = unit.chargeTick;
         }
       }
       state.totalAmmoFired++;
@@ -1662,6 +1708,14 @@ export function tick(state) {
       flushHealReceived(state);
       flushShieldReceived(state);
       flushCoverHeal(state);
+
+      // 射后触发器（FULL_CHARGE 等）可能改变本单位蓄速（如 Cinderella S1 P2 +100% 蓄速），
+      // 真机中立即作用于紧接着开始的下一次蓄力。用触发器执行后的最新 buff 汇总重排下一发；
+      // 仅当 chargeTick 仍是本次引擎排定值时重排，避免覆盖技能 handler 显式改写的 chargeTick。
+      // 实测校准：Cinderella 首次全蓄力后第 2 发即按 20t RPM 发间打出（33s=88 发要求）。
+      if (_engineScheduledChargeTick !== null && unit.chargeTick === _engineScheduledChargeTick) {
+        unit.chargeTick = state.tick + nextChargeShotDelayTicks(state, unit, getBuffSums(state, unit.id));
+      }
 
       // MG ramp：ROF per-shot ramp up（内联保留，非声明式）
       if (unit.mgCurrentRof != null) {
