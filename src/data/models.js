@@ -19,6 +19,16 @@ import { getData } from './loader.js';
  * @property {string} burstStep      // 'Step1' | 'Step2' | 'Step3'
  */
 
+/**
+ * CDN 数据中电击属性拼写为 "Electronic"，引擎克制表（damage.js ELEMENT_CHART)
+ * 及技能过滤统一使用 "Electric"。所有解析入口必须经此归一化。
+ * @param {string|null} elem
+ * @returns {string|null}
+ */
+export function normalizeElement(elem) {
+  return elem === 'Electronic' ? 'Electric' : elem;
+}
+
 let _rosterCache = null;
 
 /** @returns {Character[]} 按名称排序 */
@@ -33,7 +43,7 @@ export function getAllCharacters() {
       nameCode:    c.name_code ?? 0,
       name:        c.name_localkey?.name ?? String(c.resource_id),
       classType:   c.class ?? 'Attacker',
-      element:     c.element_id?.element?.element ?? null,
+      element:     normalizeElement(c.element_id?.element?.element ?? null),
       weaponType:  (typeof c.shot_id    === 'object' ? c.shot_id?.element?.weapon_type : null) ?? null,
       damageType:  (typeof c.shot_id    === 'object' ? c.shot_id?.element?.attack_type : null) ?? null,
       corporation: c.corporation ?? 'ELYSION',
@@ -422,7 +432,7 @@ export function parseNikkeDetail(raw) {
     baseCritRate:     req(raw, 'critical_ratio', 'raw') / 10000,
     baseCritDamagePct: req(raw, 'critical_damage', 'raw') / 10000 - 1.0,
 
-    element: elem,
+    element: normalizeElement(elem),
 
     // 武器
     weaponMultiplier: req(sd, 'damage', 'shot_detail') / 10000,

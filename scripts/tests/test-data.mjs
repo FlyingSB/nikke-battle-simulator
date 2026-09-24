@@ -29,6 +29,9 @@ import {
   getAllResearchRows,
   computeResearchBonus,
   getBaseStats,
+  getAllCharacters,
+  parseNikkeDetail,
+  normalizeElement,
 } from '../../src/data/models.js';
 import { computeFinalStats }                        from '../../src/engine/stats.js';
 import { eq, near, pct, section, summary }          from '../lib/test-harness.mjs';
@@ -528,6 +531,35 @@ section('T11: nikke corporation field from CDN data');
   eq('Rapi:RH corporation',        rapi.corporation,   'ELYSION');
   eq('Scarlet:BS corporation',     sbs.corporation,    'PILGRIM');
   eq('Helm corporation',           helm.corporation,   'ELYSION');
+}
+
+// ── T12: element 归一化 ────────────────────────────────────────────────────────
+//
+// CDN 数据中电击属性拼写为 "Electronic"，引擎克制表（damage.js ELEMENT_CHART）
+// 使用 "Electric"。所有解析入口必须归一化，否则电击角色永远吃不到优越代码加成。
+// 数据源为仓库内置静态文件（src/data/static/），不依赖缓存与网络。
+
+section('T12: element normalization (Electronic → Electric)');
+{
+  eq('normalizeElement Electronic', normalizeElement('Electronic'), 'Electric');
+  eq('normalizeElement Fire 原样',   normalizeElement('Fire'),       'Fire');
+  eq('normalizeElement null 原样',   normalizeElement(null),         null);
+
+  const STATIC = join(__dirname, '../../src/data/static');
+  const ENGINE_ELEMENTS = new Set(['Fire', 'Water', 'Wind', 'Electric', 'Iron']);
+
+  // 花名册：全量角色 element 必须落在引擎取值域内
+  const charsRaw = JSON.parse(readFileSync(join(STATIC, 'characters.json'), 'utf8'));
+  setData('characters', charsRaw);
+  const roster  = getAllCharacters();
+  const badElem = roster.filter(c => !ENGINE_ELEMENTS.has(c.element));
+  eq('roster element 全部在引擎取值域内（无 Electronic 残留）', badElem.length, 0);
+  const electricCount = roster.filter(c => c.element === 'Electric').length;
+  eq('roster 存在 Electric 角色', electricCount > 0, true);
+
+  // 角色详情：Anis: Sparkling Summer（15）CDN 原始值为 Electronic
+  const anisSS = JSON.parse(readFileSync(join(STATIC, 'nikke/15.json'), 'utf8'));
+  eq('parseNikkeDetail(15) element', parseNikkeDetail(anisSS).element, 'Electric');
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────
