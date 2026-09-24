@@ -156,6 +156,27 @@ section('T8e: Body hit — damageToPartsMult does NOT apply');
   eq('body ignores parts extra', damage, 400);
 }
 
+section('T8f: 零件核心 — 核心命中同时受核心伤害与零件伤害加成');
+{
+  // coreIsParts=true：commonMult = 1 + 1.00 = 2.0；extraMult = 1 + 0.25 = 1.25
+  // damage = floor(400 × 2.0 × 1.25) = 1000
+  const { damage, breakdown } = calcDamage({ ...BASE, hitPart: 'core', coreIsParts: true,
+    extra: { damageToPartsMult: 0.25 } });
+  eq('parts-core hit', damage, 1_000);
+  near('parts-core commonMult', breakdown.commonMult, 1 + BASE_CORE_DAMAGE);
+  near('parts-core extraMult', breakdown.extraMult, 1.25);
+
+  // 普通核心（coreIsParts 缺省）不吃零件加成
+  const { damage: plain } = calcDamage({ ...BASE, hitPart: 'core',
+    extra: { damageToPartsMult: 0.25 } });
+  eq('plain core ignores parts extra', plain, 800);
+
+  // coreIsParts 只对核心命中生效，本体命中不吃零件加成
+  const { damage: body } = calcDamage({ ...BASE, hitPart: 'body', coreIsParts: true,
+    extra: { damageToPartsMult: 0.25 } });
+  eq('body ignores parts extra under parts-core', body, 400);
+}
+
 // ── T9: Crit + Core ───────────────────────────────────────────────────────────
 
 section('T9: Crit + Core combined');
@@ -1127,6 +1148,25 @@ section('T36: fireSkillHit buffBreakdown — damageToPartsPct 出现条件');
   fireSkillHit(s2, u2, 1.0, sums2, 'T36-hit-body', { hitPart: 'body' });
   const bd2 = s2.hitLog[0]?.buffBreakdown?.find(b => b.name === 'PartsTest');
   eq('T36: hitPart=body 时 damageToPartsPct 不出现', bd2, undefined);
+}
+
+section('T36b: fireSkillHit — 零件核心敌人的核心命中计入 damageToPartsPct');
+{
+  // 零件核心：技能命中核心 → 核心加成（×2）+ 零件加成（×1.30）
+  const { state, unit } = makeHitState();
+  state.enemyCoreIsParts = true;
+  pushBuff(state, { name: 'PartsTest', unitId: unit.id, damageToPartsPct: 0.30, endTick: Infinity });
+  const sums = getBuffSums(state, unit.id);
+  const dmg = fireSkillHit(state, unit, 1.0, sums, 'T36b-core', { hitPart: 'core' });
+  eq('T36b: 零件核心命中伤害 = floor(10000 × 2 × 1.30)', dmg, 26_000);
+  const bd = state.hitLog[0]?.buffBreakdown?.find(b => b.name === 'PartsTest');
+  near('T36b: buffBreakdown.damageToPartsPct 出现', bd?.damageToPartsPct ?? -1, 0.30);
+
+  // 普通核心：不计零件加成
+  const { state: s2, unit: u2 } = makeHitState();
+  pushBuff(s2, { name: 'PartsTest', unitId: u2.id, damageToPartsPct: 0.30, endTick: Infinity });
+  const dmg2 = fireSkillHit(s2, u2, 1.0, getBuffSums(s2, u2.id), 'T36b-plain', { hitPart: 'core' });
+  eq('T36b: 普通核心命中伤害 = 10000 × 2', dmg2, 20_000);
 }
 
 // ── T37: sustainedDamagePct（含叠层）─────────────────────────────────────────

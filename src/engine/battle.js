@@ -766,7 +766,11 @@ export function initBattle(config) {
     enemyHasCore:         config.enemy.hasCore ?? false,
     enemyCoreProtected:   config.enemy.coreProtected ?? false,
     // 穿透双判核心：穿透攻击命中核心时同时产生一次核心伤害和一次体部伤害。
-    enemyCorePierceDual:  config.enemy.corePierceDual ?? false,
+    enemyCorePierceDual:  !!(config.enemy.corePierceDual || config.enemy.coreIsParts),
+    // 零件核心（Black Smith / Material H / Storm Bringer）：核心为无限血量零件。
+    // 核心命中同时受核心与零件伤害加成；穿透命中核心额外产生一次本体伤害（复用 PierceDual 路径）。
+    // 爆炸（RL / projectile explosion）命中不会像普通零件那样对零件+本体各结算一次，仅结算一次。
+    enemyCoreIsParts:     config.enemy.coreIsParts ?? false,
     // 命中零件：所有实弹均命中敌人可破坏零件（不命中核心/躯体）。
     enemyHasParts:        config.enemy.hasParts ?? false,
     // 敌人连续距离（0..100，与 bonusrange 同刻度）。由相位时间表派生；null=不可瞄准（无优势）。
@@ -974,7 +978,8 @@ export function tick(state) {
       events.push({ type: 'enemy_action', tick: state.tick, actionType: 'core', value: a.value });
       state.enemyHasCore        = a.value !== 'NONE' && a.value !== 'PARTS';
       state.enemyCoreProtected  = a.value === 'PROTECTED';
-      state.enemyCorePierceDual = a.value === 'PIERCE_DUAL';
+      state.enemyCorePierceDual = a.value === 'PIERCE_DUAL' || a.value === 'PARTS_CORE';
+      state.enemyCoreIsParts    = a.value === 'PARTS_CORE';
       state.enemyHasParts       = a.value === 'PARTS';
       break;
     }
@@ -1376,8 +1381,11 @@ export function tick(state) {
       rampAccuracyOnShot(unit);
       const isParts = !isCore && state.enemyHasParts;
       const hitPart = isCore ? 'core' : isParts ? 'parts' : 'body';
-      // 穿透双判核心：穿透攻击命中核心时，额外产生一次体部伤害。
-      const isPierceDualBody = state.enemyCorePierceDual && isPierce && isCore;
+      // 穿透双判核心 / 零件核心：穿透攻击命中核心时，额外产生一次体部伤害。
+      // 零件核心下该次体部伤害为纯本体命中（不吃零件/核心加成）。
+      // 零件核心下爆炸（RL 普攻）命中恒只结算一次，即便带穿透也不追加本体伤害。
+      const isPierceDualBody = state.enemyCorePierceDual && isPierce && isCore
+        && !(state.enemyCoreIsParts && effectiveWeaponType === 'RL');
       // 普通攻击真实伤害（buff 标记 normalAttackTrueDamage）：无视防御 + trueDamagePct 加成。
       const isTrueDamage = sums.normalAttackTrueDamage;
 
@@ -1392,6 +1400,7 @@ export function tick(state) {
         critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
         hitPart,
         coreDmgIncrement:  unit.coreDmgIncrement + (isCore ? (sums.coreDamagePct ?? 0) : 0),
+        coreIsParts:       state.enemyCoreIsParts,
         distanceAdvantage: distAdv,
         isFullBurst:       state.fullBurstActive,
         attackerElement:   (sums.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
@@ -1505,6 +1514,7 @@ export function tick(state) {
           critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums2.critDamagePct,
           hitPart,
           coreDmgIncrement:  unit.coreDmgIncrement + (isCore ? (sums2.coreDamagePct ?? 0) : 0),
+          coreIsParts:       state.enemyCoreIsParts,
           distanceAdvantage: distAdv,
           isFullBurst:       state.fullBurstActive,
           attackerElement:   (sums2.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,

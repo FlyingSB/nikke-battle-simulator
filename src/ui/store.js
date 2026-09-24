@@ -346,7 +346,7 @@ const BATTLE_EVENT_COLS = {
   enemy_action:       e => {
     const desc = e.actionType === 'def'
       ? `DEF → ${e.value}`
-      : `核心 → ${{ EXPOSED:'暴露核心', PROTECTED:'保护核心', PIERCE_DUAL:'穿透双判核心', NONE:'无核心' }[e.value] ?? e.value}`;
+      : `核心 → ${{ EXPOSED:'暴露核心', PROTECTED:'保护核心', PIERCE_DUAL:'穿透双判核心', PARTS_CORE:'零件核心', PARTS:'命中零件', NONE:'无核心' }[e.value] ?? e.value}`;
     return { name: '', label: '敌人行动', desc };
   },
   reload_interrupted: e => ({ name: e.unitName ?? '', label: '换弹中断',   desc: '敌人出现' }),
@@ -1709,7 +1709,8 @@ export function createStore() {
             def:            Number(initDefAction?.value) || 100,
             hasCore:        initCore !== 'NONE' && initCore !== 'PARTS',
             coreProtected:  initCore === 'PROTECTED',
-            corePierceDual: initCore === 'PIERCE_DUAL',
+            corePierceDual: initCore === 'PIERCE_DUAL' || initCore === 'PARTS_CORE',
+            coreIsParts:    initCore === 'PARTS_CORE',
             hasParts:       initCore === 'PARTS',
             element:        this.enemy.element,
             type:           this.enemy.type,

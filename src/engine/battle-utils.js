@@ -507,6 +507,9 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
   const isCrit           = rollCrit(effectiveCritRate);
   const hitPart          = opts.hitPart ?? (opts.isCore ? 'core' : 'body');
   const isCore           = hitPart === 'core';
+  // 零件核心敌人：命中核心即命中零件，同时受零件伤害加成
+  const coreIsParts      = !!state.enemyCoreIsParts;
+  const partsBonusApplies = hitPart === 'parts' || (isCore && coreIsParts);
   const coreDmgIncrement = (opts.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0);
   const extraAtkDmgPct   = opts.extraAttackDamagePct ?? 0;
   const isDistributed    = opts.isDistributed    ?? false;
@@ -531,6 +534,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
     hitPart,
     coreDmgIncrement,
+    coreIsParts,
     distanceAdvantage: distAdvForHit,
     isFullBurst,
     attackerElement:   (sums.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
@@ -600,7 +604,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
               critDamagePct: (b.critDamagePct ?? 0) * k,
               sustainedDamagePct: opts.sustainedDamage ? ((b.sustainedDamagePct ?? 0) * k) : 0,
               trueDamagePct: isTrueDamage ? (b.trueDamagePct ?? 0) * k : 0,
-              damageToPartsPct: hitPart === 'parts' ? (b.damageToPartsPct ?? 0) * k : 0,
+              damageToPartsPct: partsBonusApplies ? (b.damageToPartsPct ?? 0) * k : 0,
               stacks: k,
               sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null, sourceLineIdx: b._sourceLineIdx ?? null };
           })

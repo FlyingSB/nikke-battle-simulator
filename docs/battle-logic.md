@@ -137,7 +137,7 @@ ExtraMult = 1 + Σ(以下各项，生效时才加）
 | 发射体爆炸伤害% | `projectileExplosionDamagePct` | 仅 RL 普攻或标记了 projectileExplosion 的技能命中 |
 | 穿透伤害% | `pierceDamagePct` | 仅穿透命中 |
 | 依次攻击伤害% | `sequentialAttackDamageMult` | 仅 CDN `skill_type: InstantSequentialAttack` 的技能命中（见下注） |
-| 零件伤害% | `damageToPartsMult` | 仅命中零件（Parts）时适用（见 §11.3） |
+| 零件伤害% | `damageToPartsMult` | 仅命中零件（Parts）时适用；「零件核心」敌人的核心命中同样适用（见 §3.8、§11.3） |
 | 持续伤害% | `sustainedDamagePct` | 仅 DoT |
 | 无视防御力伤害伤害% | `trueDamagePct` | 仅 isTrueDamage 命中 |
 
@@ -162,10 +162,32 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 
 ### 3.8 核心命中判定
 
-敌人核心有三种状态：
-- **无核心**：`state.enemyHasCore = false`，不进行核心命中判定。
-- **有核心（未保护）**：核心暴露，按命中率正常判定。
-- **核心被保护**：核心被护甲遮蔽，普通攻击无法命中核心；仅穿透攻击（`isPierce=true`）可命中核心。
+敌人核心状态（敌人行动「核心」值）：
+- **无核心**（`NONE`）：`state.enemyHasCore = false`，不进行核心命中判定。
+- **暴露核心**（`EXPOSED`）：核心暴露，按命中率正常判定。
+- **保护核心**（`PROTECTED`）：核心被护甲遮蔽，普通攻击无法命中核心；仅穿透攻击（`isPierce=true`）可命中核心。
+- **穿透双判核心**（`PIERCE_DUAL`）：穿透攻击命中核心时，同时结算一次核心伤害和一次本体伤害（两次独立判定暴击）；非穿透命中核心与暴露核心相同。
+- **零件核心**（`PARTS_CORE`）：见 §3.8.2。
+- **命中零件**（`PARTS`）：无核心，所有实弹均命中可破坏零件（`hitPart='parts'`）。
+
+#### 3.8.2 零件核心（PARTS_CORE）
+
+**仅出现于 3 种敌人：Black Smith（铁匠）、Material H（秘材H）、Storm Bringer（岚灾）。** UI 中选中此状态时会显示该提示。
+
+此类敌人的核心被视作**无限血量的零件**，核心命中判定与暴露核心相同（几何模型 §3.8.1），结算规则：
+
+| 命中方式 | 结算 |
+|----------|------|
+| 非穿透命中核心 | 1 次核心伤害：CommonMultiplier 核心加成 **+** ExtraMultiplier 零件伤害加成（`damageToPartsPct`） |
+| 穿透命中核心 | 1 次核心伤害（同上，另含穿透加成）**+** 1 次本体伤害（纯本体：无核心/零件加成，含穿透加成；独立判定暴击） |
+| 爆炸命中（RL 普攻、`projectileExplosion` 技能） | **仅 1 次**。不会像普通零件那样对零件与本体各结算一次 |
+| 未命中核心 | 本体伤害（与暴露核心相同） |
+
+实现：`state.enemyCoreIsParts = true`，并复用穿透双判路径（`enemyCorePierceDual = true`）。`calcDamage` 的 `coreIsParts` 输入使 `hitPart === 'core'` 时同样计入 `damageToPartsMult`；技能命中（`fireSkillHit`）以 `hitPart: 'core'` 命中时亦适用。
+
+> 注：普通零件的「爆炸对零件 + 本体两次结算」模拟器本身未建模（`PARTS` 状态下每发仅结算一次零件伤害），故零件核心的爆炸命中无需额外处理，行为天然为一次。
+>
+> 零件核心的核心命中在技能触发器层面仍视作核心命中（`CORE_HIT` / `IS_CORE_HIT`），**不**触发 `PARTS_HIT` / `IS_PARTS_HIT`。
 
 命中率判定（适用于"有核心"及穿透命中保护核心两种情况）：
 - **普通攻击**：核心命中率由几何模型 `accuracy.js:coreHitChance` 计算（见 §3.8.1）。躯体恒命中（实战 BOSS 体型庞大），命中率**仅影响核心命中率**。
@@ -760,6 +782,7 @@ burstPhase = 0（充能中）
 | `enemyDef` | 防御值（固定，参与 BaseDamage 计算） |
 | `enemyElement` | 敌人属性（影响属性克制判断） |
 | `enemyHasCore` | 是否有核心（影响核心命中逻辑） |
+| `enemyCoreProtected` / `enemyCorePierceDual` / `enemyCoreIsParts` / `enemyHasParts` | 核心状态标志（保护核心 / 穿透双判 / 零件核心 / 命中零件），见 §3.8 |
 | `distanceZone` | 当前距离区间（`NEAR/MID/FAR/null`） |
 
 ### 11.2 阶段调度（enemyPhases）
@@ -797,7 +820,7 @@ burstPhase = 0（充能中）
 
 **关键规则：** 部位特定伤害增加效果（如"对零件伤害增加"、"对阻止部位伤害增加"）**仅在攻击命中对应部位时生效**，不适用于攻击本体或核心的命中。因此，若技能描述为"零件伤害增加 X%"，将其建模为无限制的 `attackDamagePct` 是错误的。
 
-**实现方式（`hitPart` 参数）：** 普通攻击与技能伤害计算均通过 `hitPart`（`'body'` | `'core'` | `'parts'` | `'intercept_parts'`）标识命中部位，默认为 `'body'`（本体）。`damageToPartsPct` buff 仅在 `hitPart === 'parts'` 时计入 `ExtraMultiplier`。技能文件中，"零件伤害增加"效果应建模为 `damageToPartsPct`（而非 `attackDamagePct`）。当前 Boss 战场景中不产生 `hitPart === 'parts'` 的命中，该加成实际不生效，但建模正确，不再错误叠加到本体/核心命中。
+**实现方式（`hitPart` 参数）：** 普通攻击与技能伤害计算均通过 `hitPart`（`'body'` | `'core'` | `'parts'` | `'intercept_parts'`）标识命中部位，默认为 `'body'`（本体）。`damageToPartsPct` buff 仅在 `hitPart === 'parts'` 时计入 `ExtraMultiplier`；例外：「零件核心」敌人（Black Smith / Material H / Storm Bringer）的核心命中（`hitPart === 'core'` 且 `coreIsParts`）同时计入核心加成与零件加成（§3.8.2）。技能文件中，"零件伤害增加"效果应建模为 `damageToPartsPct`（而非 `attackDamagePct`）。当前 Boss 战场景中不产生 `hitPart === 'parts'` 的命中，该加成实际不生效，但建模正确，不再错误叠加到本体/核心命中。
 
 > 当前模拟器中，阻止部位未建模，含有"阻止部位伤害增加"的技能效果暂时忽略。
 
@@ -820,5 +843,6 @@ Fire（燃烧）→ Wind（风压）→ Iron（铁甲）→ Electric（电击）
 | 距离优势 | ✅ 已改为各角色 `bonusrange_min/max` + 连续距离判定（废弃武器类型分档） |
 | 躯体命中率 | 未建模：实战 BOSS 体型庞大视为躯体恒命中；小体型/有空洞敌人躯体漏弹未覆盖 |
 | 掩体 HP | 仅建模事件，不追踪掩体数值 |
-| 零件（Parts）命中 | `hitPart='parts'` 已建模；Boss 战场景不实际产生此命中，相关加成正确建模但不生效 |
+| 零件（Parts）命中 | `hitPart='parts'` 已建模；需敌人核心状态设为「命中零件」才产生此命中。普通零件被爆炸命中时对零件+本体各结算一次的机制**未建模** |
+| 零件核心（Parts Core）| ✅ 已建模（§3.8.2）：Black Smith / Material H / Storm Bringer 专用 |
 | 阻止部位（Intercept Parts）命中 | 未建模；含"阻止部位伤害增加"的技能效果暂时忽略 |

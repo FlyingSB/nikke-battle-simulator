@@ -830,6 +830,15 @@ select.input { cursor: pointer; }
   font-family: inherit;
 }
 .btn-add-action:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+/* 零件核心说明：选中 PARTS_CORE 时显示，提示适用敌人与结算规则 */
+.core-note {
+  margin-top: 8px; padding: 6px 8px; font-size: 0.68rem; line-height: 1.5;
+  color: var(--text-dim); background: var(--surface);
+  border-left: 2px solid var(--skill-param); border-radius: var(--r-sm);
+}
+.core-note strong { color: var(--skill-param); }
+.core-note b { color: var(--text); font-weight: 600; }
+.core-note em { font-style: normal; color: var(--accent); }
 .no-spin::-webkit-outer-spin-button,
 .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .no-spin { -moz-appearance: textfield; }

@@ -188,6 +188,8 @@
                           <option value="EXPOSED">暴露核心</option>
                           <option value="PROTECTED">保护核心</option>
                           <option value="PIERCE_DUAL">穿透双判核心</option>
+                          <option value="PARTS_CORE"
+                            title="核心为无限血量零件（仅 Black Smith 铁匠 / Material H 秘材H / Storm Bringer 岚灾）&#10;· 命中核心：同时受核心伤害与零件伤害加成&#10;· 穿透命中核心：额外结算一次本体伤害&#10;· 爆炸（RL / Projectile Explosion）：只结算一次，不对零件+本体各结算">零件核心（铁匠/秘材H/岚灾）</option>
                           <option value="PARTS">命中零件</option>
                           <option value="NONE">无核心</option>
                         </select>
@@ -216,6 +218,12 @@
               </tbody>
             </table>
             <button class="btn-add-action" @click="$store.sim.addEnemyAction()">＋ 添加行动</button>
+            <aside class="core-note" role="note"
+              x-show="$store.sim.enemy.actions.some(a => a.type === 'core' && a.value === 'PARTS_CORE')">
+              <strong>零件核心</strong> 仅出现于 <b>Black Smith（铁匠）</b>、<b>Material H（秘材H）</b>、<b>Storm Bringer（岚灾）</b>。
+              核心视作无限血量零件：核心命中同时吃<em>核心伤害</em>与<em>零件伤害</em>加成；
+              穿透命中核心额外结算一次本体伤害；爆炸（RL / Projectile Explosion）只结算一次。
+            </aside>
 
             <div class="section-sub mt-1">命中校准（核心命中率模型）</div>
             <div class="hit-cal-row" title="核心命中率 P=clamp((CORE0·(1−d/D0)/(scale/(1+c·HitRate)))²,0,1)；实证默认 55/77/4.5">

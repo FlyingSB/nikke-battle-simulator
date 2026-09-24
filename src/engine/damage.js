@@ -106,6 +106,7 @@ const ELEMENT_CHART = {
  * @property {number}        [critDmgIncrement=0]  在基础 50% 暴击伤害之上的附加值
  * @property {'body'|'core'|'parts'|'intercept_parts'} [hitPart='body']
  * @property {number}        [coreDmgIncrement=0]  在基础 100% 核心伤害之上的附加值
+ * @property {boolean}       [coreIsParts=false]   零件核心敌人：核心视作零件，核心命中额外计入 damageToPartsMult
  * @property {boolean}       [distanceAdvantage=false] 是否处于优势射程（敌人距离 ∈ [bonusrange_min,max]）
  * @property {boolean}       [isFullBurst=false]
  * @property {string}        [attackerElement]
@@ -230,7 +231,9 @@ function sumExtra(extra, input) {
   sum += extra.projectileExplosionDamageMult  ?? 0;
 
   sum += extra.pierceDamageMult              ?? 0;
-  if (input.hitPart === 'parts') sum += extra.damageToPartsMult ?? 0;
+  // 零件加成：命中零件，或命中「零件核心」敌人的核心（核心本身即零件）
+  if (input.hitPart === 'parts' || (input.hitPart === 'core' && input.coreIsParts))
+    sum += extra.damageToPartsMult ?? 0;
   sum += extra.sequentialAttackDamageMult    ?? 0;
   sum += extra.affectsAllEnemiesDamageMult   ?? 0;
   sum += extra.affects1EnemyDamageMult       ?? 0;

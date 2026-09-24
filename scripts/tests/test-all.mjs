@@ -27,6 +27,7 @@ const SUITES = [
   { name: 'RapiB1/B3',   file: 'test-rapi-burst.mjs',   note: 'Rapi burst-step & Combat Assist, no I/O' },
   { name: 'Cinderella', file: 'test-cinderella.mjs', note: 'Cinderella skill fixes, no I/O'           },
   { name: 'ReloadCadence', file: 'test-reload-cadence.mjs', note: 'reload/RPM cadence, no I/O'        },
+  { name: 'PartsCore',  file: 'test-parts-core.mjs', note: 'PARTS_CORE enemy core state, no I/O'     },
   { name: 'URLs',       file: 'test-urls.mjs',       note: 'URL generation algorithm'                },
   { name: 'Data',       file: 'test-data.mjs',       note: 'requires scripts/cache/'                 },
   { name: 'Stats',      file: 'test-stats.mjs',      note: 'may fetch from CDN'                      },
