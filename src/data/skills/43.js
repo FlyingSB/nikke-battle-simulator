@@ -1,4 +1,4 @@
-import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, isPartsHit, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: D: Killer Wife  (resource_id: 43)
@@ -137,7 +137,8 @@ export default {
           const u   = ctx.shootingUnit;
           const lv  = caster.skillLevels[2];
           const end = state.tick + TICK_RATE * 10;
-          if (ctx.hitPart === 'parts') {
+          // 零件核心敌人的核心命中同样算命中零件
+          if (isPartsHit(state, ctx.hitPart)) {
             pushBuff(state, { name: 'Kill the Target (parts)', unitId: u.id,
               coreDamagePct: getSkillValue(caster.rawBurst, 1, lv) / 100, endTick: end },
               { ...state._logCtx, partIdx: 1, lineIdx: 2 });

@@ -499,6 +499,17 @@ function resolveSkillLabel(unit, label) {
   return (raw?.name_localkey ?? slot) + part + line;
 }
 
+/**
+ * 本次命中是否视作「命中零件」（零件伤害加成、PARTS_HIT 触发、IS_PARTS_HIT 条件共用）。
+ * 零件核心敌人（Ultra / Material H / Storm Bringer）的核心即零件：核心命中同时算零件命中。
+ * @param {{ enemyCoreIsParts?: boolean }} state
+ * @param {'body'|'core'|'parts'|'intercept_parts'|undefined} hitPart
+ * @returns {boolean}
+ */
+export function isPartsHit(state, hitPart) {
+  return hitPart === 'parts' || (hitPart === 'core' && !!state.enemyCoreIsParts);
+}
+
 export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
   label = resolveSkillLabel(unit, label);
   const charged          = false;
@@ -509,7 +520,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
   const isCore           = hitPart === 'core';
   // 零件核心敌人：命中核心即命中零件，同时受零件伤害加成
   const coreIsParts      = !!state.enemyCoreIsParts;
-  const partsBonusApplies = hitPart === 'parts' || (isCore && coreIsParts);
+  const partsBonusApplies = isPartsHit(state, hitPart);
   const coreDmgIncrement = (opts.coreDmgIncrement ?? 0) + (isCore ? (sums.coreDamagePct ?? 0) : 0);
   const extraAtkDmgPct   = opts.extraAttackDamagePct ?? 0;
   const isDistributed    = opts.isDistributed    ?? false;

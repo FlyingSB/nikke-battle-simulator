@@ -145,7 +145,7 @@
 
 ## 修复：武器切换期间普攻珍藏品倍率错误生效
 
-**内容：** `battle.js` 射击循环主伤害路径的 `calcDamage` 调用传入 `favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1`，未在武器切换期间置 1；而穿透双判体部、双重命中两条路径以及 hitLog 记录均为 `weaponSwitchActive ? 1 : …`。改为与另两条路径一致即可。
+**内容：** `battle.js` 射击循环主伤害路径的 `calcDamage` 调用传入 `favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1`，未在武器切换期间置 1；而零件核心穿透本体、双重命中两条路径以及 hitLog 记录均为 `weaponSwitchActive ? 1 : …`。改为与另两条路径一致即可。
 
 **原因：** 违反 `docs/battle-logic.md` §3.1「武器切换（`WEAPON_SWITCH`）期间不生效」规则，且 hitLog 记录的倍率（1.0）与实际计算不一致，导致战斗日志公式与伤害对不上。实测：Drake: Great Villain（SG 珍藏品 lv15）Super Duper Overdrive 每发伤害被多乘 ×1.0946。
 

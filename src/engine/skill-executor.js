@@ -71,11 +71,11 @@
  *   { type: 'IN_FULL_BURST' }
  *   { type: 'IS_CHARGED' }
  *   { type: 'IS_CORE_HIT' }  — ctx.hitPart === 'core'
- *   { type: 'IS_PARTS_HIT' } — ctx.hitPart === 'parts'
+ *   { type: 'IS_PARTS_HIT' } — 命中零件，或命中零件核心敌人的核心（isPartsHit）
  */
 
 import { SKILL_TRAITS } from '../data/skill-traits.js';
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, isPartsHit,
          getBuffSums, decrementRoundBuffs, TICK_RATE, BURST_GAUGE_MAX, ALL_ALLIES } from './battle-utils.js';
 
 // 团队触发：ctx.unit 无意义，所有持有该技能的在队单位均触发
@@ -121,7 +121,8 @@ function checkOne(state, caster, cond, ctx) {
     case 'IS_CORE_HIT':
       return ctx.hitPart === 'core';
     case 'IS_PARTS_HIT':
-      return ctx.hitPart === 'parts';
+      // 零件核心敌人的核心命中同时算零件命中
+      return isPartsHit(state, ctx.hitPart);
     case 'HEALED_UNIT_IS_SELF':
       return ctx.unit?.id === caster.id;
     default:
@@ -525,7 +526,8 @@ export function onShotFired(state, unit, shotCtx, opts = {}) {
           break;
 
         case 'PARTS_HIT':
-          if (shotCtx.hitPart !== 'parts') break;
+          // 零件核心敌人的核心命中同时触发 CORE_HIT 与 PARTS_HIT
+          if (!isPartsHit(state, shotCtx.hitPart)) break;
           if (!checkConditions(state, unit, tdef, ctx)) break;
           {
             const logCtx = buildLogCtx(unit, skillKey, tdefIdx, tdef, skill, 'PARTS_HIT');

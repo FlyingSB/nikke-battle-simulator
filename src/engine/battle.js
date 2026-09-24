@@ -765,10 +765,8 @@ export function initBattle(config) {
     isStageTarget:      true,
     enemyHasCore:         config.enemy.hasCore ?? false,
     enemyCoreProtected:   config.enemy.coreProtected ?? false,
-    // 穿透双判核心：穿透攻击命中核心时同时产生一次核心伤害和一次体部伤害。
-    enemyCorePierceDual:  !!(config.enemy.corePierceDual || config.enemy.coreIsParts),
-    // 零件核心（Black Smith / Material H / Storm Bringer）：核心为无限血量零件。
-    // 核心命中同时受核心与零件伤害加成；穿透命中核心额外产生一次本体伤害（复用 PierceDual 路径）。
+    // 零件核心（Ultra / Material H / Storm Bringer）：核心为无限血量零件。
+    // 核心命中同时算核心命中与零件命中（加成与触发均生效）；穿透命中核心额外产生一次本体伤害。
     // 爆炸（RL / projectile explosion）命中不会像普通零件那样对零件+本体各结算一次，仅结算一次。
     enemyCoreIsParts:     config.enemy.coreIsParts ?? false,
     // 命中零件：所有实弹均命中敌人可破坏零件（不命中核心/躯体）。
@@ -978,7 +976,6 @@ export function tick(state) {
       events.push({ type: 'enemy_action', tick: state.tick, actionType: 'core', value: a.value });
       state.enemyHasCore        = a.value !== 'NONE' && a.value !== 'PARTS';
       state.enemyCoreProtected  = a.value === 'PROTECTED';
-      state.enemyCorePierceDual = a.value === 'PIERCE_DUAL' || a.value === 'PARTS_CORE';
       state.enemyCoreIsParts    = a.value === 'PARTS_CORE';
       state.enemyHasParts       = a.value === 'PARTS';
       break;
@@ -1381,11 +1378,9 @@ export function tick(state) {
       rampAccuracyOnShot(unit);
       const isParts = !isCore && state.enemyHasParts;
       const hitPart = isCore ? 'core' : isParts ? 'parts' : 'body';
-      // 穿透双判核心 / 零件核心：穿透攻击命中核心时，额外产生一次体部伤害。
-      // 零件核心下该次体部伤害为纯本体命中（不吃零件/核心加成）。
-      // 零件核心下爆炸（RL 普攻）命中恒只结算一次，即便带穿透也不追加本体伤害。
-      const isPierceDualBody = state.enemyCorePierceDual && isPierce && isCore
-        && !(state.enemyCoreIsParts && effectiveWeaponType === 'RL');
+      // 零件核心：穿透攻击命中核心时，额外产生一次纯本体伤害（不吃零件/核心加成）。
+      // 穿透仅见于 SG / SR（及形似它们的技能切换武器），爆炸类武器无穿透，故爆炸命中恒只结算一次。
+      const isPartsCoreBody = state.enemyCoreIsParts && isPierce && isCore;
       // 普通攻击真实伤害（buff 标记 normalAttackTrueDamage）：无视防御 + trueDamagePct 加成。
       const isTrueDamage = sums.normalAttackTrueDamage;
 
@@ -1422,18 +1417,18 @@ export function tick(state) {
         damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
       });
 
-      // ── 穿透双判核心：额外体部伤害（与核心命中同时产生，使用相同 buff 快照，独立判定暴击）──
-      let damagePierceDualBody = 0, isCritPierceDualBody = false;
-      if (isPierceDualBody) {
-        isCritPierceDualBody = rollCrit(effectiveCritRate);
-        ({ damage: damagePierceDualBody } = calcDamage({
+      // ── 零件核心穿透：额外本体伤害（与核心命中同时产生，使用相同 buff 快照，独立判定暴击）──
+      let damagePartsCoreBody = 0, isCritPartsCoreBody = false;
+      if (isPartsCoreBody) {
+        isCritPartsCoreBody = rollCrit(effectiveCritRate);
+        ({ damage: damagePartsCoreBody } = calcDamage({
           atk:               unit.stats.atk,
           atkMultiplier:     1 + sums.atkPct,
           otherAtkIncrement: sums.atkFlat,
           enemyDef:          state.enemyDef,
           hitMultiplier:     hitMult,
           weaponType:        effectiveWeaponType,
-          isCrit:            isCritPierceDualBody,
+          isCrit:            isCritPartsCoreBody,
           critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
           hitPart:           'body',
           coreDmgIncrement:  unit.coreDmgIncrement,
@@ -1551,11 +1546,11 @@ export function tick(state) {
           if (--b.roundsLeft <= 0) state.buffs.splice(bi, 1);
         }
       }
-      unit.hitCount += (isDoubleHit ? 2 : 1) + (isPierceDualBody ? 1 : 0);
+      unit.hitCount += (isDoubleHit ? 2 : 1) + (isPartsCoreBody ? 1 : 0);
       if (isCrit) unit.critCount++;
       if (isDoubleHit && isCrit2) unit.critCount++;
-      if (isPierceDualBody && isCritPierceDualBody) unit.critCount++;
-      unit.totalDamage += damage + damage2 + damagePierceDualBody;
+      if (isPartsCoreBody && isCritPartsCoreBody) unit.critCount++;
+      unit.totalDamage += damage + damage2 + damagePartsCoreBody;
       // 调试：按单位记录普通射击伤害
       // 武器切换期间用 burst 技能名标记，与普通攻击分离统计；
       // 切换来源非爆裂技能时由技能显式指定 weaponSwitchLabel（如 Drake: Great Villain S1）
@@ -1565,8 +1560,8 @@ export function tick(state) {
         ? (unit.skillState.weaponSwitchLabel
           ?? `Burst${unit.rawBurst?.name_localkey ? ' ' + unit.rawBurst.name_localkey : ''}`)
         : 'normal_shot';
-      unit.skillDamage[shotLabel]      = (unit.skillDamage[shotLabel]      ?? 0) + damage + damage2 + damagePierceDualBody;
-      unit.skillDamageCount[shotLabel] = (unit.skillDamageCount[shotLabel] ?? 0) + (isDoubleHit ? 2 : 1) + (isPierceDualBody ? 1 : 0);
+      unit.skillDamage[shotLabel]      = (unit.skillDamage[shotLabel]      ?? 0) + damage + damage2 + damagePartsCoreBody;
+      unit.skillDamageCount[shotLabel] = (unit.skillDamageCount[shotLabel] ?? 0) + (isDoubleHit ? 2 : 1) + (isPartsCoreBody ? 1 : 0);
 
       // 本次射击充能 = targetBurstEnergyPerShot × 弹丸数 + burstGaugeFlat。
       // 蓄力武器（SR/RL）：仅【Focus 受控角色】额外乘以全蓄力系数 (fullChargeBurstEnergy/10000)；
@@ -1629,21 +1624,21 @@ export function tick(state) {
             ...getEnemyDebuffBreakdown(state),
           ],
         });
-        // 穿透双判核心额外体部伤害单独记录
-        if (isPierceDualBody) {
+        // 零件核心穿透额外本体伤害单独记录
+        if (isPartsCoreBody) {
           state.hitLog.push({
             _seq: state._logSeq++,
             tick: state.tick, unitId: unit.id, label: shotLabel + '_pierce_body',
             gaugeAfter: state.burstGauge,
             atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
-            hitMult, isCrit: isCritPierceDualBody, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
+            hitMult, isCrit: isCritPartsCoreBody, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
             favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
             attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct, isFullBurst: state.fullBurstActive,
             damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: state.enemyDef,
             isPierce, pierceDamagePct: sums.pierceDamagePct ?? 0,
             ammoBeforeShot, hitPart: 'body', isCore: false,
             coreDmgIncrement: unit.coreDmgIncrement ?? 0,
-            damage: damagePierceDualBody,
+            damage: damagePartsCoreBody,
             elementDmgPct: unit.stats.elementDmgPct ?? 0,
             equipElementDmgPct: unit.stats.equipElementDmgPct ?? 0,
             equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0, favChargeDmgPct: unit.favChargeDmgPct ?? 0,

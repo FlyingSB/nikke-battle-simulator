@@ -333,6 +333,16 @@ function formatTick(tick) {
   return `${mm}:${ss}`;
 }
 
+// 旧核心状态值迁移：「穿透双判核心」已并入「零件核心」
+const LEGACY_CORE_VALUES = { PIERCE_DUAL: 'PARTS_CORE' };
+
+/** 迁移已保存的核心行动值（返回新对象，非核心行动原样复制）。 */
+function migrateCoreAction(a) {
+  return a.type === 'core' && a.value in LEGACY_CORE_VALUES
+    ? { ...a, value: LEGACY_CORE_VALUES[a.value] }
+    : { ...a };
+}
+
 // { name, label, desc } 分别对应 角色列、技能列、事件描述列
 const BATTLE_EVENT_COLS = {
   burst_i:      e => ({ name: e.unitName ?? '', label: 'Burst',  desc: 'Burst I' }),
@@ -346,7 +356,7 @@ const BATTLE_EVENT_COLS = {
   enemy_action:       e => {
     const desc = e.actionType === 'def'
       ? `DEF → ${e.value}`
-      : `核心 → ${{ EXPOSED:'暴露核心', PROTECTED:'保护核心', PIERCE_DUAL:'穿透双判核心', PARTS_CORE:'零件核心', PARTS:'命中零件', NONE:'无核心' }[e.value] ?? e.value}`;
+      : `核心 → ${{ EXPOSED:'暴露核心', PROTECTED:'保护核心', PARTS_CORE:'零件核心', PARTS:'命中零件', NONE:'无核心' }[e.value] ?? e.value}`;
     return { name: '', label: '敌人行动', desc };
   },
   reload_interrupted: e => ({ name: e.unitName ?? '', label: '换弹中断',   desc: '敌人出现' }),
@@ -1123,7 +1133,7 @@ export function createStore() {
           this.enemy.element  = e.element  ?? this.enemy.element;
           this.enemy.type     = e.type     ?? this.enemy.type;
           this.enemy.actions  = e.actions.map(a =>
-            a.type === 'position' ? { ...a, value: migratePos(a.value) } : { ...a });
+            a.type === 'position' ? { ...a, value: migratePos(a.value) } : migrateCoreAction(a));
           this.enemy._nextId  = e._nextId  ?? (this.enemy.actions.reduce((m, a) => Math.max(m, a.id), 0) + 1);
         } else {
           // 旧格式迁移：def/hasCore/distNear/distMid/distFar → actions
@@ -1358,7 +1368,7 @@ export function createStore() {
       this.enemy.hitCoef = preset.config.hitCoef ?? this.enemy.hitCoef;
       const ZONE_NUM = { NEAR: 20, MID: 35, FAR: 55 };
       this.enemy.actions = preset.config.actions.map((a, i) =>
-        a.type === 'position' && a.value in ZONE_NUM ? { ...a, value: ZONE_NUM[a.value], id: i + 1 } : { ...a, id: i + 1 });
+        a.type === 'position' && a.value in ZONE_NUM ? { ...a, value: ZONE_NUM[a.value], id: i + 1 } : { ...migrateCoreAction(a), id: i + 1 });
       this.enemy._nextId = preset.config.actions.length + 1;
       this.selectedPresetId = id;
     },
@@ -1709,7 +1719,6 @@ export function createStore() {
             def:            Number(initDefAction?.value) || 100,
             hasCore:        initCore !== 'NONE' && initCore !== 'PARTS',
             coreProtected:  initCore === 'PROTECTED',
-            corePierceDual: initCore === 'PIERCE_DUAL' || initCore === 'PARTS_CORE',
             coreIsParts:    initCore === 'PARTS_CORE',
             hasParts:       initCore === 'PARTS',
             element:        this.enemy.element,
