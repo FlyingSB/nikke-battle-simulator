@@ -7,7 +7,7 @@
 
 ## 背景
 
-SSR 专属珍藏品（resource_id `200XXX` / `201XXX`）会替换角色全部三个技能槽位（`skill_change_slot = 1/2/3`）。  
+SSR 专属珍藏品（resource_id `200XXX` / `201XXX` / `202XXX`）会替换角色全部三个技能槽位（`skill_change_slot = 1/2/3`）。  
 替换后的技能与基础版本在数值和触发条件上均不同。
 
 若同时建模 SSR 版与基础版（通过 `caster.ssrFavSkills?.skill1 ?? caster.rawSkill1` 回退），会导致：
@@ -27,11 +27,15 @@ SSR 专属珍藏品（resource_id `200XXX` / `201XXX`）会替换角色全部三
 |------|:-----------:|--------------|:-----------------:|
 | Miranda | 32 | Sheet of Paper | 200601 |
 | Drake | 101 | Villain Figurine | 200801 |
+| Sugar | 140 | Commemorative Keychain | 202101 |
 | Privaty | 170 | Central Government Special Medal | 201401 |
 | Tove | 192 | Fire Starter | 201101 |
+| Rosanna | 280 | Signet Ring | 202001 |
 | Moran | 281 | Peony Hairpin | 201701 |
 | Helm | 352 | Antique Compass | 200701 |
 | Zwei | 390 | Four-Leaf Clover Bookmark | 201501 |
+| Flora | 411 | Planter We Made Together | 201901 |
+| Phantom | 580 | Precious Masks | 201801 |
 
 ---
 

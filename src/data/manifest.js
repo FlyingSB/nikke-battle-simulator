@@ -108,7 +108,11 @@ export const FAVORITE_ITEM_URLS = {
   200701: `${CDN_BASE}/qf-35/xj-78/2cef2b4f5f105b32637e4fa0cb9b2b36.json`, // Antique Compass (Helm SSR)
   200801: `${CDN_BASE}/mq-17/ov-18/324e104bfcec45d056cbd6ee6f12a6ee.json`, // Villain Figurine (Drake SSR)
   201401: `${CDN_BASE}/ym-06/wl-16/2a2ddcb790f7df98815ab1dfc36a20b9.json`, // Central Government Special Medal (Privaty SSR)
+  201801: `${CDN_BASE}/th-09/oh-73/f99196b54c350c000bd96c4fd8ca2730.json`, // Precious Masks (Phantom SSR)
+  201901: `${CDN_BASE}/dz-83/ft-13/833a86913db43192888345b92b2a8e9e.json`, // Planter We Made Together (Flora SSR)
+  202001: `${CDN_BASE}/fe-77/eb-14/7378cab1e0489e6d42d90807739188ea.json`, // Signet Ring (Rosanna SSR)
+  202101: `${CDN_BASE}/bp-59/bq-00/3fa9f3ca6bfc68d9119313a765995f1d.json`, // Commemorative Keychain (Sugar SSR)
 };
 
 /** manifest 变更时递增此版本号，以使 localStorage 缓存失效 */
-export const MANIFEST_VERSION = '20260601';
+export const MANIFEST_VERSION = '20260924';

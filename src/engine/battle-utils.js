@@ -99,7 +99,8 @@ export function getBuffSums(state, unitId) {
   sums.atkPct  = unit.equipAtkPct  ?? 0;
   sums.atkFlat = unit.equipAtkFlat ?? 0;
   let pierce = false;
-  let elementAdvantageVsElectric = false;
+  // 「对 X 代码敌人的伤害视为优越代码伤害」：buff 字段 elementAdvantageVs = 'Electric' 等，汇总为元素列表
+  const elementAdvantageVs = [];
   // 普通攻击造成真实伤害（无视防御，受 trueDamagePct 加成），如 Guilty/Sin Bunny Mode: Engage
   let normalAttackTrueDamage = false;
   for (const b of state.buffs) {
@@ -111,10 +112,29 @@ export function getBuffSums(state, unitId) {
     const k = b.stacks ?? 1;
     for (const f of BUFF_NUMERIC_FIELDS) sums[f] += (b[f] ?? 0) * k;
     if (b.pierce) pierce = true;
-    if (b.elementAdvantageVsElectric) elementAdvantageVsElectric = true;
+    if (b.elementAdvantageVs && !elementAdvantageVs.includes(b.elementAdvantageVs))
+      elementAdvantageVs.push(b.elementAdvantageVs);
     if (b.normalAttackTrueDamage) normalAttackTrueDamage = true;
   }
-  return { ...sums, pierce, elementAdvantageVsElectric, normalAttackTrueDamage };
+  return { ...sums, pierce, elementAdvantageVs, normalAttackTrueDamage };
+}
+
+// 被克制关系反查：value 克制 key（Fire > Wind > Iron > Electric > Water > Fire）
+const ELEMENT_COUNTERED_BY = { Wind: 'Fire', Iron: 'Wind', Electric: 'Iron', Water: 'Electric', Fire: 'Water' };
+
+/**
+ * 计算本次命中参与克制判定的攻击方元素。
+ * 若 buff 声明「对 enemyElement 代码敌人的伤害视为优越代码伤害」（sums.elementAdvantageVs 含该元素），
+ * 则返回克制该元素的代码，使 calcDamage 判定为优越代码；否则返回单位自身元素。
+ * @param {object} unit
+ * @param {{ elementAdvantageVs?: string[] }} sums
+ * @param {string|null} enemyElement
+ * @returns {string|null}
+ */
+export function resolveAttackerElement(unit, sums, enemyElement) {
+  if (enemyElement && sums.elementAdvantageVs?.includes(enemyElement))
+    return ELEMENT_COUNTERED_BY[enemyElement];
+  return unit.element;
 }
 
 // ─── 敌人承伤汇总 ─────────────────────────────────────────────────────────────
@@ -548,7 +568,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     coreIsParts,
     distanceAdvantage: distAdvForHit,
     isFullBurst,
-    attackerElement:   (sums.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
+    attackerElement:   resolveAttackerElement(unit, sums, state.enemyElement),
     defenderElement:   state.enemyElement,
     elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantagePct ?? 0),
     isCharged:         charged,

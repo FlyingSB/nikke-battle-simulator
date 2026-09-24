@@ -19,7 +19,7 @@ import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAU
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, initUnitMaxAmmo, recalcMaxAmmo, unitDistanceAdvantage } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, initUnitMaxAmmo, recalcMaxAmmo, unitDistanceAdvantage, resolveAttackerElement } from './battle-utils.js';
 import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -1398,7 +1398,7 @@ export function tick(state) {
         coreIsParts:       state.enemyCoreIsParts,
         distanceAdvantage: distAdv,
         isFullBurst:       state.fullBurstActive,
-        attackerElement:   (sums.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
+        attackerElement:   resolveAttackerElement(unit, sums, state.enemyElement),
         defenderElement:   state.enemyElement,
         elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantagePct ?? 0),
         isCharged,
@@ -1434,7 +1434,7 @@ export function tick(state) {
           coreDmgIncrement:  unit.coreDmgIncrement,
           distanceAdvantage: distAdv,
           isFullBurst:       state.fullBurstActive,
-          attackerElement:   (sums.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
+          attackerElement:   resolveAttackerElement(unit, sums, state.enemyElement),
           defenderElement:   state.enemyElement,
           elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums.elementAdvantagePct ?? 0),
           isCharged,
@@ -1512,7 +1512,7 @@ export function tick(state) {
           coreIsParts:       state.enemyCoreIsParts,
           distanceAdvantage: distAdv,
           isFullBurst:       state.fullBurstActive,
-          attackerElement:   (sums2.elementAdvantageVsElectric && state.enemyElement === 'Electric') ? 'Iron' : unit.element,
+          attackerElement:   resolveAttackerElement(unit, sums2, state.enemyElement),
           defenderElement:   state.enemyElement,
           elementAdvantageDmgIncrement: (unit.stats.elementDmgPct ?? 0) + (sums2.elementAdvantagePct ?? 0),
           isCharged,

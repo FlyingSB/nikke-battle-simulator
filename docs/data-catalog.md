@@ -7,7 +7,7 @@
 ## CDN 静态数据
 
 CDN 来源：`sg-tools-cdn.blablalink.com`（通过 blablalink.com/shiftyspad 发现）。  
-URL 哈希随游戏补丁变化，版本号记录在 [`src/data/manifest.js`](../src/data/manifest.js)（当前版本：`20260424`）。
+URL 哈希随游戏补丁变化，版本号记录在 [`src/data/manifest.js`](../src/data/manifest.js)（当前版本：`20260924`）。
 
 ### 共享游戏数据
 
@@ -103,7 +103,7 @@ option_id = state_effect_id_prefix × 100 + level   (level 1–15)
 全部珍藏品（含 SSR）均已本地缓存。
 
 ID 规则：`100XYY`，X = 武器类型（1=AR / 2=MG / 3=RL / 4=SG / 5=SMG / 6=SR），YY = `01`（R）/ `02`（SR）。  
-SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个技能等级。
+SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升全部三个技能等级。
 
 | 文件 | 珍藏品名称 | 类型 |
 |------|-----------|------|
@@ -136,6 +136,10 @@ SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个
 | [`201501.json`](../src/data/static/favorites/201501.json) | Four-Leaf Clover Bookmark（Zwei SSR） | SSR |
 | [`201601.json`](../src/data/static/favorites/201601.json) | Metal Pendant（Centi SSR） | SSR |
 | [`201701.json`](../src/data/static/favorites/201701.json) | Peony Hairpin（Moran SSR） | SSR |
+| [`201801.json`](../src/data/static/favorites/201801.json) | Precious Masks（Phantom SSR） | SSR |
+| [`201901.json`](../src/data/static/favorites/201901.json) | Planter We Made Together（Flora SSR） | SSR |
+| [`202001.json`](../src/data/static/favorites/202001.json) | Signet Ring（Rosanna SSR） | SSR |
+| [`202101.json`](../src/data/static/favorites/202101.json) | Commemorative Keychain（Sugar SSR） | SSR |
 
 ---
 
@@ -161,6 +165,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个
 | ❌ | Laplace: Ultimate Hero | [`103.json`](../src/data/static/nikke/103.json) | [`103.js`](../src/data/skills/103.js) |
 | ❌ | Drake: Great Villain | [`104.json`](../src/data/static/nikke/104.json) | [`104.js`](../src/data/skills/104.js) |
 | ❌ | Maxwell: Ordinary Mechanic | [`105.json`](../src/data/static/nikke/105.json) | [`105.js`](../src/data/skills/105.js) |
+| ❌ | Sugar（SSR：Commemorative Keychain） | [`140.json`](../src/data/static/nikke/140.json) | [`140.js`](../src/data/skills/140.js) |
 | ❌ | Mihara: Bonding Chain | [`162.json`](../src/data/static/nikke/162.json) | [`162.js`](../src/data/skills/162.js) |
 | ✔️ | Privaty（SSR：Central Government Special Medal） | [`170.json`](../src/data/static/nikke/170.json) | [`170.js`](../src/data/skills/170.js) |
 | ❌ | Maiden: Ice Rose | [`183.json`](../src/data/static/nikke/183.json) | [`183.js`](../src/data/skills/183.js) |
@@ -176,6 +181,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个
 | ✔️ | Blanc | [`270.json`](../src/data/static/nikke/270.json) | [`270.js`](../src/data/skills/270.js) |
 | ✔️ | Noir | [`271.json`](../src/data/static/nikke/271.json) | [`271.js`](../src/data/skills/271.js) |
 | ❌ | Rouge | [`272.json`](../src/data/static/nikke/272.json) | [`272.js`](../src/data/skills/272.js) |
+| ❌ | Rosanna（SSR：Signet Ring） | [`280.json`](../src/data/static/nikke/280.json) | [`280.js`](../src/data/skills/280.js) |
 | ✔️ | Moran | [`281.json`](../src/data/static/nikke/281.json) | [`281.js`](../src/data/skills/281.js) |
 | ❌ | Privaty: Unkind Maid | [`313.json`](../src/data/static/nikke/313.json) | [`313.js`](../src/data/skills/313.js) |
 | ❌ | Soda: Twinkling Bunny | [`314.json`](../src/data/static/nikke/314.json) | [`314.js`](../src/data/skills/314.js) |
@@ -190,6 +196,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个
 | ✔️ | Zwei（SSR：Four-Leaf Clover Bookmark） | [`390.json`](../src/data/static/nikke/390.json) | [`390.js`](../src/data/skills/390.js) |
 | ❌ | Guilty: Mighty Bunny | [`404.json`](../src/data/static/nikke/404.json) | [`404.js`](../src/data/skills/404.js) |
 | ❌ | Sin: Swift Bunny | [`405.json`](../src/data/static/nikke/405.json) | [`405.js`](../src/data/skills/405.js) |
+| ❌ | Flora（SSR：Planter We Made Together） | [`411.json`](../src/data/static/nikke/411.json) | [`411.js`](../src/data/skills/411.js) |
 | ❌ | Volume | [`431.json`](../src/data/static/nikke/431.json) | [`431.js`](../src/data/skills/431.js) |
 | ✔️ | Naga | [`450.json`](../src/data/static/nikke/450.json) | [`450.js`](../src/data/skills/450.js) |
 | ✔️ | Red Hood | [`470.json`](../src/data/static/nikke/470.json) | [`470.js`](../src/data/skills/470.js) |
@@ -199,6 +206,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX`）与角色绑定，提升全部三个
 | ✔️ | Little Mermaid | [`513.json`](../src/data/static/nikke/513.json) | [`513.js`](../src/data/skills/513.js) |
 | ❌ | Grave | [`514.json`](../src/data/static/nikke/514.json) | [`514.js`](../src/data/skills/514.js) |
 | ❌ | Cinderella: Crystal Wave | [`515.json`](../src/data/static/nikke/515.json) | [`515.js`](../src/data/skills/515.js) |
+| ❌ | Phantom（SSR：Precious Masks） | [`580.json`](../src/data/static/nikke/580.json) | [`580.js`](../src/data/skills/580.js) |
 | ❌ | Arcana: Fortune Mate | [`583.json`](../src/data/static/nikke/583.json) | [`583.js`](../src/data/skills/583.js) |
 | ✔️ | Mint | [`600.json`](../src/data/static/nikke/600.json) | [`600.js`](../src/data/skills/600.js) |
 | ❌ | Prika | [`601.json`](../src/data/static/nikke/601.json) | [`601.js`](../src/data/skills/601.js) |

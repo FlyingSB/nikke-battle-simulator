@@ -82,11 +82,15 @@ const FAV_ITEMS_RS = [
 const SSR_FAV_BY_CHAR = {
    32: 200601, // Miranda   → Sheet of Paper
   101: 200801, // Drake     → Villain Figurine
+  140: 202101, // Sugar     → Commemorative Keychain
   170: 201401, // Privaty   → Central Government Special Medal
   192: 201101, // Tove      → Fire Starter
+  280: 202001, // Rosanna   → Signet Ring
   281: 201701, // Moran     → Peony Hairpin
   352: 200701, // Helm      → Antique Compass
   390: 201501, // Zwei      → Four-Leaf Clover Bookmark
+  411: 201901, // Flora     → Planter We Made Together
+  580: 201801, // Phantom   → Precious Masks
 };
 
 // SSR 珍藏品满级对应的 favLevel 档位（0=Lv5 / 1=Lv10 / 2=Lv15）
