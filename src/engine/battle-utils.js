@@ -150,6 +150,18 @@ export function getEnemyDamageTakenPct(state) {
   return total;
 }
 
+// 敌人当前实际 DEF：基础 DEF（由 enemyDefActions 脚本驱动）× (1 − Σ enemyDefDownPct)，下限 0。
+// enemyDefDownPct 来自 unitId === ENEMY_UNIT_ID 的活跃 debuff（含叠层），如 Phantom Calling Card。
+export function getEffectiveEnemyDef(state) {
+  let defDown = 0;
+  for (const b of state.buffs) {
+    if (b.unitId !== ENEMY_UNIT_ID) continue;
+    if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
+    defDown += (b.enemyDefDownPct ?? 0) * (b.stacks ?? 1);
+  }
+  return state.enemyDef * Math.max(0, 1 - defDown);
+}
+
 /**
  * 构建敌人承伤 debuff 的 buffBreakdown 条目，与 damageTakenMult 来源严格对应：
  *   1. state.buffs 中 unitId === '__enemy__' 的具名条目
@@ -558,7 +570,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     atk:               unit.stats.atk,
     atkMultiplier:     1 + sums.atkPct,
     otherAtkIncrement: sums.atkFlat + extraAtkFlat,
-    enemyDef:          state.enemyDef,
+    enemyDef:          getEffectiveEnemyDef(state),
     hitMultiplier:     hitMult,
     weaponType:        unit.weaponType,
     isCrit,
@@ -610,7 +622,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       affectedByFullBurst: opts.affectedByFullBurst ?? false,
       isFullBurst,
       damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state) + distributedDamagePct,
-      enemyDef: isTrueDamage ? 0 : state.enemyDef,
+      enemyDef: isTrueDamage ? 0 : getEffectiveEnemyDef(state),
       isDistributed, distributedDamagePct,
       isCore, coreDmgIncrement, damage,
       elementDmgPct: unit.stats.elementDmgPct ?? 0,

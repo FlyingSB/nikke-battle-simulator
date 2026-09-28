@@ -83,7 +83,7 @@ export default {
   //   Thief's Dagger: Hit Rate ▲ {p06}%. Stacks up to {p07} times and lasts for {p08} sec.
   // ■ Activates when landing a normal attack on a target that is in the Calling Card state. Affects self.
   //   Attack Damage ▲ {p09}% for {p10} round(s).
-  // p00 DEF ▼%:             [19.02 … 32.19]  — 敌方 DEF ▼ 不建模（同 322.js：enemyDef 由脚本驱动）
+  // p00 DEF ▼%:             [19.02 … 32.19]  — enemyDefDownPct，经 getEffectiveEnemyDef 作用于敌方 DEF
   // p01 sec (const):        [5,...]
   // p02 Hit Rate ▲%:        [15.22 … 25.75]
   // p03 max stacks (const): [3,...]
@@ -106,10 +106,11 @@ export default {
           const lv = s1._activeSkillLevel;
 
           if (!callingCardActive(state, caster)) {
-            // P1：施加 Calling Card（DEF ▼ 不建模，仅作状态标记 + 日志）
+            // P1：施加 Calling Card —— 敌方 DEF ▼ p00%（S2 满层时随 Calling Card 一并移除）
             const endTick = state.tick + TICK_RATE * getSkillValue(s1, 1, lv);
             caster.skillState.phantomCallingCardEndTick = endTick;
-            pushBuff(state, { name: CALLING_CARD, unitId: ENEMY_UNIT_ID, isDebuff: true, endTick },
+            pushBuff(state, { name: CALLING_CARD, unitId: ENEMY_UNIT_ID, isDebuff: true,
+              enemyDefDownPct: getSkillValue(s1, 0, lv) / 100, endTick },
               { ...state._logCtx, partIdx: 0 });
             // P2：Thief's Dagger 叠 1 层
             addThiefDagger(state, caster, { ...state._logCtx, partIdx: 1 });

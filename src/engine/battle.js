@@ -19,7 +19,7 @@ import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAU
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, initUnitMaxAmmo, recalcMaxAmmo, unitDistanceAdvantage, resolveAttackerElement } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, unitDistanceAdvantage, resolveAttackerElement } from './battle-utils.js';
 import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -1393,7 +1393,7 @@ export function tick(state) {
         atk:               unit.stats.atk,
         atkMultiplier:     1 + sums.atkPct,
         otherAtkIncrement: sums.atkFlat,
-        enemyDef:          state.enemyDef,
+        enemyDef:          getEffectiveEnemyDef(state),
         hitMultiplier:     hitMult,
         weaponType:        effectiveWeaponType,
         isCrit,
@@ -1430,7 +1430,7 @@ export function tick(state) {
           atk:               unit.stats.atk,
           atkMultiplier:     1 + sums.atkPct,
           otherAtkIncrement: sums.atkFlat,
-          enemyDef:          state.enemyDef,
+          enemyDef:          getEffectiveEnemyDef(state),
           hitMultiplier:     hitMult,
           weaponType:        effectiveWeaponType,
           isCrit:            isCritPartsCoreBody,
@@ -1507,7 +1507,7 @@ export function tick(state) {
           atk:               unit.stats.atk,
           atkMultiplier:     1 + sums2.atkPct,
           otherAtkIncrement: sums2.atkFlat,
-          enemyDef:          state.enemyDef,
+          enemyDef:          getEffectiveEnemyDef(state),
           hitMultiplier:     hitMult,
           weaponType:        effectiveWeaponType,
           isCrit:            isCrit2,
@@ -1600,7 +1600,7 @@ export function tick(state) {
           favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
           attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct, isFullBurst: state.fullBurstActive,
           damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
-          enemyDef: isTrueDamage ? 0 : state.enemyDef,
+          enemyDef: isTrueDamage ? 0 : getEffectiveEnemyDef(state),
           isTrueDamage, trueDamagePct: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
           isPierce, pierceDamagePct: isPierce ? (sums.pierceDamagePct ?? 0) : 0,
           ammoBeforeShot, hitPart, isCore, isParts,
@@ -1639,7 +1639,7 @@ export function tick(state) {
             hitMult, isCrit: isCritPartsCoreBody, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
             favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
             attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct, isFullBurst: state.fullBurstActive,
-            damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: state.enemyDef,
+            damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: getEffectiveEnemyDef(state),
             isPierce, pierceDamagePct: sums.pierceDamagePct ?? 0,
             ammoBeforeShot, hitPart: 'body', isCore: false,
             coreDmgIncrement: unit.coreDmgIncrement ?? 0,
@@ -1678,7 +1678,7 @@ export function tick(state) {
             favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
             attackDamagePct: sums2log.attackDamagePct + sums2log.normalAttackDamagePct,
             isFullBurst: state.fullBurstActive,
-            damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: state.enemyDef,
+            damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: getEffectiveEnemyDef(state),
             isPierce, pierceDamagePct: isPierce ? (sums2log.pierceDamagePct ?? 0) : 0,
             ammoBeforeShot, hitPart, isCore, isParts,
             coreDmgIncrement: (unit.coreDmgIncrement ?? 0) + (isCore ? (sums2log.coreDamagePct ?? 0) : 0),

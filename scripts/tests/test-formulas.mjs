@@ -14,7 +14,7 @@
 
 import { calcDamage, calcExpectedDamage, hasDistanceAdvantage, getElementAdvantage } from '../../src/engine/damage.js';
 import { applyGradeCore } from '../../src/engine/stats.js';
-import { fireSkillHit, getBuffSums, pushBuff } from '../../src/engine/battle-utils.js';
+import { fireSkillHit, getBuffSums, pushBuff, getEffectiveEnemyDef, ENEMY_UNIT_ID } from '../../src/engine/battle-utils.js';
 import {
   ELEMENT_ADVANTAGE_BASE,
   DISTANCE_ADVANTAGE_BONUS,
@@ -1194,6 +1194,35 @@ section('T37: fireSkillHit buffBreakdown — sustainedDamagePct 出现条件及�
   fireSkillHit(s2, u2, 1.0, sums2, 'T37-hit-nosustain', { sustainedDamage: false });
   const bd2 = s2.hitLog[0]?.buffBreakdown?.find(b => b.name === 'SustainTest');
   eq('T37: sustainedDamage=false 时 sustainedDamagePct 不出现', bd2, undefined);
+}
+
+// ── T38: 敌方 DEF ▼（enemyDefDownPct）────────────────────────────────────────
+//
+// 敌方 debuff 的 enemyDefDownPct（含叠层）按比例降低 state.enemyDef，
+// fireSkillHit 以降低后的 DEF 计算伤害；真实伤害不受影响。
+
+section('T38: 敌方 DEF ▼ — getEffectiveEnemyDef 与 fireSkillHit');
+{
+  const { state, unit } = makeHitState();
+  state.enemyDef = 2_000;
+  eq('T38: 无 debuff 时实际 DEF = 基础 DEF', getEffectiveEnemyDef(state), 2_000);
+
+  pushBuff(state, { name: 'DefDownTest', unitId: ENEMY_UNIT_ID, isDebuff: true,
+    enemyDefDownPct: 0.25, endTick: Infinity, stackLimit: 2 });
+  pushBuff(state, { name: 'DefDownTest', unitId: ENEMY_UNIT_ID, isDebuff: true,
+    enemyDefDownPct: 0.25, endTick: Infinity, stackLimit: 2 });
+  near('T38: 2 层 × 25% → 实际 DEF = 2000 × 0.5', getEffectiveEnemyDef(state), 1_000);
+
+  const dmg = fireSkillHit(state, unit, 1.0, getBuffSums(state, unit.id), 'T38-hit');
+  eq('T38: 技能伤害 = (10000 − 1000) × 1.0', dmg, 9_000);
+  eq('T38: hitLog.enemyDef 记录实际 DEF', state.hitLog[0]?.enemyDef, 1_000);
+
+  // 超过 100% 时 DEF 下限为 0
+  const { state: s2 } = makeHitState();
+  s2.enemyDef = 2_000;
+  pushBuff(s2, { name: 'DefDownBig', unitId: ENEMY_UNIT_ID, isDebuff: true,
+    enemyDefDownPct: 1.5, endTick: Infinity });
+  eq('T38: DEF ▼ > 100% 时实际 DEF 下限为 0', getEffectiveEnemyDef(s2), 0);
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────

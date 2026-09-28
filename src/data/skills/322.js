@@ -1,4 +1,4 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE, ENEMY_UNIT_ID } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Marciana: Marine Study  (resource_id: 322)
@@ -129,11 +129,12 @@ export default {
   // p02: [10,...]
   // p03: [16.22 … 27.45]  （攻击伤害 ▲%，10s）
   // p04: [10,...]
-  // p05: [6.24 … 10.56]   （敌方 DEF ▼%，High-Risk）
+  // p05: [6.24 … 10.56]   （敌方 DEF ▼%，High-Risk → enemyDefDownPct）
   // p06: [20,...]         （High-Risk 持续秒数）
   //
-  // 敌方 DEF ▼ 无法通过 buff 系统建模（enemyDef 由 enemyDefActions 脚本驱动），不建模。
-  // 但 High-Risk Target 状态会被记录（供 S1 Part3 判定），仅当敌人为 Electric Code（即 Electric 属性）时生效。
+  // High-Risk Target 仅当敌人为 Electric Code（即 Electric 属性）时施加：
+  //   敌方 DEF ▼ p05% 以 enemyDefDownPct debuff 建模（经 getEffectiveEnemyDef 作用于敌方 DEF）；
+  //   状态结束时刻另记于 skillState，供 S1 Part3 判定。
   burst: {
     groupId: 13223,
     triggers: [
@@ -147,10 +148,15 @@ export default {
             elementAdvantagePct: elemAdvPct, attackDamagePct: atkDmgPct, endTick: end10 });
 
           // High-Risk Target：仅对 Electric Code 敌人（Electric 属性）激活，持续 p06=20s。
-          //   DEF ▼ 本身不建模；此状态用于 S1 Part3 的 High-Risk 附加伤害判定。
+          //   敌方 DEF ▼ p05%；同时记录结束时刻，供 S1 Part3 的 High-Risk 附加伤害判定。
           if (state.enemyElement === 'Electric') {
-            const durSec = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]);
-            caster.skillState.mms_highRiskEndTick = state.tick + TICK_RATE * durSec;
+            const defDownPct = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
+            const durSec     = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]);
+            const endTick    = state.tick + TICK_RATE * durSec;
+            caster.skillState.mms_highRiskEndTick = endTick;
+            pushBuff(state, { name: 'High-Risk Target', unitId: ENEMY_UNIT_ID, isDebuff: true,
+              enemyDefDownPct: defDownPct, endTick },
+              { ...state._logCtx, partIdx: 1 });
           }
         },
       },
