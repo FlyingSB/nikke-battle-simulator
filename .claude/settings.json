@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"process.stdout.write(JSON.stringify({hookSpecificOutput:{hookEventName:'UserPromptSubmit',additionalContext:'【语言要求】本项目 CLAUDE.md 规定：所有回复、文档、注释、提交信息均必须使用中文（代码标识符除外）。无论上下文中英文内容多少，都必须用中文回复。'}}))\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
