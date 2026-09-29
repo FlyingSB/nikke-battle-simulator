@@ -19,7 +19,7 @@ import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAU
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, unitDistanceAdvantage, resolveAttackerElement } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, unitDistanceAdvantage, resolveAttackerElement, isPartsHit } from './battle-utils.js';
 import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -491,8 +491,9 @@ export function initBattle(config) {
     // DOWN_Charge 型（持续按住自动连发，如 Liberalio）：发间无前后摇，只计蓄力时长。
     // UP 型（松手触发）：每次发射需重新瞄准（前摇）和恢复（后摇），前后摇正常计入。
     const isDownCharge = cfg.isDownCharge ?? false;
+    // 珍藏品技能等级跟随角色技能等级（cfg.skillLevels）；ssrFavSkillLevel 仅供脚本显式覆盖
     const ssrFavSkills = cfg._favItemData
-      ? getSsrFavSkills(cfg._favItemData, cfg.favoriteItem?.level ?? 0, cfg.ssrFavSkillLevel)
+      ? getSsrFavSkills(cfg._favItemData, cfg.favoriteItem?.level ?? 0, cfg.ssrFavSkillLevel ?? cfg.skillLevels)
       : null;
     const unit = {
       id:               cfg.characterId,
@@ -769,8 +770,6 @@ export function initBattle(config) {
     // 核心命中同时算核心命中与零件命中（加成与触发均生效）；穿透命中核心额外产生一次本体伤害。
     // 爆炸（RL / projectile explosion）命中不会像普通零件那样对零件+本体各结算一次，仅结算一次。
     enemyCoreIsParts:     config.enemy.coreIsParts ?? false,
-    // 命中零件：所有实弹均命中敌人可破坏零件（不命中核心/躯体）。
-    enemyHasParts:        config.enemy.hasParts ?? false,
     // 敌人连续距离（0..100，与 bonusrange 同刻度）。由相位时间表派生；null=不可瞄准（无优势）。
     // config.enemy.distance 可整体覆盖（legacy / test；接受数字或旧 zone 标签）。
     enemyDistance:      phaseToDistance(config.enemy.distance ?? initialZone),
@@ -979,10 +978,9 @@ export function tick(state) {
   for (const a of state.enemyCoreActions) {
     if (a.startTick === state.tick) {
       events.push({ type: 'enemy_action', tick: state.tick, actionType: 'core', value: a.value });
-      state.enemyHasCore        = a.value !== 'NONE' && a.value !== 'PARTS';
+      state.enemyHasCore        = a.value !== 'NONE';
       state.enemyCoreProtected  = a.value === 'PROTECTED';
       state.enemyCoreIsParts    = a.value === 'PARTS_CORE';
-      state.enemyHasParts       = a.value === 'PARTS';
       break;
     }
   }
@@ -1381,8 +1379,9 @@ export function tick(state) {
       );
       // 推进散布收束（MG 暖机；AR/SMG/SG 恒定）。判定用推进前的 currentScale，判定后推进。
       rampAccuracyOnShot(unit);
-      const isParts = !isCore && state.enemyHasParts;
-      const hitPart = isCore ? 'core' : isParts ? 'parts' : 'body';
+      // 普通零件不参与伤害计算（血量难以估算）；仅零件核心的核心命中同时算命中零件。
+      const hitPart = isCore ? 'core' : 'body';
+      const isParts = isPartsHit(state, hitPart);
       // 零件核心：穿透攻击命中核心时，额外产生一次纯本体伤害（不吃零件/核心加成）。
       // 穿透仅见于 SG / SR（及形似它们的技能切换武器），爆炸类武器无穿透，故爆炸命中恒只结算一次。
       const isPartsCoreBody = state.enemyCoreIsParts && isPierce && isCore;

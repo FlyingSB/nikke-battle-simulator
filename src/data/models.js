@@ -561,13 +561,14 @@ export function getFavItemSkillEffects(favData, itemLevel) {
  * 每项包含对应角色技能的完整 10 级数值表。`level1`/`level2` 数组归属于
  * `collection_skill_group_data`（全队基础被动），与此处无关。
  *
- * favoriteitem 技能由玩家独立升级（1–10），CDN 不编码当前等级；默认按满级（10）计算。
+ * CDN 不编码玩家当前技能等级；调用方应传入角色的技能等级，省略时按满级（10）计算。
  *
  * 当珍藏品没有 `favoriteitem_skill_group_data`（R/SR 物品）时返回 `null`。
  *
  * @param {object} favData              原始 CDN 珍藏品 JSON（.data 字段）
  * @param {number} itemLevel            物品强化等级（保留参数，当前未使用）
- * @param {number} [skillLevelOverride] 指定技能等级（1–10）；省略时默认为 10
+ * @param {number|number[]} [skillLevelOverride] 技能等级（1–10）：单个数值作用于全部技能，
+ *                                      数组则按 [skill1, skill2, burst] 分别指定；省略时默认为 10
  * @returns {{ skill1: object, skill2: object, burst: object } | null}
  */
 export function getSsrFavSkills(favData, itemLevel, skillLevelOverride) {
@@ -581,7 +582,10 @@ export function getSsrFavSkills(favData, itemLevel, skillLevelOverride) {
     const label = slotLabels[entry?.skill_change_slot];
     if (!info || !label) continue;
     // CDN JSON 中的 skill_level 始终为 1（非玩家实际等级），不可用；默认满级 10
-    const skillLv = skillLevelOverride ?? 10;
+    const override = Array.isArray(skillLevelOverride)
+      ? skillLevelOverride[entry.skill_change_slot - 1]
+      : skillLevelOverride;
+    const skillLv = override ?? 10;
     result[label] = { ...info, _activeSkillLevel: skillLv };
   }
   return Object.keys(result).length ? result : null;

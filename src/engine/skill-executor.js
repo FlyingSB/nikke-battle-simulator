@@ -560,7 +560,7 @@ export function onShotFired(state, unit, shotCtx, opts = {}) {
 }
 
 /**
- * 全蓄力击发之前调用（battle.js line-1033 getBuffSums 之前）。
+ * 全蓄力击发之前调用（battle.js getBuffSums 之前）。
  * 处理 DURING_FULL_CHARGE 触发——此时机比 FULL_CHARGE 更早，推入的 buff 可被本次普攻的 getBuffSums 读到。
  */
 export function fireDuringFullChargeTriggers(state, unit) {

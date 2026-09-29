@@ -337,14 +337,44 @@ function formatTick(tick) {
   return `${mm}:${ss}`;
 }
 
-// 旧核心状态值迁移：「穿透双判核心」已并入「零件核心」
-const LEGACY_CORE_VALUES = { PIERCE_DUAL: 'PARTS_CORE' };
+// 旧核心状态值迁移：「穿透双判核心」已并入「零件核心」；「命中零件」已移除（原本即无核心）
+const LEGACY_CORE_VALUES = { PIERCE_DUAL: 'PARTS_CORE', PARTS: 'NONE' };
 
 /** 迁移已保存的核心行动值（返回新对象，非核心行动原样复制）。 */
 function migrateCoreAction(a) {
   return a.type === 'core' && a.value in LEGACY_CORE_VALUES
     ? { ...a, value: LEGACY_CORE_VALUES[a.value] }
     : { ...a };
+}
+
+// 旧距离标签 NEAR/MID/FAR → 连续距离数字
+const LEGACY_ZONE_DISTANCE = { NEAR: 20, MID: 35, FAR: 55 };
+const DEFAULT_ENEMY_DISTANCE = 35;
+// 固定初始行数量（DEF / 核心 / 距离，时间恒为 0）
+const FIXED_ENEMY_ACTION_COUNT = 3;
+
+/** 迁移单条距离行动：旧标签转数字；旧「距离=HIDDEN」转为独立的 hidden 类型。 */
+function migratePositionAction(a) {
+  if (a.value === 'HIDDEN') return { ...a, type: 'hidden', value: 'HIDDEN' };
+  return a.value in LEGACY_ZONE_DISTANCE ? { ...a, value: LEGACY_ZONE_DISTANCE[a.value] } : { ...a };
+}
+
+/**
+ * 迁移已保存的敌人行动列表（返回新数组）。
+ * 固定初始行的类型不可更改，若旧数据里初始距离行为 HIDDEN，
+ * 则初始行恢复为默认距离，并在 0 秒追加一条「隐藏」行动以保持原有行为。
+ * @param {{ id?: number, startTimeS: number, type: string, value: * }[]} actions
+ */
+function migrateEnemyActions(actions) {
+  const migrated = actions.map(a => (a.type === 'position' ? migratePositionAction(a) : migrateCoreAction(a)));
+  const maxId = migrated.reduce((m, a) => Math.max(m, a.id ?? 0), 0);
+  const fixed = migrated.slice(0, FIXED_ENEMY_ACTION_COUNT);
+  const displaced = fixed
+    .filter(a => a.type === 'hidden')
+    .map((a, i) => ({ ...a, id: maxId + 1 + i }));
+  const restoredFixed = fixed.map(a =>
+    (a.type === 'hidden' ? { ...a, type: 'position', value: DEFAULT_ENEMY_DISTANCE } : a));
+  return [...restoredFixed, ...displaced, ...migrated.slice(FIXED_ENEMY_ACTION_COUNT)];
 }
 
 // { name, label, desc } 分别对应 角色列、技能列、事件描述列
@@ -360,7 +390,7 @@ const BATTLE_EVENT_COLS = {
   enemy_action:       e => {
     const desc = e.actionType === 'def'
       ? `DEF → ${e.value}`
-      : `核心 → ${{ EXPOSED:'暴露核心', PROTECTED:'保护核心', PARTS_CORE:'零件核心', PARTS:'命中零件', NONE:'无核心' }[e.value] ?? e.value}`;
+      : `核心 → ${{ EXPOSED:'暴露核心', PROTECTED:'保护核心', PARTS_CORE:'零件核心', NONE:'无核心' }[e.value] ?? e.value}`;
     return { name: '', label: '敌人行动', desc };
   },
   reload_interrupted: e => ({ name: e.unitName ?? '', label: '换弹中断',   desc: '敌人出现' }),
@@ -451,7 +481,6 @@ function buildEventRows(eventLog, squadLookup = null, logMode = 'detail') {
     if (e.type === 'burst_i' && !e.unitName) return null;
     let name = '', label = '', target = '';
     if (e.type === 'skill_trigger') {
-      const slot  = e.slot ?? '';
       const skill = _getSkillForEvent(e, squadLookup);
       // 技能仅有唯一 P 段时省略 P 后缀
       let part = '';
@@ -464,12 +493,8 @@ function buildEventRows(eventLog, squadLookup = null, logMode = 'detail') {
         ln = ` L${e.lineIdx + 1}`;
       }
       name   = e.unitName;
-      // 有 L 时补充 slot（技能名 S2 L3 或 技能名 S2 P2 L3），否则保持原格式
-      if (ln && slot && e.skillLabel !== slot) {
-        label = `${e.skillLabel} ${slot}${part}${ln}`;
-      } else {
-        label = `${e.skillLabel}${part}${ln}`;
-      }
+      // 格式：技能名 P4 L2（不含槽位，与 buff 名一致）
+      label = `${e.skillLabel}${part}${ln}`;
       target = e.target ?? '';
     } else {
       const fn = BATTLE_EVENT_COLS[e.type];
@@ -797,10 +822,13 @@ function buildDmgTooltipHTML(h) {
   }
 
   // ── 受创加深（DamageTakenLikeMultiplier）──
+  // 分摊伤害 ▲ 与受创加深同属一个乘区（h.damageTakenPct 已含），逐来源列出
   const debuffBufs = bd.filter(b => b.isEnemyDebuff && Math.abs(b.damageTakenPct ?? 0) > 0.0001);
-  if (debuffBufs.length > 0) {
+  const distBufs   = bd.filter(b => Math.abs(b.distributedDamagePct ?? 0) > 0.0001);
+  if (debuffBufs.length > 0 || distBufs.length > 0) {
     const s = addSect('受创加深');
     debuffBufs.forEach(b => addItem(s, b.name, `+${_pct(b.damageTakenPct)}`));
+    distBufs.forEach(b => addItem(s, `${b.name}（分摊伤害）`, `+${_pct(b.distributedDamagePct)}`));
   } else if (Math.abs(h.damageTakenPct ?? 0) > 0.0001) {
     const s = addSect('受创加深');
     addItem(s, '受创伤害增加', `+${_pct(h.damageTakenPct)}`);
@@ -852,7 +880,7 @@ export function createStore() {
       d0:       77,   // 核心缩为 0 的距离
       hitCoef:  4.5,  // HitRate 收圆系数
       // 行动阶段：前3条固定（时间=0，类型固定），后续可增删
-      // 默认值参考联盟射击场 BIGARMS。position 值为连续距离（0-100，与 bonusrange 同刻度）或 'HIDDEN'。
+      // 默认值参考联盟射击场 BIGARMS。position 值为连续距离（0-100，与 bonusrange 同刻度）；隐藏阶段用独立的 hidden 类型行动表示。
       actions: [
         { id: 1, startTimeS: 0, type: 'def',      value: 100 },
         { id: 2, startTimeS: 0, type: 'core',     value: 'EXPOSED' },
@@ -1129,16 +1157,13 @@ export function createStore() {
         this.enemy.core0   = e.core0   ?? this.enemy.core0;
         this.enemy.d0      = e.d0      ?? this.enemy.d0;
         this.enemy.hitCoef = e.hitCoef ?? this.enemy.hitCoef;
-        // 旧 position 值 NEAR/MID/FAR → 连续距离数字（HIDDEN 保留）。
-        const ZONE_NUM = { NEAR: 20, MID: 35, FAR: 55 };
-        const migratePos = v => (v in ZONE_NUM ? ZONE_NUM[v] : v);
         if (Array.isArray(e.actions)) {
-          // 新格式
+          // 新格式（旧距离标签 / 旧「距离=HIDDEN」在 migrateEnemyActions 内迁移）
           this.enemy.element  = e.element  ?? this.enemy.element;
           this.enemy.type     = e.type     ?? this.enemy.type;
-          this.enemy.actions  = e.actions.map(a =>
-            a.type === 'position' ? { ...a, value: migratePos(a.value) } : migrateCoreAction(a));
-          this.enemy._nextId  = e._nextId  ?? (this.enemy.actions.reduce((m, a) => Math.max(m, a.id), 0) + 1);
+          this.enemy.actions  = migrateEnemyActions(e.actions);
+          const maxId = this.enemy.actions.reduce((m, a) => Math.max(m, a.id), 0);
+          this.enemy._nextId  = Math.max(e._nextId ?? 0, maxId + 1);
         } else {
           // 旧格式迁移：def/hasCore/distNear/distMid/distFar → actions
           this.enemy.element = e.element ?? this.enemy.element;
@@ -1309,7 +1334,7 @@ export function createStore() {
       this.selectedPresetId = null;
       if (field === 'type') {
         // 类型切换时重置值为合理默认
-        const defaults = { def: 500, core: 'NONE', position: 35 };
+        const defaults = { def: 500, core: 'NONE', position: DEFAULT_ENEMY_DISTANCE, hidden: 'HIDDEN' };
         action.value = defaults[val] ?? 500;
       }
       action[field] = val;
@@ -1370,10 +1395,8 @@ export function createStore() {
       this.enemy.core0   = preset.config.core0   ?? this.enemy.core0;
       this.enemy.d0      = preset.config.d0      ?? this.enemy.d0;
       this.enemy.hitCoef = preset.config.hitCoef ?? this.enemy.hitCoef;
-      const ZONE_NUM = { NEAR: 20, MID: 35, FAR: 55 };
-      this.enemy.actions = preset.config.actions.map((a, i) =>
-        a.type === 'position' && a.value in ZONE_NUM ? { ...a, value: ZONE_NUM[a.value], id: i + 1 } : { ...migrateCoreAction(a), id: i + 1 });
-      this.enemy._nextId = preset.config.actions.length + 1;
+      this.enemy.actions = migrateEnemyActions(preset.config.actions).map((a, i) => ({ ...a, id: i + 1 }));
+      this.enemy._nextId = this.enemy.actions.length + 1;
       this.selectedPresetId = id;
     },
 
@@ -1699,11 +1722,11 @@ export function createStore() {
 
         const initCore = initCoreAction?.value ?? 'NONE';
         const positionPhases = enemyActions
-          .filter(a => a.type === 'position')
+          .filter(a => a.type === 'position' || a.type === 'hidden')
           .map(a => {
-            // position 值为连续距离（数字）或特殊态字符串（HIDDEN 等）。数字字符串统一转数字，
+            // 「隐藏」行动固定映射为 HIDDEN 阶段；position 值为连续距离，数字字符串统一转数字，
             // 引擎 phaseToDistance 再把旧 NEAR/MID/FAR 标签映射为默认距离。
-            const v = a.value;
+            const v = a.type === 'hidden' ? 'HIDDEN' : a.value;
             const zone = (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) ? Number(v) : v;
             return { startTick: Math.round(Number(a.startTimeS) * ENEMY_TICK_RATE), zone };
           })
@@ -1721,10 +1744,9 @@ export function createStore() {
           squad:    squadConfig,
           enemy: {
             def:            Number(initDefAction?.value) || 100,
-            hasCore:        initCore !== 'NONE' && initCore !== 'PARTS',
+            hasCore:        initCore !== 'NONE',
             coreProtected:  initCore === 'PROTECTED',
             coreIsParts:    initCore === 'PARTS_CORE',
-            hasParts:       initCore === 'PARTS',
             element:        this.enemy.element,
             type:           this.enemy.type,
             phases:         positionPhases,

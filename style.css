@@ -803,9 +803,10 @@ select.input { cursor: pointer; }
 }
 .enemy-actions-table td:first-child,
 .enemy-actions-table th:first-child { width: 80px; white-space: nowrap; }
-.enemy-actions-table td:nth-child(2) { white-space: nowrap; }
-.enemy-actions-table td:nth-child(2) select.input-sm { min-width: 52px; width: 100%; }
+.enemy-actions-table td:nth-child(2) { white-space: nowrap; min-width: 55px; }
+.enemy-actions-table td:nth-child(2) select.input-sm { min-width: 55px; width: 100%; }
 .enemy-actions-table td:nth-child(3) { min-width: 116px; }
+.enemy-actions-table td:nth-child(3) > :not(template) { width: 100%; box-sizing: border-box; }
 .enemy-actions-table td:last-child { width: 28px; text-align: center; }
 .enemy-actions-table .input-sm {
   padding: 2px 5px; font-size: 0.7rem; height: 24px; width: 100%;
@@ -839,9 +840,10 @@ select.input { cursor: pointer; }
 .core-note strong { color: var(--skill-param); }
 .core-note b { color: var(--text); font-weight: 600; }
 .core-note em { font-style: normal; color: var(--accent); }
-.no-spin::-webkit-outer-spin-button,
-.no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.no-spin { -moz-appearance: textfield; }
+/* 全局隐藏数字输入框的 spin 按钮 */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 /* ── 敌人配置预设 ──────────────────────────────────────────── */
 .card-title-row {
@@ -853,10 +855,6 @@ select.input { cursor: pointer; }
 .enemy-preset-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .enemy-preset-select   { max-width: 90px; }
 
-/* 敌人距离编辑（连续距离数值 + 隐藏切换） */
-.pos-editor            { display: inline-flex; align-items: center; gap: 4px; }
-.pos-editor .input-sm  { width: 52px; }
-.pos-hidden-toggle     { display: inline-flex; align-items: center; gap: 2px; font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
 /* 命中校准（CORE0 / D0 / HitRate 系数 c） */
 .hit-cal-row           { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .hit-cal-row label     { display: inline-flex; align-items: center; gap: 3px; font-size: 0.72rem; color: var(--muted); }
