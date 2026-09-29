@@ -48,11 +48,12 @@ export default {
         handler(state, caster) {
           const s1 = caster.ssrFavSkills.skill1;
           const lv = s1._activeSkillLevel;
-          pushConcealment(state, caster, getSkillValue(s1, 1, lv), { ...state._logCtx, lineIdx: 0 });
+          // L1 为 ■ 触发条件行，效果行从 L2 起
+          pushConcealment(state, caster, getSkillValue(s1, 1, lv), { ...state._logCtx, lineIdx: 1 });
           pushBuff(state, { name: 'On the Lam P1', unitId: caster.id,
             critRatePct: getSkillValue(s1, 2, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(s1, 3, lv) },
-            { ...state._logCtx, lineIdx: 1 });
+            { ...state._logCtx, lineIdx: 2 });
         },
       },
       // P2：驱散敌方 buff — 敌方 buff 系统未建模，占位

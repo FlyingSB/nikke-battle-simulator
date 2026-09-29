@@ -22,7 +22,7 @@ import {
   pushBuff, getBuffSums, decrementRoundBuffs, parseSkillDuration, TICK_RATE,
 } from '../../src/engine/battle-utils.js';
 import { getSkillValue } from '../../src/data/models.js';
-import { onInterval, executeSkillTriggers } from '../../src/engine/skill-executor.js';
+import { onInterval, executeSkillTriggers, onShotFired } from '../../src/engine/skill-executor.js';
 import { BUNNY_STANCE, BUNNY_ENGAGE, getBunnyMode,
          enterBunnyMode } from '../../src/data/skills/bunny-shared.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
@@ -1034,7 +1034,7 @@ section('T19: Bunny Mode — 开局 Stance、形态带动、S2 形态 buff 切�
   eq('Stomp 回合制切换 1 回合', guilty.skillState.weaponSwitchRoundsLeft, 1);
   eq('Stomp 发间固定 90t', guilty.chargeTick, 90);
   eq('1 回合蓄力伤害 +1400%',
-    state.buffs.find(b => b.name === "I'm Finally Free...! L1")?.roundsLeft, 1);
+    state.buffs.find(b => b.name === "I'm Finally Free...! L7")?.roundsLeft, 1);
   state.tick = 90;
   executeSkillTriggers(state, 'FULL_CHARGE', { unit: guilty, isCharged: true });
   eq('Stomp 击发后恢复原武器弹药 4', guilty.ammoLeft, 4);
@@ -1142,6 +1142,114 @@ section('T21: Drake: Great Villain — 全爆裂武器切换与结束移除弹�
   eq('S2 P2 ATK flat 按最终 MaxHP 刷新',
     state.buffs.find(b => b.name === 'Fashionably Late')?.atkFlat,
     Math.round((1000000 + 105000) * 0.0623));
+}
+
+// ── T22: Phantom（580）S1 P4 时序与 S2 / 爆裂技能结算顺序 ─────────────────────
+
+section('T22: Phantom — S1 P4 消耗/生成时序、S2 P1→P2→P3、爆裂技能 P1→P2');
+{
+  function phantomState() {
+    const phantom = mockUnit(580, {
+      weaponType: 'SG',
+      ssrFavSkills: {
+        skill1: { _activeSkillLevel: 1,
+          ...mockRawSkill([19.02, 5, 15.22, 3, 5, 30, 15.22, 3, 5, 44.41, 1]) },
+        skill2: { _activeSkillLevel: 1,
+          ...mockRawSkill([49.82, 7.61, 3, 125, 10, 50.32, 5, 18.87, 10]) },
+      },
+    });
+    return { phantom, state: mockState([phantom], { isStageTarget: true, hitLog: [] }) };
+  }
+  // 模拟引擎单发时序：普攻按此刻 buff 结算 → 实弹消耗 1 回合并移除归零 buff → onShotFired
+  function shoot(state, unit) {
+    const sums = getBuffSums(state, unit.id);
+    let bi = state.buffs.length;
+    while (bi--) {
+      const b = state.buffs[bi];
+      if (b.unitId !== unit.id || b.roundsLeft == null) continue;
+      if (--b.roundsLeft <= 0) state.buffs.splice(bi, 1);
+    }
+    onShotFired(state, unit, { sums, isCharged: false, hitPart: 'body', ammoAfterShot: 5 });
+    return sums.attackDamagePct;
+  }
+  const p4Active = (state) => getBuffSums(state, 580).attackDamagePct;
+  const hasCard  = (state) => state.buffs.some(b => b.name === 'Calling Card');
+  const P4_PCT   = 44.41 / 100;
+  const DIST_PCT = 7.61 / 100;
+
+  // P4 于命中 Calling Card 目标的那一发结算后生成，由下一发普攻享受并消耗
+  {
+    const { phantom, state } = phantomState();
+    eq('第 1 发普攻不享受 P4', shoot(state, phantom), 0);
+    eq('第 1 发后敌人处于 Calling Card', hasCard(state), true);
+    eq('第 1 发不生成 P4（命中时目标未处于 Calling Card）', p4Active(state), 0);
+    eq('第 2 发普攻不享受 P4（此前无 P4）', shoot(state, phantom), 0);
+    eq('第 2 发后生成 P4', p4Active(state), P4_PCT);
+    eq('第 3 发普攻享受 P4', shoot(state, phantom), P4_PCT);
+    eq('第 3 发消耗旧 P4 后生成新 P4（不叠加）', p4Active(state), P4_PCT);
+  }
+
+  // 同发触发 S2：P1 / P3 不享受 P4；结算顺序 P1 → P2 → P3
+  {
+    const { phantom, state } = phantomState();
+    state.enemyDef = 1000;
+    shoot(state, phantom);                          // 施加 Calling Card + Dagger 1 层
+    shoot(state, phantom);                          // 生成 P4
+    phantom.skillState.phantomS1StageHitCount = 29; // 下一发达成 30 次命中 → Dagger +1
+    const dagger = state.buffs.find(b => b.name === "Thief's Dagger");
+    dagger.stacks = 2;                              // 再叠 1 层即满层，触发 S2
+    state.hitLog.length = 0;
+
+    eq('触发 S2 的这一发普攻享受已有 P4', shoot(state, phantom), P4_PCT);
+    const s2p1 = state.hitLog.find(h => h.label === 'S2 P1');
+    const s2p3 = state.hitLog.find(h => h.label === 'S2 P3');
+    eq('S2 P1 已触发', !!s2p1, true);
+    eq('S2 P3 已触发', !!s2p3, true);
+    eq('S2 P1 不享受 P4', s2p1?.attackDamagePct, 0);
+    eq('S2 P3 不享受 P4', s2p3?.attackDamagePct, 0);
+    eq('S2 P1 享受 Calling Card 减防', s2p1?.enemyDef, 1000 * (1 - 19.02 / 100));
+    eq('S2 P3 不享受 Calling Card 减防（已被 P1 移除）', s2p3?.enemyDef, 1000);
+    eq('S2 P1 非分摊伤害，不享受 S2 P2', s2p1?.distributedDamagePct, 0);
+    eq('S2 P3 享受刚触发的 S2 P2 分摊伤害 ▲', s2p3?.distributedDamagePct, DIST_PCT);
+    eq('S2 P3 伤害明细列出 S2 P2',
+      s2p3?.buffBreakdown.some(b => b.name === "Thief's Vision P2"
+        && b.distributedDamagePct === DIST_PCT), true);
+    eq('S2 后 Calling Card 已移除', hasCard(state), false);
+    eq('S2 结算后仍生成新 P4（命中时目标处于 Calling Card）', p4Active(state), P4_PCT);
+
+    eq('下一发普攻享受该 P4', shoot(state, phantom), P4_PCT);
+    eq('该发重新施加 Calling Card', hasCard(state), true);
+    eq('该发不生成 P4（命中时目标未处于 Calling Card）', p4Active(state), 0);
+  }
+
+  // 爆裂技能：P1 享受已有 P4 且不消耗；先结算 P1，再移除 S2 P2、施加 P2 承伤
+  {
+    const { phantom, state } = phantomState();
+    state.enemyElement = 'Fire';
+    phantom.ssrFavSkills.burst = { _activeSkillLevel: 1,
+      ...mockRawSkill([861.12, 27.5, 10, 9, 30]) };
+    shoot(state, phantom);
+    shoot(state, phantom);                          // 生成 P4
+    pushBuff(state, { name: "Thief's Vision P2", unitId: 580,
+      distributedDamagePct: DIST_PCT, stackLimit: 3, endTick: Infinity });
+    state.hitLog.length = 0;
+
+    executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: phantom });
+    const burstP1 = state.hitLog.find(h => h.label === 'Burst P1');
+    eq('Burst P1 已触发', !!burstP1, true);
+    eq('Burst P1 享受已有 P4', burstP1?.attackDamagePct, P4_PCT);
+    eq('Burst P1 为分摊伤害', burstP1?.isDistributed, true);
+    eq('Burst P1 享受 S2 P2 分摊伤害 ▲', burstP1?.distributedDamagePct, DIST_PCT);
+    eq('Burst P1 不享受 Burst P2 承伤 ▲', burstP1?.damageTakenPct, DIST_PCT);
+    eq('Burst P1 伤害明细列出 S2 P2',
+      burstP1?.buffBreakdown.some(b => b.name === "Thief's Vision P2"), true);
+    eq('爆裂后 S2 P2 叠层已清除',
+      state.buffs.some(b => b.name === "Thief's Vision P2"), false);
+    eq('爆裂后 Burst P2 承伤 ▲ 已施加',
+      state.buffs.some(b => b.name === 'Secret Trick: Rampage of Thieves P2'), true);
+    eq('爆裂技能不消耗 P4', p4Active(state), P4_PCT);
+    eq('爆裂后的下一发普攻仍享受 P4', shoot(state, phantom), P4_PCT);
+  }
 }
 
 summary('Skill traits tests');

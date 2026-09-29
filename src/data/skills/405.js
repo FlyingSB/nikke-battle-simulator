@@ -54,10 +54,11 @@ export default {
         handler(state, caster) {
           if (swiftPiercingActive(state, caster)) return;
           const lv = caster.skillLevels[0];
-          pushBuff(state, { name: 'Bunny Shift P2 L1', unitId: caster.id,
+          // L1 为 ■ 触发条件行，效果行从 L2 起
+          pushBuff(state, { name: 'Bunny Shift P2 L2', unitId: caster.id,
             normalAttackDamagePct: getSkillValue(caster.rawSkill1, 1, lv) / 100,
             endRounds: getSkillValue(caster.rawSkill1, 2, lv) });
-          pushBuff(state, { name: 'Bunny Shift P2 L2', unitId: caster.id,
+          pushBuff(state, { name: 'Bunny Shift P2 L3', unitId: caster.id,
             chargeDamagePct: getSkillValue(caster.rawSkill1, 3, lv) / 100,
             endRounds: getSkillValue(caster.rawSkill1, 4, lv) });
         },

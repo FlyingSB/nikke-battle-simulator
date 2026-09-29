@@ -648,10 +648,11 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
               sustainedDamagePct: opts.sustainedDamage ? ((b.sustainedDamagePct ?? 0) * k) : 0,
               trueDamagePct: isTrueDamage ? (b.trueDamagePct ?? 0) * k : 0,
               damageToPartsPct: partsBonusApplies ? (b.damageToPartsPct ?? 0) * k : 0,
+              distributedDamagePct: isDistributed ? (b.distributedDamagePct ?? 0) * k : 0,
               stacks: k,
               sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null, sourceLineIdx: b._sourceLineIdx ?? null };
           })
-          .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct || b.sustainedDamagePct || b.trueDamagePct || b.damageToPartsPct)),
+          .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct || b.sustainedDamagePct || b.trueDamagePct || b.damageToPartsPct || b.distributedDamagePct)),
         ...getEnemyDebuffBreakdown(state),
       ],
     });

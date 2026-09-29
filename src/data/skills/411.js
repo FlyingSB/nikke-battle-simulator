@@ -200,15 +200,15 @@ export default {
 
           applyHeal(state, ALL_ALLIES,
             Math.round(casterFinalMaxHp(state, caster) * getSkillValue(burst, 0, lv) / 100),
-            { lineIdx: 0 });
-          pushBuff(state, { name: 'Secret Garden L2', unitId: null,
+            { lineIdx: 1 });
+          pushBuff(state, { name: 'Secret Garden L3', unitId: null,
             trueDamagePct: getSkillValue(burst, 1, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(burst, 2, lv) },
-            { ...state._logCtx, lineIdx: 1 });
-          pushBuff(state, { name: 'Secret Garden L3', unitId: null,
+            { ...state._logCtx, lineIdx: 2 });
+          pushBuff(state, { name: 'Secret Garden L4', unitId: null,
             atkFlat: Math.round(caster.stats.atk * getSkillValue(burst, 3, lv) / 100),
             endTick: state.tick + TICK_RATE * getSkillValue(burst, 4, lv) },
-            { ...state._logCtx, lineIdx: 2 });
+            { ...state._logCtx, lineIdx: 3 });
         },
       },
     ],

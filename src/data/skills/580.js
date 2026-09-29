@@ -7,7 +7,8 @@ import { getSkillValue } from '../../data/models.js';
 //
 // 核心循环（Boss 战单体 = stage target）：
 //   ① 命中未处于 Calling Card 的敌人 → 施加 Calling Card（5s）+ Thief's Dagger 1 层
-//   ② 命中处于 Calling Card 的敌人 → 攻击伤害 ▲（1 round）
+//   ② 命中处于 Calling Card 的敌人 → 攻击伤害 ▲（1 round）：本发技能伤害结算后生成，
+//      由下一发普攻享受并消耗；爆裂技能伤害可享受但不消耗
 //   ③ 每命中 stage target 30 次 → Thief's Dagger 1 层
 //   ④ Thief's Dagger 满 3 层 → S2：Calling Card 目标附加伤害并移除 Calling Card、
 //      分散伤害 ▲ 叠 1 层、清空 Dagger 层数并对全体敌人造成分散伤害
@@ -16,6 +17,7 @@ import { getSkillValue } from '../../data/models.js';
 const CALLING_CARD = 'Calling Card';
 const THIEF_DAGGER = "Thief's Dagger";
 const VISION_DIST  = "Thief's Vision P2";
+const CALLING_CARD_P4 = "Thief's Calling Card P4";
 
 function callingCardActive(state, caster) {
   return (caster.skillState.phantomCallingCardEndTick ?? 0) > state.tick;
@@ -97,7 +99,7 @@ export default {
   skill1: {
     groupId: 125801,
     triggers: [
-      // P1+P2 / P4：每次普攻命中 → 按目标是否处于 Calling Card 分支
+      // P1+P2：每次普攻命中未处于 Calling Card 的目标；同时负责消耗已有的 P4
       {
         on: 'SHOT_COUNT',
         opts: { every: 1, counterKey: 'phantomS1HitCount' },
@@ -105,25 +107,23 @@ export default {
           const s1 = caster.ssrFavSkills.skill1;
           const lv = s1._activeSkillLevel;
 
-          if (!callingCardActive(state, caster)) {
-            // P1：施加 Calling Card —— 敌方 DEF ▼ p00%（S2 满层时随 Calling Card 一并移除）
-            const endTick = state.tick + TICK_RATE * getSkillValue(s1, 1, lv);
-            caster.skillState.phantomCallingCardEndTick = endTick;
-            pushBuff(state, { name: CALLING_CARD, unitId: ENEMY_UNIT_ID, isDebuff: true,
-              enemyDefDownPct: getSkillValue(s1, 0, lv) / 100, endTick },
-              { ...state._logCtx, partIdx: 0 });
-            // P2：Thief's Dagger 叠 1 层
-            addThiefDagger(state, caster, { ...state._logCtx, partIdx: 1 });
-            return;
-          }
+          // P4 触发条件按命中瞬间的目标状态判定；新 P4 在本发所有技能伤害结算后才生成（见末尾 P4 触发器）
+          const hitCallingCard = callingCardActive(state, caster);
+          caster.skillState.phantomP4Pending = hitCallingCard;
 
-          // P4：命中 Calling Card 目标 → 攻击伤害 ▲（1 round，作用于下一发）
-          // 引擎时序补偿：SHOT_COUNT 内推入的回合 buff 会在本发 onShotFired 末尾被
-          // decrementRoundBuffs 消耗 1 回合，故写 endRounds = p10 + 1，使其恰好覆盖下一发。
-          pushBuff(state, { name: "Thief's Calling Card P4", unitId: caster.id,
-            attackDamagePct: getSkillValue(s1, 9, lv) / 100,
-            endRounds: getSkillValue(s1, 10, lv) + 1 },
-            { ...state._logCtx, partIdx: 3 });
+          // 已有的 P4 被本发普攻消耗：先于同发触发的 S2 P1 / P3 技能伤害移除，使其不享受该增益
+          state.buffs = state.buffs.filter(b => !(b.name === CALLING_CARD_P4 && b.unitId === caster.id));
+
+          if (hitCallingCard) return;
+
+          // P1：施加 Calling Card —— 敌方 DEF ▼ p00%（S2 满层时随 Calling Card 一并移除）
+          const endTick = state.tick + TICK_RATE * getSkillValue(s1, 1, lv);
+          caster.skillState.phantomCallingCardEndTick = endTick;
+          pushBuff(state, { name: CALLING_CARD, unitId: ENEMY_UNIT_ID, isDebuff: true,
+            enemyDefDownPct: getSkillValue(s1, 0, lv) / 100, endTick },
+            { ...state._logCtx, partIdx: 0 });
+          // P2：Thief's Dagger 叠 1 层
+          addThiefDagger(state, caster, { ...state._logCtx, partIdx: 1 });
         },
       },
       // P3：每命中 stage target 30 次 → Thief's Dagger 叠 1 层
@@ -134,6 +134,26 @@ export default {
         handler(state, caster) {
           if (!state.isStageTarget) return;
           addThiefDagger(state, caster, state._logCtx);
+        },
+      },
+      // P4：命中 Calling Card 目标 → 攻击伤害 ▲（1 round）
+      // 必须排在 P1~P3 之后：本发触发的 S2 P1 / P3 结算完毕后才生成，供下一发普攻享受并消耗；
+      // 期间与普攻无关的技能伤害（爆裂技能 P1）可享受且不消耗（同 Miranda S2 P3 的回合制规则）。
+      {
+        on: 'SHOT_COUNT',
+        opts: { every: 1, counterKey: 'phantomS1P4Count' },
+        partOverride: 3,
+        handler(state, caster) {
+          if (!caster.skillState.phantomP4Pending) return;
+          caster.skillState.phantomP4Pending = false;
+          const s1 = caster.ssrFavSkills.skill1;
+          const lv = s1._activeSkillLevel;
+          // 引擎时序补偿（+2）：本发 onShotFired 末尾的 decrementRoundBuffs 扣 1 回合，
+          // 下一发实弹结算时在写 hitLog 之前再扣 1 回合并移除归零的回合 buff；
+          // 多留 1 回合使 P4 出现在下一发的伤害明细里，实际消耗由首个触发器显式移除。
+          pushBuff(state, { name: CALLING_CARD_P4, unitId: caster.id,
+            attackDamagePct: getSkillValue(s1, 9, lv) / 100,
+            endRounds: getSkillValue(s1, 10, lv) + 2 });
         },
       },
     ],
@@ -173,14 +193,15 @@ export default {
         handler(state, caster) {
           const s2 = caster.ssrFavSkills.skill2;
           const lv = s2._activeSkillLevel;
-          pushBuff(state, { name: "Thief's Vision P4 L1", unitId: caster.id,
+          // L1 为 ■ 触发条件行，效果行从 L2 起
+          pushBuff(state, { name: "Thief's Vision P4 L2", unitId: caster.id,
             atkPct: getSkillValue(s2, 5, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(s2, 6, lv) },
-            { ...state._logCtx, lineIdx: 0 });
-          pushBuff(state, { name: "Thief's Vision P4 L2", unitId: caster.id,
+            { ...state._logCtx, lineIdx: 1 });
+          pushBuff(state, { name: "Thief's Vision P4 L3", unitId: caster.id,
             distributedDamagePct: getSkillValue(s2, 7, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(s2, 8, lv) },
-            { ...state._logCtx, lineIdx: 1 });
+            { ...state._logCtx, lineIdx: 2 });
         },
       },
     ],
