@@ -424,7 +424,7 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 - 期间可选无限装弹（`unlimitedAmmo: true`）。
 - 切换结束后可有 `backswingTicks` 的封锁期（`weaponSwitchPostBackswingEndTick`）。
 - 切换武器后，当前武器弹匣默认为满弹；若有技能在切换时显式设定弹药数，则以技能值为准。
-- 可选覆盖：`weaponSwitchCoreRate`（切换武器核心率，缺省按切换武器类型硬编码，见 §3.8）；`weaponSwitchLabel`（命中统计/日志标签，缺省为 `Burst <爆裂技能名>`，切换来源为 S1/S2 时应显式指定，如 Drake: Great Villain S1）。
+- 可选覆盖：`weaponSwitchCoreRate`（切换武器核心率，缺省按切换武器类型硬编码，见 §3.8）；`weaponSwitchLabel`（命中统计/日志标签，缺省为 `Burst <爆裂技能名>`，切换来源为 S1/S2 时应显式指定，如 Drake: Great Villain S1）；`weaponSwitchRateOfFire`（切换武器射速 RPM，仅对非蓄力累加器模型生效，缺省沿用原武器 `rate_of_fire`；如 Moran 爆裂 1440 RPM，数据来自 nikke.gg，未实测验证）。
 
 ---
 

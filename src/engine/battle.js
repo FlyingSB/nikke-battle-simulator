@@ -151,12 +151,16 @@ function nextChargeShotDelayTicks(state, unit, sums) {
 /**
  * rate_of_fire 武器当前每 tick 发数（RPM ÷ 3600，含攻速 buff；MG 起速用 mgCurrentRof 覆盖）。
  * 射击累加器与换弹期间的并行累积共用此值，保证两处节奏一致。
+ * 武器切换期间若技能指定了 weaponSwitchRateOfFire（RPM），则以其覆盖原武器射速（如 Moran 爆裂）。
  * @param {object} state
  * @param {object} unit
  * @returns {number} 每 tick 发数
  */
 function shotsPerTick(state, unit) {
-  const baseRof = unit.mgCurrentRof ?? unit.rateOfFire;
+  const switchRof = (unit.skillState?.weaponSwitchEndTick ?? 0) > 0
+    && state.tick <= unit.skillState.weaponSwitchEndTick
+    ? (unit.skillState.weaponSwitchRateOfFire ?? 0) : 0;
+  const baseRof = switchRof > 0 ? switchRof : (unit.mgCurrentRof ?? unit.rateOfFire);
   // Attack speed ▲：从 buff 系统汇总，支持多来源叠加（Dorothy burst、TV S1 等）
   const atkSpeedPct = state.buffs
     .filter(b => (b.unitId === null || b.unitId === unit.id) && b.endTick > state.tick && (b.roundsLeft ?? 1) > 0)

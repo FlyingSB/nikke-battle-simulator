@@ -3,6 +3,11 @@
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Moran  (resource_id: 281)
+
+// 爆裂变更武器的射速（RPM）：1440 = 每秒 24 发，与大多数 SMG 相同。
+// 数据来自 https://nikke.gg/characterguides/moran/，未实测验证。
+const BURST_WEAPON_RATE_OF_FIRE = 1440;
+
 export default {
 
   // ── Bring It On!
@@ -125,6 +130,7 @@ export default {
     triggers: [
       // Burst（Fair and Square!）— 自身：
       //   武器替换 10s（hitMult lv10=14.7%）+ 无限弹药 10s
+      //   变更武器射速 1440 RPM（24 发/秒；来源 nikke.gg，未实测验证）
       //   生命偷取 X%（lv10=36.14%）10s
       //   S1 Fervor 效果：使用后自身爆裂冷却 ▼20s（param[3] 常量）
       // 全员（SSR）：ATK flat ▲ X% Moran ATK 10s（lv10=42.57%）
@@ -146,6 +152,8 @@ export default {
           caster.skillState.weaponSwitchEndTick       = end10;
           caster.skillState.weaponSwitchRoundsLeft    = 0;
           caster.skillState.weaponSwitchUnlimitedAmmo = true;
+          // 射速覆盖：1440 RPM（来源 nikke.gg，未实测验证，见文件顶部常量注释）
+          caster.skillState.weaponSwitchRateOfFire    = BURST_WEAPON_RATE_OF_FIRE;
 
           pushBuff(state, { name: 'Fair and Square! P1 L6', unitId: caster.id,
             lifeStealPct: lsPct, endTick: end10 });

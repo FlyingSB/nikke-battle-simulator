@@ -292,6 +292,8 @@ section('T9: Moran SSR burst — handler sets weaponSwitch + lifeSteal + ATK buf
   eq('weaponSwitchEndTick = 600 (10s)',       caster.skillState.weaponSwitchEndTick,        600);
   eq('weaponSwitchUnlimitedAmmo = true',      caster.skillState.weaponSwitchUnlimitedAmmo, true);
   eq('weaponSwitchRoundsLeft = 0',            caster.skillState.weaponSwitchRoundsLeft,     0);
+  // 变更武器射速 1440 RPM（24 发/秒；来源 nikke.gg，未实测验证）
+  eq('weaponSwitchRateOfFire = 1440',         caster.skillState.weaponSwitchRateOfFire,     1440);
 
   // Life steal buff (self only)
   const lsBuff = state.buffs.find(b => b.name === 'Fair and Square! P1 L6');
