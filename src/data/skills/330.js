@@ -23,14 +23,20 @@ export default {
   skill1: {
     groupId: 23301,
     triggers: [
+      // 游戏内 P1/P2 的换弹速度属于同一个 buff：不叠加，连续生效时仅重置持续时间。
+      // 因此按效果类型拆分命名，P1/P2 共用 'One for All (ReloadSpeed)'，由 pushBuff 按同名刷新 endTick。
+      // （若按段落命名为 P1/P2，交替获得两段的角色会在重叠窗口内叠到 2× 换弹速度。）
       // P1：爆裂施放者 → ATK flat ▲ + Reload Speed ▲
       {
         on: 'ENTER_FULL_BURST',
         target: 'BURST_CASTERS',
         effects: [
-          { type: 'BUFF', name: 'One for All P1', duration: 15,
+          { type: 'BUFF', name: 'One for All (ATK)', duration: 15,
             stat: (caster) => ({
-              atkFlat:        Math.round(caster.stats.atk * getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100),
+              atkFlat: Math.round(caster.stats.atk * getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100),
+            }) },
+          { type: 'BUFF', name: 'One for All (ReloadSpeed)', duration: 15,
+            stat: (caster) => ({
               reloadSpeedPct: getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100,
             }) },
         ],
@@ -40,10 +46,13 @@ export default {
         on: 'ENTER_FULL_BURST',
         target: 'NON_BURST_CASTERS',
         effects: [
-          { type: 'BUFF', name: 'One for All P2', duration: 15,
+          { type: 'BUFF', name: 'One for All (DEF)', duration: 15,
             stat: (caster) => ({
-              defFlat:        Math.round(caster.stats.def * getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100),
-              reloadSpeedPct: getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100,
+              defFlat: Math.round(caster.stats.def * getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100),
+            }) },
+          { type: 'BUFF', name: 'One for All (ReloadSpeed)', duration: 15,
+            stat: (caster) => ({
+              reloadSpeedPct: getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100,
             }) },
         ],
       },
