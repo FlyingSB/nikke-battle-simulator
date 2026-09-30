@@ -664,8 +664,10 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
                 + (extraAtkDmgPct > 0 ? (b.projectileAttachmentDamagePct ?? 0) : 0)
                 + (projectileExplosionDamagePct > 0 ? (b.projectileExplosionDamagePct ?? 0) : 0)
                 + (isNormalAttack ? (b.normalAttackDamagePct ?? 0) : 0)) * k,
-              sequentialAttackDamagePct: (b.sequentialAttackDamagePct ?? 0) * k, elementAdvantagePct: (b.elementAdvantagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k, chargeDamagePct: (b.chargeDamagePct ?? 0) * k,
-              chargeDamageMultPct: (b.chargeDamageMultPct ?? 0) * k,
+              // 技能伤害恒为非蓄力（charged=false），蓄力伤害 / 蓄力伤害倍率不参与计算，明细中不列出
+              sequentialAttackDamagePct: (b.sequentialAttackDamagePct ?? 0) * k, elementAdvantagePct: (b.elementAdvantagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k,
+              chargeDamagePct: charged ? (b.chargeDamagePct ?? 0) * k : 0,
+              chargeDamageMultPct: charged ? (b.chargeDamageMultPct ?? 0) * k : 0,
               critDamagePct: (b.critDamagePct ?? 0) * k,
               sustainedDamagePct: opts.sustainedDamage ? ((b.sustainedDamagePct ?? 0) * k) : 0,
               trueDamagePct: isTrueDamage ? (b.trueDamagePct ?? 0) * k : 0,

@@ -76,7 +76,7 @@
 
 import { SKILL_TRAITS } from '../data/skill-traits.js';
 import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, isPartsHit,
-         getBuffSums, decrementRoundBuffs, isWeaponSwitchAmmoFixed,
+         getBuffSums, isWeaponSwitchAmmoFixed,
          TICK_RATE, BURST_GAUGE_MAX, ALL_ALLIES } from './battle-utils.js';
 
 // 团队触发：ctx.unit 无意义，所有持有该技能的在队单位均触发
@@ -419,7 +419,6 @@ export function fireShotCountTriggers(state, unit, shotCtx) {
  * @param {object} shotCtx   { sums, isCharged, hitPart, ammoAfterShot }
  * @param {object} [opts]    可选标志
  *   skipShotCount      {boolean}  跳过 SHOT_COUNT 触发（已由 fireShotCountTriggers 处理）
- *   skipRoundDecrement {boolean}  跳过 decrementRoundBuffs（已在双重命中第一次命中后手动调用）
  */
 export function onShotFired(state, unit, shotCtx, opts = {}) {
   // 全队命中计数（供依赖全队命中数的技能使用，如 Elegg: Boom and Shock S1）
@@ -549,8 +548,9 @@ export function onShotFired(state, unit, shotCtx, opts = {}) {
       }
     }
   }
-  // skipRoundDecrement：双重命中已在第一次命中后手动调用 decrementRoundBuffs，跳过以避免重复消耗。
-  if (!opts.skipRoundDecrement) decrementRoundBuffs(state, unit.id);
+  // 回合制 buff（roundsLeft）不在此处消耗：battle.js 在实弹命中时（ammoLeft-- 处）统一扣 1 回合，
+  // 无限弹期间不扣。此处若再扣一次会导致每发实弹消耗 2 回合（如 Helm Aegis Cannon P3 10 回合仅覆盖 5 发），
+  // 且本发触发器刚推入的 endRounds:1 buff 会被本发立即耗尽、下一发享受不到。
   // Weapon switch round-based expiry: decrement per shot, deactivate on exhaustion
   if ((unit.skillState?.weaponSwitchRoundsLeft ?? 0) > 0) {
     unit.skillState.weaponSwitchRoundsLeft--;

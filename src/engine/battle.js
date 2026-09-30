@@ -1569,9 +1569,9 @@ export function tick(state) {
       //      暴击与第一次独立判定；pierce_stack 在本次射击结束后保留（不被 onShotFired 再次递减）。
       const isDoubleHit = weaponSwitchActive && (unit.skillState.weaponSwitchDoubleHit ?? false);
 
-      // 双重命中：回合制全体 buff 被 pushBuff 拆分为各角色独立副本（unitId=各自 id），
-      // 弹匣清理循环（ammoLeft-- 后）会把 Zwei 的副本 splice 掉，导致 hitLog 无法读到。
-      // 解决：在双重命中前后分别快照 buffBreakdown，只保留 roundsLeft>0 的活跃 buff。
+      // 回合制 buff 在实弹命中时（ammoLeft-- 处）扣减并在归零时 splice，早于 hitLog 写入；
+      // 若写 hitLog 时再读 state.buffs，本发消耗的最后一回合 buff 会从伤害明细中漏掉（伤害已计入）。
+      // 解决：在扣减前快照 buffBreakdown（双重命中另在第二次命中前再快照），只保留 roundsLeft>0 的活跃 buff。
       const _snapActiveBufs = () => state.buffs
         .filter(b => (b.unitId === null || b.unitId === unit.id)
                    && (b.roundsLeft === undefined || b.roundsLeft > 0))
@@ -1589,7 +1589,7 @@ export function tick(state) {
         })
         .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.critDamagePct);
       let _hit1BreakdownBufs = null, _hit2BreakdownBufs = null;
-      if (isDoubleHit && state.hitLog) _hit1BreakdownBufs = _snapActiveBufs();
+      if (state.hitLog) _hit1BreakdownBufs = _snapActiveBufs();
 
       // 双重命中时，SHOT_COUNT 事件（Pierce Equation P2 等）需排在命中行之后；
       // 记录 fireShotCountTriggers 前的 pendingSkillEvents 长度，事后重新赋 _seq。
@@ -1645,7 +1645,9 @@ export function tick(state) {
         || (unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick;
       if (!isUnlimitedAmmoShot) {
         unit.ammoLeft--;
-        // round-based buff（roundsLeft）：实弹命中时消耗 1 回合；无限弹期间不消耗
+        // round-based buff（roundsLeft）：实弹命中时消耗 1 回合；无限弹期间不消耗。
+        // 这是普通射击的唯一消耗点（onShotFired 不再重复扣减）；技能伤害（fireSkillHit）不消耗回合。
+        // 双重命中的第一次命中已在上方 decrementRoundBuffs 扣 1，此处扣第二次命中。
         let bi = state.buffs.length;
         while (bi--) {
           const b = state.buffs[bi];
@@ -1718,7 +1720,7 @@ export function tick(state) {
           ammoLeft: unit.ammoLeft,
           maxAmmo: effectiveMaxAmmo,
           isUnlimitedAmmo: isUnlimitedAmmoShot,
-          // 双重命中时使用预快照（ammoLeft-- 之前），避免弹匣清理 splice 掉 Zwei 的回合制 buff 副本
+          // 使用回合扣减前的快照，避免本发耗尽的回合制 buff 从明细中漏掉
           buffBreakdown: [
             ...(_hit1BreakdownBufs ?? state.buffs
               .filter(b => b.unitId === null || b.unitId === unit.id)
@@ -1756,14 +1758,7 @@ export function tick(state) {
             maxAmmo: effectiveMaxAmmo,
             isUnlimitedAmmo: isUnlimitedAmmoShot,
             buffBreakdown: [
-              ...state.buffs
-                .filter(b => b.unitId === null || b.unitId === unit.id)
-                .map(b => {
-                  // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
-                  const k = b.stacks ?? 1;
-                  return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k, attackDamagePct: ((b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0) + projExpOf(b)) * k, pierceDamagePct: (b.pierceDamagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k, chargeDamagePct: (b.chargeDamagePct ?? 0) * k, chargeDamageMultPct: (b.chargeDamageMultPct ?? 0) * k, critDamagePct: (b.critDamagePct ?? 0) * k, stacks: k, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null };
-                })
-                .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.critDamagePct),
+              ...(_hit1BreakdownBufs ?? []),
               ...getEnemyDebuffBreakdown(state),
             ],
           });
@@ -1830,9 +1825,9 @@ export function tick(state) {
         events.push({ type: 'hit', tick: state.tick, unitId: unit.id, unitName: unit.name, damage: damage2, isCrit: isCrit2 });
 
       // ── 每发射击后的单位技能触发（声明式执行器） ────────────────
-      // 双重命中：SHOT_COUNT 已由 fireShotCountTriggers 处理，decrementRoundBuffs 已在第一次命中后调用，均跳过。
+      // 双重命中：SHOT_COUNT 已由 fireShotCountTriggers 处理，跳过。
       onShotFired(state, unit, { sums, isCharged, hitPart, ammoAfterShot: unit.ammoLeft },
-        isDoubleHit ? { skipShotCount: true, skipRoundDecrement: true } : undefined);
+        isDoubleHit ? { skipShotCount: true } : undefined);
       flushCsChanged(state);
       flushHealReceived(state);
       flushShieldReceived(state);

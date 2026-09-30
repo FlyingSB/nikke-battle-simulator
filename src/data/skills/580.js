@@ -148,12 +148,10 @@ export default {
           caster.skillState.phantomP4Pending = false;
           const s1 = caster.ssrFavSkills.skill1;
           const lv = s1._activeSkillLevel;
-          // 引擎时序补偿（+2）：本发 onShotFired 末尾的 decrementRoundBuffs 扣 1 回合，
-          // 下一发实弹结算时在写 hitLog 之前再扣 1 回合并移除归零的回合 buff；
-          // 多留 1 回合使 P4 出现在下一发的伤害明细里，实际消耗由首个触发器显式移除。
+          // 下一发实弹命中时由引擎扣减回合；首个触发器亦会显式移除（先于同发技能伤害结算）。
           pushBuff(state, { name: CALLING_CARD_P4, unitId: caster.id,
             attackDamagePct: getSkillValue(s1, 9, lv) / 100,
-            endRounds: getSkillValue(s1, 10, lv) + 2 });
+            endRounds: getSkillValue(s1, 10, lv) });
         },
       },
     ],
