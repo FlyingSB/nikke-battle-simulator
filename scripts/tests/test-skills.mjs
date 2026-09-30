@@ -207,17 +207,18 @@ section('T8: Helm burst uses round-based charge damage buff');
   for (const t of burstTriggers.filter(t => t.on === 'BURST_SKILL_USE'))
     t.handler(state, caster, {});
 
-  const chargeBuff = state.buffs.find(b => b.name === 'Aegis Cannon P3 L1');
-  eq('Aegis Cannon P3 L1 buff pushed',     !!chargeBuff,             true);
-  eq('Aegis Cannon P3 L1 endRounds=10',    chargeBuff?.endRounds,    10);
-  eq('Aegis Cannon P3 L1 roundsLeft=10',   chargeBuff?.roundsLeft,   10);
-  eq('Aegis Cannon P3 L1 chargeDamagePct', chargeBuff?.chargeDamagePct, 0.5);
-  eq('Aegis Cannon P3 L1 endTick=Infinity', chargeBuff?.endTick,     Infinity);
+  const chargeBuff = state.buffs.find(b => b.name === 'Aegis Cannon P3');
+  eq('Aegis Cannon P3 buff pushed',     !!chargeBuff,             true);
+  eq('Aegis Cannon P3 endRounds=10',    chargeBuff?.endRounds,    10);
+  eq('Aegis Cannon P3 roundsLeft=10',   chargeBuff?.roundsLeft,   10);
+  eq('Aegis Cannon P3 chargeDamageMultPct', chargeBuff?.chargeDamageMultPct, 0.5);
+  eq('Aegis Cannon P3 无加法 chargeDamagePct', chargeBuff?.chargeDamagePct, undefined);
+  eq('Aegis Cannon P3 endTick=Infinity', chargeBuff?.endTick,     Infinity);
 
   // After 10 decrements, buff is exhausted
   for (let i = 0; i < 10; i++) decrementRoundBuffs(state, unitId);
   eq('after 10 rounds exhausted',  chargeBuff.roundsLeft, 0);
-  eq('no chargeDmg in sums',       getBuffSums(mockSquad, unitId).chargeDamagePct, 0);
+  eq('no chargeDmgMult in sums',   getBuffSums(mockSquad, unitId).chargeDamageMultPct, 0);
 }
 
 // ── T9: Moran SSR burst — handler reads ssrFavSkills (Peony Hairpin skill lv10) ──

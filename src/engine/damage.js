@@ -22,9 +22,11 @@
  * ElementMultiplier = 0.10 + elementAdvantageDmgIncrement   （仅当攻击方拥有优越代码克制时）
  *   燃烧 > 风压 > 铁甲 > 电击 > 水冷 > 燃烧（5 代码循环）
  *
- * ChargeDamageMultiplier = (full_charge_damage / 10000) × (1 + favChargeDmgPct) + Σ chargeDmgBonuses
+ * ChargeDamageMultiplier = (full_charge_damage / 10000) × (1 + favChargeDmgPct + Σ chargeDmgMultPct) + Σ chargeDmgBonuses
  *   full_charge_damage 来自 shot_detail（10000 = 基线 ×1.0；SR/RL 数值更高）
  *   favChargeDmgPct：珍藏品 "Charge Damage Multiplier ▲" — 只对 shot_detail.damage 相乘
+ *   chargeDmgMultPct：技能 "Charge Damage Multiplier ▲"（buff 字段 chargeDamageMultPct）— 与珍藏品同一乘区，
+ *     先与珍藏品相加再乘武器基础（Helm 实测：2.5×(1+0.0947+1.584)+0.194 = 689%）
  *   chargeDmgBonuses：技能 / 魔方 / 装备的蓄力加成 — 彼此相加
  *   仅在 SR / RL / 特殊蓄力武器的 isCharged=true 时应用
  *
@@ -116,6 +118,8 @@ const ELEMENT_CHART = {
  * @property {number}        [fullChargeDamage=10000] shot_detail.full_charge_damage（10000=×1.0）
  * @property {number}        [favChargeDmgPct=0]     珍藏品 "Charge Damage Multiplier ▲" — 仅对
  *   shot_detail.damage 相乘：chargeMult = (fullCharge/10000)×(1+fav) + otherBonuses
+ * @property {number}        [chargeDmgMultPct=0]    技能 "Charge Damage Multiplier ▲" 之和（sums.chargeDamageMultPct），
+ *   与 favChargeDmgPct 相加后乘 full_charge_damage
  * @property {number}        [chargeDmgStat=1]       装备 / 技能 / 魔方带来的蓄力伤害加成（不含珍藏品）。
  *   以 (1 + stats.chargeDmgPct + sums.chargeDamagePct) 形式传入。
  * @property {number}        [favNormalAttackDamageMult=1]  珍藏品 "Normal Attack Damage Multiplier ▲"
@@ -154,6 +158,7 @@ export function calcDamage(input) {
     isCharged           = false,
     fullChargeDamage    = 10000,
     favChargeDmgPct     = 0,
+    chargeDmgMultPct    = 0,
     chargeDmgStat       = 1,
     favNormalAttackDamageMult = 1,
     extra               = {},
@@ -180,10 +185,11 @@ export function calcDamage(input) {
 
   // ── ChargeDamageMultiplier ──
   const canCharge    = ['SR', 'RL', 'Charged'].includes(weaponType);
-  // favChargeDmgPct 只与 shot_detail.damage 相乘；其他蓄力加成均为加法。
+  // "Charge Damage Multiplier"（珍藏品 + 技能）同一乘区：相加后与 shot_detail.damage 相乘；
+  // "Charge Damage"（装备/魔方/其他技能）为加法。
   // chargeDmgStat 传入形式为 (1 + 装备/技能/魔方加成)，因此 (chargeDmgStat - 1) 即为纯加成部分。
   const chargeMult   = (canCharge && isCharged)
-    ? (fullChargeDamage / CHARGE_DAMAGE_BASE) * (1 + favChargeDmgPct) + (chargeDmgStat - 1)
+    ? (fullChargeDamage / CHARGE_DAMAGE_BASE) * (1 + favChargeDmgPct + chargeDmgMultPct) + (chargeDmgStat - 1)
     : 1.0;
 
   // ── ExtraMultiplier ──

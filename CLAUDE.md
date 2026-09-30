@@ -11,8 +11,11 @@
 本地运行时使用 **VS Code Live Server 扩展**（端口 5500）：
 右键点击 index.html → Open with Live Server
 
-⚠️ **Playwright 规则**：用户已在 5500 端口开着 Live Server，且页面已跑出结果。
-直接用 `browser_evaluate` / `browser_snapshot` 读取现有页面，**不要** navigate 刷新，**不要** 自行启动任何服务器。
+⚠️ **Playwright 规则**：用户已在 5500 端口开着 Live Server。
+- 可以自行打开 `http://127.0.0.1:5500`（新标签页或导航均可），再用 `browser_evaluate` / `browser_snapshot` 读取页面。
+- **必须用 `127.0.0.1`，不要用 `localhost`**：两者是不同的源，浏览器存储（localStorage / IndexedDB）不互通，用户的账号与队伍数据保存在 `127.0.0.1:5500` 下。
+- **不要** 自行启动任何服务器（Live Server 由用户在 VS Code 中开启）。
+- Playwright MCP 以扩展模式连接用户浏览器（`@playwright/mcp@latest --extension`，注册在 `~/.claude.json`），工具名为 `mcp__playwright__*`。
 
 ## 项目结构
 ```

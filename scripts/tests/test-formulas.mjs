@@ -854,6 +854,25 @@ section('T29: SR/RL fav chargeDmgPct — multiplies shot_detail.damage independe
   eq('fav mult (700) ≠ additive (677)', correctDmg !== wrongAdditive, true);
 }
 
+// ── T29b: 技能 "Charge Damage Multiplier" 与珍藏品同乘区（Helm 游戏内实测）────
+//
+// chargeMult = (fullCharge/10000) × (1 + fav + Σ chargeDmgMultPct) + (chargeDmgStat - 1)
+// Helm：武器基础 250%、珍藏品 9.47%、装备 19.4%
+//   无爆裂：2.5×1.0947 + 0.194 = 2.93075（实测 293%）
+//   S3 P3 ▲158.4%：2.5×(1+0.0947+1.584) + 0.194 = 6.89075（实测 689%）
+
+section('T29b: 技能 Charge Damage Multiplier 与珍藏品同乘区（Helm 293% / 689%）');
+{
+  const helm = { ...BASE, weaponType: 'SR', isCharged: true, fullChargeDamage: 25000,
+    favChargeDmgPct: 0.0947, chargeDmgStat: 1 + 0.194 };
+  const { breakdown: noBurst } = calcDamage(helm);
+  near('无爆裂 chargeMult ≈ 2.93075', noBurst.chargeMult, 2.93075);
+  const { breakdown: burst } = calcDamage({ ...helm, chargeDmgMultPct: 1.584 });
+  near('S3 P3 chargeMult ≈ 6.89075', burst.chargeMult, 6.89075);
+  // 若按加法（旧模型）为 2.93075 + 1.584 = 4.51475，与实测不符
+  eq('倍率 buff ≠ 加法模型', Math.abs(burst.chargeMult - 4.51475) > 0.01, true);
+}
+
 // ── T30: Skill buff type classification ───────────────────────────────────────
 //
 // Rule table (maps skill description wording → damage formula slot):

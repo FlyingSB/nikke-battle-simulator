@@ -149,11 +149,13 @@ export default {
           const bLv       = helmBurst?._activeSkillLevel ?? 0;
           if (!helmBurst || bLv <= 0) return false;
           const lsPct = getSkillValue(helmBurst, 1, bLv) / 100;
-          pushBuff(state, { name: 'Aegis Cannon P2 L1', unitId: null,
+          pushBuff(state, { name: 'Aegis Cannon P2', unitId: null,
             lifeStealPct: lsPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
       // Burst P3（自身）：蓄力伤害倍率 ▲ for 10 round(s)
+      // "Charge Damage Multiplier" 与珍藏品同一乘区（乘武器基础），不是装备式加法：
+      //   实测 蓄力乘区 = 2.5×(1+0.0947+1.584)+0.194 = 689%
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
@@ -162,8 +164,8 @@ export default {
           if (!helmBurst || bLv <= 0) return false;
           const cdPct = getSkillValue(helmBurst, 3, bLv) / 100;
           if (cdPct > 0)
-            pushBuff(state, { name: 'Aegis Cannon P3 L1', unitId: caster.id,
-              chargeDamagePct: cdPct, endTick: Infinity, endRounds: 10 });
+            pushBuff(state, { name: 'Aegis Cannon P3', unitId: caster.id,
+              chargeDamageMultPct: cdPct, endTick: Infinity, endRounds: 10 });
         },
       },
     ],

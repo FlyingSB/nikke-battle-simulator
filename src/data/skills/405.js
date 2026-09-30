@@ -55,6 +55,8 @@ export default {
           if (swiftPiercingActive(state, caster)) return;
           const lv = caster.skillLevels[0];
           // L1 为 ■ 触发条件行，效果行从 L2 起
+          // TODO(实测) "Normal Attack Damage Multiplier" 暂按 normalAttackDamagePct（ExtraMultiplier 加法）建模；
+          //   参考 Charge Damage Multiplier 与珍藏品同乘区的实测结论，可能应与珍藏品普攻倍率同乘区，待游戏内数据验证
           pushBuff(state, { name: 'Bunny Shift P2 L2', unitId: caster.id,
             normalAttackDamagePct: getSkillValue(caster.rawSkill1, 1, lv) / 100,
             endRounds: getSkillValue(caster.rawSkill1, 2, lv) });

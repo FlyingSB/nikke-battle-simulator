@@ -3,6 +3,10 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Red Hood  (resource_id: 470)
+
+// Red Wolf（Burst Step 3）切换武器的固定装弹数
+const RED_WOLF_AMMO = 99;
+
 // ─── Red Hood (470) S1 辅助：更新蓄力伤害转化 buff ────────────────────────────
 // 超出 100% 的蓄力速度 → Charge Damage ▲240% × 超出量（连续）
 // 由 CS_BUFF_CHANGED 触发器驱动，每次 Red Hood 的 chargeSpeedPct 变化时自动重算。
@@ -164,12 +168,15 @@ export default {
             pushBuff(state, { name: 'Red Wolf P4 L8', unitId: caster.id,
               chargeSpeedPct, endTick: end10 }, { ...state._logCtx, partIdx: 3 });
             // 武器切换：Damage [Burst param6]% final ATK · FC 250% · 10s · 弹匣容量 99
-            // Red Wolf 弹匣 99 发，10s 实测约 32 发，不会触发装弹
+            // Red Wolf 弹匣固定 99 发、切换时满弹，不受任何装弹数效果影响
+            // （maxAmmo buff / 补弹 / Bastion 方块均跳过，见 isWeaponSwitchAmmoFixed）；
+            // 10s 实测约 32 发，不会触发装弹
             const weaponSwitchHitMult = getSkillValue(caster.rawBurst, 6, caster.skillLevels[2]) / 100;
             caster.skillState.rhNormalAmmoSaved             = caster.ammoLeft;
-            caster.ammoLeft                                 = 99;
+            caster.ammoLeft                                 = RED_WOLF_AMMO;
             caster.skillState.weaponSwitchHitMult           = weaponSwitchHitMult;
-            caster.skillState.weaponSwitchMaxAmmo           = 99;
+            caster.skillState.weaponSwitchMaxAmmo           = RED_WOLF_AMMO;
+            caster.skillState.weaponSwitchFixedAmmo         = true;
             caster.skillState.weaponSwitchType              = 'SR';
             caster.skillState.weaponSwitchEndTick           = end10;
             caster.skillState.weaponSwitchChargeTimeTicks   = 19;

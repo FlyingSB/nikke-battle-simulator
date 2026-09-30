@@ -116,6 +116,8 @@ export default {
           caster.skillState.annihilationFired = false;
 
           // Effect 1: Normal Attack Damage Multiplier ▼40%（9s，负 buff）
+          // TODO(实测) "Normal Attack Damage Multiplier" 暂按 normalAttackDamagePct（ExtraMultiplier 加法）建模；
+          //   参考 Charge Damage Multiplier 与珍藏品同乘区的实测结论，可能应与珍藏品普攻倍率同乘区，待游戏内数据验证
           // Effect 3: ATK ▲p02%（9s）
           const atkPct = getSkillValue(caster.rawBurst, 1, bLv) / 100;
           // Effect 4: Attack Damage ▲p04%（9s）

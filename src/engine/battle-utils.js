@@ -35,7 +35,7 @@ export const BUFF_NUMERIC_FIELDS = [
   'atkPct', 'atkFlat', 'defPct', 'defFlat',
   'attackDamagePct', 'normalAttackDamagePct',
   'critRatePct', 'normalAttackCritRatePct', 'critDamagePct',
-  'chargeDamagePct', 'chargeSpeedPct', 'reloadSpeedPct',
+  'chargeDamagePct', 'chargeDamageMultPct', 'chargeSpeedPct', 'reloadSpeedPct',
   'lifeStealPct', 'distributedDamagePct',
   'chargeTimeReductionTicks', 'hitRatePct', 'elementAdvantagePct',
   'projectileAttachmentDamagePct', 'projectileExplosionDamagePct', 'coreDamagePct',
@@ -82,7 +82,21 @@ export function recalcMaxAmmo(state, unit) {
     + (sums.maxAmmoFlat ?? 0),
   );
   unit[_maxAmmo] = rawMax;
+  // 固定弹匣的切换武器（如 Red Hood: Red Wolf）不受装弹数效果影响：只更新原武器上限，不截断当前弹药
+  if (isWeaponSwitchAmmoFixed(state, unit)) return;
   if (unit.ammoLeft > rawMax) unit.ammoLeft = rawMax;
+}
+
+/**
+ * 当前是否处于「固定弹匣」的武器切换期间（skillState.weaponSwitchFixedAmmo = true）。
+ * 此期间 ammoLeft 属于切换武器（上限 = weaponSwitchMaxAmmo），
+ * 任何装弹数增减 / 补弹效果（maxAmmo buff、RELOAD_AMMO、AMMO_EXPAND、Bastion 方块）均不作用于它。
+ */
+export function isWeaponSwitchAmmoFixed(state, unit) {
+  const st = unit.skillState;
+  return !!st?.weaponSwitchFixedAmmo
+    && (st.weaponSwitchEndTick ?? 0) > 0
+    && state.tick <= st.weaponSwitchEndTick;
 }
 
 // ─── Buff 汇总 ──────────────────────────────────────────────────────────────
@@ -516,6 +530,8 @@ export function pushHoT(state, target, amount, durationSecs, logCtxOverride = nu
  *   suppressFullBurst        {boolean}  [引擎内部] 由引擎自动标记延迟爆裂技能命中，抑制全爆裂补正
  *   applyDistanceAdv         {boolean}  该技能命中受距离优势影响（默认仅普通攻击；Rapi S2 P1/P2 需显式开启）
  *   isSequentialAttack       {boolean}  依次攻击命中（受 sequentialAttackDamagePct buff 加成）
+ *   isNormalAttack           {boolean}  技能产生的普通攻击命中（如 Anis: Star 的 Shooting Star）：
+ *                                       额外享受 normalAttackDamagePct / normalAttackCritRatePct 加成
  */
 function resolveSkillLabel(unit, label) {
   if (!label || label === 'normal_shot') return label;
@@ -545,8 +561,11 @@ export function isPartsHit(state, hitPart) {
 export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
   label = resolveSkillLabel(unit, label);
   const charged          = false;
-  // normalAttackCritRatePct 仅适用于普通攻击，技能伤害不受此加成
-  const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRatePct);
+  // normalAttack* 加成仅适用于普通攻击；普通技能伤害不受此加成，isNormalAttack 命中例外
+  const isNormalAttack   = opts.isNormalAttack ?? false;
+  const normalAtkDmgPct  = isNormalAttack ? (sums.normalAttackDamagePct ?? 0) : 0;
+  const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRatePct
+    + (isNormalAttack ? (sums.normalAttackCritRatePct ?? 0) : 0));
   const isCrit           = rollCrit(effectiveCritRate);
   const hitPart          = opts.hitPart ?? (opts.isCore ? 'core' : 'body');
   const isCore           = hitPart === 'core';
@@ -586,8 +605,9 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     isCharged:         charged,
     fullChargeDamage:  unit.fullChargeDamage,
     chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
+    chargeDmgMultPct:  sums.chargeDamageMultPct ?? 0,
     isTrueDamage,
-    extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct,
+    extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct + normalAtkDmgPct,
                          sustainedDamagePct: opts.sustainedDamage ? (sums.sustainedDamagePct ?? 0) : 0,
                          trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
                          sequentialAttackDamageMult: opts.isSequentialAttack ? (sums.sequentialAttackDamagePct ?? 0) : 0,
@@ -611,7 +631,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       gaugeAfter: state.burstGauge,
       atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
       hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
-      attackDamagePct: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct,
+      attackDamagePct: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct + normalAtkDmgPct,
       extraAttackDamagePct: extraAtkDmgPct,
       sequentialAttackDamagePct: opts.isSequentialAttack ? (sums.sequentialAttackDamagePct ?? 0) : 0,
       sustainedDamagePct: opts.sustainedDamage ? (sums.sustainedDamagePct ?? 0) : 0,
@@ -642,8 +662,10 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
             return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k,
               attackDamagePct: ((b.attackDamagePct ?? 0)
                 + (extraAtkDmgPct > 0 ? (b.projectileAttachmentDamagePct ?? 0) : 0)
-                + (projectileExplosionDamagePct > 0 ? (b.projectileExplosionDamagePct ?? 0) : 0)) * k,
+                + (projectileExplosionDamagePct > 0 ? (b.projectileExplosionDamagePct ?? 0) : 0)
+                + (isNormalAttack ? (b.normalAttackDamagePct ?? 0) : 0)) * k,
               sequentialAttackDamagePct: (b.sequentialAttackDamagePct ?? 0) * k, elementAdvantagePct: (b.elementAdvantagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k, chargeDamagePct: (b.chargeDamagePct ?? 0) * k,
+              chargeDamageMultPct: (b.chargeDamageMultPct ?? 0) * k,
               critDamagePct: (b.critDamagePct ?? 0) * k,
               sustainedDamagePct: opts.sustainedDamage ? ((b.sustainedDamagePct ?? 0) * k) : 0,
               trueDamagePct: isTrueDamage ? (b.trueDamagePct ?? 0) * k : 0,
@@ -652,7 +674,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
               stacks: k,
               sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null, sourceLineIdx: b._sourceLineIdx ?? null };
           })
-          .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct || b.sustainedDamagePct || b.trueDamagePct || b.damageToPartsPct || b.distributedDamagePct)),
+          .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.critDamagePct || b.sustainedDamagePct || b.trueDamagePct || b.damageToPartsPct || b.distributedDamagePct)),
         ...getEnemyDebuffBreakdown(state),
       ],
     });

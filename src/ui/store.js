@@ -258,6 +258,30 @@ function _findSkillByRow(row, unitData) {
   return null;
 }
 
+// 推断日志行所属技能位置：1=S1, 2=S2, 3=Burst, 99=未知
+// 优先用事件行的结构化 slot，其次解析 "S1 …"/"Burst …" 前缀，
+// 最后把纯技能名（去掉 P/L/Stage 后缀）与角色的技能名比对。
+const SKILL_POS = { s1: 1, s2: 2, burst: 3 };
+function _skillPosOfRow(row, unitData) {
+  const key = row.skillKey ?? row.label ?? '';
+  const slotName = row.slot ?? key.match(/^(S1|S2|Burst)\b/i)?.[1];
+  if (slotName) return SKILL_POS[slotName.toLowerCase()] ?? 99;
+  if (!unitData) return 99;
+  const base = key.replace(/(?: (?:P|L)\d+| Stage \d+)+$/, '');
+  if (unitData.rawSkill1?.name_localkey === base) return 1;
+  if (unitData.rawSkill2?.name_localkey === base) return 2;
+  if (unitData.rawBurst?.name_localkey  === base) return 3;
+  return 99;
+}
+
+// 按排序键数组逐项比较 [名称, 键数组] 条目，键全相等时按名称字典序
+function _compareSortEntries([na, ka], [nb, kb]) {
+  for (let i = 0; i < ka.length; i++) {
+    if (ka[i] !== kb[i]) return ka[i] - kb[i];
+  }
+  return na.localeCompare(nb);
+}
+
 function _skillDescTipHTML(skill, level, renderFn, partIdx = null, lineIdx = null) {
   if (!skill) return null;
   const name = skill.name_localkey ?? '';
@@ -517,6 +541,7 @@ function buildEventRows(eventLog, squadLookup = null, logMode = 'detail') {
       // 结构化数据，供 tooltip 直接使用，无需从 label 字符串重新解析
       partIdx:    e.partIdx ?? null,
       lineIdx:    e.lineIdx ?? null,
+      slot:       e.slot ?? null,   // 'S1' / 'S2' / 'Burst'，供技能筛选菜单排序
       target,
       buffName:   e.buffName ?? null,
       buffDesc:   e.buffName ?? '',
@@ -760,20 +785,23 @@ function buildDmgTooltipHTML(h) {
   }
 
   // ── 蓄力系数 ──
-  // chargeMult = 武器基础×(1+珍藏品) + 装备 + 各 buff，逐来源拆分展示
+  // chargeMult = 武器基础×(1+珍藏品+倍率 buff) + 装备 + 加法 buff，逐来源拆分展示
   if (Math.abs(chargeMult - 1) > 0.0001) {
     const chargeBufs   = bd.filter(b => Math.abs(b.chargeDamagePct ?? 0) > 0.0001);
     const chargeBufSum = chargeBufs.reduce((acc, b) => acc + (b.chargeDamagePct ?? 0), 0);
+    const multBufs     = bd.filter(b => Math.abs(b.chargeDamageMultPct ?? 0) > 0.0001);
+    const multBufSum   = multBufs.reduce((acc, b) => acc + (b.chargeDamageMultPct ?? 0), 0);
     const equipCharge  = h.equipChargeDmgPct ?? 0;
     const favChargePct = h.favChargeDmgPct ?? 0;
-    // 珍藏品对武器基础是乘算：chargeMult = 武器基础×(1+珍藏品) + 装备 + buff
-    // 先剥离装备/buff，再按珍藏品比例还原出纯武器基础
+    // 珍藏品与 "Charge Damage Multiplier" buff 对武器基础是乘算（同一乘区相加）
+    // 先剥离装备/加法 buff，再按 (1+珍藏品+倍率 buff) 还原出纯武器基础
     const baseWithFav  = chargeMult - equipCharge - chargeBufSum;
-    const weaponBase   = baseWithFav / (1 + favChargePct);
+    const weaponBase   = baseWithFav / (1 + favChargePct + multBufSum);
     const s = addSect('蓄力系数');
     addItem(s, '武器基础', `${_pct(weaponBase)}`);
     // 珍藏品显示原始蓄力伤害数值（与游戏内一致），乘算用 × 前缀 + 区分色
     if (Math.abs(favChargePct) > 0.0001) addItem(s, '珍藏品', `×${_pct(favChargePct)}`, 'mult');
+    multBufs.forEach(b => addItem(s, b.name, `×${_pct(b.chargeDamageMultPct)}`, 'mult'));
     if (Math.abs(equipCharge)  > 0.0001) addItem(s, '装备',   `+${_pct(equipCharge)}`);
     chargeBufs.forEach(b => addItem(s, b.name, `+${_pct(b.chargeDamagePct)}`));
   }
@@ -923,6 +951,7 @@ export function createStore() {
     logHiddenSkillLabels: [],
     logActiveBuffTracks: [],
     showLogNormal:       false,
+    showLogReload:       false,
     _squadLookup:  null,
 
     // 常量（模板使用）
@@ -1849,8 +1878,11 @@ export function createStore() {
       const hiddenUnits  = new Set(this.logHiddenUnits);
       const hiddenSkills = new Set(this.logHiddenSkillLabels);
       const showNormal   = this.showLogNormal;
+      const showReload   = this.showLogReload;
       return this.hitLogRows.filter(row => {
         if (row.kind === 'event') {
+          // 装填事件由「技能」菜单中的「装填」开关控制，默认隐藏
+          if (!showReload && row.eventType === 'reload') return false;
           // 有归属角色的事件行（skill_trigger/reload/burst_i 等）参与角色筛选
           if (row.name && hiddenUnits.has(row.name)) return false;
           // skill_trigger 额外参与技能筛选
@@ -1896,37 +1928,42 @@ export function createStore() {
       const unitSlots = new Map(
         (this.result?.units ?? []).map((u, i) => [u.name, i])
       );
+      // 排序键：[角色位置, 技能位置(S1/S2/Burst), P 序号, L 序号]
+      // 标签中无 P（或无 L）时序号取 0，排在有序号的同类项之前
       const seen = new Map(); // label → sortKey
       for (const row of this.hitLogRows) {
         if (row.kind === 'event' && row.eventType !== 'skill_trigger') continue;
         if (row.label === '普通攻击' || !row.label) continue;
         if (seen.has(row.label)) continue;
-        const slot = unitSlots.get(row.name) ?? 99;
-        const sk   = row.skillKey ?? row.label;
-        const skillType = /^S1\b/.test(sk) ? 0 : /^S2\b/.test(sk) ? 1 : /^Burst\b/i.test(sk) ? 2 : 99;
-        const pm   = sk.match(/P(\d+)/) ?? row.label?.match(/P(\d+)/);
-        const part = pm ? parseInt(pm[1]) - 1 : 0;
-        seen.set(row.label, slot * 100000 + skillType * 1000 + part);
+        const unitPos = unitSlots.get(row.name) ?? 99;
+        const skillPos = _skillPosOfRow(row, this._squadLookup?.[row.name]);
+        const pm = row.label.match(/(?:^|\s)P(\d+)(?=\s|$)/);
+        const lm = row.label.match(/(?:^|\s)L(\d+)(?=\s|$)/);
+        seen.set(row.label, [unitPos, skillPos, pm ? +pm[1] : 0, lm ? +lm[1] : 0]);
       }
-      return [...seen.entries()].sort((a, b) => a[1] - b[1]).map(([label]) => label);
+      return [...seen.entries()].sort(_compareSortEntries).map(([label]) => label);
     },
 
     logAllBuffNames() {
+      // 与技能菜单同规则：[来源角色位置, 来源技能位置(S1/S2/Burst), P 序号, L 序号]
+      // sourceCaster 为角色名；Buff 名中无 P（或无 L）时序号取 0，排在有序号的同类项之前
       const unitSlots = new Map(
-        (this.result?.units ?? []).map((u, i) => [u.id, i])
+        (this.result?.units ?? []).map((u, i) => [u.name, i])
       );
       const seen = new Map(); // name → sortKey
       for (const row of this.hitLogRows) {
         for (const b of (row.buffArr ?? [])) {
           if (!b.name || seen.has(b.name)) continue;
-          const slot = unitSlots.get(b.sourceCaster) ?? 99;
-          const sk   = b.sourceSkillLabel ?? '';
-          const skillType = /^S1\b/.test(sk) ? 0 : /^S2\b/.test(sk) ? 1 : /^Burst\b/i.test(sk) ? 2 : 99;
-          const part = b.sourcePartIdx ?? 0;
-          seen.set(b.name, slot * 100000 + skillType * 1000 + part);
+          const unitPos  = unitSlots.get(b.sourceCaster) ?? 99;
+          const skillPos = b.sourceSkillLabel
+            ? _skillPosOfRow({ skillKey: b.sourceSkillLabel }, this._squadLookup?.[b.sourceCaster])
+            : 99;
+          const pm = b.name.match(/(?:^|\s)P(\d+)(?=\s|$)/);
+          const lm = b.name.match(/(?:^|\s)L(\d+)(?=\s|$)/);
+          seen.set(b.name, [unitPos, skillPos, pm ? +pm[1] : 0, lm ? +lm[1] : 0]);
         }
       }
-      return [...seen.entries()].sort((a, b) => a[1] - b[1]).map(([name]) => name);
+      return [...seen.entries()].sort(_compareSortEntries).map(([name]) => name);
     },
 
     showDmgTooltip(event, hitData) {

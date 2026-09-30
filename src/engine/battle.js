@@ -19,7 +19,7 @@ import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAU
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, unitDistanceAdvantage, resolveAttackerElement, isPartsHit } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit } from './battle-utils.js';
 import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -119,33 +119,111 @@ function downChargeRofFloorTicks(unit) {
 }
 
 /**
- * 计算蓄力武器（SR/RL）下一发的发间 ticks（不含武器切换覆盖场景）。
- * UP 型：backswing + foreswing + effectiveCharge；DOWN_Charge 型：仅 effectiveCharge（受 RPM 下限约束）。
+ * 计算蓄力武器（SR/RL）当前一次蓄力的有效时长 ticks（蓄速加成作用于每一次蓄力，含换弹后首发）。
  * chargeSpeedPct 只缩短蓄力（瞄准）阶段，不影响 fore/backswing。
  * immuneSkillChargeSpeed 只屏蔽技能/buff 来源的 chargeSpeedPct 与 chargeTimeReductionTicks；
  * 装备词条与魔方技能带来的 unit.stats.chargeSpeedPct 始终生效，不受屏蔽。
  * @param {object} state
  * @param {object} unit
  * @param {object} sums getBuffSums 汇总
- * @returns {number} 发间 ticks
+ * @returns {number} 有效蓄力 ticks
  */
-function nextChargeShotDelayTicks(state, unit, sums) {
-  const csFromBuff    = unit.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
-  const flatReduction = unit.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
-  const afterPct      = Math.round(unit.chargeTimeTicks * (1 - Math.min(0.99, (unit.stats.chargeSpeedPct ?? 0) + csFromBuff)));
-  let effectiveCharge = Math.max(0, afterPct - flatReduction);
+function effectiveChargeTicks(state, unit, sums) {
   // 固定蓄力时间覆盖（如 Anis: Star 爆裂期间）：忽略技能类蓄力速度 buff，仅保留装备/魔方加成
   if ((unit.skillState?.fixedChargeEndTick ?? 0) >= state.tick &&
       unit.skillState.fixedChargeTimeTicks != null) {
-    effectiveCharge = Math.max(0, Math.round(
+    return Math.max(0, Math.round(
       unit.skillState.fixedChargeTimeTicks * (1 - Math.min(0.99, unit.stats.chargeSpeedPct ?? 0)),
     ));
   }
+  const csFromBuff    = unit.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
+  const flatReduction = unit.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
+  const afterPct      = Math.round(unit.chargeTimeTicks * (1 - Math.min(0.99, (unit.stats.chargeSpeedPct ?? 0) + csFromBuff)));
+  return Math.max(0, afterPct - flatReduction);
+}
+
+/**
+ * 计算蓄力武器（SR/RL）下一发的发间 ticks（不含武器切换覆盖场景）。
+ * UP 型：backswing + foreswing + effectiveCharge；DOWN_Charge 型：仅 effectiveCharge（受 RPM 下限约束）。
+ * @param {object} state
+ * @param {object} unit
+ * @param {object} sums getBuffSums 汇总
+ * @returns {number} 发间 ticks
+ */
+function nextChargeShotDelayTicks(state, unit, sums) {
+  const effectiveCharge = effectiveChargeTicks(state, unit, sums);
   // Alice Wonderland 快速攻击：40次/10s（每 15 ticks，fore/backswing 被规避）
   const fastTicks = aliceFastAttackNextTicks(state, unit, effectiveCharge);
   if (fastTicks != null) return fastTicks;
   return (unit.isDownCharge ? 0 : unit.backswingTicks + unit.foreswingTicks)
     + Math.max(effectiveCharge, downChargeRofFloorTicks(unit));
+}
+
+/**
+ * 当前换弹（装填动作）时长 ticks，不含非蓄力武器的末发后摇 reloadRecoveryTicks。
+ * 换弹时长 = 基础时长 ×(1 − 换弹速度%)，下限 0（≥100% 换弹速度即瞬间装填）。
+ * 注意是乘法折减，不是除以 (1 + speed)：+29.69% → 2s ×0.7031 ≈ 1.41s。
+ * fixedReloadSpeedPct：固定换弹速度加成，屏蔽其他换弹速度效果（如 Asuka: WILLE S2）。
+ * @param {object} unit
+ * @param {object} sums getBuffSums 汇总
+ * @returns {number} 换弹时长 ticks
+ */
+function reloadDurationTicks(unit, sums) {
+  const effectiveReloadSpeed = unit.skillState?.fixedReloadSpeedPct ?? sums.reloadSpeedPct;
+  return Math.round(unit.reloadTicks * Math.max(0, 1 - effectiveReloadSpeed));
+}
+
+/**
+ * 完成一次装填动作：恢复弹药、计数、记录装填事件（不处理射击节奏衔接与 RELOAD_END 触发）。
+ * 分段装填（reloadFraction < 1）每次恢复 round(maxAmmo × reloadFraction) 发，不超过上限；
+ * 弹匣未空时（后摇期间换弹）在剩余弹药基础上累加。
+ * unit.maxAmmo 由 recalcMaxAmmo 维护，始终反映当前所有效果的最终弹匣上限。
+ * @param {object} state
+ * @param {object} unit
+ * @param {object[]} events 本 tick 事件列表
+ */
+function refillMagazine(state, unit, events) {
+  unit.ammoLeft = unit.reloadFraction < 1
+    ? Math.min(unit.maxAmmo, Math.max(0, unit.ammoLeft) + Math.round(unit.maxAmmo * unit.reloadFraction))
+    : unit.maxAmmo;
+  unit.reloadCount++;
+  unit.reloadTick = 0;
+  // _seq 用于同 tick 内日志排序：装填在本 tick 的射击之前完成（UP 型蓄力武器换弹完成后会
+  // 立即补射），缺少 _seq 会让换弹后那一发在详情日志中错误地排在"装填"行之前，
+  // 表现为"弹药到 0 后又打一发才装填、且装填未满"。赋予递增 _seq 还原真实执行顺序。
+  events.push({ type: 'reload', tick: state.tick, unitId: unit.id, unitName: unit.name,
+    ammoRefilled: unit.ammoLeft, maxAmmo: unit.maxAmmo, _seq: state._logSeq++ });
+}
+
+/**
+ * UP 型蓄力武器射击后的后摇期间换弹（§4.3.9）。每发射击后进入后摇即开始换弹：
+ *   - 换弹时长 ≤ 后摇：后摇内补满（dur=0 时本 tick 立即补满），记录装填事件；射击节奏不变。
+ *   - 换弹时长 > 后摇且弹匣已空：本 tick 起正常换弹，后摇与换弹同时计时（§4.3.6）。
+ *   - 换弹时长 > 后摇且弹匣未空：后摇结束时换弹被打断，不恢复弹药。
+ * 调用方保证：本发为引擎排定的蓄力射击（非武器切换）。
+ * DOWN_Charge 型无后摇、Alice Wonderland 快速攻击规避后摇、无限弹药期间不消耗弹药，均不适用。
+ * @param {object} state
+ * @param {object} unit
+ * @param {object[]} events 本 tick 事件列表
+ */
+function scheduleBackswingReload(state, unit, events) {
+  if (unit.isDownCharge || unit.backswingTicks <= 0) return;
+  if ((unit.skillState?.aliceWonderlandEndTick ?? 0) >= state.tick) return;
+  unit.lastChargeShotTick = state.tick;
+  if ((unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick) return;
+  if (unit.ammoLeft >= unit.maxAmmo) return;
+  const dur = reloadDurationTicks(unit, getBuffSums(state, unit.id));
+  if (dur <= unit.backswingTicks) {
+    if (dur === 0) {
+      refillMagazine(state, unit, events);
+      onReloadEnd(state, unit);
+    } else {
+      unit.backswingReloadTick = state.tick + dur;
+    }
+  } else if (unit.ammoLeft <= 0) {
+    unit.reloadTick      = state.tick + dur;
+    unit.reloadStartTick = state.tick;
+  }
 }
 
 /**
@@ -281,6 +359,18 @@ function applyBurstISkills(state) {
   flushHealReceived(state);
   flushShieldReceived(state);
   return b1;
+}
+
+/**
+ * B1 施放后的阶段推进：触发"进入下一阶段"被动并开始 burstStepTicks 延迟。
+ * 常规 B1 推进到阶段 2；施放者 changeBurstStep === 'Step1'（如 Anis: Star 的 Everyone's Star）
+ * 时重入阶段 1：延迟结束后停留在阶段 1，由其他冷却就绪的 B1 继续施放。
+ */
+function advanceAfterBurstI(state, fired) {
+  state.burstReenterStage1 = fired.changeBurstStep === 'Step1';
+  if (state.burstReenterStage1) applyEnterBurst1Passives(state);
+  else applyEnterBurst2Passives(state);
+  state.burstPhaseTick = state.tick + state.burstStepTicks;
 }
 
 /** Step2 burst：若冷却结束则释放。返回释放的单位，或 null。 */
@@ -531,6 +621,10 @@ export function initBattle(config) {
       // maxAmmo: getter 由 initUnitMaxAmmo 安装，只能通过 recalcMaxAmmo 更新
       ammoLeft:         0,   // initUnitMaxAmmo 写入真实初值
       reloadTick:       0,
+      // UP 型蓄力武器后摇期间换弹（§4.3.9）：后摇内可完成的换弹预定完成 tick；0 = 无
+      backswingReloadTick: 0,
+      // UP 型蓄力武器最近一次射击 tick：打空换弹时后摇与换弹同时计时（§4.3.6）
+      lastChargeShotTick:  -Infinity,
       ammoBeforeHidden: 0,   // non-zero only during a HIDDEN phase with a voluntary reload in progress
       // Per-unit reload duration (ticks). 必须由调用方提供（validateUnitConfig 已校验）。
       reloadTicks:      cfg.reloadTicks,
@@ -546,7 +640,10 @@ export function initBattle(config) {
       isDownCharge,
       // Initial chargeTick: foreswing + charge only (no backswing before first shot).
       // DOWN_Charge 型第 1 发仍含前摇（初次对准目标）。
-      chargeTick:       foreswingTicks + chargeTimeTicks,
+      // 装备词条 / 魔方蓄速（stats.chargeSpeedPct）开局即生效，先于任何角色动作与技能，
+      // 故首发蓄力同样应用此加成（技能 buff 此时尚未推入）。
+      chargeTick:       foreswingTicks
+        + Math.round(chargeTimeTicks * (1 - Math.min(0.99, stats.chargeSpeedPct ?? 0))),
       // Permanent equipment ATK% multiplier (item "Increase ATK" + option ATK%).
       // Added to atkPct in getBuffSums so it stacks additively with skill ATK% buffs.
       equipAtkPct:              stats.equipAtkPct  ?? 0,
@@ -792,6 +889,8 @@ export function initBattle(config) {
     fullBurstActive:    false,
     fullBurstTick:      0,
     burstPhase:         0,
+    // B1 施放者 changeBurstStep==='Step1' 时置 true：B1 延迟结束后停留在阶段 1（见 advanceAfterBurstI）
+    burstReenterStage1: false,
     // When set to an array, every damage hit (normal and skill) appends a detail record.
     hitLog:             config.hitLog ? [] : null,
     buffLog:            config.hitLog ? [] : null,
@@ -1098,9 +1197,8 @@ export function tick(state) {
     const _bSeq = state._logSeq++;
     const fired = applyBurstISkills(state);
     if (fired) {
-      // 进入 B2 被动在 B1 施放后立即触发，然后才开始延迟
-      applyEnterBurst2Passives(state);
-      state.burstPhaseTick = state.tick + state.burstStepTicks;
+      // 进入下一阶段的被动在 B1 施放后立即触发，然后才开始延迟
+      advanceAfterBurstI(state, fired);
       if (fired.name != null) {
         const bev = { type: 'burst_i', tick: state.tick, unitName: fired.name, _seq: _bSeq };
         if (fired.combatAssistStatus != null) bev.isCA = !!fired.combatAssistStatus;
@@ -1110,9 +1208,10 @@ export function tick(state) {
     }
   }
 
-  // B1 延迟结束 → 推进到阶段 2（等待 B2 冷却）
+  // B1 延迟结束 → 推进到阶段 2（等待 B2 冷却）；重入阶段 1 时停留在阶段 1（等待其他 B1 冷却）
   if (state.burstPhase === 1 && state.burstPhaseTick !== Infinity && state.tick >= state.burstPhaseTick) {
-    state.burstPhase          = 2;
+    state.burstPhase          = state.burstReenterStage1 ? 1 : 2;
+    state.burstReenterStage1  = false;
     state.burstPhaseTick      = Infinity;
     state.burstPhaseTimeoutTick = state.tick + TICK_RATE * 10;
   }
@@ -1178,9 +1277,8 @@ export function tick(state) {
     const _bSeq2 = state._logSeq++;
     const fired = applyBurstISkills(state);
     if (fired) {
-      // 进入 B2 被动在 B1 施放后立即触发，然后才开始延迟
-      applyEnterBurst2Passives(state);
-      state.burstPhaseTick = state.tick + state.burstStepTicks;
+      // 进入下一阶段的被动在 B1 施放后立即触发，然后才开始延迟
+      advanceAfterBurstI(state, fired);
       if (fired.name != null) {
         const bev = { type: 'burst_i', tick: state.tick, unitName: fired.name, _seq: _bSeq2 };
         if (fired.combatAssistStatus != null) bev.isCA = !!fired.combatAssistStatus;
@@ -1210,18 +1308,23 @@ export function tick(state) {
     if ((unit.skillState.weaponSwitchPostBackswingEndTick ?? 0) > 0
         && state.tick < unit.skillState.weaponSwitchPostBackswingEndTick) continue;
 
+    // UP 型蓄力武器后摇期间换弹（§4.3.9）：后摇内完成的换弹到点补满（HIDDEN 期间同样完成）。
+    // 射击节奏不受影响（chargeTick 已按常规发间排定），仅恢复弹药并触发 RELOAD_END。
+    if (unit.backswingReloadTick > 0 && state.tick >= unit.backswingReloadTick) {
+      unit.backswingReloadTick = 0;
+      refillMagazine(state, unit, events);
+      onReloadEnd(state, unit);
+    }
+
     // 装填处理（HIDDEN 期间也会运行，让进行中的装填能够完成）
     // unlimitedAmmoEndTick 激活期间弹药不消耗，永远不会达到 0，跳过装填逻辑
-    if (unit.ammoLeft <= 0 && !((unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick)) {
-      const rSums = getBuffSums(state, unit.id);
+    // 后摇期间换弹尚未完成时（backswingReloadTick > 0）由上方补满，不另起常规换弹
+    if (unit.ammoLeft <= 0 && unit.backswingReloadTick === 0
+        && !((unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick)) {
       if (unit.reloadTick === 0) {
-        // fixedReloadSpeedPct：固定换弹速度加成，屏蔽其他换弹速度效果（如 Asuka: WILLE S2）
-        const effectiveReloadSpeed = unit.skillState?.fixedReloadSpeedPct ?? rSums.reloadSpeedPct;
-        // 换弹时长 = 基础时长 ×(1 − 换弹速度%)，下限 0（≥100% 换弹速度即瞬间装填）。
-        // 注意是乘法折减，不是除以 (1 + speed)：+29.69% → 2s ×0.7031 ≈ 1.41s。
-        // 换弹相位 = 末发后摇（spot_last_delay，不受换弹速度折减）+ 折减后的装填时长。
-        const dur   = Math.round(unit.reloadTicks * Math.max(0, 1 - effectiveReloadSpeed))
-                      + (unit.reloadRecoveryTicks ?? 0);
+        // 换弹相位 = 折减后的装填时长 + 末发后摇（非蓄力武器 spot_last_delay，不受换弹速度折减）。
+        // UP 型蓄力武器的打空换弹已在射击 tick 由 scheduleBackswingReload 提前开始（后摇与换弹同时计时）。
+        const dur = reloadDurationTicks(unit, getBuffSums(state, unit.id)) + (unit.reloadRecoveryTicks ?? 0);
         unit.reloadTick      = state.tick + dur;
         unit.reloadStartTick = state.tick;
       }
@@ -1240,19 +1343,7 @@ export function tick(state) {
         recoverAccuracy(unit, 1);
         continue;
       }
-      // unit.maxAmmo 由 recalcMaxAmmo 维护，始终反映当前所有效果的最终弹匣上限。
-      const effectiveMax = unit.maxAmmo;
-      // 分段装填：每次装填动作仅恢复 round(maxAmmo × reloadFraction) 发，不超过上限。
-      // reloadFraction=1（默认）时等价于一次装满。
-      unit.ammoLeft = unit.reloadFraction < 1
-        ? Math.min(effectiveMax, Math.round(unit.maxAmmo * unit.reloadFraction))
-        : effectiveMax;
-      unit.reloadCount++;
-      unit.reloadTick      = 0;
-      // _seq 用于同 tick 内日志排序：装填在本 tick 的射击之前完成（UP 型蓄力武器换弹完成后会
-      // 立即补射），缺少 _seq 会让换弹后那一发在详情日志中错误地排在"装填"行之前，
-      // 表现为"弹药到 0 后又打一发才装填、且装填未满"。赋予递增 _seq 还原真实执行顺序。
-      events.push({ type: 'reload', tick: state.tick, unitId: unit.id, unitName: unit.name, ammoRefilled: unit.ammoLeft, maxAmmo: unit.maxAmmo, _seq: state._logSeq++ });
+      refillMagazine(state, unit, events);
       // 装填后射击周期衔接：非蓄力 RPM 武器保留换弹期间累积的累加器（封顶 1）——
       // 装填时长 ≥ RPM 发间时累加器已到 1，换弹完成第一发立即击发（与旧行为一致）；
       // 装填被换弹速度 buff 压缩到发间以内时，下一发仍落在「上一发 + RPM 发间」。
@@ -1260,24 +1351,27 @@ export function tick(state) {
       unit.shotAccumulator = (unit.chargeTimeTicks > 0 || unit.mgCurrentRof != null)
         ? 0 : Math.min(1, unit.rateOfFire > 0 ? unit.shotAccumulator : 1);
       // 蓄力武器：换弹完成后需重新经过完整蓄力才打出第一发，绝不立即补射。
-      // UP 型：前摇 + 蓄力（与初始 chargeTick 一致，使用基础蓄力时长、不折减蓄速）。
-      // DOWN_Charge 型：仅蓄力，无前摇（持续按住，换弹期间不松手、无需重新瞄准）。
-      // 实测校准：Cinderella 33s=88 发要求换弹后第一发全蓄力 = 换弹完成 + 60t（不含前摇）。
-      if (unit.chargeTimeTicks > 0) {
-        unit.chargeTick = state.tick + (unit.isDownCharge ? 0 : unit.foreswingTicks) + unit.chargeTimeTicks;
+      // UP 型：前摇 + 有效蓄力；DOWN_Charge 型：仅有效蓄力，无前摇（持续按住，换弹期间不松手、无需重新瞄准）。
+      // 蓄速加成作用于每一次蓄力，换弹后首发亦不例外（与射后发间同口径，见 effectiveChargeTicks）。
+      // 实测校准：Cinderella 33s=88 发要求换弹后第一发全蓄力 = 换弹完成 + 60t（不含前摇）；
+      // 其 S1 P2 蓄速 buff 在 RELOAD_END 被移除，故此时有效蓄力即基础 60t，与本口径一致。
+      // 须在 onReloadEnd 之后计算：RELOAD_END 触发器移除的蓄速 buff 不应作用于换弹后首发；
+      // 触发器若显式改写 chargeTick（如 104.js SDO 固定蓄力），以触发器为准。
+      const chargeTickBeforeReloadHooks = unit.chargeTick;
+      onReloadEnd(state, unit);
+      if (unit.chargeTimeTicks > 0 && unit.chargeTick === chargeTickBeforeReloadHooks) {
+        const effCharge = effectiveChargeTicks(state, unit, getBuffSums(state, unit.id));
+        // UP 型：末发后摇与换弹同时计时，换弹相位结束 = max(换弹完成, 末发 + 后摇)（§4.3.6）
+        const phaseEnd  = unit.isDownCharge
+          ? state.tick : Math.max(state.tick, unit.lastChargeShotTick + unit.backswingTicks);
+        unit.chargeTick = phaseEnd + (unit.isDownCharge ? 0 : unit.foreswingTicks) + effCharge;
         // Alice Wonderland 快速攻击期间换弹：装填完成后应按快速攻击发间续发，
         // 而非重新满蓄（否则会出现"打完最后一发→装填→隔一个完整蓄力周期才续发"的错误间隔）。
         if ((unit.skillState?.aliceWonderlandEndTick ?? 0) >= state.tick) {
-          const rsums      = getBuffSums(state, unit.id);
-          const csFromBuff = unit.immuneSkillChargeSpeed ? 0 : rsums.chargeSpeedPct;
-          const flatRed    = unit.immuneSkillChargeSpeed ? 0 : (rsums.chargeTimeReductionTicks ?? 0);
-          const afterPct   = Math.round(unit.chargeTimeTicks * (1 - Math.min(0.99, (unit.stats.chargeSpeedPct ?? 0) + csFromBuff)));
-          const effCharge  = Math.max(0, afterPct - flatRed);
           const fastTicks  = aliceFastAttackNextTicks(state, unit, effCharge);
           if (fastTicks != null) unit.chargeTick = state.tick + fastTicks;
         }
       }
-      onReloadEnd(state, unit);
     }
 
     // HIDDEN 阶段跳过射击（上方装填仍然允许）。
@@ -1307,6 +1401,7 @@ export function tick(state) {
       const beforeFill = unit.ammoLeft;
       unit.ammoLeft = unit.maxAmmo;
       unit.reloadTick = 0;
+      unit.backswingReloadTick = 0;
       if (state.ammoLog && unit.ammoLeft !== beforeFill)
         state.ammoLog.push({ tick: state.tick, unitId: unit.id, unitName: unit.name,
           delta: unit.ammoLeft - beforeFill, ammoAfter: unit.ammoLeft, maxAmmo: unit.maxAmmo,
@@ -1343,6 +1438,9 @@ export function tick(state) {
         ? (unit.skillState.weaponSwitchHitMult ?? WEAPON_HIT_MULT[effectiveWeaponType] ?? 0.03)
         : unit.shotDamageMult;
       const isCharged = ['SR', 'RL', 'Charged'].includes(effectiveWeaponType);
+      // RL 普攻即 Projectile Explosion：受 projectileExplosionDamagePct 加成（伤害计算与日志明细共用此口径）
+      const isExplosive = effectiveWeaponType === 'RL';
+      const projExpOf = b => (isExplosive ? (b.projectileExplosionDamagePct ?? 0) : 0);
 
       // DURING_FULL_CHARGE：全蓄力击发前触发，推入的 buff 立即被 getBuffSums 读取
       if (isCharged) fireDuringFullChargeTriggers(state, unit);
@@ -1415,10 +1513,10 @@ export function tick(state) {
           : unit.fullChargeDamage,
         favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
         chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
+        chargeDmgMultPct:  sums.chargeDamageMultPct ?? 0,
         favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
         isTrueDamage,
-        extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct
-                             + (effectiveWeaponType === 'RL' ? sums.projectileExplosionDamagePct : 0),
+        extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct + projExpOf(sums),
                              damageToPartsMult: sums.damageToPartsPct ?? 0,
                              trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
                              ...(isPierce ? { pierceDamageMult: sums.pierceDamagePct } : {}) },
@@ -1451,10 +1549,10 @@ export function tick(state) {
             : unit.fullChargeDamage,
           favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
           chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
+          chargeDmgMultPct:  sums.chargeDamageMultPct ?? 0,
           favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
           isTrueDamage,
-          extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct
-                               + (effectiveWeaponType === 'RL' ? sums.projectileExplosionDamagePct : 0),
+          extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct + projExpOf(sums),
                                damageToPartsMult: sums.damageToPartsPct ?? 0,
                                trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
                                pierceDamageMult: sums.pierceDamagePct },
@@ -1481,14 +1579,15 @@ export function tick(state) {
           // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
           const k = b.stacks ?? 1;
           return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k,
-                   attackDamagePct: ((b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0)) * k,
+                   attackDamagePct: ((b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0) + projExpOf(b)) * k,
                    pierceDamagePct: (b.pierceDamagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k,
                    chargeDamagePct: (b.chargeDamagePct ?? 0) * k, critDamagePct: (b.critDamagePct ?? 0) * k,
+                   chargeDamageMultPct: (b.chargeDamageMultPct ?? 0) * k,
                    stacks: k,
                    sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null,
                    sourcePartIdx: b._sourcePartIdx ?? null };
         })
-        .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct);
+        .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.critDamagePct);
       let _hit1BreakdownBufs = null, _hit2BreakdownBufs = null;
       if (isDoubleHit && state.hitLog) _hit1BreakdownBufs = _snapActiveBufs();
 
@@ -1529,10 +1628,10 @@ export function tick(state) {
             : unit.fullChargeDamage,
           favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
           chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums2.chargeDamagePct,
+          chargeDmgMultPct:  sums2.chargeDamageMultPct ?? 0,
           favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
           isTrueDamage:      sums2.normalAttackTrueDamage,
-          extra:             { attackDamageMult: sums2.attackDamagePct + sums2.normalAttackDamagePct
-                               + (effectiveWeaponType === 'RL' ? sums2.projectileExplosionDamagePct : 0),
+          extra:             { attackDamageMult: sums2.attackDamagePct + sums2.normalAttackDamagePct + projExpOf(sums2),
                                damageToPartsMult: sums2.damageToPartsPct ?? 0,
                                trueDamageMult: sums2.normalAttackTrueDamage ? (sums2.trueDamagePct ?? 0) : 0,
                                ...(isPierce ? { pierceDamageMult: sums2.pierceDamagePct } : {}) },
@@ -1601,7 +1700,7 @@ export function tick(state) {
           atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
           hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
           favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
-          attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct, isFullBurst: state.fullBurstActive,
+          attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct + projExpOf(sums), isFullBurst: state.fullBurstActive,
           damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
           enemyDef: isTrueDamage ? 0 : getEffectiveEnemyDef(state),
           isTrueDamage, trueDamagePct: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
@@ -1626,9 +1725,9 @@ export function tick(state) {
               .map(b => {
                 // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
                 const k = b.stacks ?? 1;
-                return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k, attackDamagePct: ((b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0)) * k, pierceDamagePct: (b.pierceDamagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k, chargeDamagePct: (b.chargeDamagePct ?? 0) * k, critDamagePct: (b.critDamagePct ?? 0) * k, stacks: k, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null };
+                return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k, attackDamagePct: ((b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0) + projExpOf(b)) * k, pierceDamagePct: (b.pierceDamagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k, chargeDamagePct: (b.chargeDamagePct ?? 0) * k, chargeDamageMultPct: (b.chargeDamageMultPct ?? 0) * k, critDamagePct: (b.critDamagePct ?? 0) * k, stacks: k, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null };
               })
-              .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct)),
+              .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.critDamagePct)),
             ...getEnemyDebuffBreakdown(state),
           ],
         });
@@ -1641,7 +1740,7 @@ export function tick(state) {
             atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
             hitMult, isCrit: isCritPartsCoreBody, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
             favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
-            attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct, isFullBurst: state.fullBurstActive,
+            attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct + projExpOf(sums), isFullBurst: state.fullBurstActive,
             damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: getEffectiveEnemyDef(state),
             isPierce, pierceDamagePct: sums.pierceDamagePct ?? 0,
             ammoBeforeShot, hitPart: 'body', isCore: false,
@@ -1662,9 +1761,9 @@ export function tick(state) {
                 .map(b => {
                   // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
                   const k = b.stacks ?? 1;
-                  return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k, attackDamagePct: ((b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0)) * k, pierceDamagePct: (b.pierceDamagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k, chargeDamagePct: (b.chargeDamagePct ?? 0) * k, critDamagePct: (b.critDamagePct ?? 0) * k, stacks: k, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null };
+                  return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k, attackDamagePct: ((b.attackDamagePct ?? 0) + (b.normalAttackDamagePct ?? 0) + projExpOf(b)) * k, pierceDamagePct: (b.pierceDamagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k, chargeDamagePct: (b.chargeDamagePct ?? 0) * k, chargeDamageMultPct: (b.chargeDamageMultPct ?? 0) * k, critDamagePct: (b.critDamagePct ?? 0) * k, stacks: k, sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null };
                 })
-                .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct),
+                .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.critDamagePct),
               ...getEnemyDebuffBreakdown(state),
             ],
           });
@@ -1679,7 +1778,7 @@ export function tick(state) {
             atk: unit.stats.atk, atkPct: sums2log.atkPct, atkFlat: sums2log.atkFlat,
             hitMult, isCrit: isCrit2, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums2log.critDamagePct,
             favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
-            attackDamagePct: sums2log.attackDamagePct + sums2log.normalAttackDamagePct,
+            attackDamagePct: sums2log.attackDamagePct + sums2log.normalAttackDamagePct + projExpOf(sums2log),
             isFullBurst: state.fullBurstActive,
             damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state), enemyDef: getEffectiveEnemyDef(state),
             isPierce, pierceDamagePct: isPierce ? (sums2log.pierceDamagePct ?? 0) : 0,
@@ -1760,7 +1859,8 @@ export function tick(state) {
 
       // Bastion Cube Skill 1 (Reload Up HC): every N shots → add M ammo instantly.
       // Placed after onShotFired so last-bullet effects fire first.
-      if (unit.bastionTriggerRounds > 0) {
+      // 固定弹匣的切换武器（Red Hood: Red Wolf）不受补弹影响，计数也不累积
+      if (unit.bastionTriggerRounds > 0 && !isWeaponSwitchAmmoFixed(state, unit)) {
         unit.bastionShotCount++;
         if (unit.bastionShotCount >= unit.bastionTriggerRounds) {
           unit.bastionShotCount = 0;
@@ -1770,6 +1870,10 @@ export function tick(state) {
             state.ammoLog.push({ tick: state.tick, unitId: unit.id, unitName: unit.name, delta: unit.ammoLeft - ammoBefore, ammoAfter: unit.ammoLeft, maxAmmo: unit.maxAmmo, source: 'bastion_cube' });
         }
       }
+
+      // UP 型蓄力武器：进入后摇即开始换弹（§4.3.9）。放在射后触发器与 Bastion 补弹之后，
+      // 以最终弹药与换弹速度判断；仅引擎排定的蓄力射击适用（武器切换期间不适用）。
+      if (_engineScheduledChargeTick !== null) scheduleBackswingReload(state, unit, events);
 
       // ── 弹药里程碑（声明式） ──────────────────────────────────────────
       const cur400 = Math.floor(state.totalAmmoFired / 400);

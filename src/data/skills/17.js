@@ -1,8 +1,11 @@
-﻿import { pushBuff, fireSkillHit, applyHeal, getBuffSums, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+         getBuffSums, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Anis: Star  (resource_id: 17)
-// S1 Part2/3 公共逻辑：根据队伍 B1 构成决定 Star 状态并施加相应效果
+const MY_OWN_STAR_BUFF = 'Starfall P2 L5';
+
+// S1 Part2 公共逻辑：根据队伍 B1 构成决定 Star 状态并施加相应效果（两种状态互斥）
 function applyStarEffect(state, caster) {
   const lv         = caster.skillLevels[0];
   const hasOtherB1 = state.squad.some(
@@ -10,18 +13,27 @@ function applyStarEffect(state, caster) {
   );
   caster.skillState.astarStarMode = hasOtherB1 ? 'everyone' : 'own';
 
-  if (!hasOtherB1) {
-    // My Own Star：自身 ATK% 永久加成（continuous，pushBuff 自动刷新 endTick）
-    const atkPct = getSkillValue(caster.rawSkill1, 1, lv) / 100;
-    pushBuff(state, { name: 'Starfall P2 L4', unitId: caster.id,
-      atkPct, endTick: Infinity });
-    // 全员爆裂冷却缩减（直接减少 burstCdRemaining，不低于 0）
-    const cdReduceTicks = Math.round(getSkillValue(caster.rawSkill1, 2, lv) * TICK_RATE);
-    for (const u of state.squad) {
-      u.burstCdRemaining = Math.max(0, u.burstCdRemaining - cdReduceTicks);
-    }
+  if (hasOtherB1) {
+    // Everyone's Star：Effect 1 取消 My Own Star；Effect 2 爆裂施放后重入阶段 1
+    // 引擎在 B1 施放后读取 changeBurstStep，'Step1' 时不推进到阶段 2，由其他 B1 继续施放
+    state.buffs = state.buffs.filter(
+      b => !(b.name === MY_OWN_STAR_BUFF && b.unitId === caster.id),
+    );
+    caster.changeBurstStep = 'Step1';
+    return;
   }
-  // Everyone's Star：爆裂重入阶段 1（changeBurstStep 应在此处设置，当前仅记录状态供其他技能读取）
+
+  // My Own Star：Effect 1 取消 Everyone's Star（恢复原生阶段推进）
+  caster.changeBurstStep = caster.nativeChangeBurstStep;
+  // Effect 2：自身 ATK% 永久加成（continuous，pushBuff 自动刷新 endTick）
+  const atkPct = getSkillValue(caster.rawSkill1, 1, lv) / 100;
+  pushBuff(state, { name: MY_OWN_STAR_BUFF, unitId: caster.id,
+    atkPct, endTick: Infinity });
+  // Effect 3：全员爆裂冷却缩减（直接减少 burstCdRemaining，不低于 0）
+  const cdReduceTicks = Math.round(getSkillValue(caster.rawSkill1, 2, lv) * TICK_RATE);
+  for (const u of state.squad) {
+    u.burstCdRemaining = Math.max(0, u.burstCdRemaining - cdReduceTicks);
+  }
 }
 
 export default {
@@ -31,14 +43,18 @@ export default {
   //   Burst Gauge filling speed ▲ {p05}% continuously.
   // ■ Activates at the start of battle and when Full Burst ends.
   //   Effect differs according to squad formation. Only the corresponding effect is applied.
-  //   If there are no other Burst 1 allies (My Own Star):
-  //     Affects self. ATK ▲ {p02}%. This effect is continuous and cannot be removed.
-  //     Affects all allies. Cooldown of Burst Skill ▼ {p03} sec.
-  //   If there are any other Burst 1 allies (Everyone's Star):
-  //     Affects self. Re-enters Burst and changes to Stage 1 (continuous).
-  //     [TODO: changeBurstStep 切换逻辑待 battle.js 实现阶段推进后接入]
+  //   If there are no other Burst {p01} allies:
+  //   Effect 1: Affects self. Cancels Everyone's Star.
+  //   Effect 2: Affects self. My Own Star: ATK ▲ {p02}%. This effect is continuous and cannot be removed.
+  //   Effect 3: Affects all allies. Cooldown of Burst Skill ▼ {p03} sec.
+  //   If there are any other Burst {p01} allies:
+  //   Effect 1: Affects self. Cancels My Own Star.
+  //   Effect 2: Affects self. Everyone's Star: Re-enters Burst and changes to Stage {p01}.
+  //             This effect is continuous and cannot be removed.
   // ■ Activates when hitting a target with Full Charge. Affects the target.
   //   Deals {p04}% of final ATK as additional damage.
+  //
+  // 行号以 CDN 原文（上方逐行对应）为准：P2 的 My Own Star ATK 为 L5
   //
   // group_id: 20171
   // p01 (index 0): burst stage (const 1，未使用)
@@ -57,40 +73,38 @@ export default {
           const lv       = caster.skillLevels[0];
           const speedPct = getSkillValue(caster.rawSkill1, 4, lv) / 100;
           for (const u of state.squad) {
-            pushBuff(state, { name: 'Starfall P1 L2', unitId: u.id,
+            pushBuff(state, { name: 'Starfall P1', unitId: u.id,
               burstGaugeFlat: Math.round(u.burstEnergyPerShot * speedPct), endTick: Infinity });
           }
         },
       },
 
-      // Part2+3：战斗开始 → 确定 Star 状态，施加相应效果
+      // Part2：战斗开始 → 确定 Star 状态，施加相应效果
       {
         on: 'BATTLE_START',
-        handler(state, caster) {
-          applyStarEffect(state, caster);
-          if (caster.skillState.astarStarMode !== 'own') return false;
-        },
+        handler(state, caster) { applyStarEffect(state, caster); },
       },
 
-      // Part2+3：全爆裂结束 → 重新施加 Star 效果
-      // 注：与上方 BATTLE_START 同属■段1，此触发器 tdefIdx=2（partIdx=2），接受偏移
+      // Part2：全爆裂结束 → 重新施加 Star 效果
+      // partOverride=1：与上方 BATTLE_START 同属 ■ 第 2 段，强制对齐到 P2
       {
         on: 'FULL_BURST_END',
-        handler(state, caster) {
-          applyStarEffect(state, caster);
-          if (caster.skillState.astarStarMode !== 'own') return false;
-        },
+        partOverride: 1,
+        handler(state, caster) { applyStarEffect(state, caster); },
       },
 
-      // Part4：全蓄力命中 → 对目标造成附加伤害（普通技能伤害，非 sustained）
-      // 注：属■段2，但因 FULL_BURST_END 占用 tdefIdx=2，此触发器 tdefIdx=3（partIdx=3），接受偏移
+      // Part3：全蓄力命中 → 对目标造成附加伤害（普通技能伤害，非 sustained），同时附加对应充能
+      // partOverride=2：FULL_BURST_END 占用了数组序号 2，强制对齐到 P3
       {
         on: 'FULL_CHARGE',
-        handler(state, caster) {
+        partOverride: 2,
+        handler(state, caster, ctx) {
+          if (state.enemyHp <= 0) return;
           const lv   = caster.skillLevels[0];
           const pct  = getSkillValue(caster.rawSkill1, 3, lv) / 100;
-          const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, pct, sums, 'S1');
+          const sums = ctx.sums ?? getBuffSums(state, caster.id);
+          fireSkillHit(state, caster, pct, sums, 'S1 P3');
+          addBurstGauge(state, caster.name, 'astar_s1_fc_dmg', caster.targetBurstEnergyPerShot);
         },
       },
     ],
@@ -124,7 +138,7 @@ export default {
           if (caster.skillState.astarStarMode !== 'own') return false;
           const lv      = caster.skillLevels[1];
           const atkFlat = Math.round(caster.stats.atk * getSkillValue(caster.rawSkill2, 0, lv) / 100);
-          pushBuff(state, { name: 'Stardust P1 L2', unitId: null,
+          pushBuff(state, { name: 'Stardust P1', unitId: null,
             atkFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -158,7 +172,7 @@ export default {
             const uSums   = getBuffSums(state, u.id);
             const uEffDef = u.stats.def * (1 + uSums.defPct) + uSums.defFlat;
             if (u.id !== caster.id && uEffDef >= casterEffDef) continue;
-            pushBuff(state, { name: 'Stardust P3 L2', unitId: u.id,
+            pushBuff(state, { name: 'Stardust P3', unitId: u.id,
               projectileExplosionDamagePct: projExpDmgPct, endTick });
           }
         },
@@ -170,7 +184,7 @@ export default {
         handler(state, caster) {
           const lv           = caster.skillLevels[1];
           const attackDmgPct = getSkillValue(caster.rawSkill2, 5, lv) / 100;
-          pushBuff(state, { name: 'Stardust P4 L2', unitId: null,
+          pushBuff(state, { name: 'Stardust P4', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -179,12 +193,16 @@ export default {
 
   // ── Star Anis
   // ■ Affects self.
-  //   Shooting Stars: Attacks random targets automatically.
-  //   Damage: {p01}% of final ATK. Attack Interval: 0.25 sec. Duration: {p02=10} sec.
-  //   Additional Effects (duration {p02} sec):
-  //     Charge time is fixed at {p10=0.7} sec（不受技能类蓄力速度 buff 影响，仅受魔方/装备影响）.
-  //     Explosion Radius ▲ {p03}%.                [TODO: 爆炸半径不影响伤害输出，未建模]
-  //     DEF ▲ {p05}%.
+  //   Shooting Stars
+  //   Function: Generates stars around Anis that attack random targets automatically.
+  //   Damage: {p01}% of final ATK
+  //   Attack Interval: 0.25 sec
+  //   Duration: {p02=10} sec
+  //   Additional Effects
+  //   Charge time is fixed at {p10=0.7} sec for {p02} sec.（不受技能类蓄力速度 buff 影响，仅受魔方/装备影响）
+  //   Explosion Radius ▲ {p03}% for {p02} sec.     [单目标模型下爆炸半径不影响伤害，未建模]
+  //   DEF ▲ {p05}% for {p02} sec.
+  // 行号以 CDN 原文（上方逐行对应）为准：P1 的 DEF ▲ 为 L10
   // ■ Activates while in My Own Star status. Affects self.
   //   Attack Damage ▲ {p06}% for {p07=10} sec.
   // ■ Activates while in Everyone's Star status. Affects all allies.
@@ -204,71 +222,89 @@ export default {
   burst: {
     groupId: 10173,
     triggers: [
-      // Part1：BURST_SKILL_USE → 激活 Shooting Stars 状态（skillState.shootingStarsEndTick）
-      // 同时设置固定蓄力时间（0.7 sec，仅受装备/魔方蓄力速度影响，屏蔽技能类 buff）
+      // Part1：BURST_SKILL_USE → 激活 Shooting Stars 状态 + 固定蓄力时间 + 自身 DEF ▲（均持续 10 sec）
+      // 固定蓄力时间 0.7 sec 仅受装备/魔方蓄力速度影响，屏蔽技能类 buff
+      // DEF ▲ 会影响同轮内 S2 Part3 的 DEF 比较（S2 ENTER_FULL_BURST 在 B1 burst 后才触发）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
+          const lv      = caster.skillLevels[2];
           const endTick = state.tick + TICK_RATE * 10;
           // Shooting Stars 状态到期时刻，供 INTERVAL handler 检查
           caster.skillState.shootingStarsEndTick = endTick;
+          // 将下方 INTERVAL 触发器（burst 数组序号 1）的计时起点对齐到施放时刻：
+          // 首次命中在施放后 0.25 sec，10 sec 内恰好 40 次，不随战斗开始时刻的相位漂移
+          caster.skillState.intervalBattleLast_burst_1 = state.tick;
           caster.skillState.fixedChargeTimeTicks = Math.round(0.7 * TICK_RATE);
           caster.skillState.fixedChargeEndTick   = endTick;
-        },
-      },
-
-      // Part1 附加：DEF ▲ p05% 自身（持续 10 sec）
-      // 会影响同轮内 S2 Part3 的 DEF 比较（S2 ENTER_FULL_BURST 在 B1 burst 后才触发）
-      // 注：与上方 BURST_SKILL_USE 同属■段0，此触发器 tdefIdx=1（partIdx=1），接受偏移
-      {
-        on: 'BURST_SKILL_USE',
-        handler(state, caster) {
-          const lv     = caster.skillLevels[2];
           const defPct = getSkillValue(caster.rawBurst, 4, lv) / 100;
-          pushBuff(state, { name: 'Star Anis P1 L7', unitId: caster.id,
-            defPct, endTick: state.tick + TICK_RATE * 10 });
+          pushBuff(state, { name: 'Star Anis P1 L10', unitId: caster.id, defPct, endTick });
         },
       },
 
-      // Part1 INTERVAL：每 0.25 sec 检查 Shooting Stars 状态，有效则以当前 buff 状态造成一次伤害
-      // 注：与前两个 BURST_SKILL_USE 同属■段0，此触发器 tdefIdx=2（partIdx=2），接受偏移
+      // Part1 INTERVAL：Shooting Star —— 每 0.25 sec 以当前 buff 状态造成一次伤害
+      // 性质：RL 未蓄力的普通攻击（isCharged=false，chargeMult=1）
+      //   · 可命中核心：RL 恒中核心，敌人有核心且未被保护时按核心结算（RL 无穿透）
+      //   · 享受普攻加成（normalAttackDamagePct / normalAttackCritRatePct）
+      //   · 享受 Projectile Explosion Damage 加成（如 S2 P3）
+      //   · 享受 Explosion Radius 加成：单目标模型下不影响伤害，无需额外计算
+      //   · 可以充能（dev/game-data.md 实测）；是否计入攻击次数未知，暂不触发 SHOT_COUNT
+      // 标签 'Burst P1 Shooting Star'：日志显示为 Shooting Star，tooltip 定位到爆裂技能 P1
+      // partOverride=0：与上方 BURST_SKILL_USE 同属 ■ 第 1 段，强制对齐到 P1
+      // 注意：此触发器必须保持在数组序号 1（上方 handler 依赖 intervalBattleLast_burst_1）
       {
         on: 'INTERVAL',
         opts: { seconds: 0.25 },
+        partOverride: 0,
         handler(state, caster) {
           const endTick = caster.skillState.shootingStarsEndTick;
           if (!endTick || state.tick > endTick) return false;
-          const lv   = caster.skillLevels[2];
-          const pct  = getSkillValue(caster.rawBurst, 0, lv) / 100;
-          const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, pct, sums, 'Burst');
+          if (state.enemyHp <= 0) return;
+          const lv     = caster.skillLevels[2];
+          const pct    = getSkillValue(caster.rawBurst, 0, lv) / 100;
+          const sums   = getBuffSums(state, caster.id);
+          const isCore = state.enemyHasCore && !state.enemyCoreProtected;
+          fireSkillHit(state, caster, pct, sums, 'Burst P1 Shooting Star', {
+            hitPart:             isCore ? 'core' : 'body',
+            coreDmgIncrement:    caster.coreDmgIncrement ?? 0,
+            projectileExplosion: true,
+            isNormalAttack:      true,
+            applyDistanceAdv:    true,
+          });
+          // 充能：按未蓄力普攻计 = target_burst_energy_pershot + burstGaugeFlat（无全蓄力倍率）
+          // addBurstGauge 仅在 burstPhase===0 时生效；Shooting Star 大多落在爆裂期间，实战几乎不充能
+          addBurstGauge(state, caster.name, 'astar_shooting_star',
+            caster.targetBurstEnergyPerShot + (sums.burstGaugeFlat ?? 0));
         },
       },
 
       // Part2：My Own Star 状态 → 自身 Attack Damage ▲（10 sec）
-      // 注：属■段1，但因■段0有3个触发器，此触发器 tdefIdx=3（partIdx=3），接受偏移
+      // partOverride=1：INTERVAL 占用了数组序号 1，强制对齐到 P2
       {
         on: 'BURST_SKILL_USE',
+        partOverride: 1,
         handler(state, caster) {
           if (caster.skillState.astarStarMode !== 'own') return false;
           const lv           = caster.skillLevels[2];
           const attackDmgPct = getSkillValue(caster.rawBurst, 5, lv) / 100;
-          pushBuff(state, { name: 'Star Anis P2 L2', unitId: caster.id,
+          pushBuff(state, { name: 'Star Anis P2', unitId: caster.id,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
 
       // Part3：Everyone's Star 状态 → 全员 Max HP ▲ p08% of caster max HP（flat，10 sec）
+      // 基数为施放者 max HP（描述未写 final，不含 buff）
       // 影响 Cinderella 等以 Max HP 换算攻击力的角色（通过 maxHpFlat buff 传递）
-      // 注：属■段2，但因■段0有3个触发器，此触发器 tdefIdx=4（partIdx=4），接受偏移
+      // partOverride=2：数组序号为 3，强制对齐到 P3
       {
         on: 'BURST_SKILL_USE',
+        partOverride: 2,
         handler(state, caster) {
           if (caster.skillState.astarStarMode !== 'everyone') return false;
           const lv        = caster.skillLevels[2];
           const maxHpPct  = getSkillValue(caster.rawBurst, 7, lv) / 100;
           const maxHpFlat = Math.round(caster.stats.hp * maxHpPct);
-          pushBuff(state, { name: 'Star Anis P3 L2', unitId: null,
+          pushBuff(state, { name: 'Star Anis P3', unitId: null,
             maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },

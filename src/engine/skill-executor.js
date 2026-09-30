@@ -76,7 +76,8 @@
 
 import { SKILL_TRAITS } from '../data/skill-traits.js';
 import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, isPartsHit,
-         getBuffSums, decrementRoundBuffs, TICK_RATE, BURST_GAUGE_MAX, ALL_ALLIES } from './battle-utils.js';
+         getBuffSums, decrementRoundBuffs, isWeaponSwitchAmmoFixed,
+         TICK_RATE, BURST_GAUGE_MAX, ALL_ALLIES } from './battle-utils.js';
 
 // 团队触发：ctx.unit 无意义，所有持有该技能的在队单位均触发
 const TEAM_TRIGGERS = new Set([
@@ -251,6 +252,8 @@ function applyEffects(state, caster, targets, effects, ctx, logCtx = null) {
       case 'RELOAD_AMMO':
         for (const t of targets) {
           if (t === '__enemy__') continue;
+          // 固定弹匣的切换武器不接受补弹
+          if (isWeaponSwitchAmmoFixed(state, t)) continue;
           const pct        = typeof eff.pct === 'function' ? eff.pct(caster, t, state) : eff.pct;
           const ammoBefore = t.ammoLeft;
           t.ammoLeft = Math.min(t.maxAmmo, t.ammoLeft + Math.floor(t.maxAmmo * pct));
@@ -287,6 +290,8 @@ function applyEffects(state, caster, targets, effects, ctx, logCtx = null) {
           // maxAmmoPct = mult - 1；pushBuff 触发 recalcMaxAmmo，更新 t.maxAmmo
           pushBuff(state, { name: eff.label ?? 'ammo_expand', unitId: t.id,
             maxAmmoPct: (eff.mult ?? 1) - 1, endTick: state.tick + TICK_RATE * eff.seconds });
+          // 固定弹匣的切换武器：扩充 buff 仍记录（作用于原武器），但不改动切换武器弹药
+          if (isWeaponSwitchAmmoFixed(state, t)) continue;
           t.ammoLeft   = t.maxAmmo;  // AMMO_EXPAND：扩充并装满
           t.reloadTick = 0;
           if (state.ammoLog)

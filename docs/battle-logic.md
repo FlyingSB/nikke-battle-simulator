@@ -306,10 +306,12 @@ effectiveCharge = max(0, afterPct − flatReductionTicks)
 #### 4.3.4 初始化（战斗开始）
 
 ```
-chargeTick = foreswingTicks + chargeTimeTicks   // 使用基础值，不应用蓄速
+chargeTick = foreswingTicks + round(chargeTimeTicks × (1 − min(0.99, stats.chargeSpeedPct)))
 ```
 
-UP / DOWN_Charge 均以**基础** `chargeTimeTicks`（不折减蓄速）作为首发等待。DOWN_Charge 首发含前摇（初次对准目标）；首发后进入持续按住状态，之后发间不再含前后摇。
+装备词条、魔方等效果**开局即生效**，先于任何角色动作与技能，因此首发蓄力同样应用其蓄速加成（`stats.chargeSpeedPct`）。技能 / buff 类蓄速此时尚未推入，不计入首发。UP / DOWN_Charge 均适用。DOWN_Charge 首发含前摇（初次对准目标）；首发后进入持续按住状态，之后发间不再含前后摇。
+
+> 例：Helm（前摇 12 t、基础蓄力 60 t）装备蓄速 +50% → 首发 @ 12 + 30 = 42 t（旧口径不应用蓄速为 72 t）。
 
 #### 4.3.5 每次射击后（chargeTick 重置）
 
@@ -336,19 +338,28 @@ DOWN_Charge 型持续按住连发，发间受武器 `rate_of_fire`（RPM）下�
 
 #### 4.3.6 换弹后（蓄力武器重置）
 
-蓄力武器换弹完成后必须重新经过完整**基础**蓄力（不折减蓄速）才打出第一发，**绝不立即补射**：
+蓄力武器换弹完成后必须重新经过一次完整蓄力才打出第一发，换弹完成当 tick **不会立即开火**。蓄速加成作用于**每一次**蓄力，换弹后首发也不例外：蓄力时长取 `effectiveCharge`（与 §4.3.3 / §4.3.5 同一口径，含 `immuneSkillChargeSpeed` 屏蔽与固定蓄力覆盖）。
 
-**UP 型**（与战斗开始的初始状态一致，含前摇）：
+**计算时机**：`effectiveCharge` 在 `RELOAD_END` 触发器执行**之后**按当时的 buff 汇总计算，因此换弹时被移除的蓄速 buff（如 Cinderella S1 P2）不作用于换弹后首发。若 `RELOAD_END` 触发器显式改写了 `chargeTick`（如 Drake: Great Villain 的 Super Duper Overdrive 固定蓄力），以触发器为准。
+
+**UP 型**：末发后摇与换弹**同时计时**（机制见 §4.3.9）。换弹相位结束点取两者中较晚者，之后再前摇＋蓄力：
 ```
-chargeTick = reloadEndTick + foreswingTicks + chargeTimeTicks
+reloadPhaseEnd = lastShotTick + max(backswingTicks, reloadDur)
+chargeTick     = reloadPhaseEnd + foreswingTicks + effectiveCharge
+```
+- 常规情况 `reloadDur ≫ backswingTicks`（如 2s 装填 vs 0.2s 后摇）：后摇被换弹时间完全覆盖，`reloadPhaseEnd = lastShotTick + reloadDur`。
+- 换弹时长 < 后摇（如换弹速度 ≥90% 时 Helm 装填 ≤12 t）：换弹在后摇期间完成，但仍须**等后摇结束**才进入前摇，`reloadPhaseEnd = lastShotTick + backswingTicks`。换弹速度 ≥100%（装填 0 t）时同理，**不能**跳过后摇。
+
+> 例：Helm（SR，后摇 12 t、前摇 12 t、蓄力 60 t，无蓄速）换弹速度 +125.20% → 装填 0 t。末发到换弹后首发 ＝ max(12, 0) + 12 + 60 ＝ **84 t**（与常规发间相同），而非忽略后摇的 72 t。
+
+**DOWN_Charge 型**（持续按住，无前后摇；换弹期间不松手、无需重新瞄准，不含前摇）：
+```
+chargeTick = reloadEndTick + effectiveCharge
 ```
 
-**DOWN_Charge 型**（持续按住，换弹期间不松手、无需重新瞄准，不含前摇）：
-```
-chargeTick = reloadEndTick + chargeTimeTicks
-```
+物理含义：UP 型换弹后枪膛回到待击发状态，等价于重新瞄准（前摇）＋蓄力一发。例如 Diesel: Winter Sweets（RL，前摇 0.2s + 蓄力 1.0s）换弹完成后约 1.2s 才打出换弹后第一发，与首发节奏一致。DOWN_Charge 型实测依据：Cinderella 33s = 88 发要求换弹后第一发 = 换弹完成 + 60 t（含前摇则预测 87 发，不符）；其 S1 P2 蓄速 +100% 在 `RELOAD_END` 被移除，换弹后首发的 `effectiveCharge` 即基础 60 t，与「蓄速作用于每次蓄力」一致。
 
-物理含义：UP 型换弹后枪膛回到待击发状态，等价于重新瞄准（前摇）＋蓄力一发。例如 Diesel: Winter Sweets（RL，前摇 0.2s + 蓄力 1.0s）换弹完成后约 1.2s 才打出换弹后第一发，与首发节奏一致。DOWN_Charge 型实测依据：Cinderella 33s = 88 发要求换弹后第一发 = 换弹完成 + 60 t（含前摇则预测 87 发，不符）。
+> **历史口径（已废弃）**：换弹后首发与开局首发曾使用基础 `chargeTimeTicks`（不应用蓄速）。该假设从未有实测支持（唯一相关实测 Cinderella 因 buff 已被移除而无法区分两种口径），已改为应用 `effectiveCharge`。
 
 #### 4.3.7 HIDDEN 退出后（chargeTick 重置）
 
@@ -380,6 +391,36 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 - `chargeSpeedPct` 仅缩短蓄力阶段，前后摇不受影响。
 - 蓄力武器爆裂充能：`baseEnergy × (fullChargeDamage / 10000)`（全蓄力加成）。
 - **部分蓄力击发（游戏实际 vs 模拟器假设）：** 实际游戏中，SR/RL 无需蓄满即可击发；伤害与爆裂充能按实际蓄力程度等比缩减，仅限全蓄力触发的效果（`FULL_CHARGE` 技能触发、全蓄力专属增益）在未满蓄时不生效。模拟器默认所有 SR/RL 普通攻击均在全蓄力时击发（`isCharged=true`），不建模中途击发场景。
+
+#### 4.3.9 后摇期间换弹（UP 型蓄力武器）
+
+适用范围：有后摇（`backswingTicks > 0`）的 **UP 型** SR / RL / Charged 武器。DOWN_Charge 型无后摇，不适用。
+
+**机制：** 角色每次攻击后进入后摇时，**立即开始换弹**（弹匣未满即可，不要求打空），换弹与后摇并行计时。设本发射击 tick 为 `T`，本次换弹时长 `reloadDur = round(reloadTicks × max(0, 1 − effectiveReloadSpeed))`（与 §5.2 同一口径）：
+
+| 情况 | 条件 | 结果 |
+|------|------|------|
+| 后摇中换弹完成 | `reloadDur ≤ backswingTicks` | 在 `T + reloadDur` 时弹匣**补满**；随后等待后摇结束（`T + backswingTicks`），再照常前摇＋蓄力 |
+| 后摇打断换弹 | `reloadDur > backswingTicks` 且弹匣未空 | 后摇结束时换弹被**打断**，本次换弹不恢复任何弹药，继续下一次攻击（前摇＋蓄力） |
+| 末发打空 | `ammoLeft = 0` | 无弹可打，换弹不会被打断，持续到完成；即 §4.3.6 的「后摇与换弹同时计时」 |
+
+要点：
+
+- **判定时机**：以本发射击后（射后技能触发与 Bastion 补弹结算完毕）的弹药量与换弹速度判定。
+- **不改变射击节奏**：后摇期间换弹只影响弹药，不影响发间。无论换弹是否完成，下一发都是 `T + backswingTicks + foreswingTicks + effectiveCharge`（§4.3.5）。
+- **日志**：后摇中换弹**成功完成**时，须在 `T + reloadDur` 记录一条装填事件（`type: 'reload'`，含 `ammoRefilled` / `maxAmmo`），计入 `reloadCount`，并触发装填完成相关的技能时机（`onReloadEnd`）。被打断的换弹不记录装填事件。
+- **实际效果**：`reloadDur ≤ backswingTicks` 时每发之后都会补满，弹匣永不打空，不再出现换弹停顿。例：Helm 后摇 12 t、基础装填 120 t，换弹速度 ≥90%（装填 ≤12 t）即可达成。
+- **分段装填**（`reloadFraction < 1`）：后摇中完成的换弹每次恢复 `round(maxAmmo × reloadFraction)` 发（不超过上限），与 §5.2 一致。
+
+> 末发打空且 `reloadDur ≤ backswingTicks` 时，与「弹匣未空时的后摇中换弹」表现一致：后摇中补满，后摇结束后前摇＋`effectiveCharge`（蓄速作用于每次蓄力，§4.3.6），末发到下一发恰为常规发间。
+
+> **实现**（`battle.js`）：
+> - 每发引擎排定的蓄力射击后（射后触发器与 Bastion 补弹之后），`scheduleBackswingReload` 按当时换弹速度计算 `reloadDur`：`≤ backswingTicks` 时登记 `backswingReloadTick = T + reloadDur`（`reloadDur = 0` 则射击当 tick 立即补满），到点由 `refillMagazine` 补满并记录 `reload` 事件、触发 `onReloadEnd`，不改动 `chargeTick`；`> backswingTicks` 且弹匣已空时于射击当 tick 开始常规换弹（`reloadTick = T + reloadDur`）。
+> - 常规换弹完成后 UP 型 `chargeTick = max(当前 tick, lastChargeShotTick + backswingTicks) + foreswingTicks + effectiveCharge`。
+> - 不适用：武器切换期间（含 Red Hood: Red Wolf）、Alice Wonderland 快速攻击（规避后摇）、无限弹药期间。
+> - 回归测试：`test-reload-cadence.mjs` C5–C7。
+
+> **实测依据**：Anis: Star / Crown / Red Hood / Helm / Privaty 队伍全爆裂期间换弹速度 ≥100%，实测 Helm 与 Red Hood（不使用 Red Wolf 时）始终满弹匣；实现前引擎中两者弹药逐发递减、打空后才换弹。
 
 ### 4.4 非蓄力武器射击节奏（rate_of_fire 累加器）
 
@@ -476,6 +517,7 @@ finalMaxAmmo = Math.max(1, rawMax)
 3. 装填时长：`Math.round(reloadTicks × Math.max(0, 1 − effectiveReloadSpeed)) + reloadRecoveryTicks`。
    - **折减部分**：乘法折减（非除以 `1 + speed`）；换弹速度 ≥100% 时为 0（瞬间装填）。例：基础 2s、换弹速度 +29.69% → `120 × 0.7031 ≈ 84 tick ≈ 1.41s`。
    - **`reloadRecoveryTicks`（末发后摇）**：非蓄力武器的 CDN `spot_last_delay`（`maintain_fire_stance > 0` 时覆盖），**不受换弹速度折减**；蓄力武器为 0。例：Brid: Silent Track 基础 1.5s、换弹速度 +29.69%、后摇 0.2s → `90 × 0.7031 + 12 ＝ 63 + 12 ＝ 75 tick ≈ 1.25s`。
+   - **UP 型蓄力武器**：后摇不是串联相加，而是与换弹**同时计时**，换弹相位 ＝ `max(backswingTicks, 折减后装填时长)`，从末发射击 tick 起算（§4.3.6）。此外，UP 型每次攻击后的后摇期间都会尝试换弹，后摇结束时打断；换弹时长 ≤ 后摇时可在后摇中补满，并记录装填事件（§4.3.9）。
 4. **装填完成时**计算本次应恢复的弹药量（不在装填开始时计算）：
    - 分段装填（`reloadFraction < 1`）：`Math.min(effectiveMax, Math.round(maxAmmo × reloadFraction))`。
    - 默认一次装满：`effectiveMax`。
@@ -604,6 +646,7 @@ burstPhase = 0（充能中）
 | `normalAttackCritRatePct` | 普通攻击暴击率加成（不区分蓄力） |
 | `critDamagePct` | 暴击伤害加成（增量） |
 | `chargeDamagePct` | 蓄力伤害加成（加到 chargeMult） |
+| `chargeDamageMultPct` | 技能 "Charge Damage Multiplier ▲"：与珍藏品蓄力倍率相加后乘武器基础蓄力（chargeMult = 基础×(1+珍藏品+Σ本字段) + 加法项） |
 | `chargeSpeedPct` | 蓄力速度% |
 | `reloadSpeedPct` | 换弹速度% |
 | `maxAmmoFlat` | 弹匣容量固定加成（到期时同样截断当前弹药，与 `maxAmmoPct` 行为一致） |

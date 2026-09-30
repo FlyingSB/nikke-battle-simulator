@@ -707,7 +707,7 @@
                       <!-- 下拉菜单2：技能 -->
                       <div class="log-dropdown" x-data="{ open: false, menuMaxH: '60vh' }" @click.outside="open = false">
                         <button class="log-dropdown-btn"
-                          :class="($store.sim.showLogNormal || $store.sim.logHiddenSkillLabels.length) ? 'log-dropdown-btn--active' : ''"
+                          :class="($store.sim.showLogNormal || $store.sim.showLogReload || $store.sim.logHiddenSkillLabels.length) ? 'log-dropdown-btn--active' : ''"
                           @click="open = !open; if(open){ const r=$el.getBoundingClientRect(); menuMaxH=Math.max(120, window.innerHeight-r.bottom-12)+'px'; }">
                           技能<span class="dd-caret" x-text="open ? ' ▲' : ' ▼'"></span>
                         </button>
@@ -718,6 +718,12 @@
                               :checked="$store.sim.showLogNormal"
                               @change="$store.sim.showLogNormal = !$store.sim.showLogNormal">
                             <span>普通攻击</span>
+                          </label>
+                          <label class="log-dropdown-item">
+                            <input type="checkbox"
+                              :checked="$store.sim.showLogReload"
+                              @change="$store.sim.showLogReload = !$store.sim.showLogReload">
+                            <span>装填</span>
                           </label>
                           <hr class="log-dropdown-sep">
                           <template x-for="label in $store.sim.logAllSkillLabels()" :key="label">

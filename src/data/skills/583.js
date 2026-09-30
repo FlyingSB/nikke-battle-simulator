@@ -114,6 +114,8 @@ export default {
               const soStacks = (caster.skillState.fortune_snapshotsOfYouthStacks ?? 0);
               if (soStacks < 3) {
                 caster.skillState.fortune_snapshotsOfYouthStacks = soStacks + 1;
+                // TODO(实测) "Normal Attack Damage Multiplier" 暂按 normalAttackDamagePct（ExtraMultiplier 加法）建模；
+                //   参考 Charge Damage Multiplier 与珍藏品同乘区的实测结论，可能应与珍藏品普攻倍率同乘区，待游戏内数据验证
                 pushBuff(state, { name: 'Keepsake Album P2 L2', unitId: caster.id,
                   normalAttackDamagePct: 0.1, endTick: Infinity });
               }
