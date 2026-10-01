@@ -2,22 +2,34 @@ import { pushBuff, applyHeal, getBuffSums, TICK_RATE, ALL_ALLIES } from '../../e
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Soline: Frost Ticket  (resource_id: 74)
-// 根据当前 ticket 数量刷新全队最大体力 buff。
-// pushBuff 仅更新 endTick，不更新 buff 值，故直接修改 state.buffs。
-function refreshTicketMaxHp(state, caster) {
-  const count          = caster.skillState.sfTicketCount ?? 0;
-  const lv             = caster.skillLevels[0];
-  const pctPerTicket   = getSkillValue(caster.rawSkill1, 0, lv) / 100;
-  const flat           = Math.round(caster.stats.hp * pctPerTicket * count);
 
+const TICKET          = 'Ticket';
+const FIRST_TRAIN     = 'First Train Discount';
+const MAX_TICKETS     = 2;
+
+// 向全体友军各发放 1 张票：每名队员独立持有可叠层 buff（层数 = 票数，上限 2），
+// 每层最大体力 ▲ 施术者最大体力 × p00%。按队员拆分是因为 S2 只消耗被治疗目标的票。
+function issueTicket(state, caster) {
+  const lv        = caster.skillLevels[0];
+  const maxHpFlat = Math.round(caster.stats.hp * getSkillValue(caster.rawSkill1, 0, lv) / 100);
   for (const u of state.squad) {
-    const existing = state.buffs.find(b => b.name === "I'll Check Your Ticket!" && b.unitId === u.id);
-    if (existing) {
-      existing.maxHpFlat = flat;
-    } else {
-      state.buffs.push({ name: "I'll Check Your Ticket!", unitId: u.id, maxHpFlat: flat, endTick: Infinity });
-    }
+    pushBuff(state, { name: TICKET, unitId: u.id, maxHpFlat,
+      stackLimit: MAX_TICKETS, endTick: Infinity });
   }
+}
+
+function findTicket(state, unitId) {
+  return state.buffs.find(b => b.name === TICKET && b.unitId === unitId && (b.stacks ?? 1) > 0);
+}
+
+// 消耗目标 1 张票；归零时移除 buff，下次发票时重新以 1 层推入
+function consumeTicket(state, ticket) {
+  ticket.stacks = (ticket.stacks ?? 1) - 1;
+  if (ticket.stacks <= 0) state.buffs = state.buffs.filter(b => b !== ticket);
+}
+
+function isFirstTrainActive(state) {
+  return state.buffs.some(b => b.name === FIRST_TRAIN && b.endTick > state.tick);
 }
 
 export default {
@@ -42,18 +54,14 @@ export default {
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          caster.skillState.sfTicketCount = 1;
-          refreshTicketMaxHp(state, caster);
+          issueTicket(state, caster);
         },
       },
-      // Part1：Soline 使用爆裂技能 → 再发放 1 张票（最多 2 张）
+      // Part1：Soline 使用爆裂技能 → 再发放 1 张票（每名队员最多 2 张）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
-          const count = caster.skillState.sfTicketCount ?? 0;
-          if (count >= 2) return;
-          caster.skillState.sfTicketCount = count + 1;
-          refreshTicketMaxHp(state, caster);
+          issueTicket(state, caster);
         },
       },
       // Part2：进入全爆裂 → 全队爆裂技能冷却缩减
@@ -70,8 +78,8 @@ export default {
       // Part3：进入全爆裂 → 移除 First Train Discount
       {
         on: 'ENTER_FULL_BURST',
-        handler(state, caster) {
-          caster.skillState.sfFirstTrainDiscountEndTick = 0;
+        handler(state) {
+          state.buffs = state.buffs.filter(b => b.name !== FIRST_TRAIN);
         },
       },
     ],
@@ -93,24 +101,14 @@ export default {
   skill2: {
     groupId: 20742,
     triggers: [
-      // Part2：战斗开始 → 激活 First Train Discount（6 秒内 S2 不消耗票）
-      {
-        on: 'BATTLE_START',
-        handler(state, caster) {
-          caster.skillState.sfFirstTrainDiscountEndTick = state.tick + TICK_RATE * 6;
-        },
-      },
-      // Part1：每秒检查 → 若有友军 HP < 15% 且有票，对其治疗（HP 比例最低的优先）
+      // Part1：每秒检查 → 若有持票友军 HP < 15%，对其治疗（HP 比例最低的优先）
       {
         on: 'INTERVAL',
         opts: { seconds: 1 },
         handler(state, caster) {
-          const tickets = caster.skillState.sfTicketCount ?? 0;
-          if (tickets <= 0) return false;
-
           const threshold = 0.15;
           const eligible  = state.squad
-            .filter(u => u.unitHp / u.stats.hp < threshold)
+            .filter(u => u.unitHp / u.stats.hp < threshold && findTicket(state, u.id))
             .sort((a, b) => (a.unitHp / a.stats.hp) - (b.unitHp / b.stats.hp));
           if (eligible.length === 0) return false;
 
@@ -120,14 +118,19 @@ export default {
           const maxHp   = caster.stats.hp * (1 + sums.maxHpPct) + (sums.maxHpFlat ?? 0);
           const healAmt = Math.round(maxHp * healPct);
 
-          applyHeal(state, eligible[0], healAmt);
+          const target  = eligible[0];
+          applyHeal(state, target, healAmt);
 
-          // First Train Discount 激活期间不消耗票
-          const discountActive = (caster.skillState.sfFirstTrainDiscountEndTick ?? 0) > state.tick;
-          if (!discountActive) {
-            caster.skillState.sfTicketCount = tickets - 1;
-            refreshTicketMaxHp(state, caster);
-          }
+          // First Train Discount 激活期间不消耗票；否则消耗被治疗目标 1 张票
+          if (!isFirstTrainActive(state)) consumeTicket(state, findTicket(state, target.id));
+        },
+      },
+      // Part2：战斗开始 → 全体友军获得 First Train Discount（p03 秒内 S2 不消耗票）
+      {
+        on: 'BATTLE_START',
+        handler(state, caster) {
+          const sec = getSkillValue(caster.rawSkill2, 3, caster.skillLevels[1]);
+          pushBuff(state, { name: FIRST_TRAIN, unitId: null, endTick: state.tick + Math.round(TICK_RATE * sec) });
         },
       },
     ],

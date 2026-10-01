@@ -1255,4 +1255,58 @@ section('T22: Phantom — S1 P4 消耗/生成时序、S2 P1→P2→P3、爆裂�
   }
 }
 
+// ── T23: Soline: Frost Ticket（74）票 buff 与 First Train Discount ─────────────
+
+section('T23: Soline: Frost Ticket — S1 P1 票 buff 叠层、S2 P2 First Train Discount buff');
+{
+  const soline = mockUnit(74, {
+    unitHp: 1000000,
+    rawSkill1: mockRawSkill([10, 2, 7.48]),
+    rawSkill2: mockRawSkill([15, 12.27, 1, 6]),
+    rawBurst:  mockRawSkill([32.26]),
+  });
+  const ally  = mockUnit(2, { unitHp: 1000000 });
+  const state = mockState([soline, ally]);
+  const ticket = id => state.buffs.find(b => b.name === 'Ticket' && b.unitId === id);
+
+  executeSkillTriggers(state, 'BATTLE_START');
+  eq('开局每名队员各 1 张票', [ticket(74)?.stacks, ticket(2)?.stacks].join(','), '1,1');
+  eq('每张票 Max HP ▲ 施术者 HP × 10%', ticket(2)?.maxHpFlat, 100000);
+  eq('票 Max HP 计入 getBuffSums', getBuffSums(state, 2).maxHpFlat, 100000);
+  const ftd = state.buffs.find(b => b.name === 'First Train Discount');
+  eq('S2 P2 为全员 buff（unitId: null）', ftd?.unitId, null);
+  eq('S2 P2 持续 6 秒', ftd?.endTick, TICK_RATE * 6);
+
+  executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: soline });
+  executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: soline });
+  eq('爆裂发票上限 2 张', ticket(2)?.stacks, 2);
+  eq('2 张票 Max HP 叠加', getBuffSums(state, 2).maxHpFlat, 200000);
+
+  // First Train Discount 期间治疗不消耗票
+  ally.unitHp = 100000;
+  for (state.tick = 0; state.tick <= TICK_RATE; state.tick++) onInterval(state);
+  eq('S2 治疗低血量持票目标', ally.unitHp > 100000, true);
+  eq('First Train Discount 期间不消耗票', ticket(2)?.stacks, 2);
+
+  // 进入全爆裂移除 First Train Discount，此后治疗消耗被治疗目标的票
+  executeSkillTriggers(state, 'ENTER_FULL_BURST');
+  eq('全爆裂移除 First Train Discount',
+    state.buffs.some(b => b.name === 'First Train Discount'), false);
+  ally.unitHp = 100000;
+  for (; state.tick <= TICK_RATE * 2; state.tick++) onInterval(state);
+  eq('移除后治疗消耗目标 1 张票', ticket(2)?.stacks, 1);
+  eq('不消耗其他队员的票', ticket(74)?.stacks, 2);
+
+  ally.unitHp = 100000;
+  for (; state.tick <= TICK_RATE * 3; state.tick++) onInterval(state);
+  eq('票耗尽后 buff 移除', ticket(2), undefined);
+
+  const hpBefore = ally.unitHp = 100000;
+  for (; state.tick <= TICK_RATE * 4; state.tick++) onInterval(state);
+  eq('无票目标不被 S2 治疗', ally.unitHp, hpBefore);
+
+  executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: soline });
+  eq('票耗尽后再次发票从 1 张开始', ticket(2)?.stacks, 1);
+}
+
 summary('Skill traits tests');

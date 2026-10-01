@@ -155,11 +155,11 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Anis: Sparkling Summer | [`15.json`](../src/data/static/nikke/15.json) | [`15.js`](../src/data/skills/15.js) |
 | ✔️ | Rapi: Red Hood | [`16.json`](../src/data/static/nikke/16.json) | [`16.js`](../src/data/skills/16.js) |
 | ✔️ | Anis: Star | [`17.json`](../src/data/static/nikke/17.json) | [`17.js`](../src/data/skills/17.js) |
-| ❌ | Neon: Vision Eye | [`18.json`](../src/data/static/nikke/18.json) | [`18.js`](../src/data/skills/18.js) |
+| ✔️ | Neon: Vision Eye | [`18.json`](../src/data/static/nikke/18.json) | [`18.js`](../src/data/skills/18.js) |
 | ✔️ | Miranda | [`32.json`](../src/data/static/nikke/32.json) | [`32.js`](../src/data/skills/32.js) |
 | ✔️ | D: Killer Wife | [`43.json`](../src/data/static/nikke/43.json) | [`43.js`](../src/data/skills/43.js) |
 | ✔️ | Brid: Silent Track | [`73.json`](../src/data/static/nikke/73.json) | [`73.js`](../src/data/skills/73.js) |
-| ❌ | Soline: Frost Ticket | [`74.json`](../src/data/static/nikke/74.json) | [`74.js`](../src/data/skills/74.js) |
+| ✔️ | Soline: Frost Ticket | [`74.json`](../src/data/static/nikke/74.json) | [`74.js`](../src/data/skills/74.js) |
 | ✔️ | Diesel: Winter Sweets | [`75.json`](../src/data/static/nikke/75.json) | [`75.js`](../src/data/skills/75.js) |
 | ✔️ | Liter | [`82.json`](../src/data/static/nikke/82.json) | [`82.js`](../src/data/skills/82.js) |
 | ❌ | Drake | [`101.json`](../src/data/static/nikke/101.json) | [`101.js`](../src/data/skills/101.js) |
