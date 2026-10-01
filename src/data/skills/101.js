@@ -17,7 +17,9 @@ export default {
   // SSR p07 MaxAmmo SG (lv10=50.14%): [29.60, 31.88, 34.16, 36.44, 38.72, 41.00, 43.28, 45.57, 47.85, 50.14]
   skill1: {
     groupId: 21011,
+    // P1 / P2 拆为两个 trigger：日志的 P 序号取自 trigger 下标
     triggers: [
+      // P1：进入全爆裂 → 全队 Hit Rate ▲[p01]% + ATK ▲[p03]% 10s
       {
         on: 'ENTER_FULL_BURST',
         handler(state, caster) {
@@ -26,12 +28,19 @@ export default {
           if (!favS1) return false;
           const favLv = favS1._activeSkillLevel ?? 10;
           const end10 = state.tick + TICK_RATE * 10;
-
-          // 全队 Hit Rate ▲[p01]% + ATK ▲[p03]%
           const hrPct     = getSkillValue(favS1, 0, favLv) / 100;
           const atkAllPct = getSkillValue(favS1, 2, favLv) / 100;
           pushBuff(state, { name: 'Overcharge P1', unitId: null, hitRatePct: hrPct, atkPct: atkAllPct, endTick: end10 });
-          // SG 友军 ATK ▲[p05]% + Max Ammo ▲[p07]%
+        },
+      },
+      // P2：进入全爆裂 → SG 友军 ATK ▲[p05]% + Max Ammo ▲[p07]% 10s
+      {
+        on: 'ENTER_FULL_BURST',
+        handler(state, caster) {
+          const favS1 = caster.ssrFavSkills?.skill1;
+          if (!favS1) return false;
+          const favLv = favS1._activeSkillLevel ?? 10;
+          const end10 = state.tick + TICK_RATE * 10;
           const atkSgPct  = getSkillValue(favS1, 4, favLv) / 100;
           const ammoPct   = getSkillValue(favS1, 6, favLv) / 100;
           pushBuff(state, { name: 'Overcharge P2', unitId: null, atkPct: atkSgPct, maxAmmoPct: ammoPct, weaponFilter: 'SG', endTick: end10 });
