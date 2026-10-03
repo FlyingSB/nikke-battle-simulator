@@ -155,7 +155,7 @@ export default {
         handler(state, caster) {
           const lv      = caster.skillLevels[1];
           const sDmgPct = getSkillValue(caster.rawSkill2, 6, lv) / 100;
-          pushBuff(state, { name: 'Tighten Up P4 L2', unitId: caster.id,
+          pushBuff(state, { name: 'Tighten Up P4', unitId: caster.id,
             sustainedDamagePct: sDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },

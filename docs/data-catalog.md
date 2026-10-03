@@ -168,7 +168,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ❌ | Drake: Great Villain | [`104.json`](../src/data/static/nikke/104.json) | [`104.js`](../src/data/skills/104.js) |
 | ❌ | Maxwell: Ordinary Mechanic | [`105.json`](../src/data/static/nikke/105.json) | [`105.js`](../src/data/skills/105.js) |
 | ✔️ | Sugar（SSR：Commemorative Keychain） | [`140.json`](../src/data/static/nikke/140.json) | [`140.js`](../src/data/skills/140.js) |
-| ❌ | Mihara: Bonding Chain | [`162.json`](../src/data/static/nikke/162.json) | [`162.js`](../src/data/skills/162.js) |
+| ✔️ | Mihara: Bonding Chain | [`162.json`](../src/data/static/nikke/162.json) | [`162.js`](../src/data/skills/162.js) |
 | ✔️ | Privaty（SSR：Central Government Special Medal） | [`170.json`](../src/data/static/nikke/170.json) | [`170.js`](../src/data/skills/170.js) |
 | ❌ | Maiden: Ice Rose | [`183.json`](../src/data/static/nikke/183.json) | [`183.js`](../src/data/skills/183.js) |
 | ✔️ | Alice | [`191.json`](../src/data/static/nikke/191.json) | [`191.js`](../src/data/skills/191.js) |
