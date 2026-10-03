@@ -167,18 +167,18 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ❌ | Laplace: Ultimate Hero | [`103.json`](../src/data/static/nikke/103.json) | [`103.js`](../src/data/skills/103.js) |
 | ❌ | Drake: Great Villain | [`104.json`](../src/data/static/nikke/104.json) | [`104.js`](../src/data/skills/104.js) |
 | ❌ | Maxwell: Ordinary Mechanic | [`105.json`](../src/data/static/nikke/105.json) | [`105.js`](../src/data/skills/105.js) |
-| ❌ | Sugar（SSR：Commemorative Keychain） | [`140.json`](../src/data/static/nikke/140.json) | [`140.js`](../src/data/skills/140.js) |
+| ✔️ | Sugar（SSR：Commemorative Keychain） | [`140.json`](../src/data/static/nikke/140.json) | [`140.js`](../src/data/skills/140.js) |
 | ❌ | Mihara: Bonding Chain | [`162.json`](../src/data/static/nikke/162.json) | [`162.js`](../src/data/skills/162.js) |
 | ✔️ | Privaty（SSR：Central Government Special Medal） | [`170.json`](../src/data/static/nikke/170.json) | [`170.js`](../src/data/skills/170.js) |
 | ❌ | Maiden: Ice Rose | [`183.json`](../src/data/static/nikke/183.json) | [`183.js`](../src/data/skills/183.js) |
 | ✔️ | Alice | [`191.json`](../src/data/static/nikke/191.json) | [`191.js`](../src/data/skills/191.js) |
-| ❌ | Tove（SSR：Fire Starter） | [`192.json`](../src/data/static/nikke/192.json) | [`192.js`](../src/data/skills/192.js) |
+| ✔️ | Tove（SSR：Fire Starter） | [`192.json`](../src/data/static/nikke/192.json) | [`192.js`](../src/data/skills/192.js) |
 | ❌ | Ludmilla: Winter Owner | [`194.json`](../src/data/static/nikke/194.json) | [`194.js`](../src/data/skills/194.js) |
 | ✔️ | Snow White | [`220.json`](../src/data/static/nikke/220.json) | [`220.js`](../src/data/skills/220.js) |
 | ❌ | Scarlet | [`222.json`](../src/data/static/nikke/222.json) | [`222.js`](../src/data/skills/222.js) |
 | ✔️ | Nayuta | [`223.json`](../src/data/static/nikke/223.json) | [`223.js`](../src/data/skills/223.js) |
 | ✔️ | Scarlet: Black Shadow | [`225.json`](../src/data/static/nikke/225.json) | [`225.js`](../src/data/skills/225.js) |
-| ❌ | Dorothy: Serendipity | [`234.json`](../src/data/static/nikke/234.json) | [`234.js`](../src/data/skills/234.js) |
+| ✔️ | Dorothy: Serendipity | [`234.json`](../src/data/static/nikke/234.json) | [`234.js`](../src/data/skills/234.js) |
 | ✔️ | Liberalio | [`262.json`](../src/data/static/nikke/262.json) | [`262.js`](../src/data/skills/262.js) |
 | ✔️ | Blanc | [`270.json`](../src/data/static/nikke/270.json) | [`270.js`](../src/data/skills/270.js) |
 | ✔️ | Noir | [`271.json`](../src/data/static/nikke/271.json) | [`271.js`](../src/data/skills/271.js) |

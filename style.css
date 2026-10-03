@@ -537,6 +537,13 @@ select.input { cursor: pointer; }
 .hit-tag--core { color: #f19d89; }
 .hit-tag--dist  { color: #1df7e3; }
 .hit-tag--parts { color: #a8e06a; }
+/* 攻击属性标签（穿透 / 依次 / 持续 / 真实 / 爆炸 / 分摊） */
+.hit-tag--pierce      { color: #b48cff; }
+.hit-tag--seq         { color: #ffd84d; }
+.hit-tag--sustained   { color: #ff7eb6; }
+.hit-tag--true        { color: #f2f2f2; }
+.hit-tag--explosive   { color: #ff5a3c; }
+.hit-tag--distributed { color: #6fa8ff; }
 .log-empty { text-align: center; color: var(--text-muted); padding: 14px; }
 .buff-tag  { cursor: pointer; text-decoration: underline dotted var(--text-muted); }
 

@@ -45,6 +45,7 @@ export const BUFF_NUMERIC_FIELDS = [
   'trueDamagePct', 'atkSpeedPct', 'sequentialAttackDamagePct',
   'damageToPartsPct',
   'mgHeatSpeedPct',
+  'pelletFlat',
 ];
 
 // ─── 最大装弹数管理 ─────────────────────────────────────────────────────────
@@ -117,6 +118,8 @@ export function getBuffSums(state, unitId) {
   const elementAdvantageVs = [];
   // 普通攻击造成真实伤害（无视防御，受 trueDamagePct 加成），如 Guilty/Sin Bunny Mode: Engage
   let normalAttackTrueDamage = false;
+  // 「弹丸数固定为 N」（buff 字段 pelletFixed，如 Dorothy: Serendipity S1）：非累加，多个同时生效取最小值
+  let pelletFixed = null;
   for (const b of state.buffs) {
     if (b.unitId !== null && b.unitId !== unitId) continue;
     if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
@@ -129,8 +132,25 @@ export function getBuffSums(state, unitId) {
     if (b.elementAdvantageVs && !elementAdvantageVs.includes(b.elementAdvantageVs))
       elementAdvantageVs.push(b.elementAdvantageVs);
     if (b.normalAttackTrueDamage) normalAttackTrueDamage = true;
+    if (b.pelletFixed != null) pelletFixed = Math.min(pelletFixed ?? Infinity, b.pelletFixed);
   }
-  return { ...sums, pierce, elementAdvantageVs, normalAttackTrueDamage };
+  return { ...sums, pierce, elementAdvantageVs, normalAttackTrueDamage, pelletFixed };
+}
+
+/**
+ * 本次射击命中目标的弹丸数。仅 SG 有多弹丸，其余武器恒为 1。
+ * 「弹丸数固定为 N」优先于「弹丸数 ▲」；否则 = 基础 shot_count + Σ pelletFlat（下限 1）。
+ * 须用射击时（回合扣减前）的 sums 快照计算，回合制 pelletFixed 才能覆盖到其最后一回合。
+ * 当前引擎假设每发射击全部弹丸命中目标（无脱靶模型）。
+ * @param {object} unit
+ * @param {string} weaponType  本次射击的实际武器类型（含武器切换）
+ * @param {{ pelletFixed: number|null, pelletFlat: number }} sums
+ * @returns {number}
+ */
+export function shotPelletCount(unit, weaponType, sums) {
+  if (weaponType !== 'SG') return 1;
+  if (sums.pelletFixed != null) return sums.pelletFixed;
+  return Math.max(1, (unit.shotCount ?? 1) + (sums.pelletFlat ?? 0));
 }
 
 // 被克制关系反查：value 克制 key（Fire > Wind > Iron > Electric > Water > Fire）
@@ -633,6 +653,9 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
       attackDamagePct: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct + normalAtkDmgPct,
       extraAttackDamagePct: extraAtkDmgPct,
+      // 攻击属性标记（UI 日志 Buff 列「依次 / 持续 / 真实 / 爆炸 / 分摊」标签）
+      isSequentialAttack: opts.isSequentialAttack ?? false,
+      isSustained: opts.sustainedDamage ?? false,
       sequentialAttackDamagePct: opts.isSequentialAttack ? (sums.sequentialAttackDamagePct ?? 0) : 0,
       sustainedDamagePct: opts.sustainedDamage ? (sums.sustainedDamagePct ?? 0) : 0,
       trueDamagePct: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,

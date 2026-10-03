@@ -40,15 +40,13 @@ export default {
             }
           }
 
-          // 移除 Making Memories 及其关联 buff
+          // 移除 Making Memories 及其关联 buff（含 Happy Memories 弹丸数 ▲）
           state.buffs = state.buffs.filter(b =>
             b.name !== 'Radiant Youth P1' &&
+            b.name !== 'Memories and Moments P1 L5' &&
             b.name !== 'Memories and Moments P1 L6' &&
             b.name !== 'Keepsake Album P2 L2',
           );
-
-          // 撤销 Happy Memories 弹丸叠加（差值还原，不影响其他来源的 shotCount 修改）
-          caster.shotCount -= (caster.skillState.fortune_happyMemoriesStacks ?? 0);
 
           // 重置所有 Making Memories 内部计数
           caster.skillState.fortune_makingMemoriesActive  = false;
@@ -73,7 +71,7 @@ export default {
   //
   // group_id: 25832
   // p00 reload rounds (const): [6]
-  // p01 pellets▲ per stack (const, no direct damage effect in sim — shotDamageMult unchanged): [1]
+  // p01 pellets▲ per stack (const): [1]  → buff 字段 pelletFlat（不改 shotDamageMult，影响爆裂充能与按弹丸计数的技能）
   // p02 Happy Memories max stacks (const): [3]
   // p03 ATK▲% per stack: [1.47, 1.59, 1.70, 1.81, 1.93, 2.04, 2.15, 2.27, 2.38, 2.49]
   // p04 Precious Moments max stacks (const): [3]
@@ -103,12 +101,14 @@ export default {
                 delta: caster.ammoLeft - ammoBefore, ammoAfter: caster.ammoLeft,
                 maxAmmo: caster.maxAmmo, source: 'fortune_s2_reload' });
           } else if (count === 4) {
-            // Happy Memories：弹丸数 +1（最多3层）
-            //   建模：caster.shotCount +1；shotDamageMult 不变（单次射击总系数固定，每颗弹丸伤害随之变化）
+            // Happy Memories：弹丸数 +1（最多3层，持续到 Full Burst 结束）
+            //   建模：可叠层 pelletFlat buff，下一发起生效；shotDamageMult 不变（单次射击总系数固定，每颗弹丸伤害随之变化）
             const stacks = caster.skillState.fortune_happyMemoriesStacks ?? 0;
             if (stacks < 3) {
               caster.skillState.fortune_happyMemoriesStacks = stacks + 1;
-              caster.shotCount += 1;
+              pushBuff(state, { name: 'Memories and Moments P1 L5', unitId: caster.id,
+                pelletFlat: getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]),
+                stackLimit: 3, endTick: Infinity });
 
               // S1 Part2：Happy Memories 生效时 → Snapshots of Youth Normal Atk Dmg Mult +10%（最多3层）
               const soStacks = (caster.skillState.fortune_snapshotsOfYouthStacks ?? 0);

@@ -819,11 +819,24 @@
                               <span class="hit-tag hit-tag--crit"
                                 x-show="row._hit && row.isCrit">暴击</span>
                               <span class="hit-tag hit-tag--core"
-                                x-show="row._hit && row.isCore">命中核心</span>
+                                x-show="row._hit && row.isCore">核心</span>
                               <span class="hit-tag hit-tag--parts"
                                 x-show="row._hit && row.isParts">命中零件</span>
                               <span class="hit-tag hit-tag--dist"
-                                x-show="row._hit && row.distanceAdv">优势距离</span>
+                                x-show="row._hit && row.distanceAdv">距离</span>
+                              <!-- 攻击属性：决定哪类「X 伤害 ▲」buff 生效 -->
+                              <span class="hit-tag hit-tag--pierce"
+                                x-show="row._hit?.isPierce">穿透</span>
+                              <span class="hit-tag hit-tag--seq"
+                                x-show="row._hit?.isSequentialAttack">依次</span>
+                              <span class="hit-tag hit-tag--sustained"
+                                x-show="row._hit?.isSustained">持续</span>
+                              <span class="hit-tag hit-tag--true"
+                                x-show="row._hit?.isTrueDamage">真实</span>
+                              <span class="hit-tag hit-tag--explosive"
+                                x-show="row._hit?.isExplosive || row._hit?.projectileExplosion">爆炸</span>
+                              <span class="hit-tag hit-tag--distributed"
+                                x-show="row._hit?.isDistributed">分摊</span>
                               <template x-for="(buff, bi) in (row.buffArr ?? [])" :key="bi">
                                 <span class="buff-tag"
                                   @mouseenter="$store.sim.showBuffTooltip($event, buff)"

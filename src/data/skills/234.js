@@ -4,7 +4,7 @@ import { getSkillValue } from '../../data/models.js';
 // Character: Dorothy: Serendipity  (resource_id: 234)
 export default {
 
-  // ── Skill 1（被动）
+  // ── Flash
   // ■ Activates when hitting the target with {p01=80} pellets. Affects self.
   //   Gains Pierce for {p02=3} round(s).
   //   Hit Rate ▲ {p03}% for {p02=3} round(s).
@@ -14,7 +14,7 @@ export default {
   //   Expands Pierce range by {p06=200}% for {p07=3} round(s).
   //
   // group_id: 22341
-  // p00: [80, ...] (Part1 弹头触发阈值；SG shot_count=10 → 每 8 发触发，const)
+  // p00: [80, ...] (Part1 命中弹丸数阈值, const)
   // p01: [3, ...] (持续轮数, const)
   // p02: [78.54, 80.72, 82.9, 85.08, 87.26, 89.44, 91.62, 93.8, 95.98, 98.18] (Hit Rate%)
   // p03: [43.2, 46.4, 49.6, 52.8, 56, 59.2, 62.4, 65.6, 68.8, 72] (Attack damage%)
@@ -23,19 +23,27 @@ export default {
   // p06: [3, ...] (Part2 持续轮数, const)
   //
   // 实现说明：
-  //   - "Pellet count fixed at 1" 不影响伤害计算，不建模。
+  //   - 触发条件按【命中目标的弹丸数】累计，而非射击次数：每发射击累加 ctx.pellets
+  //     （引擎按射击时 buff 计算：基础 10 发；Burst 期间 +3/+5；本技能 3 轮内固定为 1）。
+  //     弹丸只在实际命中后计数（onShotFired 于命中结算之后调用；引擎假设射出即全部命中目标）。
+  //   - "Pellet count fixed at 1" → buff 字段 pelletFixed: 1（影响后续计数与爆裂充能，不影响单发伤害系数）。
   //   - "Expands Pierce range" 不影响伤害计算，Part2 略。
   skill1: {
     groupId: 22341,
     triggers: [
-      // Part1：每 8 发（80 弹头）→ Pierce × 3 轮 + Attack damage ▲ p03% × 3 轮 + Hit Rate ▲ p02% × 3 轮
+      // Part1：累计命中 80 发弹丸（溢出保留）→ Pierce + Attack damage ▲ p03% + Hit Rate ▲ p02% + 弹丸数固定为 1，均 3 轮
       {
         on: 'SHOT_COUNT',
-        opts: { every: 8, counterKey: 'dorothy234S1P1' },
-        handler(state, caster) {
+        opts: { every: 1, counterKey: 'dorothy234S1P1Dummy' },
+        handler(state, caster, ctx) {
+          const st = caster.skillState;
+          st.dorothy234S1P1Pellets = (st.dorothy234S1P1Pellets ?? 0) + (ctx.pellets ?? 1);
+          if (st.dorothy234S1P1Pellets < 80) return;
+          st.dorothy234S1P1Pellets -= 80;
           const atk = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
           const hr  = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Skill 1（被动）', unitId: caster.id, pierce: true, attackDamagePct: atk, hitRatePct: hr, endRounds: 3 });
+          pushBuff(state, { name: 'Flash P1', unitId: caster.id, pierce: true, attackDamagePct: atk, hitRatePct: hr,
+            pelletFixed: 1, endRounds: 3 });
         },
       },
 
@@ -43,7 +51,7 @@ export default {
     ],
   },
 
-  // ── Skill 2（被动）
+  // ── Radiant Wings
   // ■ Activates when entering battle. Affects self.
   //   Pierce damage ▲ {p01}% continuously.
   // ■ Activates only during Full Burst. Affects self.
@@ -55,7 +63,7 @@ export default {
   // p01: [45, 48.36, 51.72, 55.08, 58.44, 61.8, 65.16, 68.52, 71.88, 75.24] (ATK%)
   // p02: [23.4, 25.32, 27.24, 29.16, 31.08, 33, 34.92, 36.84, 38.76, 40.68] (Hit Rate%)
   //
-  // Pierce damage ▲ 仅在 dorothy234_s1_pierce buff 生效期间（S1 激活后 3 发）产生收益。
+  // Pierce damage ▲ 仅在 Flash P1（Pierce）生效期间（S1 激活后 3 发）产生收益。
   // Hit Rate ▲ 进入 buff 系统，经 sums.hitRatePct 收缩散布圆，提升核心命中率（见 accuracy.js coreHitChance）。
   skill2: {
     groupId: 22342,
@@ -65,7 +73,7 @@ export default {
         on: 'BATTLE_START',
         handler(state, caster) {
           const pct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'Skill 2（被动） P1', unitId: caster.id,
+          pushBuff(state, { name: 'Radiant Wings P1', unitId: caster.id,
             pierceDamagePct: pct, endTick: Infinity });
         },
       },
@@ -77,13 +85,13 @@ export default {
           const atkPct = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           const hrPct  = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
           const end10  = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'Skill 2（被动） P2', unitId: caster.id, atkPct, hitRatePct: hrPct, endTick: end10 });
+          pushBuff(state, { name: 'Radiant Wings P2', unitId: caster.id, atkPct, hitRatePct: hrPct, endTick: end10 });
         },
       },
     ],
   },
 
-  // ── Burst（Step3）
+  // ── False Salvation
   // ■ Affects self.
   //   Attack speed ▲ {p01}% for {p02=15} sec.
   //   ATK ▲ {p03}% for {p04=15} sec.
@@ -98,17 +106,18 @@ export default {
   // p05: [15, ...] (持续时间, const)
   //
   // Attack speed ▲：通过 buff 系统传入，battle.js ROF 累加器读取。
-  // 弹头数 ▲ 不影响伤害计算，不建模。
+  // 弹丸数 ▲ → buff 字段 pelletFlat：不改单发伤害系数，但影响 S1 弹丸计数与爆裂充能。
   burst: {
     groupId: 12343,
     triggers: [
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
-          const atkSpdPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
-          const atkPct    = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          const end15     = state.tick + TICK_RATE * 15;
-          pushBuff(state, { name: 'Burst（Step3）', unitId: caster.id, atkSpeedPct: atkSpdPct, atkPct, endTick: end15 });
+          const atkSpdPct  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
+          const atkPct     = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
+          const pelletFlat = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]);
+          const end15      = state.tick + TICK_RATE * 15;
+          pushBuff(state, { name: 'False Salvation P1', unitId: caster.id, atkSpeedPct: atkSpdPct, atkPct, pelletFlat, endTick: end15 });
         },
       },
     ],
