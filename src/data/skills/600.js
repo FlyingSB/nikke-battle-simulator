@@ -1,4 +1,4 @@
-import { pushBuff, applyHeal, getBuffSums, TICK_RATE, pushHoT, ALL_ALLIES } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, getBuffSums, TICK_RATE, pushHoT, ALL_ALLIES, getFinalMaxHp } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Mint  (resource_id: 600)
@@ -35,7 +35,7 @@ export default {
           } else if (isDancing) {
             // Dancing：全队持续 HP 回复（p02% × caster MaxHP / s × 3s）
             const pct    = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-            const amount = Math.round(caster.stats.hp * pct);
+            const amount = Math.round(getFinalMaxHp(state, caster) * pct);  // "caster's final Max HP"
             pushHoT(state, ALL_ALLIES, amount, 3, { partIdx: 1 });
           }
         },

@@ -1,4 +1,4 @@
-import { pushBuff, fireSkillHit, getBuffSums, addBurstGauge, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 import { BUNNY_STANCE, BUNNY_ENGAGE, getBunnyMode, toggleBunnyMode,
          applyBunnyModeBuff } from './bunny-shared.js';
@@ -94,15 +94,13 @@ export default {
           const lv     = caster.skillLevels[1];
           const mode   = getBunnyMode(caster);
           const sums   = ctx.sums ?? getBuffSums(state, caster.id);
+          const gauge  = { burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'gmb_s2_skill' };
           if (mode === BUNNY_ENGAGE) {
             fireSkillHit(state, caster, getSkillValue(caster.rawSkill2, 0, lv) / 100,
-              sums, 'S2 P1', { isTrueDamage: true });
+              sums, 'S2 P1', { isTrueDamage: true, ...gauge });
           } else if (mode === BUNNY_STANCE) {
-            fireSkillHit(state, caster, getSkillValue(caster.rawSkill2, 3, lv) / 100, sums, 'S2 P2');
-          } else {
-            return;
+            fireSkillHit(state, caster, getSkillValue(caster.rawSkill2, 3, lv) / 100, sums, 'S2 P2', gauge);
           }
-          addBurstGauge(state, caster.name, 'gmb_s2_skill', caster.targetBurstEnergyPerShot);
         },
       },
     ],

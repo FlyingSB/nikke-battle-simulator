@@ -1,5 +1,5 @@
 ﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, TICK_RATE, BURST_GAUGE_MAX, ALL_ALLIES } from '../../engine/battle-utils.js';
+         getBuffSums, TICK_RATE, BURST_GAUGE_MAX, ALL_ALLIES, getFinalMaxHp } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Helm  (resource_id: 352)
@@ -43,7 +43,7 @@ export default {
           const hpPct  = parseFloat(hpVals[s1Lv - 1] ?? '0') / 100;
           const bgPct  = parseFloat(bgVals[s1Lv - 1] ?? '0') / 100;
           if (hpPct > 0) {
-            const hpGain = Math.round(caster.stats.hp * hpPct);
+            const hpGain = Math.round(getFinalMaxHp(state, caster) * hpPct);  // "caster's final Max HP"
             // 全员治疗；HEAL_RECEIVED 触发由 battle.js 中 applyHeal 后调用 executeSkillTriggers 覆盖
             applyHeal(state, ALL_ALLIES, hpGain);
           }
@@ -102,8 +102,8 @@ export default {
           const exMult = parseFloat(exVals[s2Lv - 1] ?? '0') / 100;
           if (exMult <= 0) return;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, exMult, sums, 'S2');
-          addBurstGauge(state, caster.name, 'helm_s2_skill', caster.targetBurstEnergyPerShot);
+          fireSkillHit(state, caster, exMult, sums, 'S2', {
+            burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'helm_s2_skill' });
         },
       },
     ],

@@ -1,5 +1,5 @@
 import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
+         getBuffSums, TICK_RATE, BURST_GAUGE_MAX, getFinalAtk } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Miranda  (resource_id: 32)
@@ -131,7 +131,7 @@ export default {
 
           const targets = state.squad
             .filter(u => u.id !== caster.id)
-            .sort((a, b) => b.stats.atk - a.stats.atk)
+            .sort((a, b) => getFinalAtk(state, b) - getFinalAtk(state, a))  // "highest final ATK"
             .slice(0, 2);
           if (targets.length < 2) targets.push(caster);
 

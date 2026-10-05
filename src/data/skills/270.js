@@ -1,4 +1,4 @@
-import { pushBuff, applyShield, pushHoT, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
+import { pushBuff, applyShield, pushHoT, TICK_RATE, ALL_ALLIES, getFinalMaxHp } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Blanc  (resource_id: 270)
@@ -24,7 +24,7 @@ export default {
         opts: { every: 120, counterKey: 'blancS1ShotCount' },
         handler(state, caster) {
           const pct = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
-          applyShield(state, caster, Math.round(caster.stats.hp * pct), state.tick + TICK_RATE * 5);
+          applyShield(state, caster, Math.round(getFinalMaxHp(state, caster) * pct), state.tick + TICK_RATE * 5);  // "caster's final Max HP"
         },
       },
     ],
@@ -50,7 +50,7 @@ export default {
         on: 'FULL_BURST_END',
         handler(state, caster) {
           const pct    = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          const amount = Math.round(caster.stats.hp * pct);
+          const amount = Math.round(getFinalMaxHp(state, caster) * pct);  // "caster's final Max HP"
           pushHoT(state, ALL_ALLIES, amount, 5);
         },
       },
@@ -101,7 +101,7 @@ export default {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
           const pct    = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
-          const amount = Math.round(caster.stats.hp * pct);
+          const amount = Math.round(getFinalMaxHp(state, caster) * pct);  // "caster's final Max HP"
           pushHoT(state, ALL_ALLIES, amount, 8);
         },
       },

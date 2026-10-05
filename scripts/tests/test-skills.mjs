@@ -20,6 +20,7 @@ import {
 } from '../../src/data/skill-traits.js';
 import {
   pushBuff, getBuffSums, decrementRoundBuffs, parseSkillDuration, TICK_RATE,
+  getFinalAtk, getFinalMaxHp,
 } from '../../src/engine/battle-utils.js';
 import { getSkillValue } from '../../src/data/models.js';
 import { onInterval, executeSkillTriggers, onShotFired } from '../../src/engine/skill-executor.js';
@@ -652,7 +653,7 @@ section('T14: FC 追加技能伤害充能 — Helm · Maiden · Liberalio · Neo
     const libTraits = SKILL_TRAITS[262];
     const fcTrigger = libTraits.skill1.triggers
       .filter(t => t.on === 'FULL_CHARGE')
-      .find(t => t.handler?.toString().includes('addBurstGauge'));
+      .find(t => t.handler?.toString().includes('burstEnergy'));
     const state  = makeState(262);
     const caster = state.squad[0];
     caster.rawSkill1 = mockRawSkill([0, 0, 0, 0, 100, 0]);  // param4 = 100%
@@ -687,6 +688,30 @@ section('T14: FC 追加技能伤害充能 — Helm · Maiden · Liberalio · Neo
       fcTrigger.handler(state, caster, {});
       eq('Neon S1 FC (SF active): burstGauge += 2×ENERGY', state.burstGauge, 2 * ENERGY);
     }
+  }
+
+  // ── 充能并入伤害行：hitLog.gaugeAfter 已含本次充能，handler 路径不再单独推「爆裂槽」事件 ──
+  {
+    const icrTraits = SKILL_TRAITS[183];
+    const fcTrigger = icrTraits.skill2.triggers.find(t => t.on === 'FULL_CHARGE');
+    const state  = makeState(183);
+    state.pendingSkillEvents = [];
+    state._logSeq = 0;
+    state._logCtx = { unitName: '183', skillLabel: 'S2', slot: 'skill2', partIdx: 2, trigger: 'FULL_CHARGE' };
+    const caster = state.squad[0];
+    caster.rawSkill2 = mockRawSkill([0, 0, 0, 0, 0, 0, 0, 0, 0, 100]);
+    fcTrigger.handler(state, caster, {});
+    eq('合并充能: hitLog 行 gaugeAfter = ENERGY', state.hitLog[0]?.gaugeAfter, ENERGY);
+    eq('合并充能: 无单独「爆裂槽」事件',
+      state.pendingSkillEvents.filter(e => e.target === '爆裂槽').length, 0);
+
+    // 爆裂期间不充能
+    const burstState = makeState(183);
+    burstState.burstPhase = 1;
+    const burstCaster = burstState.squad[0];
+    burstCaster.rawSkill2 = caster.rawSkill2;
+    fcTrigger.handler(burstState, burstCaster, {});
+    eq('合并充能: 爆裂期间 burstGauge 不变', burstState.burstGauge, 0);
   }
 }
 
@@ -1307,6 +1332,45 @@ section('T23: Soline: Frost Ticket — S1 P1 票 buff 叠层、S2 P2 First Train
 
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: soline });
   eq('票耗尽后再次发票从 1 张开始', ticket(2)?.stacks, 1);
+}
+
+// ── T24: 基础值 vs 最终值 — 描述未写 "final" 取基础值，写了 "final" 取含 buff 的最终值 ──
+
+section('T24: Rouge 各 Max HP ▲ 取基础 MaxHP；getFinalAtk / getFinalMaxHp；102 按最终 ATK 选目标');
+{
+  // Rouge（272）：描述均为 "caster's Max HP"（未写 final）→ 自身 MaxHP buff 不应放大数值
+  const rouge = mockUnit(272, {
+    rawSkill1: mockRawSkill([8, 5, 5, 7]),
+    rawBurst:  mockRawSkill([10, 10, 10, 10, 20, 10, 30, 10]),
+    skillState: { rougeCoinLevel: 3 },
+  });
+  const state = mockState([rouge]);
+  pushBuff(state, { name: 'test_maxhp', unitId: 272, maxHpPct: 0.5, maxHpFlat: 500000, endTick: Infinity });
+  executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: rouge });
+  const gm = n => state.buffs.find(b => b.name === `Game Master ${n}`)?.maxHpFlat;
+  eq('Game Master P2 = 基础 MaxHP × 10%', gm('P2'), 100000);
+  eq('Game Master P3 = 基础 MaxHP × 20%', gm('P3'), 200000);
+  eq('Game Master P4 = 基础 MaxHP × 30%', gm('P4'), 300000);
+  for (let i = 0; i < 8; i++) executeSkillTriggers(state, 'FULL_CHARGE', { unit: rouge });
+  eq('Card Throw = 基础 MaxHP × 5%', state.buffs.find(b => b.name === 'Card Throw')?.maxHpFlat, 50000);
+
+  // 最终值辅助函数：含装备词条与 buff
+  const u = mockUnit(1, { equipAtkPct: 0.2, equipAtkFlat: 1000 });
+  const s2 = mockState([u]);
+  pushBuff(s2, { name: 'a', unitId: 1, atkPct: 0.3, atkFlat: 4000, maxHpPct: 0.5, maxHpFlat: 100, endTick: Infinity });
+  eq('getFinalAtk = 100000 × 1.5 + 5000', getFinalAtk(s2, u), 155000);
+  eq('getFinalMaxHp = 1000000 × 1.5 + 100', getFinalMaxHp(s2, u), 1500100);
+
+  // 102：「highest final ATK」→ 基础 ATK 较低但 buff 后更高的队员应入选
+  const caster = mockUnit(102, { stats: { atk: 50000, hp: 1000000 }, rawSkill1: mockRawSkill([10, 10, 10]) });
+  const hiBase = mockUnit(2, { stats: { atk: 120000, hp: 1000000 } });
+  const hiFinal = mockUnit(3, { stats: { atk: 100000, hp: 1000000 } });
+  const s3 = mockState([caster, hiBase, hiFinal]);
+  pushBuff(s3, { name: 'boost', unitId: 3, atkFlat: 100000, endTick: Infinity });
+  pushBuff(s3, { name: 'boost', unitId: 102, atkFlat: 200000, endTick: Infinity });
+  executeSkillTriggers(s3, 'ENTER_FULL_BURST');
+  const picked = s3.buffs.filter(b => b.name === 'Straight Shot').map(b => b.unitId).sort().join(',');
+  eq('102 选中最终 ATK 最高的 2 名（102、3）', picked, '102,3');
 }
 
 summary('Skill traits tests');

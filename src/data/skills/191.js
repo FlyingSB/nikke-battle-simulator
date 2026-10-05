@@ -1,5 +1,5 @@
 import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
+         getBuffSums, TICK_RATE, BURST_GAUGE_MAX, getFinalAtk } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Alice  (resource_id: 191)
@@ -23,7 +23,8 @@ export default {
       {
         on: 'ENTER_FULL_BURST',
         handler(state, caster) {
-          const sorted          = [...state.squad].sort((a, b) => b.stats.atk - a.stats.atk);
+          // 描述为 "highest final ATK" → 按最终 ATK 排序
+          const sorted          = [...state.squad].sort((a, b) => getFinalAtk(state, b) - getFinalAtk(state, a));
           const targets         = sorted.slice(0, 2);
           const end10           = state.tick + TICK_RATE * 10;
           // Charge Speed：[S1 param1]% 蓄力时间减少（flat ticks）

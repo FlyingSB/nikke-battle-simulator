@@ -597,6 +597,7 @@ function buildAggregateLog(hitLog, unitNames) {
     const bufKey = [
       h.atkPct  ?? 0,
       h.atkFlat ?? 0,
+      h.extraAtkFlat ?? 0,
       h.attackDamagePct ?? 0,
       h.hitMult ?? 1,
       h.distanceAdv ? 1 : 0,
@@ -731,10 +732,13 @@ function buildDmgTooltipHTML(h) {
   const atkFlatBufs   = bd.filter(b => Math.abs(b.atkFlat ?? 0) > 0.0001);
   const atkFlatBufSum = atkFlatBufs.reduce((s, b) => s + (b.atkFlat ?? 0), 0);
   const atkFlatEquip  = (h.atkFlat ?? 0) - atkFlatBufSum;
-  if (Math.abs(h.atkFlat ?? 0) > 0.0001) {
+  // 本次命中独有的额外 ATK 加算项（如 Maiden: Ice Rose S3 的「最终 MaxHP × 10%」），不在 atkFlat 中
+  const extraAtkFlat  = h.extraAtkFlat ?? 0;
+  if (Math.abs(h.atkFlat ?? 0) > 0.0001 || Math.abs(extraAtkFlat) > 0.0001) {
     const s = addSect('固定加成', true);
     if (Math.abs(atkFlatEquip) > 0.0001) addItem(s, '装备', `+${_numFmt(atkFlatEquip)}`, 'flat');
     atkFlatBufs.forEach(b => addItem(s, b.name, `+${_numFmt(b.atkFlat)}`, 'flat'));
+    if (Math.abs(extraAtkFlat) > 0.0001) addItem(s, h.extraAtkFlatLabel ?? '额外加成', `+${_numFmt(extraAtkFlat)}`, 'flat');
   }
 
   // ── 防御力 ──

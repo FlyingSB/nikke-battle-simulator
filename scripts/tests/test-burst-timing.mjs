@@ -296,13 +296,21 @@ section('Maiden: Ice Rose (183) — 首击 0.73s，间隔 0.1s，默认（无标
   const caster = makeCaster(183, 'Maiden: Ice Rose', {
     rawSkill1: makeSkillDetail(1, 0, 6.34),
     rawSkill2: makeSkillDetail(40.9, 0, 20.9, 0, 31.68, 0, 3.2),
-    rawBurst:  makeSkillDetail(1, 0, 1372.8),
+    rawBurst:  makeSkillDetail(1, 10, 1372.8),
+    equipAtkPct:  0.2,
+    equipAtkFlat: 5_000,
     skillState: { iceroseMP: 3, iceroseChargeCount: 0 },
   });
   state.squad = [caster];
   state.tick  = 0;
+  // 施放前已有的 buff：ATK buff（计入最终 ATK）+ Max HP buff（计入最终 MaxHP）
+  state.buffs.push({ name: 'test_atk',   unitId: caster.id, atkPct: 0.5, atkFlat: 30_000, endTick: Infinity });
+  state.buffs.push({ name: 'test_maxhp', unitId: caster.id, maxHpPct: 0.5, maxHpFlat: 200_000, endTick: Infinity });
 
-  burstTrigger.handler(state, caster, {});
+  // 按引擎顺序执行全部 BURST_SKILL_USE 触发器（P1 爆裂命中 → P2 S2 Part2 自身 buff）
+  for (const t of SKILL_TRAITS[183].burst.triggers.filter(t => t.on === 'BURST_SKILL_USE')) {
+    t.handler(state, caster, {});
+  }
 
   const hits = state.pendingSkillHits;
   eq('iceroseMP=3 → 3 个命中', hits.length, 3);
@@ -316,6 +324,26 @@ section('Maiden: Ice Rose (183) — 首击 0.73s，间隔 0.1s，默认（无标
   eq('所有命中 burstSkillDamage 未设置（引擎 suppressFullBurst 负责）', hits.every(h => h.opts?.burstSkillDamage === undefined), true);
   eq('所有命中 sums 已预捕获（非 undefined）', hits.every(h => h.sums !== undefined), true);
   eq('消耗全部 MP → iceroseMP = 0', caster.skillState.iceroseMP, 0);
+
+  // 公式：(最终 ATK + 最终 MaxHP × 10%) × 1372.8%
+  //   最终 MaxHP = 1,000,000 × 1.5 + 200,000 = 1,700,000 → 10% = 170,000
+  //   最终 ATK：atkPct = 装备 0.2 + buff 0.5，atkFlat = 装备 5,000 + buff 30,000
+  const h0 = hits[0];
+  near('倍率 = 1372.8%', h0?.mult, 13.728, 1e-9);
+  eq('extraAtkFlat = 最终 MaxHP × 10%', h0?.opts?.extraAtkFlat, 170_000);
+  near('sums.atkPct 含装备与 buff（最终 ATK）', h0?.sums?.atkPct, 0.7, 1e-9);
+  eq('sums.atkFlat 含装备与 buff（最终 ATK）', h0?.sums?.atkFlat, 35_000);
+  eq('extraAtkFlatLabel 标注 MaxHP 项', h0?.opts?.extraAtkFlatLabel, '最终 MaxHP × 10%');
+  // 伤害明细快照：与预捕获 sums 同时刻，含施放前 ATK buff，不含之后推入的 S2 Part2
+  const bdNames = (h0?.opts?.preBuffBreakdown ?? []).map(b => b.name);
+  eq('preBuffBreakdown 含施放前 ATK buff', bdNames.includes('test_atk'), true);
+  eq('preBuffBreakdown 不含 S2 Part2', bdNames.some(n => n.startsWith('Blessings Upon You P2')), false);
+  // S2 Part2 在爆裂伤害确定后才推入：其 elemAdv 不应出现在预捕获 sums 中
+  eq('S2 Part2 已推入', state.buffs.some(b => b.name === 'Blessings Upon You P2 L2'), true);
+  near('预捕获 sums 不含 S2 Part2 优越加成', h0?.sums?.elementAdvantagePct ?? 0, 0, 1e-9);
+  // S2 Part2 L3：ATK ▲ 3.2% × 最终 MaxHP（1,700,000）
+  eq('S2 Part2 L3 atkFlat = 3.2% × 最终 MaxHP',
+    state.buffs.find(b => b.name === 'Blessings Upon You P2 L3')?.atkFlat, Math.round(1_700_000 * 0.032));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

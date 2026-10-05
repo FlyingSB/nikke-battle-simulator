@@ -1,4 +1,4 @@
-import { pushBuff, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, getBuffSums, TICK_RATE, getFinalAtk } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Maxwell  (resource_id: 102)
@@ -26,7 +26,7 @@ export default {
           const endTick = state.tick + TICK_RATE * 10;
 
           // 取 final ATK 最高的 2 名队员（含自身）
-          const sorted  = [...state.squad].sort((a, b) => b.stats.atk - a.stats.atk);
+          const sorted  = [...state.squad].sort((a, b) => getFinalAtk(state, b) - getFinalAtk(state, a));
           const targets = sorted.slice(0, 2);
 
           for (const t of targets) {

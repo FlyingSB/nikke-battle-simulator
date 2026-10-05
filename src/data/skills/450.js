@@ -1,4 +1,4 @@
-import { pushBuff, applyHeal, applyCoverHeal, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, applyCoverHeal, TICK_RATE, getFinalMaxHp } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Naga  (resource_id: 450)
@@ -76,7 +76,7 @@ export default {
         handler(state, caster) {
           const lv     = caster.skillLevels[1];
           const healPct = getSkillValue(caster.rawSkill2, 6, lv) / 100;
-          const amount  = Math.round(caster.stats.hp * healPct);
+          const amount  = Math.round(getFinalMaxHp(state, caster) * healPct);  // "caster's final Max HP"
           const sorted  = [...state.squad].sort(
             (a, b) => (a.unitHp / a.stats.hp) - (b.unitHp / b.stats.hp),
           );

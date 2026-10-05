@@ -37,13 +37,13 @@ export default {
           if (state.enemyHp <= 0) return;
           const sums     = ctx.sums ?? getBuffSums(state, caster.id);
           const baseMult = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
-          fireSkillHit(state, caster, baseMult, sums, 'S1 P2 Firepower Explosion');
-          addBurstGauge(state, caster.name, 'S1 P2 Firepower Explosion', caster.targetBurstEnergyPerShot);
+          fireSkillHit(state, caster, baseMult, sums, 'S1 P2 Firepower Explosion',
+            { burstEnergy: caster.targetBurstEnergyPerShot });
           const isSF = (caster.skillState.nveSuperFirepowerEndTick ?? 0) > state.tick;
           if (isSF) {
             const sfMult = getSkillValue(caster.rawSkill1, 7, caster.skillLevels[0]) / 100;
-            fireSkillHit(state, caster, sfMult, sums, 'S1 P2 Super Firepower Explosion');
-            addBurstGauge(state, caster.name, 'S1 P2 Super Firepower Explosion', caster.targetBurstEnergyPerShot);
+            fireSkillHit(state, caster, sfMult, sums, 'S1 P2 Super Firepower Explosion',
+              { burstEnergy: caster.targetBurstEnergyPerShot });
           }
         },
       },

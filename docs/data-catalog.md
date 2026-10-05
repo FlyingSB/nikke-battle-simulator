@@ -170,7 +170,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Sugar（SSR：Commemorative Keychain） | [`140.json`](../src/data/static/nikke/140.json) | [`140.js`](../src/data/skills/140.js) |
 | ✔️ | Mihara: Bonding Chain | [`162.json`](../src/data/static/nikke/162.json) | [`162.js`](../src/data/skills/162.js) |
 | ✔️ | Privaty（SSR：Central Government Special Medal） | [`170.json`](../src/data/static/nikke/170.json) | [`170.js`](../src/data/skills/170.js) |
-| ❌ | Maiden: Ice Rose | [`183.json`](../src/data/static/nikke/183.json) | [`183.js`](../src/data/skills/183.js) |
+| ✔️ | Maiden: Ice Rose | [`183.json`](../src/data/static/nikke/183.json) | [`183.js`](../src/data/skills/183.js) |
 | ✔️ | Alice | [`191.json`](../src/data/static/nikke/191.json) | [`191.js`](../src/data/skills/191.js) |
 | ✔️ | Tove（SSR：Fire Starter） | [`192.json`](../src/data/static/nikke/192.json) | [`192.js`](../src/data/skills/192.js) |
 | ❌ | Ludmilla: Winter Owner | [`194.json`](../src/data/static/nikke/194.json) | [`194.js`](../src/data/skills/194.js) |
@@ -182,7 +182,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Liberalio | [`262.json`](../src/data/static/nikke/262.json) | [`262.js`](../src/data/skills/262.js) |
 | ✔️ | Blanc | [`270.json`](../src/data/static/nikke/270.json) | [`270.js`](../src/data/skills/270.js) |
 | ✔️ | Noir | [`271.json`](../src/data/static/nikke/271.json) | [`271.js`](../src/data/skills/271.js) |
-| ❌ | Rouge | [`272.json`](../src/data/static/nikke/272.json) | [`272.js`](../src/data/skills/272.js) |
+| ✔️ | Rouge | [`272.json`](../src/data/static/nikke/272.json) | [`272.js`](../src/data/skills/272.js) |
 | ❌ | Rosanna（SSR：Signet Ring） | [`280.json`](../src/data/static/nikke/280.json) | [`280.js`](../src/data/skills/280.js) |
 | ✔️ | Moran | [`281.json`](../src/data/static/nikke/281.json) | [`281.js`](../src/data/skills/281.js) |
 | ❌ | Privaty: Unkind Maid | [`313.json`](../src/data/static/nikke/313.json) | [`313.js`](../src/data/skills/313.js) |
@@ -204,7 +204,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Red Hood | [`470.json`](../src/data/static/nikke/470.json) | [`470.js`](../src/data/skills/470.js) |
 | ✔️ | Snow White: Heavy Arms | [`471.json`](../src/data/static/nikke/471.json) | [`471.js`](../src/data/skills/471.js) |
 | ✔️ | Elegg: Boom and Shock | [`502.json`](../src/data/static/nikke/502.json) | [`502.js`](../src/data/skills/502.js) |
-| ❌ | Cinderella | [`511.json`](../src/data/static/nikke/511.json) | [`511.js`](../src/data/skills/511.js) |
+| ✔️ | Cinderella | [`511.json`](../src/data/static/nikke/511.json) | [`511.js`](../src/data/skills/511.js) |
 | ✔️ | Little Mermaid | [`513.json`](../src/data/static/nikke/513.json) | [`513.js`](../src/data/skills/513.js) |
 | ❌ | Grave | [`514.json`](../src/data/static/nikke/514.json) | [`514.js`](../src/data/skills/514.js) |
 | ❌ | Cinderella: Crystal Wave | [`515.json`](../src/data/static/nikke/515.json) | [`515.js`](../src/data/skills/515.js) |

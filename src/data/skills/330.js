@@ -1,5 +1,5 @@
 import { pushBuff, applyHeal, applyShield,
-         TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
+         TICK_RATE, ALL_ALLIES, getFinalMaxHp } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Crown  (resource_id: 330)
@@ -92,7 +92,7 @@ export default {
           state.buffs = state.buffs.filter(b => !(b.name === 'Relax' && b.unitId === caster.id));
           const healPct      = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
           const attackDmgPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
-          applyHeal(state, caster, Math.round(caster.stats.hp * healPct), { ...state._logCtx, partIdx: 1 });
+          applyHeal(state, caster, Math.round(getFinalMaxHp(state, caster) * healPct), { ...state._logCtx, partIdx: 1 });  // "caster's final Max HP"
         },
       },
       // tdefIdx=1：■段1(Relax满层 Invulnerable/Taunt)防御性效果未建模，占位
@@ -132,7 +132,7 @@ export default {
           pushBuff(state, { name: 'Last Kingdom', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 15 },
           { ...state._logCtx, lineIdx: 1 });
-          const shieldAmt = Math.round(caster.stats.hp * shieldPct);
+          const shieldAmt = Math.round(getFinalMaxHp(state, caster) * shieldPct);  // "caster's final Max HP"
           const shieldEnd = state.tick + TICK_RATE * 15;
           applyShield(state, ALL_ALLIES, shieldAmt, shieldEnd,
           { ...state._logCtx, lineIdx: 2 });

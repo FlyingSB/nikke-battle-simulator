@@ -1,5 +1,5 @@
 ﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
+         getBuffSums, TICK_RATE, BURST_GAUGE_MAX, getFinalMaxHp } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Nayuta  (resource_id: 223)
@@ -99,7 +99,7 @@ export default {
           pushBuff(state, { name: 'Hypocrisy P2', unitId: null,
             coreDamagePct: coreDmgPct, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: end5 },
             { unitName: caster.name, skillLabel: caster.rawSkill1?.name_localkey ?? 'S1', slot: 'S1', partIdx: 1, lineIdx: null, trigger: 'INTERVAL' });
-          applyHeal(state, caster, Math.round(caster.stats.hp * healPct),
+          applyHeal(state, caster, Math.round(getFinalMaxHp(state, caster) * healPct),  // "caster's final Max HP"
             { unitName: caster.name, skillLabel: caster.rawSkill1?.name_localkey ?? 'S1', slot: 'S1', partIdx: 2, lineIdx: null, trigger: 'INTERVAL' });
 
           // 层数上限 30；满层后 S1 Part2 仍每 3s 刷新

@@ -1,4 +1,4 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE, ENEMY_UNIT_ID } from '../../engine/battle-utils.js';
+import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE, ENEMY_UNIT_ID, getFinalMaxHp } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Asuka: WILLE  (resource_id: 835)
@@ -188,7 +188,7 @@ export default {
           // HP 回复 p06% MaxHP/s × p07 秒（HoT）
           const hotPct    = getSkillValue(caster.rawSkill2, 5, s2Lv) / 100;
           const hotSecs   = getSkillValue(caster.rawSkill2, 6, s2Lv);  // p07 = 3
-          const hotAmount = Math.round(caster.stats.hp * hotPct);
+          const hotAmount = Math.round(getFinalMaxHp(state, caster) * hotPct);  // "final Max HP"
           for (let i = 1; i <= hotSecs; i++) {
             state.pendingHoTs.push({ fireTick: state.tick + i * TICK_RATE, targetId: caster.id, amount: hotAmount });
           }

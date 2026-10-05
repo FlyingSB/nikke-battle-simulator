@@ -1,4 +1,4 @@
-import { pushBuff, applyHeal, TICK_RATE, pushHoT, ALL_ALLIES } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, TICK_RATE, pushHoT, ALL_ALLIES, getFinalMaxHp } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Prika  (resource_id: 601)
@@ -147,7 +147,7 @@ export default {
           // S1 在 Performance 中提升恢复效能 p06%（Performance 随此 burst 立即生效，预折算进 amount）
           const hotPct     = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const potencyPct = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
-          const amount     = Math.round(caster.stats.hp * hotPct * (1 + potencyPct));
+          const amount     = Math.round(getFinalMaxHp(state, caster) * hotPct * (1 + potencyPct));  // "caster's final max HP"
           ss.prika_hotAmount = amount; // 供 Encore 延长时复用
           pushHoT(state, ALL_ALLIES, amount, duration);
 

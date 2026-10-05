@@ -51,8 +51,8 @@ export default {
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
           const skillMult = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
           for (let h = 0; h < 5 && state.enemyHp > 0; h++) {
-            fireSkillHit(state, caster, skillMult, sums, 'S1', { isCore: false });
-            addBurstGauge(state, caster.name, 'lib_s1_t3_skill', caster.targetBurstEnergyPerShot);
+            fireSkillHit(state, caster, skillMult, sums, 'S1', { isCore: false,
+              burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'lib_s1_t3_skill' });
           }
         },
       },

@@ -1,4 +1,4 @@
-﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE, getFinalAtk } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Soda: Twinkling Bunny  (resource_id: 314)
@@ -73,7 +73,7 @@ export default {
 
           const allies = state.squad.filter(u => u.id !== caster.id);
           if (allies.length > 0) {
-            allies.sort((a, b) => (b.stats.atk ?? 0) - (a.stats.atk ?? 0));
+            allies.sort((a, b) => getFinalAtk(state, b) - getFinalAtk(state, a));  // "highest final ATK"
             const top = allies[0];
             pushBuff(state, { name: 'Lucky Golden Chip P2 L3', unitId: top.id,
               attackDamagePct: attackDmgPct, endTick: end2 });

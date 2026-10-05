@@ -410,13 +410,26 @@ export function parseSkillDuration(text) {
 
 // ─── 爆裂槽 ────────────────────────────────────────────────────────────────
 
-export function addBurstGauge(state, unitName, source, energy) {
-  if (state.burstPhase !== 0) return;
+/**
+ * 累加爆裂槽能量并写入 burstEnergyLog，不产生战斗日志行。
+ * @returns {boolean} 是否实际累加（爆裂期间 burstPhase!==0 不充能）
+ */
+function accumulateBurstGauge(state, unitName, source, energy) {
+  if (state.burstPhase !== 0) return false;
   state.burstGauge = Math.min(BURST_GAUGE_MAX, state.burstGauge + energy);
   if (state.burstEnergyLog) {
     state.burstEnergyLog.push({ tick: state.tick, unitName, source, energyAdded: energy, gaugeAfter: state.burstGauge });
   }
-  // handler 路径（state._logCtx 存在）时向战斗日志推入充能事件，用于纯充能技能（如 LM S1 P4）
+  return true;
+}
+
+/**
+ * 纯充能效果（如 LM S1 P4）：累加能量，并在 handler 路径单独推入一条「爆裂槽」日志行。
+ * 伴随伤害的充能应改用 fireSkillHit 的 opts.burstEnergy，使充能并入该伤害行。
+ */
+export function addBurstGauge(state, unitName, source, energy) {
+  if (!accumulateBurstGauge(state, unitName, source, energy)) return;
+  // handler 路径（state._logCtx 存在）时向战斗日志推入充能事件
   _emitSkillEvent(state, '爆裂槽');
 }
 
@@ -545,6 +558,8 @@ export function pushHoT(state, target, amount, durationSecs, logCtxOverride = nu
  *   extraAttackDamagePct     {number}   本次命中独有的 xDmg 加成
  *   isDistributed            {boolean}  使用 distributedDamagePct
  *   extraAtkFlat             {number}   本次命中额外 ATK flat
+ *   extraAtkFlatLabel        {string}   extraAtkFlat 在伤害明细中的显示名（缺省为「额外加成」）
+ *   preBuffBreakdown         {object[]} 预快照的 buff 明细（见 snapshotBuffBreakdown），替代命中时刻的 buff 列表
  *   projectileExplosion      {boolean}  Projectile Explosion 命中（受 projectileExplosionDamagePct 影响）
  *   affectedByFullBurst      {boolean}  非默认：该命中受全爆裂补正影响（仅 Rapi: Red Hood、Liberellio）
  *   suppressFullBurst        {boolean}  [引擎内部] 由引擎自动标记延迟爆裂技能命中，抑制全爆裂补正
@@ -552,6 +567,10 @@ export function pushHoT(state, target, amount, durationSecs, logCtxOverride = nu
  *   isSequentialAttack       {boolean}  依次攻击命中（受 sequentialAttackDamagePct buff 加成）
  *   isNormalAttack           {boolean}  技能产生的普通攻击命中（如 Anis: Star 的 Shooting Star）：
  *                                       额外享受 normalAttackDamagePct / normalAttackCritRatePct 加成
+ *   burstEnergy              {number}   本次命中附带的爆裂槽充能（如全蓄力附加伤害的每发充能）。
+ *                                       在写入 hitLog 前累加，使充能与伤害合并为同一日志行（同普通射击）；
+ *                                       不再单独产生「爆裂槽」行。爆裂期间（burstPhase!==0）不充能
+ *   burstEnergySource        {string}   burstEnergyLog 中的来源标识（缺省为解析后的 label）
  */
 function resolveSkillLabel(unit, label) {
   if (!label || label === 'normal_shot') return label;
@@ -576,6 +595,66 @@ function resolveSkillLabel(unit, label) {
  */
 export function isPartsHit(state, hitPart) {
   return hitPart === 'parts' || (hitPart === 'core' && !!state.enemyCoreIsParts);
+}
+
+/**
+ * 单位最终 ATK（基础 ATK × (1 + 装备词条 + buff ATK%) + 装备词条固定值 + buff 固定 ATK）。
+ * 仅用于技能描述明确写有 "final ATK" 的场合；未写 "final" 时应取基础值 unit.stats.atk。
+ * @param {object} state
+ * @param {object} unit
+ * @returns {number}
+ */
+export function getFinalAtk(state, unit) {
+  const sums = getBuffSums(state, unit.id);
+  return unit.stats.atk * (1 + sums.atkPct) + sums.atkFlat;
+}
+
+/**
+ * 单位最终 MaxHP（基础 MaxHP × (1 + maxHpPct) + maxHpFlat）。
+ * 仅用于技能描述明确写有 "final Max HP" 的场合；未写 "final" 时应取基础值 unit.stats.hp。
+ * @param {object} state
+ * @param {object} unit
+ * @returns {number}
+ */
+export function getFinalMaxHp(state, unit) {
+  const sums = getBuffSums(state, unit.id);
+  return unit.stats.hp * (1 + sums.maxHpPct) + (sums.maxHpFlat ?? 0);
+}
+
+/**
+ * 快照单位当前生效 buff 的伤害明细（hitLog.buffBreakdown 条目格式）。
+ * 用于延迟命中：在伤害确定时刻（如 BURST_SKILL_USE）快照，经 opts.preBuffBreakdown 传入 fireSkillHit，
+ * 使伤害明细与预捕获的 sums 一致，不混入之后才推入的 buff（如 ENTER_FULL_BURST 效果）。
+ * 仅适用于非蓄力、非普通攻击的技能命中（与 fireSkillHit 默认口径一致）。
+ * @param {object} state
+ * @param {number} unitId
+ * @returns {object[]}
+ */
+export function snapshotBuffBreakdown(state, unitId) {
+  return state.buffs
+    .filter(b => (b.unitId === null || b.unitId === unitId)
+      && !(b.roundsLeft !== undefined && b.roundsLeft <= 0)
+      && !(b.endTick !== undefined && b.endTick !== Infinity && b.endTick <= state.tick))
+    .map(b => {
+      // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
+      const k = b.stacks ?? 1;
+      return {
+        name: b.name,
+        atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k,
+        attackDamagePct: (b.attackDamagePct ?? 0) * k,
+        sequentialAttackDamagePct: (b.sequentialAttackDamagePct ?? 0) * k,
+        elementAdvantagePct: (b.elementAdvantagePct ?? 0) * k,
+        coreDamagePct: (b.coreDamagePct ?? 0) * k,
+        chargeDamagePct: (b.chargeDamagePct ?? 0) * k,
+        critDamagePct: (b.critDamagePct ?? 0) * k,
+        stacks: k,
+        sourceCaster: b._sourceCaster ?? null,
+        sourceSkillLabel: b._sourceSkillLabel ?? null,
+        sourcePartIdx: b._sourcePartIdx ?? null,
+        sourceLineIdx: b._sourceLineIdx ?? null,
+      };
+    })
+    .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct);
 }
 
 export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
@@ -644,12 +723,18 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     unit.skillDamage[label]  = (unit.skillDamage[label]  ?? 0) + damage;
     unit.skillDamageCount[label] = (unit.skillDamageCount[label] ?? 0) + 1;
   }
+  // ⚠ 必须在 hitLog 记录之前累积：本行 gaugeAfter 已含本次充能，日志「充能列」据此按行计算增量
+  if (opts.burstEnergy > 0) {
+    accumulateBurstGauge(state, unit.name, opts.burstEnergySource ?? label ?? 'skill', opts.burstEnergy);
+  }
   if (state.hitLog) {
     state.hitLog.push({
       _seq: state._logSeq++,
       tick: state.tick, unitId: unit.id, label: label ?? 'skill',
       gaugeAfter: state.burstGauge,
       atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
+      // 本次命中独有的额外 ATK 加算项（不在 atkFlat 中，由 UI 单列展示）
+      extraAtkFlat, extraAtkFlatLabel: opts.extraAtkFlatLabel ?? null,
       hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
       attackDamagePct: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct + normalAtkDmgPct,
       extraAttackDamagePct: extraAtkDmgPct,

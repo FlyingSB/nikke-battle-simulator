@@ -1,11 +1,10 @@
-import { pushBuff, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Rouge  (resource_id: 272)
-// 计算 Rouge 施法时的有效 MaxHP（含 maxHpPct / maxHpFlat buff）
-function casterMaxHp(state, caster) {
-  const sums = getBuffSums(state, caster.id);
-  return caster.stats.hp * (1 + sums.maxHpPct) + (sums.maxHpFlat ?? 0);
+// 各 Max HP ▲ 效果的描述均为 "caster's Max HP"（未写 final）→ 取 Rouge 基础 MaxHP，不含任何 buff
+function casterMaxHp(caster) {
+  return caster.stats.hp;
 }
 
 // 返回 Rouge 在阵容中两侧相邻友军（含自身）的 id 列表
@@ -42,7 +41,7 @@ export default {
           caster.skillState.rougeS1FcCount = 0;
 
           const lv        = caster.skillLevels[0];
-          const maxHpFlat = Math.round(casterMaxHp(state, caster)
+          const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawSkill1, 1, lv) / 100);
           const cdTicks   = Math.round(getSkillValue(caster.rawSkill1, 3, lv) * TICK_RATE);
           const endTick   = state.tick + TICK_RATE * 5;
@@ -93,7 +92,8 @@ export default {
       },
 
       // Part2：已有 Sword Coin（level=1）时每 30 次全蓄力 → 叠加 Shield Coin（level→2）
-      // Damage Taken ▼ 对友军的减伤不影响 DPS 输出，此处仅推进层级，不建模减伤 buff
+      // Damage Taken ▼ 对友军的减伤不影响 DPS 输出，不建模减伤数值；
+      // 推入无属性的永久标记 buff，仅用于技能日志与 buff 列表显示 Shield Coin 状态
       {
         on: 'FULL_CHARGE',
         handler(state, caster) {
@@ -103,23 +103,31 @@ export default {
           if (caster.skillState.rougeS2FcCount < 30) return;
           caster.skillState.rougeS2FcCount  = 0;
           caster.skillState.rougeCoinLevel  = 2;
+
+          for (const uid of adjacentTargetIds(state, caster)) {
+            pushBuff(state, { name: 'Coin Flip P2', unitId: uid, endTick: Infinity });
+          }
         },
       },
 
-      // Part3：已有 Shield Coin（level=2）时每 5 次施放爆裂技能 → 叠加 Double Sword Coin（level→3）
+      // Part3：累计施放 5 次爆裂技能且处于 Shield Coin（level=2）→ 叠加 Double Sword Coin（level→3）
       // 全员永久 Max HP ▲（不恢复 HP，模拟器中 maxHpFlat 不触发治疗）
+      // 游戏内先结算 S3 各部分，之后才计入"使用了爆裂技能"次数：
+      // 第 5 次爆裂时本部分生效，但 S3 P4 要到第 6 次爆裂才生效
       {
         on: 'BURST_SKILL_USE',
+        priority: 1,  // 晚于 S3（默认 priority=0）执行
         handler(state, caster, ctx) {
           if (ctx.unit?.id !== caster.id) return;
-          if ((caster.skillState.rougeCoinLevel ?? 0) !== 2) return;
 
+          // 爆裂次数从战斗开始即累计，不要求期间处于 Shield Coin；
+          // 累计满 5 次且当前为 Shield Coin 时生效（一次性升级，无需重置计数）
           caster.skillState.rougeS2BurstCount = (caster.skillState.rougeS2BurstCount ?? 0) + 1;
+          if ((caster.skillState.rougeCoinLevel ?? 0) !== 2) return;
           if (caster.skillState.rougeS2BurstCount < 5) return;
-          caster.skillState.rougeS2BurstCount = 0;
           caster.skillState.rougeCoinLevel    = 3;
 
-          const maxHpFlat = Math.round(casterMaxHp(state, caster)
+          const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100);
           pushBuff(state, { name: 'Coin Flip P3', unitId: null,
             maxHpFlat, endTick: Infinity });
@@ -169,7 +177,7 @@ export default {
           if (ctx.unit?.id !== caster.id) return;
           if ((caster.skillState.rougeCoinLevel ?? 0) < 1) return;
           const lv        = caster.skillLevels[2];
-          const maxHpFlat = Math.round(casterMaxHp(state, caster)
+          const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawBurst, 2, lv) / 100);
           pushBuff(state, { name: 'Game Master P2', unitId: null,
             maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
@@ -183,7 +191,7 @@ export default {
           if (ctx.unit?.id !== caster.id) return;
           if ((caster.skillState.rougeCoinLevel ?? 0) < 2) return;
           const lv        = caster.skillLevels[2];
-          const maxHpFlat = Math.round(casterMaxHp(state, caster)
+          const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawBurst, 4, lv) / 100);
           pushBuff(state, { name: 'Game Master P3', unitId: null,
             maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
@@ -197,7 +205,7 @@ export default {
           if (ctx.unit?.id !== caster.id) return;
           if ((caster.skillState.rougeCoinLevel ?? 0) < 3) return;
           const lv        = caster.skillLevels[2];
-          const maxHpFlat = Math.round(casterMaxHp(state, caster)
+          const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawBurst, 6, lv) / 100);
           pushBuff(state, { name: 'Game Master P4', unitId: null,
             maxHpFlat, endTick: state.tick + TICK_RATE * 10 });

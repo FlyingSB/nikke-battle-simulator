@@ -1,4 +1,4 @@
-﻿import { pushBuff, fireSkillHit, addBurstGauge, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Helm: Aquamarine  (resource_id: 353)
@@ -31,8 +31,8 @@ export default {
           const lv   = caster.skillLevels[0];
           const mult = getSkillValue(caster.rawSkill1, 1, lv) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, 'S1');
-          addBurstGauge(state, caster.name, 'helm353_s1_extraHit', caster.targetBurstEnergyPerShot);
+          fireSkillHit(state, caster, mult, sums, 'S1', {
+            burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'helm353_s1_extraHit' });
         },
       },
       // Part2：进入全爆裂 → 全员 CDR（累积制，Previous effects trigger repeatedly）
@@ -82,8 +82,8 @@ export default {
           const lv   = caster.skillLevels[1];
           const mult = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, 'S2');
-          addBurstGauge(state, caster.name, 'helm353_s2_suppFire', caster.targetBurstEnergyPerShot);
+          fireSkillHit(state, caster, mult, sums, 'S2', {
+            burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'helm353_s2_suppFire' });
           if (state.enemyElement === 'Electric') {
             const dtPct     = getSkillValue(caster.rawSkill2, 2, lv) / 100;
             const maxStacks = getSkillValue(caster.rawSkill2, 3, lv);

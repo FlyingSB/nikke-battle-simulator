@@ -1,4 +1,4 @@
-﻿import { pushBuff, fireSkillHit, addBurstGauge, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Snow White: Heavy Arms  (resource_id: 471)
@@ -73,8 +73,8 @@ export default {
 
           // Auto Fire Effect 1：p06% 对全体
           const p06 = getSkillValue(caster.rawSkill1, 5, s1Lv) / 100;
-          fireSkillHit(state, caster, p06, sums, 'S1 P4 L4');
-          addBurstGauge(state, caster.name, 'swha_s1_aoe', caster.targetBurstEnergyPerShot);
+          fireSkillHit(state, caster, p06, sums, 'S1 P4 L4', {
+            burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'swha_s1_aoe' });
 
           // Auto Fire Effect 2：p07% × ammo 顺序攻击（isCharged=false）
           // FA 时 S2 P4 推入 sequentialAttackDamagePct，经 sums 自动参与计算
@@ -82,8 +82,8 @@ export default {
           const ammo    = faActive ? 15 : 5;
           const seqMult = p07 * (1 + (sums.sequentialAttackDamagePct ?? 0));
           for (let i = 0; i < ammo; i++) {
-            fireSkillHit(state, caster, seqMult, sums, 'S1 P4 L5');
-            addBurstGauge(state, caster.name, 'swha_s1_seq', caster.targetBurstEnergyPerShot);
+            fireSkillHit(state, caster, seqMult, sums, 'S1 P4 L5', {
+              burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'swha_s1_seq' });
           }
 
           // FA 使用次数递减；耗尽时恢复 S2 固定蓄力时长 1.2s

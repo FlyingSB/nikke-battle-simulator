@@ -1,4 +1,4 @@
-﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, snapshotBuffBreakdown, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Elegg: Boom and Shock  (resource_id: 502)
@@ -159,30 +159,7 @@ export default {
           // 在 BURST_SKILL_USE 时捕获（含 S2 Ghostbuster ATK buff）；ENTER_FULL_BURST 效果在此之后才推入，不影响此 sums
           const preSums = getBuffSums(state, caster.id);
           // 同步快照 buffBreakdown，确保伤害气泡展示与实际计算一致，不混入 ENTER_FULL_BURST 之后推入的 buff
-          const preBuffBreakdown = state.buffs
-            .filter(b => (b.unitId === null || b.unitId === caster.id)
-              && !(b.roundsLeft !== undefined && b.roundsLeft <= 0)
-              && !(b.endTick !== undefined && b.endTick !== Infinity && b.endTick <= state.tick))
-            .map(b => {
-              // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
-              const k = b.stacks ?? 1;
-              return {
-                name: b.name,
-                atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k,
-                attackDamagePct: (b.attackDamagePct ?? 0) * k,
-                sequentialAttackDamagePct: (b.sequentialAttackDamagePct ?? 0) * k,
-                elementAdvantagePct: (b.elementAdvantagePct ?? 0) * k,
-                coreDamagePct: (b.coreDamagePct ?? 0) * k,
-                chargeDamagePct: (b.chargeDamagePct ?? 0) * k,
-                critDamagePct: (b.critDamagePct ?? 0) * k,
-                stacks: k,
-                sourceCaster: b._sourceCaster ?? null,
-                sourceSkillLabel: b._sourceSkillLabel ?? null,
-                sourcePartIdx: b._sourcePartIdx ?? null,
-                sourceLineIdx: b._sourceLineIdx ?? null,
-              };
-            })
-            .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct);
+          const preBuffBreakdown = snapshotBuffBreakdown(state, caster.id);
           const delay   = Math.round(0.2 * TICK_RATE);
 
           if (ghosts === 13) {

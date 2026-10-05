@@ -103,8 +103,8 @@ export default {
           const lv   = caster.skillLevels[0];
           const pct  = getSkillValue(caster.rawSkill1, 3, lv) / 100;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, pct, sums, 'S1 P3');
-          addBurstGauge(state, caster.name, 'astar_s1_fc_dmg', caster.targetBurstEnergyPerShot);
+          fireSkillHit(state, caster, pct, sums, 'S1 P3', {
+            burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'astar_s1_fc_dmg' });
         },
       },
     ],
@@ -270,11 +270,11 @@ export default {
             projectileExplosion: true,
             isNormalAttack:      true,
             applyDistanceAdv:    true,
+            // 充能：按未蓄力普攻计 = target_burst_energy_pershot + burstGaugeFlat（无全蓄力倍率）
+            // 仅在 burstPhase===0 时生效；Shooting Star 大多落在爆裂期间，实战几乎不充能
+            burstEnergy:         caster.targetBurstEnergyPerShot + (sums.burstGaugeFlat ?? 0),
+            burstEnergySource:   'astar_shooting_star',
           });
-          // 充能：按未蓄力普攻计 = target_burst_energy_pershot + burstGaugeFlat（无全蓄力倍率）
-          // addBurstGauge 仅在 burstPhase===0 时生效；Shooting Star 大多落在爆裂期间，实战几乎不充能
-          addBurstGauge(state, caster.name, 'astar_shooting_star',
-            caster.targetBurstEnergyPerShot + (sums.burstGaugeFlat ?? 0));
         },
       },
 
