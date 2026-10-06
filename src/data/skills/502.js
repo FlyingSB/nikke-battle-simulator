@@ -166,7 +166,7 @@ export default {
                 fireTick: state.tick + delay * (h + 1),
                 caster, mult: hitPct, sums: preSums,
                 isCharged: false, label: 'Burst P2',
-                opts: { preBuffBreakdown },
+                opts: { preBuffBreakdown, isSequentialAttack: true },
               });
             }
             caster.skillState.ebs_ghostCount = ghosts - 9;  // 13 - 9 = 4
@@ -178,7 +178,7 @@ export default {
                 fireTick: state.tick + delay * (h + 1),
                 caster, mult: hitPct, sums: preSums,
                 isCharged: false, label: 'Burst P1',
-                opts: { preBuffBreakdown },
+                opts: { preBuffBreakdown, isSequentialAttack: true },
               });
             }
             caster.skillState.ebs_ghostCount = Math.max(1, ghosts - 6);

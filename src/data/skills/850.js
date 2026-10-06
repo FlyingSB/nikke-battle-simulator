@@ -58,7 +58,7 @@ export default {
           const hitPct  = inMk2 ? basePct * 2 : basePct;
           const sums    = getBuffSums(state, caster.id);
           for (let h = 0; h < 3 && state.enemyHp > 0; h++) {
-            fireSkillHit(state, caster, hitPct, sums, 'S1 P2 Unstable Energy');
+            fireSkillHit(state, caster, hitPct, sums, 'S1 P2 Unstable Energy', { isSequentialAttack: true });
           }
 
           // Part3：敌人为电击属性时施加 Damage Taken ▲ p03% 10s
@@ -144,6 +144,7 @@ export default {
             count: 6,
             mult: (caster) => getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100,
             label: 'Burst',
+            opts: { isSequentialAttack: true },
           },
         ],
       },

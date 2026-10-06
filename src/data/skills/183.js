@@ -162,7 +162,7 @@ export default {
               sums: preSums, isCharged: false, label: 'Burst',
               opts: { extraAtkFlat: Math.round(buffedMaxHp * hpPct),
                       extraAtkFlatLabel: `最终 MaxHP × ${Math.round(hpPct * 100)}%`,
-                      preBuffBreakdown },
+                      preBuffBreakdown, isSequentialAttack: true },
             });
           }
           caster.skillState.iceroseMP = 0;

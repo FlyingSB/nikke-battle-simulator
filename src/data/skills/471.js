@@ -77,12 +77,12 @@ export default {
             burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'swha_s1_aoe' });
 
           // Auto Fire Effect 2：p07% × ammo 顺序攻击（isCharged=false）
-          // FA 时 S2 P4 推入 sequentialAttackDamagePct，经 sums 自动参与计算
+          // 依次攻击：FA 时 S2 P4 推入的 sequentialAttackDamagePct 经 isSequentialAttack 计入伤害加成乘区
           const p07     = getSkillValue(caster.rawSkill1, 6, s1Lv) / 100;
           const ammo    = faActive ? 15 : 5;
-          const seqMult = p07 * (1 + (sums.sequentialAttackDamagePct ?? 0));
           for (let i = 0; i < ammo; i++) {
-            fireSkillHit(state, caster, seqMult, sums, 'S1 P4 Auto Fire (Sequential)', {
+            fireSkillHit(state, caster, p07, sums, 'S1 P4 Auto Fire (Sequential)', {
+              isSequentialAttack: true,
               burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'swha_s1_seq' });
           }
 

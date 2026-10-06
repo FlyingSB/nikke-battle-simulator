@@ -137,7 +137,7 @@ export default {
           const beautyBonusPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const sums           = getBuffSums(state, caster.id);
           for (let i = 0; i < 10 && state.enemyHp > 0; i++) {
-            fireSkillHit(state, caster, burstHitMult, sums, 'Burst P1');
+            fireSkillHit(state, caster, burstHitMult, sums, 'Burst P1', { isSequentialAttack: true });
             if (stacks > 0) {
               state.pendingFireInBurstHits.push({
                 caster, mult: stacks * beautyBonusPct, sums: null,
