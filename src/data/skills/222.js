@@ -9,8 +9,10 @@ function checkAndApplyS2P2(state, caster) {
   caster.skillState.scS2CritApplied = true;
   const lv    = caster.skillLevels[1];
   const cdPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
+  // 可由 S1 handler 触发，日志显式归属到 S2；S2 唯一的效果段（P1 为伤害）→ 省略 P 后缀
   pushBuff(state, { name: 'Zatoichi', unitId: caster.id,
-    critDamagePct: cdPct, endTick: Infinity });
+    critDamagePct: cdPct, endTick: Infinity },
+    { ...state._logCtx, skillLabel: caster.rawSkill2?.name_localkey ?? 'S2', slot: 'S2', partIdx: null, lineIdx: null });
 }
 
 export default {
@@ -99,8 +101,10 @@ export default {
           if (hpPct >= 0.5) return false;
           const lv    = caster.skillLevels[2];
           const crPct = getSkillValue(caster.rawBurst, 1, lv) / 100;
+          // 爆裂技能唯一的效果段（P2 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Scarlet Flash', unitId: caster.id,
-            critRatePct: crPct, endTick: state.tick + TICK_RATE * 10 });
+            critRatePct: crPct, endTick: state.tick + TICK_RATE * 10 },
+            { ...state._logCtx, partIdx: null });
         },
       },
       // Burst P2：延迟 1.38s 后触发爆裂伤害（sums 在 P1 crit buff 生效后捕获）

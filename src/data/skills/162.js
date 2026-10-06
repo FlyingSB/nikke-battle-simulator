@@ -13,7 +13,7 @@ function fireRestraintChains(state, caster) {
   const sums         = getBuffSums(state, caster.id);
 
   for (let i = 0; i < chains && state.enemyHp > 0; i++) {
-    fireSkillHit(state, caster, chainHitMult, sums, 'S1');
+    fireSkillHit(state, caster, chainHitMult, sums, 'S1 P3');
   }
   caster.skillState.mhbcRestraintChains = 0;
 
@@ -155,7 +155,7 @@ export default {
         handler(state, caster) {
           const lv      = caster.skillLevels[1];
           const sDmgPct = getSkillValue(caster.rawSkill2, 6, lv) / 100;
-          pushBuff(state, { name: 'Tighten Up P4', unitId: caster.id,
+          pushBuff(state, { name: 'Tighten Up (Sustained Damage)', unitId: caster.id,
             sustainedDamagePct: sDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },

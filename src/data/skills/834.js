@@ -64,17 +64,12 @@ export default {
           const lv      = caster.skillLevels[0];
           const atkFlat = Math.round(caster.stats.atk * getSkillValue(caster.rawSkill1, 9, lv) / 100);
           const endTick = state.tick + TICK_RATE * 9;
-          let applied = false;
-          for (const unit of state.squad) {
-            const hasAnn = state.buffs.some(b =>
-              b.name === 'Annihilation State' && b.unitId === unit.id && b.endTick > state.tick);
-            if (hasAnn) {
-              pushBuff(state, { name: 'Annihilation Support P3', unitId: unit.id, atkFlat, endTick },
-                { ...state._logCtx, partIdx: 2 });
-              applied = true;
-            }
-          }
-          if (!applied) return false;
+          const unitIds = state.squad.filter(unit => state.buffs.some(b =>
+            b.name === 'Annihilation State' && b.unitId === unit.id && b.endTick > state.tick)).map(u => u.id);
+          if (unitIds.length === 0) return false;
+          // S1 唯一的效果段（P1/P2 为伤害）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'Annihilation Support', unitIds, atkFlat, endTick },
+            { ...state._logCtx, partIdx: null });
         },
       },
     ],
@@ -98,15 +93,11 @@ export default {
           const lv             = caster.skillLevels[1];
           const mgHeatSpeedPct = getSkillValue(caster.rawSkill2, 0, lv) / 100;
           const endTick        = state.tick + TICK_RATE * getSkillValue(caster.rawSkill2, 1, lv);
-          let applied = false;
-          for (const unit of state.squad) {
-            if (unit.mgRofChangePerShot == null) continue;
-            if (!state.burstCastersThisRotation?.has(unit.id)) continue;
-            pushBuff(state, { name: 'Maintenance and Resupply P1', unitId: unit.id,
-              mgHeatSpeedPct, endTick }, { ...state._logCtx, partIdx: 0 });
-            applied = true;
-          }
-          if (!applied) return false;
+          const unitIds = state.squad.filter(unit =>
+            unit.mgRofChangePerShot != null && state.burstCastersThisRotation?.has(unit.id)).map(u => u.id);
+          if (unitIds.length === 0) return false;
+          pushBuff(state, { name: 'Maintenance and Resupply (MG Heat)', unitIds,
+            mgHeatSpeedPct, endTick }, { ...state._logCtx, partIdx: 0 });
         },
       },
       // P2：进入全爆裂 → 全队 ATK flat ▲（p02% × caster ATK），持续 10s
@@ -115,7 +106,7 @@ export default {
         handler(state, caster) {
           const lv      = caster.skillLevels[1];
           const atkFlat = Math.round(caster.stats.atk * getSkillValue(caster.rawSkill2, 2, lv) / 100);
-          pushBuff(state, { name: 'Maintenance and Resupply P2', unitId: null,
+          pushBuff(state, { name: 'Maintenance and Resupply (ATK)', unitId: null,
             atkFlat, endTick: state.tick + TICK_RATE * 10 },
             { ...state._logCtx, partIdx: 1 });
         },

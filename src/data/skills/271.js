@@ -94,7 +94,7 @@ export default {
         handler(state, caster) {
           const pct  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, pct, sums);
+          fireSkillHit(state, caster, pct, sums, 'Burst');
         },
       },
       // Part2：霰弹枪友军 Hit Rate + Interruption Parts Dmg（10 sec）
@@ -104,11 +104,9 @@ export default {
           const hitRatePct  = getSkillValue(caster.rawBurst, 1, caster.skillLevels[2]) / 100;
           const partsDmgPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
           const end10       = state.tick + TICK_RATE * 10;
-          for (const u of state.squad) {
-            if (u.weaponType !== 'SG') continue;
-            pushBuff(state, { name: 'Finale P2', unitId: u.id,
-              hitRatePct, interruptionPartsDamagePct: partsDmgPct, endTick: end10 });
-          }
+          const unitIds     = state.squad.filter(u => u.weaponType === 'SG').map(u => u.id);
+          pushBuff(state, { name: 'Finale P2 (Parts Damage)', unitIds,
+            hitRatePct, interruptionPartsDamagePct: partsDmgPct, endTick: end10 });
         },
       },
       // Part3：同小队友军存活 → 全员 Hit Rate + Interruption Parts Dmg（30 sec）
@@ -122,7 +120,7 @@ export default {
           const hitRatePct  = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]) / 100;
           const partsDmgPct = getSkillValue(caster.rawBurst, 7, caster.skillLevels[2]) / 100;
           const end30       = state.tick + TICK_RATE * 30;
-          pushBuff(state, { name: 'Finale P3', unitId: null,
+          pushBuff(state, { name: 'Finale P3 (Parts Damage)', unitId: null,
             hitRatePct, interruptionPartsDamagePct: partsDmgPct, endTick: end30 });
         },
       },

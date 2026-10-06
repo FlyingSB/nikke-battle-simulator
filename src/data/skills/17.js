@@ -3,7 +3,7 @@
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Anis: Star  (resource_id: 17)
-const MY_OWN_STAR_BUFF = 'Starfall P2 L5';
+const MY_OWN_STAR_BUFF = 'My Own Star';
 
 // S1 Part2 公共逻辑：根据队伍 B1 构成决定 Star 状态并施加相应效果（两种状态互斥）
 function applyStarEffect(state, caster) {
@@ -66,16 +66,14 @@ export default {
     groupId: 20171,
     triggers: [
       // Part1：战斗开始 → 全员 Burst Gauge 充能速度永久加成
-      // burstGaugeFlat = burstEnergyPerShot × p05%，与基础充能叠加
+      // 「filling speed ▲ n%」= 施法者命中目标每发充能的 n%，对全员是同一个固定值 → 全队一条 buff
       {
         on: 'BATTLE_START',
         handler(state, caster) {
           const lv       = caster.skillLevels[0];
           const speedPct = getSkillValue(caster.rawSkill1, 4, lv) / 100;
-          for (const u of state.squad) {
-            pushBuff(state, { name: 'Starfall P1', unitId: u.id,
-              burstGaugeFlat: Math.round(u.burstEnergyPerShot * speedPct), endTick: Infinity });
-          }
+          pushBuff(state, { name: 'Starfall (Burst Gauge)', unitId: null,
+            burstGaugeFlat: Math.round(caster.targetBurstEnergyPerShot * speedPct), endTick: Infinity });
         },
       },
 
@@ -103,7 +101,7 @@ export default {
           const lv   = caster.skillLevels[0];
           const pct  = getSkillValue(caster.rawSkill1, 3, lv) / 100;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, pct, sums, 'S1 P3', {
+          fireSkillHit(state, caster, pct, sums, 'S1', {
             burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'astar_s1_fc_dmg' });
         },
       },
@@ -138,7 +136,7 @@ export default {
           if (caster.skillState.astarStarMode !== 'own') return false;
           const lv      = caster.skillLevels[1];
           const atkFlat = Math.round(caster.stats.atk * getSkillValue(caster.rawSkill2, 0, lv) / 100);
-          pushBuff(state, { name: 'Stardust P1', unitId: null,
+          pushBuff(state, { name: 'Stardust (ATK)', unitId: null,
             atkFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -168,13 +166,13 @@ export default {
           const endTick       = state.tick + TICK_RATE * 10;
           const casterSums    = getBuffSums(state, caster.id);
           const casterEffDef  = caster.stats.def * (1 + casterSums.defPct) + casterSums.defFlat;
-          for (const u of state.squad) {
-            const uSums   = getBuffSums(state, u.id);
-            const uEffDef = u.stats.def * (1 + uSums.defPct) + uSums.defFlat;
-            if (u.id !== caster.id && uEffDef >= casterEffDef) continue;
-            pushBuff(state, { name: 'Stardust P3', unitId: u.id,
-              projectileExplosionDamagePct: projExpDmgPct, endTick });
-          }
+          const unitIds = state.squad.filter(u => {
+            if (u.id === caster.id) return true;
+            const uSums = getBuffSums(state, u.id);
+            return u.stats.def * (1 + uSums.defPct) + uSums.defFlat < casterEffDef;
+          }).map(u => u.id);
+          pushBuff(state, { name: 'Stardust (Explosion Damage)', unitIds,
+            projectileExplosionDamagePct: projExpDmgPct, endTick });
         },
       },
 
@@ -184,7 +182,7 @@ export default {
         handler(state, caster) {
           const lv           = caster.skillLevels[1];
           const attackDmgPct = getSkillValue(caster.rawSkill2, 5, lv) / 100;
-          pushBuff(state, { name: 'Stardust P4', unitId: null,
+          pushBuff(state, { name: 'Stardust (Attack Damage)', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -238,7 +236,7 @@ export default {
           caster.skillState.fixedChargeTimeTicks = Math.round(0.7 * TICK_RATE);
           caster.skillState.fixedChargeEndTick   = endTick;
           const defPct = getSkillValue(caster.rawBurst, 4, lv) / 100;
-          pushBuff(state, { name: 'Star Anis P1 L10', unitId: caster.id, defPct, endTick });
+          pushBuff(state, { name: 'Star Anis (DEF)', unitId: caster.id, defPct, endTick });
         },
       },
 
@@ -249,7 +247,7 @@ export default {
       //   · 享受 Projectile Explosion Damage 加成（如 S2 P3）
       //   · 享受 Explosion Radius 加成：单目标模型下不影响伤害，无需额外计算
       //   · 可以充能（dev/game-data.md 实测）；是否计入攻击次数未知，暂不触发 SHOT_COUNT
-      // 标签 'Burst P1 Shooting Star'：日志显示为 Shooting Star，tooltip 定位到爆裂技能 P1
+      // 标签 'Burst P1 Shooting Stars'：日志显示为 Shooting Star，tooltip 定位到爆裂技能 P1
       // partOverride=0：与上方 BURST_SKILL_USE 同属 ■ 第 1 段，强制对齐到 P1
       // 注意：此触发器必须保持在数组序号 1（上方 handler 依赖 intervalBattleLast_burst_1）
       {
@@ -264,7 +262,7 @@ export default {
           const pct    = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const sums   = getBuffSums(state, caster.id);
           const isCore = state.enemyHasCore && !state.enemyCoreProtected;
-          fireSkillHit(state, caster, pct, sums, 'Burst P1 Shooting Star', {
+          fireSkillHit(state, caster, pct, sums, 'Burst P1 Shooting Stars', {
             hitPart:             isCore ? 'core' : 'body',
             coreDmgIncrement:    caster.coreDmgIncrement ?? 0,
             projectileExplosion: true,
@@ -287,7 +285,7 @@ export default {
           if (caster.skillState.astarStarMode !== 'own') return false;
           const lv           = caster.skillLevels[2];
           const attackDmgPct = getSkillValue(caster.rawBurst, 5, lv) / 100;
-          pushBuff(state, { name: 'Star Anis P2', unitId: caster.id,
+          pushBuff(state, { name: 'Star Anis (Attack Damage)', unitId: caster.id,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -304,7 +302,7 @@ export default {
           const lv        = caster.skillLevels[2];
           const maxHpPct  = getSkillValue(caster.rawBurst, 7, lv) / 100;
           const maxHpFlat = Math.round(caster.stats.hp * maxHpPct);
-          pushBuff(state, { name: 'Star Anis P3', unitId: null,
+          pushBuff(state, { name: 'Star Anis (Max HP)', unitId: null,
             maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },

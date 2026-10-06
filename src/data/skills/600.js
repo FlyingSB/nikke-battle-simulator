@@ -31,7 +31,7 @@ export default {
             const atkPct  = getSkillValue(caster.rawSkill1, 0, lv) / 100;
             const atkFlat = Math.round(caster.stats.atk * atkPct);
             const endTick = state.tick + TICK_RATE * 3;
-            pushBuff(state, { name: 'Here I Go! P1 L1', unitId: null, atkFlat, endTick });
+            pushBuff(state, { name: 'Singing Effect', unitId: null, atkFlat, endTick });
           } else if (isDancing) {
             // Dancing：全队持续 HP 回复（p02% × caster MaxHP / s × 3s）
             const pct    = getSkillValue(caster.rawSkill1, 2, lv) / 100;

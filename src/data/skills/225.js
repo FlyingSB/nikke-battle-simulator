@@ -48,11 +48,12 @@ export default {
             getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100,
           ];
           const thresholds = [3, 6, 9];
+          // 三段命中名称：描述只给出攻击次数（Three/Six/Nine times），非名称，按阶段自定义为 I / II / III
+          const labels     = ['S1 Breakthrough I', 'S1 Breakthrough II', 'S1 Breakthrough III'];
           for (let i = 0; i < thresholds.length; i++) {
             const t = thresholds[i];
             if (prev < t && next >= t) {
-              const label = inBurstMode ? `S1_burst_${i+1}` : `S1_normal_${i+1}`;
-              fireSkillHit(state, caster, dmgMults[i], sums, label, { isDistributed: i >= 1 });
+              fireSkillHit(state, caster, dmgMults[i], sums, labels[i], { isDistributed: i >= 1 });
             }
           }
         },

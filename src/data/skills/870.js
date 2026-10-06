@@ -108,7 +108,7 @@ export default {
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          pushBuff(state, { name: 'Fist of Justice! P1', unitId: caster.id,
+          pushBuff(state, { name: 'Fist of Justice! (Attack Damage)', unitId: caster.id,
             attackDamagePct: getSkillValue(caster.rawSkill2, 8, caster.skillLevels[1]) / 100,
             endTick: Infinity });
         },
@@ -140,7 +140,7 @@ export default {
         partOverride: 2,
         handler(state, caster) {
           const lv = caster.skillLevels[1];
-          pushBuff(state, { name: 'Fist of Justice! P3', unitId: caster.id,
+          pushBuff(state, { name: 'Fist of Justice! (Distributed Damage)', unitId: caster.id,
             distributedDamagePct: getSkillValue(caster.rawSkill2, 2, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(caster.rawSkill2, 3, lv) });
         },
@@ -155,10 +155,9 @@ export default {
           const step    = getSkillValue(caster.rawSkill2, 4, lv);
           const atkFlat = Math.round(caster.stats.atk * getSkillValue(caster.rawSkill2, 5, lv) / 100);
           const limit   = getSkillValue(caster.rawSkill2, 6, lv);
-          for (const ally of personaAlliesOfStep(state, caster, step)) {
-            pushBuff(state, { name: 'Baton Pass', unitId: ally.id,
-              atkFlat, stackLimit: limit, endTick: Infinity });
-          }
+          pushBuff(state, { name: 'Baton Pass',
+            unitIds: personaAlliesOfStep(state, caster, step).map(a => a.id),
+            atkFlat, stackLimit: limit, endTick: Infinity });
         },
       },
     ],
@@ -187,7 +186,8 @@ export default {
           if (!hasWindCodeEnemy(state)) return;
           pushBuff(state, { name: '1 More', unitId: caster.id,
             atkPct: getSkillValue(caster.rawBurst, 1, lv) / 100,
-            endTick: state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 2, lv) });
+            endTick: state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 2, lv) },
+            { ...state._logCtx, partIdx: 1 });
           dispatchPersonaEvent(state, 'ONE_MORE', caster);
         },
       },
@@ -197,7 +197,9 @@ export default {
 
 function applyJohannaAtk(state, caster) {
   const lv = caster.skillLevels[0];
-  pushBuff(state, { name: 'Persona: Johanna P2', unitId: caster.id,
+  // S1 唯一未具名效果段（P1 为 Persona - Johanna，P3/P4 为伤害）→ 日志标签省略 P 后缀
+  pushBuff(state, { name: 'Persona: Johanna', unitId: caster.id,
     atkPct: getSkillValue(caster.rawSkill1, 4, lv) / 100,
-    endTick: state.tick + TICK_RATE * getSkillValue(caster.rawSkill1, 5, lv) });
+    endTick: state.tick + TICK_RATE * getSkillValue(caster.rawSkill1, 5, lv) },
+    { ...state._logCtx, partIdx: null });
 }

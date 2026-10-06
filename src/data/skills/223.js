@@ -96,7 +96,7 @@ export default {
           const coreDmgPct  = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           const atkFlatPct  = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
           const healPct     = getSkillValue(caster.rawSkill1, 7, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Hypocrisy P2', unitId: null,
+          pushBuff(state, { name: 'Hypocrisy', unitId: null,
             coreDamagePct: coreDmgPct, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: end5 },
             { unitName: caster.name, skillLabel: caster.rawSkill1?.name_localkey ?? 'S1', slot: 'S1', partIdx: 1, lineIdx: null, trigger: 'INTERVAL' });
           applyHeal(state, caster, Math.round(getFinalMaxHp(state, caster) * healPct),  // "caster's final Max HP"
@@ -110,32 +110,32 @@ export default {
           // Hit Rate 累计值：直接写入已有 buff，因 pushBuff 不更新现有 buff 的数值字段
           const hrPerStack = getSkillValue(caster.rawSkill2, 8, caster.skillLevels[1]) / 100;
           const hrBuff = state.buffs.find(
-            b => b.name === 'Impermanence P1' && b.unitId === caster.id);
+            b => b.name === 'Memory Absorption' && b.unitId === caster.id);
           if (hrBuff) {
             hrBuff.hitRatePct = s * hrPerStack;
           } else {
-            state.buffs.push({ name: 'Impermanence P1', unitId: caster.id,
+            state.buffs.push({ name: 'Memory Absorption', unitId: caster.id,
               hitRatePct: s * hrPerStack, endTick: Infinity });
           }
 
           // Stage 1: s=2（≥2 层）→ 自身 ATK ▲[S2 param5]%（永久，仅首次推送）
           if (s === 2) {
             const stage1AtkPct = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
-            pushBuff(state, { name: 'Impermanence P2 L4', unitId: caster.id,
+            pushBuff(state, { name: 'Impermanence (ATK)', unitId: caster.id,
               atkPct: stage1AtkPct, endTick: Infinity });
           }
 
           // Stage 2: s=10（≥10 层）→ 自身 Attack Damage ▲[S2 param7]%（永久）
           if (s === 10) {
             const stage2AtkDmgPct = getSkillValue(caster.rawSkill2, 7, caster.skillLevels[1]) / 100;
-            pushBuff(state, { name: 'Impermanence P2 L6', unitId: caster.id,
+            pushBuff(state, { name: 'Impermanence (Attack Damage)', unitId: caster.id,
               attackDamagePct: stage2AtkDmgPct, endTick: Infinity });
           }
 
           // Stage 3: s=30（=30 层）→ 自身 Core Damage ▲[S2 param3]%（永久）
           if (s === 30) {
             const stage3CoreDmgPct = getSkillValue(caster.rawSkill2, 3, caster.skillLevels[1]) / 100;
-            pushBuff(state, { name: 'Impermanence P2 L8', unitId: caster.id,
+            pushBuff(state, { name: 'Impermanence (Core Damage)', unitId: caster.id,
               coreDamagePct: stage3CoreDmgPct, endTick: Infinity });
           }
         },
@@ -175,8 +175,10 @@ export default {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'Asceticism P1', unitId: null,
-            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 15 });
+          // 爆裂技能唯一未具名效果段（P2 伤害、P3 Memory Incineration）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'Asceticism', unitId: null,
+            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 15 },
+            { ...state._logCtx, partIdx: null });
         },
       },
       // Burst P2（敌人）：爆裂技能伤害（ATK Dmg buff 已在 P1 生效）
@@ -186,7 +188,7 @@ export default {
           if (state.enemyHp <= 0) return false;
           const sums         = getBuffSums(state, caster.id);
           const burstHitMult = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
-          fireSkillHit(state, caster, burstHitMult, sums, 'Asceticism P2', { ...state._logCtx, partIdx: 1 });
+          fireSkillHit(state, caster, burstHitMult, sums, 'Burst');
         },
       },
       // Burst P3（自身）：Memory Incineration 武器切换（1.8s/FC，275.18% × 250%）10s

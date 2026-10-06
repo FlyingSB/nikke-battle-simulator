@@ -27,7 +27,7 @@ export default {
         on: 'BATTLE_START',
         handler(state, caster) {
           const critRatePct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Impact-Type Exospine P1 L2', unitId: caster.id,
+          pushBuff(state, { name: 'Impact-Type Exospine', unitId: caster.id,
             critRatePct: critRatePct, endTick: Infinity });
         },
       },
@@ -54,18 +54,18 @@ export default {
           const lv      = caster.skillLevels[0];
           const basePct = getSkillValue(caster.rawSkill1, 1, lv) / 100;
           // Impact-Type Exospine Mk2：Mk2 期间伤害系数 +100%（翻倍）
-          const inMk2   = state.buffs.some(b => b.name === 'Counter Chain' && b.unitId === caster.id);
+          const inMk2   = state.buffs.some(b => b.name === 'Eagle Eye-Type Exospine Mk2' && b.unitId === caster.id);
           const hitPct  = inMk2 ? basePct * 2 : basePct;
           const sums    = getBuffSums(state, caster.id);
           for (let h = 0; h < 3 && state.enemyHp > 0; h++) {
-            fireSkillHit(state, caster, hitPct, sums, 'S1');
+            fireSkillHit(state, caster, hitPct, sums, 'S1 P2 Unstable Energy');
           }
 
           // Part3：敌人为电击属性时施加 Damage Taken ▲ p03% 10s
           if (state.enemyElement !== 'Electric') return;
           const dtPct     = getSkillValue(caster.rawSkill1, 3, lv) / 100;
-          pushBuff(state, { name: 'Impact-Type Exospine P3 L3', unitId: '__enemy__', isDebuff: true,
-            enemyDamageTakenPct: dtPct, endTick: state.tick + TICK_RATE * 10 });
+          pushBuff(state, { name: 'Impact-Type Exospine (Damage Taken)', unitId: '__enemy__', isDebuff: true,
+            enemyDamageTakenPct: dtPct, endTick: state.tick + TICK_RATE * 10 }, { ...state._logCtx, partIdx: 2 });
         },
       },
     ],
@@ -159,7 +159,7 @@ export default {
           const mk2AtkPct  = getSkillValue(caster.rawSkill2, 0, s2Lv) / 100;
           const mk2AmmoPct = getSkillValue(caster.rawSkill2, 1, s2Lv) / 100;
           const mk2AmmoFlat = Math.round(caster.maxAmmo * mk2AmmoPct);
-          pushBuff(state, { name: 'Counter Chain', unitId: caster.id,
+          pushBuff(state, { name: 'Eagle Eye-Type Exospine Mk2', unitId: caster.id,
             atkPct: mk2AtkPct, maxAmmoFlat: mk2AmmoFlat, endTick: mk2End });
         },
       },

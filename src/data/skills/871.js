@@ -67,7 +67,7 @@ export default {
           if (state.enemyHp <= 0) return;
           const lv = caster.skillLevels[0];
           fireSkillHit(state, caster, getSkillValue(caster.rawSkill1, 2, lv) / 100,
-            getBuffSums(state, caster.id), 'S1 P3', { isDistributed: true });
+            getBuffSums(state, caster.id), 'S1', { isDistributed: true });
         },
       },
     ],
@@ -108,7 +108,7 @@ export default {
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          pushBuff(state, { name: 'Scarlet Flower P1', unitId: caster.id,
+          pushBuff(state, { name: 'Scarlet Flower (Attack Damage)', unitId: caster.id,
             attackDamagePct: getSkillValue(caster.rawSkill2, 9, caster.skillLevels[1]) / 100,
             endTick: Infinity });
         },
@@ -157,7 +157,7 @@ export default {
         partOverride: 2,
         handler(state, caster) {
           const lv = caster.skillLevels[1];
-          pushBuff(state, { name: 'Scarlet Flower P3', unitId: caster.id,
+          pushBuff(state, { name: 'Scarlet Flower (Elem Adv Damage)', unitId: caster.id,
             elementAdvantagePct: getSkillValue(caster.rawSkill2, 4, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(caster.rawSkill2, 5, lv) });
         },
@@ -173,9 +173,7 @@ export default {
           const atkFlat = Math.round(caster.stats.atk * getSkillValue(caster.rawSkill2, 7, lv) / 100);
           const end     = state.tick + TICK_RATE * getSkillValue(caster.rawSkill2, 8, lv);
           const targets = personaAlliesOfStep(state, caster, step);
-          for (const ally of targets) {
-            pushBuff(state, { name: 'Follow Up', unitId: ally.id, atkFlat, endTick: end });
-          }
+          pushBuff(state, { name: 'Follow Up', unitIds: targets.map(a => a.id), atkFlat, endTick: end });
           for (const ally of targets) dispatchPersonaEvent(state, 'FOLLOW_UP', ally);
         },
       },
@@ -205,7 +203,8 @@ export default {
           if (!hasWindCodeEnemy(state)) return;
           pushBuff(state, { name: '1 More', unitId: caster.id,
             atkPct: getSkillValue(caster.rawBurst, 1, lv) / 100,
-            endTick: state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 2, lv) });
+            endTick: state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 2, lv) },
+            { ...state._logCtx, partIdx: 1 });
           dispatchPersonaEvent(state, 'ONE_MORE', caster);
         },
       },
@@ -215,7 +214,9 @@ export default {
 
 function applySakuyaAtk(state, caster) {
   const lv = caster.skillLevels[0];
-  pushBuff(state, { name: 'Persona: Konohana Sakuya P2', unitId: caster.id,
+  // S1 唯一未具名效果段（P1 为 Persona - Konohana Sakuya，P3 为伤害）→ 日志标签省略 P 后缀
+  pushBuff(state, { name: 'Persona: Konohana Sakuya', unitId: caster.id,
     atkPct: getSkillValue(caster.rawSkill1, 3, lv) / 100,
-    endTick: state.tick + TICK_RATE * getSkillValue(caster.rawSkill1, 4, lv) });
+    endTick: state.tick + TICK_RATE * getSkillValue(caster.rawSkill1, 4, lv) },
+    { ...state._logCtx, partIdx: null });
 }

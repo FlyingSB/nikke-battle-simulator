@@ -216,6 +216,7 @@ export function getEnemyDebuffBreakdown(state) {
       sourcePartIdx:    b._sourcePartIdx    ?? null,
       sourceLineIdx:    b._sourceLineIdx    ?? null,
       stacks:           b.stacks ?? 1,
+      multiplier:       b.multiplier ?? null,
     }));
   if (state.enemyDamageTakenPct !== 0) {
     // 无 buff 条目的标量承伤（当前仅 Asuka:WILLE ATF 叠层使用此路径）
@@ -269,9 +270,20 @@ export function getEnemyDebuffBreakdown(state) {
  *     trigger: state._logCtx?.trigger ?? '',
  *   });
  */
+// 多目标 buff（unitIds）的日志目标名：覆盖全队时显示「全体队友」，否则按队伍顺序列出目标名
+function _multiTargetName(state, unitIds) {
+  const squad = state.squad ?? [];
+  const idSet = new Set(unitIds);
+  if (squad.length > 0 && squad.every(u => idSet.has(u.id))) return '全体队友';
+  const names = squad.filter(u => idSet.has(u.id)).map(u => u.name);
+  return names.join('、') || '?';
+}
+
 function _emitBuffEvent(state, buffObj, logCtx) {
   if (!state.pendingSkillEvents) return;
-  const targetName = buffObj.unitId === null
+  const targetName = Array.isArray(buffObj.unitIds)
+    ? _multiTargetName(state, buffObj.unitIds)
+    : buffObj.unitId === null
     ? (buffObj.weaponFilter && state.squad
         ? (state.squad.filter(u => u.weaponType === buffObj.weaponFilter).map(u => u.name).join('、') || `${buffObj.weaponFilter} 友军`)
         : '全体队友')
@@ -291,6 +303,10 @@ function _emitBuffEvent(state, buffObj, logCtx) {
   });
 }
 
+/**
+ * 推入单条 buff（单一 unitId）。
+ * @returns {boolean} 本次推入是否值得记录日志（纯永久 buff 的无实质刷新返回 false）
+ */
 function _pushBuffCore(state, buffObj, logCtx = null) {
   const existing = state.buffs.find(b => b.name === buffObj.name && b.unitId === buffObj.unitId);
   if (existing) {
@@ -309,7 +325,7 @@ function _pushBuffCore(state, buffObj, logCtx = null) {
       && buffObj.endRounds === undefined;
     // 传入 post-refresh endTick（Math.max 之后），确保事件记录的是最终到期时刻
     if (logCtx && !isInfiniteRefresh) _emitBuffEvent(state, { ...buffObj, endTick: existing.endTick }, logCtx);
-    return;
+    return !isInfiniteRefresh;
   }
   // 初次推入：设置 roundsLeft（回合制）和 stacks（初始层数为 1）
   const buff = { ...buffObj, stacks: buffObj.stacks ?? 1 };
@@ -330,6 +346,7 @@ function _pushBuffCore(state, buffObj, logCtx = null) {
       ...Object.fromEntries(BUFF_NUMERIC_FIELDS.map(f => [f, buff[f] ?? 0])),
     });
   }
+  return true;
 }
 
 // buff 推入后：若含 maxAmmo 相关字段，对受影响单位重新计算最大弹匣。
@@ -342,11 +359,40 @@ function _maybeRecalcMaxAmmo(state, buffObj) {
   for (const u of affected) recalcMaxAmmo(state, u);
 }
 
+/**
+ * 推入 buff。
+ *
+ * buffObj 目标字段（三选一）：
+ *   unitId: <id>      单个单位
+ *   unitId: null      全队共享（一条 buff 对象，getBuffSums 对所有单位生效；可配 weaponFilter）
+ *   unitIds: [<id>…]  多个指定单位：为每个单位各推入一条独立 buff（层数 / 回合各自维护），
+ *                     但战斗日志只记录一行（目标列为各单位名，覆盖全队时显示「全体队友」）。
+ *                     技能文件中「对若干目标施加同一效果」须用此字段，不要在 pushBuff 外循环。
+ *
+ * buffObj.multiplier（可选）：效果数值已按动态倍率 n（如 Drunken 层数）放大时传入 n，
+ *   伤害公式明细会在 buff 名后显示「*n」（见 store.buildDmgTooltipHTML）。
+ *
+ * logCtx：缺省沿用 state._logCtx；传 false 可抑制日志（见 Crown Relax）。
+ */
 export function pushBuff(state, buffObj, logCtx = null) {
   const effectiveLogCtx = logCtx ?? state._logCtx ?? null;
   // 规则1：回合制 buff endTick 强制为 Infinity
   if (buffObj.endRounds !== undefined && buffObj.endRounds > 0) {
     buffObj = { ...buffObj, endTick: Infinity };
+  }
+  // 规则0：多目标（unitIds）→ 逐单位推入独立 buff，日志合并为一行
+  if (Array.isArray(buffObj.unitIds)) {
+    const { unitIds, ...rest } = buffObj;
+    if (unitIds.length === 0) return;
+    let shouldLog = false;
+    for (const id of unitIds) {
+      const single = { ...rest, unitId: id };
+      if (_pushBuffCore(state, single)) shouldLog = true;
+      _maybeRecalcMaxAmmo(state, single);
+      _trackCsChange(state, single);
+    }
+    if (effectiveLogCtx && shouldLog) _emitBuffEvent(state, { ...rest, unitIds }, effectiveLogCtx);
+    return;
   }
   // 规则2：回合制全体 buff → 拆分为每角色独立 buff，各自维护独立的 roundsLeft
   // 日志仍记录一条（目标：全体队友），由调用层统一发出
@@ -648,6 +694,7 @@ export function snapshotBuffBreakdown(state, unitId) {
         chargeDamagePct: (b.chargeDamagePct ?? 0) * k,
         critDamagePct: (b.critDamagePct ?? 0) * k,
         stacks: k,
+        multiplier: b.multiplier ?? null,
         sourceCaster: b._sourceCaster ?? null,
         sourceSkillLabel: b._sourceSkillLabel ?? null,
         sourcePartIdx: b._sourcePartIdx ?? null,
@@ -781,7 +828,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
               trueDamagePct: isTrueDamage ? (b.trueDamagePct ?? 0) * k : 0,
               damageToPartsPct: partsBonusApplies ? (b.damageToPartsPct ?? 0) * k : 0,
               distributedDamagePct: isDistributed ? (b.distributedDamagePct ?? 0) * k : 0,
-              stacks: k,
+              stacks: k, multiplier: b.multiplier ?? null,
               sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null, sourceLineIdx: b._sourceLineIdx ?? null };
           })
           .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.critDamagePct || b.sustainedDamagePct || b.trueDamagePct || b.damageToPartsPct || b.distributedDamagePct)),

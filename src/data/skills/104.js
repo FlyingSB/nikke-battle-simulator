@@ -130,10 +130,11 @@ export default {
         on: 'FULL_BURST_END',
         handler(state, caster) {
           const lv = caster.skillLevels[1];
+          // S2 唯一未具名效果段（P2 为 Fashionably Late）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Fashionably Late Villain', unitId: null,
             maxHpFlat:  Math.round(caster.stats.hp * getSkillValue(caster.rawSkill2, 1, lv) / 100),
             stackLimit: getSkillValue(caster.rawSkill2, 2, lv),
-            endTick:    Infinity });
+            endTick:    Infinity }, { ...state._logCtx, partIdx: null });
           recalcFashionablyLate(state, caster);
         },
       },
@@ -171,9 +172,11 @@ export default {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
           const lv = caster.skillLevels[2];
+          // 爆裂技能唯一的效果段（P2 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Special Villainous Web', unitId: caster.id,
             attackDamagePct: getSkillValue(caster.rawBurst, 0, lv) / 100,
-            endTick: state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 1, lv) });
+            endTick: state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 1, lv) },
+            { ...state._logCtx, partIdx: null });
           if (state.enemyHp <= 0) return;
           fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 2, lv) / 100,
             getBuffSums(state, caster.id), 'Burst');

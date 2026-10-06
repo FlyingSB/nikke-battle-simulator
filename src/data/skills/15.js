@@ -25,10 +25,8 @@ export default {
           const reloadPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           const atkBonus  = Math.round(caster.stats.atk * atkPct);
           const end10     = state.tick + TICK_RATE * 10;
-          for (const u of state.squad) {
-            if (u.element !== 'Electric') continue;
-            pushBuff(state, { name: 'Sparkling Boost', unitId: u.id, atkFlat: atkBonus, reloadSpeedPct: reloadPct, endTick: end10 });
-          }
+          const unitIds   = state.squad.filter(u => u.element === 'Electric').map(u => u.id);
+          pushBuff(state, { name: 'Sparkling Boost', unitIds, atkFlat: atkBonus, reloadSpeedPct: reloadPct, endTick: end10 });
         },
       },
     ],
@@ -61,8 +59,10 @@ export default {
         on: 'LAST_BULLET',
         handler(state, caster) {
           const partsDmg = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
+          // S2 唯一的效果段（P1 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Sparkling Missile', unitId: caster.id,
-            interruptionPartsDamagePct: partsDmg, endTick: state.tick + TICK_RATE * 10 });
+            interruptionPartsDamagePct: partsDmg, endTick: state.tick + TICK_RATE * 10 },
+            { ...state._logCtx, partIdx: null });
         },
       },
     ],

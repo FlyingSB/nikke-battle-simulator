@@ -34,7 +34,7 @@ export default {
           if (state.enemyHp <= 0) return;
           const mult = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, 'S1');
+          fireSkillHit(state, caster, mult, sums, 'S1 P1');
         },
       },
 
@@ -112,8 +112,9 @@ export default {
         on: 'BATTLE_START',
         handler(state, caster) {
           const elemAdvPct = getSkillValue(caster.rawSkill2, 10, caster.skillLevels[1]) / 100;
+          // S2 唯一未具名效果段（Whistle 具名、P3 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Penguin Emergency Dispatch', unitId: caster.id,
-            elementAdvantagePct: elemAdvPct, endTick: Infinity });
+            elementAdvantagePct: elemAdvPct, endTick: Infinity }, { ...state._logCtx, partIdx: null });
         },
       },
     ],
@@ -144,8 +145,10 @@ export default {
           const end10      = state.tick + TICK_RATE * 10;
           const elemAdvPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const atkDmgPct  = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
+          // 爆裂技能唯一未具名效果段（P2 为 High-Risk Target）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Penguin Spiral', unitId: caster.id,
-            elementAdvantagePct: elemAdvPct, attackDamagePct: atkDmgPct, endTick: end10 });
+            elementAdvantagePct: elemAdvPct, attackDamagePct: atkDmgPct, endTick: end10 },
+            { ...state._logCtx, partIdx: null });
 
           // High-Risk Target：仅对 Electric Code 敌人（Electric 属性）激活，持续 p06=20s。
           //   敌方 DEF ▼ p05%；同时记录结束时刻，供 S1 Part3 的 High-Risk 附加伤害判定。

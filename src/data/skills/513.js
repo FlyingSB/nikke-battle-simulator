@@ -85,7 +85,7 @@ export default {
         target: 'ENEMY',
         handler(state, caster) {
           const damageTakenPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'Bubble Wave', unitId: '__enemy__', isDebuff: true,
+          pushBuff(state, { name: 'Bubble', unitId: '__enemy__', isDebuff: true,
             enemyDamageTakenPct: damageTakenPct, endTick: Infinity });
         },
       },
@@ -121,7 +121,7 @@ export default {
           const sums    = getBuffSums(state, caster.id);
           const barrageMult = getSkillValue(caster.rawSkill2, 7, caster.skillLevels[1]) / 100;
           for (let h = 0; h < 10 && state.enemyHp > 0; h++) {
-            fireSkillHit(state, caster, barrageMult, sums, 'S2 P4');
+            fireSkillHit(state, caster, barrageMult, sums, 'S2 P4 Bubble Barrage');
           }
         },
       },
@@ -153,7 +153,7 @@ export default {
           const end10         = state.tick + TICK_RATE * 10;
           const attackDmgPct  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const ammoReloadPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'Siren\'s Song P1', unitId: null, attackDamagePct: attackDmgPct, endTick: end10 });
+          pushBuff(state, { name: 'Siren\'s Song (Attack Damage)', unitId: null, attackDamagePct: attackDmgPct, endTick: end10 });
           for (const u of state.squad) {
             const ammoBefore = u.ammoLeft;
             u.ammoLeft = Math.min(u.maxAmmo, u.ammoLeft + Math.floor(u.maxAmmo * ammoReloadPct));
@@ -169,7 +169,7 @@ export default {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
           const atkFlatPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'Siren\'s Song P2', unitId: caster.id,
+          pushBuff(state, { name: 'Siren\'s Song (ATK)', unitId: caster.id,
             atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },

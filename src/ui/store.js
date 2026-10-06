@@ -681,6 +681,13 @@ function _numFmt(v) {
   return Math.round(v).toLocaleString();
 }
 
+// 伤害公式中的 buff 显示名：数值按动态倍率 n 放大（multiplier）或按层数叠加（stacks>1）时追加「*n」
+function _bdName(b) {
+  if (b.multiplier != null && b.multiplier !== 1) return `${b.name} *${b.multiplier}`;
+  if ((b.stacks ?? 1) > 1) return `${b.name} *${b.stacks}`;
+  return b.name;
+}
+
 function buildDmgTooltipHTML(h) {
   const bd           = h.buffBreakdown ?? [];
   const enemyDef     = h.enemyDef ?? 0;
@@ -725,7 +732,7 @@ function buildDmgTooltipHTML(h) {
   if (Math.abs(h.atkPct ?? 0) > 0.0001) {
     const s = addSect('攻击力系数');
     if (Math.abs(atkPctEquip) > 0.0001) addItem(s, '装备', `+${_pct(atkPctEquip)}`);
-    atkPctBufs.forEach(b => addItem(s, b.name, `+${_pct(b.atkPct)}`));
+    atkPctBufs.forEach(b => addItem(s, _bdName(b), `+${_pct(b.atkPct)}`));
   }
 
   // ── 固定加成（次一级 sub-section）──
@@ -737,7 +744,7 @@ function buildDmgTooltipHTML(h) {
   if (Math.abs(h.atkFlat ?? 0) > 0.0001 || Math.abs(extraAtkFlat) > 0.0001) {
     const s = addSect('固定加成', true);
     if (Math.abs(atkFlatEquip) > 0.0001) addItem(s, '装备', `+${_numFmt(atkFlatEquip)}`, 'flat');
-    atkFlatBufs.forEach(b => addItem(s, b.name, `+${_numFmt(b.atkFlat)}`, 'flat'));
+    atkFlatBufs.forEach(b => addItem(s, _bdName(b), `+${_numFmt(b.atkFlat)}`, 'flat'));
     if (Math.abs(extraAtkFlat) > 0.0001) addItem(s, h.extraAtkFlatLabel ?? '额外加成', `+${_numFmt(extraAtkFlat)}`, 'flat');
   }
 
@@ -765,11 +772,11 @@ function buildDmgTooltipHTML(h) {
       const critEquip  = critInc - critBufSum;
       addItem(s, '暴击（基础）', `+${_pct(_BASE_CRIT_DAMAGE)}`);
       if (Math.abs(critEquip) > 0.0001) addItem(s, '装备', `+${_pct(critEquip)}`);
-      critBufs.forEach(b => addItem(s, b.name, `+${_pct(b.critDamagePct)}`));
+      critBufs.forEach(b => addItem(s, _bdName(b), `+${_pct(b.critDamagePct)}`));
     }
     if (isCore) {
       addItem(s, '核心（基础）', `+${_pct(_BASE_CORE_DAMAGE)}`);
-      coreBufs.forEach(b => addItem(s, b.name, `+${_pct(b.coreDamagePct)}`));
+      coreBufs.forEach(b => addItem(s, _bdName(b), `+${_pct(b.coreDamagePct)}`));
       if (coreResidual > 0.0001) addItem(s, '核心伤害增加', `+${_pct(coreResidual)}`);
     }
     if (distAdv) addItem(s, '距离优势',  `+${_pct(_DISTANCE_ADV_BONUS)}`);
@@ -785,7 +792,7 @@ function buildDmgTooltipHTML(h) {
     addItem(s, '基础', `+${_pct(_ELEM_ADV_BASE)}`);
     if (Math.abs(equipElemPct) > 0.0001) addItem(s, '装备', `+${_pct(equipElemPct)}`);
     if (Math.abs(cubeElemPct)  > 0.0001) addItem(s, '魔方', `+${_pct(cubeElemPct)}`);
-    elemBufs.forEach(b => addItem(s, b.name, `+${_pct(b.elementAdvantagePct)}`));
+    elemBufs.forEach(b => addItem(s, _bdName(b), `+${_pct(b.elementAdvantagePct)}`));
   }
 
   // ── 蓄力系数 ──
@@ -805,9 +812,9 @@ function buildDmgTooltipHTML(h) {
     addItem(s, '武器基础', `${_pct(weaponBase)}`);
     // 珍藏品显示原始蓄力伤害数值（与游戏内一致），乘算用 × 前缀 + 区分色
     if (Math.abs(favChargePct) > 0.0001) addItem(s, '珍藏品', `×${_pct(favChargePct)}`, 'mult');
-    multBufs.forEach(b => addItem(s, b.name, `×${_pct(b.chargeDamageMultPct)}`, 'mult'));
+    multBufs.forEach(b => addItem(s, _bdName(b), `×${_pct(b.chargeDamageMultPct)}`, 'mult'));
     if (Math.abs(equipCharge)  > 0.0001) addItem(s, '装备',   `+${_pct(equipCharge)}`);
-    chargeBufs.forEach(b => addItem(s, b.name, `+${_pct(b.chargeDamagePct)}`));
+    chargeBufs.forEach(b => addItem(s, _bdName(b), `+${_pct(b.chargeDamagePct)}`));
   }
 
   // ── 伤害加成（ExtraMultiplier）──
@@ -828,9 +835,9 @@ function buildDmgTooltipHTML(h) {
     const s = addSect('伤害加成');
     if (extraBufs.length > 0) {
       extraBufs.forEach(b => {
-        if (Math.abs(b.attackDamagePct           ?? 0) > 0.0001) addItem(s, b.name, `+${_pct(b.attackDamagePct)}`);
-        if (Math.abs(b.pierceDamagePct           ?? 0) > 0.0001) addItem(s, b.name, `+${_pct(b.pierceDamagePct)}`);
-        if (Math.abs(b.sequentialAttackDamagePct ?? 0) > 0.0001) addItem(s, b.name, `+${_pct(b.sequentialAttackDamagePct)}`);
+        if (Math.abs(b.attackDamagePct           ?? 0) > 0.0001) addItem(s, _bdName(b), `+${_pct(b.attackDamagePct)}`);
+        if (Math.abs(b.pierceDamagePct           ?? 0) > 0.0001) addItem(s, _bdName(b), `+${_pct(b.pierceDamagePct)}`);
+        if (Math.abs(b.sequentialAttackDamagePct ?? 0) > 0.0001) addItem(s, _bdName(b), `+${_pct(b.sequentialAttackDamagePct)}`);
       });
     } else {
       if (Math.abs(h.attackDamagePct           ?? 0) > 0.0001) addItem(s, '攻击伤害增加',     `+${_pct(h.attackDamagePct)}`);
@@ -841,14 +848,14 @@ function buildDmgTooltipHTML(h) {
       // 展开到每个 buff，剩余非具名来源归入"持续伤害增加"
       const sustainedBufs = bd.filter(b => Math.abs(b.sustainedDamagePct ?? 0) > 0.0001);
       const sustainedResidual = sustainedPct - sustainedBufs.reduce((acc, b) => acc + (b.sustainedDamagePct ?? 0), 0);
-      sustainedBufs.forEach(b => addItem(s, b.name, `+${_pct(b.sustainedDamagePct)}`));
+      sustainedBufs.forEach(b => addItem(s, _bdName(b), `+${_pct(b.sustainedDamagePct)}`));
       if (Math.abs(sustainedResidual) > 0.0001) addItem(s, '持续伤害增加', `+${_pct(sustainedResidual)}`);
     }
     if (Math.abs(truePct) > 0.0001) {
       // 展开到每个 buff，剩余非具名来源归入"无视防御力伤害增加"
       const trueBufs = bd.filter(b => Math.abs(b.trueDamagePct ?? 0) > 0.0001);
       const trueResidual = truePct - trueBufs.reduce((acc, b) => acc + (b.trueDamagePct ?? 0), 0);
-      trueBufs.forEach(b => addItem(s, b.name, `+${_pct(b.trueDamagePct)}`));
+      trueBufs.forEach(b => addItem(s, _bdName(b), `+${_pct(b.trueDamagePct)}`));
       if (Math.abs(trueResidual) > 0.0001) addItem(s, '无视防御力伤害增加', `+${_pct(trueResidual)}`);
     }
   }
@@ -859,8 +866,8 @@ function buildDmgTooltipHTML(h) {
   const distBufs   = bd.filter(b => Math.abs(b.distributedDamagePct ?? 0) > 0.0001);
   if (debuffBufs.length > 0 || distBufs.length > 0) {
     const s = addSect('受创加深');
-    debuffBufs.forEach(b => addItem(s, b.name, `+${_pct(b.damageTakenPct)}`));
-    distBufs.forEach(b => addItem(s, `${b.name}（分摊伤害）`, `+${_pct(b.distributedDamagePct)}`));
+    debuffBufs.forEach(b => addItem(s, _bdName(b), `+${_pct(b.damageTakenPct)}`));
+    distBufs.forEach(b => addItem(s, `${_bdName(b)}（分摊伤害）`, `+${_pct(b.distributedDamagePct)}`));
   } else if (Math.abs(h.damageTakenPct ?? 0) > 0.0001) {
     const s = addSect('受创加深');
     addItem(s, '受创伤害增加', `+${_pct(h.damageTakenPct)}`);

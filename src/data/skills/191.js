@@ -31,10 +31,8 @@ export default {
           const csPct           = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
           const chargeReduction = Math.round(caster.chargeTimeTicks * csPct);
           const chargeDmgPct    = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
-          for (const u of targets) {
-            pushBuff(state, { name: 'Energizing Carrot', unitId: u.id,
-              chargeTimeReductionTicks: chargeReduction, chargeDamagePct: chargeDmgPct, endTick: end10 });
-          }
+          pushBuff(state, { name: 'Energizing Carrot', unitIds: targets.map(u => u.id),
+            chargeTimeReductionTicks: chargeReduction, chargeDamagePct: chargeDmgPct, endTick: end10 });
         },
       },
     ],
@@ -58,7 +56,7 @@ export default {
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          pushBuff(state, { name: 'Healthy Carrot', unitId: caster.id, pierce: true, endTick: Infinity });
+          pushBuff(state, { name: 'Healthy Carrot (Pierce)', unitId: caster.id, pierce: true, endTick: Infinity });
         },
       },
     ],

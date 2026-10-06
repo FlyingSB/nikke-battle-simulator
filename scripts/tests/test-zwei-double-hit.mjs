@@ -242,8 +242,8 @@ section('ZW2-ZW4 — 命中①/② 伤害差异（critRate=1）');
 section('ZW5 — buff 状态：pierce1r 消耗，pierce_stack roundsLeft=1 保留');
 {
   const state       = runUntilDoubleHit();
-  const pierce1r    = state.buffs.find(b => b.name === 'Pierce Equation P1 L2');
-  const pierceStack = state.buffs.find(b => b.name === 'Pierce Equation P2');
+  const pierce1r    = state.buffs.find(b => b.name === 'Pierce Equation P1 (Pierce Damage 1R)');
+  const pierceStack = state.buffs.find(b => b.name === 'Pierce Equation P2 (Pierce Damage)');
 
   // pierce1r 的 roundsLeft 应已变为 0（已被消耗），buff 对象可能仍在数组中（仅 roundsLeft=0）
   const pierce1rConsumed = pierce1r == null || (pierce1r.roundsLeft ?? 0) <= 0;

@@ -16,8 +16,8 @@ import { getSkillValue } from '../../data/models.js';
 
 const CALLING_CARD = 'Calling Card';
 const THIEF_DAGGER = "Thief's Dagger";
-const VISION_DIST  = "Thief's Vision P2";
-const CALLING_CARD_P4 = "Thief's Calling Card P4";
+const VISION_DIST  = "Thief's Vision P2 (Distributed Damage)";
+const CALLING_CARD_P4 = "Thief's Calling Card";
 
 function callingCardActive(state, caster) {
   return (caster.skillState.phantomCallingCardEndTick ?? 0) > state.tick;
@@ -149,9 +149,10 @@ export default {
           const s1 = caster.ssrFavSkills.skill1;
           const lv = s1._activeSkillLevel;
           // 下一发实弹命中时由引擎扣减回合；首个触发器亦会显式移除（先于同发技能伤害结算）。
+          // S1 唯一未具名效果段（Calling Card / Thief's Dagger 具名）→ 日志标签省略 P 后缀
           pushBuff(state, { name: CALLING_CARD_P4, unitId: caster.id,
             attackDamagePct: getSkillValue(s1, 9, lv) / 100,
-            endRounds: getSkillValue(s1, 10, lv) });
+            endRounds: getSkillValue(s1, 10, lv) }, { ...state._logCtx, partIdx: null });
         },
       },
     ],
@@ -192,11 +193,11 @@ export default {
           const s2 = caster.ssrFavSkills.skill2;
           const lv = s2._activeSkillLevel;
           // L1 为 ■ 触发条件行，效果行从 L2 起
-          pushBuff(state, { name: "Thief's Vision P4 L2", unitId: caster.id,
+          pushBuff(state, { name: "Thief's Vision (ATK)", unitId: caster.id,
             atkPct: getSkillValue(s2, 5, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(s2, 6, lv) },
             { ...state._logCtx, lineIdx: 1 });
-          pushBuff(state, { name: "Thief's Vision P4 L3", unitId: caster.id,
+          pushBuff(state, { name: "Thief's Vision P4 (Distributed Damage)", unitId: caster.id,
             distributedDamagePct: getSkillValue(s2, 7, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(s2, 8, lv) },
             { ...state._logCtx, lineIdx: 2 });
@@ -230,7 +231,7 @@ export default {
           // P1：全体敌人分散伤害
           if (state.enemyHp > 0) {
             fireSkillHit(state, caster, getSkillValue(burst, 0, lv) / 100,
-              getBuffSums(state, caster.id), 'Burst P1', { isDistributed: true });
+              getBuffSums(state, caster.id), 'Burst', { isDistributed: true });
           }
 
           // S2 P2：使用爆裂技能时清除分散伤害 ▲ 叠层（先结算本次爆裂伤害，再清除）
@@ -238,14 +239,14 @@ export default {
 
           // P2：燃烧代码 stage target → 承伤 ▲ p03% 30s
           if (state.isStageTarget && state.enemyElement === 'Fire') {
-            pushBuff(state, { name: 'Secret Trick: Rampage of Thieves P2', unitId: ENEMY_UNIT_ID,
+            pushBuff(state, { name: 'Secret Trick: Rampage of Thieves (Damage Taken)', unitId: ENEMY_UNIT_ID,
               isDebuff: true, enemyDamageTakenPct: getSkillValue(burst, 3, lv) / 100,
               endTick: state.tick + TICK_RATE * getSkillValue(burst, 4, lv) },
               { ...state._logCtx, partIdx: 1 });
           }
 
           // P3：自身最大弹匣 ▲ p01% 10s
-          pushBuff(state, { name: 'Secret Trick: Rampage of Thieves P3', unitId: caster.id,
+          pushBuff(state, { name: 'Secret Trick: Rampage of Thieves (Max Ammo)', unitId: caster.id,
             maxAmmoPct: getSkillValue(burst, 1, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(burst, 2, lv) },
             { ...state._logCtx, partIdx: 2 });

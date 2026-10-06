@@ -23,15 +23,17 @@ export default {
       {
         on: 'ENTER_BURST_I',
         handler(state, caster) {
-          const drunken = state.buffs.find(b => b.name === "A Pirate's Heart P1 L1");
+          const drunken = state.buffs.find(b => b.name === 'Drunken');
           const current = drunken?.stackCount ?? 0;
           if (current >= 3) return;
           if (current === 0) {
             const critRatePct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
             const atkFlatPct    = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
-            pushBuff(state, { name: 'A Pirate\'s Heart P2', derivedFrom: 'A Pirate\'s Heart P1 L1',
-              unitId: null, critRatePct, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: Infinity });
-            state.buffs.push({ name: 'A Pirate\'s Heart P1 L1', unitId: caster.id, isDebuff: true,
+            // S1 唯一未具名效果段（P1 为 Drunken）→ 日志标签省略 P 后缀
+            pushBuff(state, { name: 'A Pirate\'s Heart', derivedFrom: 'Drunken',
+              unitId: null, critRatePct, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: Infinity },
+              { ...state._logCtx, partIdx: null });
+            state.buffs.push({ name: 'Drunken', unitId: caster.id, isDebuff: true,
               stackCount: 1, stackLimit: 3, endTick: Infinity });
           } else {
             drunken.stackCount++;
@@ -60,23 +62,25 @@ export default {
       {
         on: 'ENTER_BURST_III',
         handler(state, caster) {
-          const stacks = state.buffs.find(b => b.name === "A Pirate's Heart P1 L1")?.stackCount ?? 0;
+          const stacks = state.buffs.find(b => b.name === 'Drunken')?.stackCount ?? 0;
           if (stacks <= 0) return;
           const end10            = state.tick + TICK_RATE * 10;
           const distDmgPerStack  = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           const reloadSpdPerStack = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'A Pirate\'s Spirit P1', unitId: null,
-            distributedDamagePct: distDmgPerStack * stacks, reloadSpeedPct: reloadSpdPerStack * stacks, endTick: end10 });
+          // S2 唯一未具名效果段（P2 为 Hangover）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'A Pirate\'s Spirit', unitId: null,
+            distributedDamagePct: distDmgPerStack * stacks, reloadSpeedPct: reloadSpdPerStack * stacks,
+            multiplier: stacks, endTick: end10 }, { ...state._logCtx, partIdx: null });
         },
       },
       // S2 Hangover：全爆裂结束，stacks = 3 → 眩晕自身 10s + 层数归零 + S1 被动移除
       {
         on: 'FULL_BURST_END',
         handler(state, caster) {
-          const drunken = state.buffs.find(b => b.name === "A Pirate's Heart P1 L1");
+          const drunken = state.buffs.find(b => b.name === 'Drunken');
           if ((drunken?.stackCount ?? 0) < 3) return false;
           caster.skillState.stunnedUntilTick = state.tick + TICK_RATE * 10;
-          state.buffs = state.buffs.filter(b => b.name !== "A Pirate's Heart P1 L1" && b.derivedFrom !== "A Pirate's Heart P1 L1");
+          state.buffs = state.buffs.filter(b => b.name !== 'Drunken' && b.derivedFrom !== 'Drunken');
         },
       },
     ],
@@ -107,11 +111,12 @@ export default {
           const critDamagePct   = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const attackDmgPct   = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const atkFlatPerStack = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'A Pirate\'s Romance P1', unitId: null, critDamagePct, attackDamagePct, endTick: end10 });
-          const stacks = state.buffs.find(b => b.name === "A Pirate's Heart P1 L1")?.stackCount ?? 0;
+          pushBuff(state, { name: 'A Pirate\'s Romance (Attack Damage)', unitId: null, critDamagePct, attackDamagePct: attackDmgPct, endTick: end10 });
+          const stacks = state.buffs.find(b => b.name === 'Drunken')?.stackCount ?? 0;
           if (stacks > 0)
-            pushBuff(state, { name: 'A Pirate\'s Romance P2', unitId: null,
-              atkFlat: Math.round(caster.stats.atk * atkFlatPerStack * stacks), endTick: end10 });
+            pushBuff(state, { name: 'A Pirate\'s Romance (ATK)', unitId: null,
+              atkFlat: Math.round(caster.stats.atk * atkFlatPerStack * stacks), multiplier: stacks, endTick: end10 },
+              { ...state._logCtx, partIdx: 1 });
         },
       },
     ],

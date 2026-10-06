@@ -14,9 +14,9 @@ function recalcHpToAtk(state, caster) {
   const finalHp = caster.stats.hp * (1 + sums.maxHpPct) + (sums.maxHpFlat ?? 0);
   const pct     = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
   const atkFlat = Math.round(finalHp * pct);
-  const existing = state.buffs.find(b => b.name === 'Electric Power P1' && b.unitId === caster.id);
+  const existing = state.buffs.find(b => b.name === 'Electric Power, Fully Full Charge!' && b.unitId === caster.id);
   if (existing) existing.atkFlat = atkFlat;
-  else pushBuff(state, { name: 'Electric Power P1', unitId: caster.id, atkFlat, endTick: Infinity });
+  else pushBuff(state, { name: 'Electric Power, Fully Full Charge!', unitId: caster.id, atkFlat, endTick: Infinity });
 }
 
 // 武器切换（Electric Power 模式）是否激活
@@ -157,9 +157,9 @@ export default {
           // 阶段 N 的 Max HP ▲ = p02..p0(N+1) 累加
           let hpPct = 0;
           for (let i = 1; i <= st.luh_stage; i++) hpPct += getSkillValue(caster.rawSkill2, i, lv);
-          const buff = state.buffs.find(b => b.name === 'Over Energy' && b.unitId === caster.id);
+          const buff = state.buffs.find(b => b.name === 'Over Energy (Max HP)' && b.unitId === caster.id);
           if (buff) buff.maxHpPct = hpPct / 100;
-          else pushBuff(state, { name: 'Over Energy', unitId: caster.id,
+          else pushBuff(state, { name: 'Over Energy (Max HP)', unitId: caster.id,
             maxHpPct: hpPct / 100, endTick: Infinity });
           recalcHpToAtk(state, caster);
         },
@@ -171,7 +171,7 @@ export default {
         handler(state, caster) {
           const lv  = caster.skillLevels[1];
           const end = state.tick + TICK_RATE * getSkillValue(caster.rawSkill2, 6, lv);
-          pushBuff(state, { name: 'Over Energy P3', unitId: caster.id,
+          pushBuff(state, { name: 'Over Energy (Attack Damage)', unitId: caster.id,
             attackDamagePct: getSkillValue(caster.rawSkill2, 5, lv) / 100, endTick: end });
         },
       },
@@ -200,17 +200,19 @@ export default {
           const atkPct = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const end10  = state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 1, lv);
           // 先施加自身 ATK ▲，使本次爆裂伤害享受该加成。
-          pushBuff(state, { name: 'Mjolnir', unitId: caster.id, atkPct, endTick: end10 });
+          // 爆裂技能唯一的效果段（P2/P3 为伤害）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'Regenerative Energy Armament: Mjolnir', unitId: caster.id, atkPct, endTick: end10 },
+            { ...state._logCtx, partIdx: null });
 
           if (state.enemyHp <= 0) return;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 2, lv) / 100, sums, 'Burst');
+          fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 2, lv) / 100, sums, 'Burst P2');
 
           // Over Energy 阶段 ≥1 → 追加 p04% × 阶段数伤害。
           const stage = caster.skillState.luh_stage ?? 0;
           if (stage >= 1 && state.enemyHp > 0) {
             fireSkillHit(state, caster,
-              getSkillValue(caster.rawBurst, 3, lv) / 100 * stage, sums, 'Burst');
+              getSkillValue(caster.rawBurst, 3, lv) / 100 * stage, sums, 'Burst P3');
           }
         },
       },

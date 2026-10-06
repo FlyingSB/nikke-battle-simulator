@@ -209,7 +209,7 @@ section('T8: Helm burst uses round-based charge damage buff');
   for (const t of burstTriggers.filter(t => t.on === 'BURST_SKILL_USE'))
     t.handler(state, caster, {});
 
-  const chargeBuff = state.buffs.find(b => b.name === 'Aegis Cannon P3');
+  const chargeBuff = state.buffs.find(b => b.name === 'Aegis Cannon (Charge Damage)');
   eq('Aegis Cannon P3 buff pushed',     !!chargeBuff,             true);
   eq('Aegis Cannon P3 endRounds=10',    chargeBuff?.endRounds,    10);
   eq('Aegis Cannon P3 roundsLeft=10',   chargeBuff?.roundsLeft,   10);
@@ -299,13 +299,13 @@ section('T9: Moran SSR burst — handler sets weaponSwitch + lifeSteal + ATK buf
   eq('weaponSwitchRateOfFire = 1440',         caster.skillState.weaponSwitchRateOfFire,     1440);
 
   // Life steal buff (self only)
-  const lsBuff = state.buffs.find(b => b.name === 'Fair and Square! P1 L6');
+  const lsBuff = state.buffs.find(b => b.name === 'Fair and Square! (Life Steal)');
   eq('lifeSteal buff pushed',                 !!lsBuff,               true);
   eq('lifeStealPct = lv10 value',             lsBuff?.lifeStealPct,   parseFloat('36.14') / 100);
   eq('lifeSteal unitId = caster (self)',       lsBuff?.unitId,         unitId);
 
   // ATK flat buff for all allies (SSR)
-  const atkBuff = state.buffs.find(b => b.name === 'Fair and Square! P2');
+  const atkBuff = state.buffs.find(b => b.name === 'Fair and Square! (ATK)');
   eq('ATK flat buff pushed (SSR)',            !!atkBuff,              true);
   eq('ATK flat unitId = null (global)',        atkBuff?.unitId,        null);
   eq('ATK flat = round(atk * 42.57%)',         atkBuff?.atkFlat,       Math.round(100000 * parseFloat('42.57') / 100));
@@ -419,39 +419,39 @@ section('T11: Nayuta S2 stage thresholds — ≥2, ≥10, ≥30 (not >2, >10, >3
   // s=1: no stage buffs
   const st1 = makeState();
   callN(st1, 1);
-  eq('s=1: no stage1 buff', hasStage(st1, 'Impermanence P2 L4'), false);
+  eq('s=1: no stage1 buff', hasStage(st1, 'Impermanence (ATK)'), false);
 
   // s=2: Stage 1 fires at exactly s=2 (≥2)
   const st2 = makeState();
   callN(st2, 2);
-  eq('s=2: stage1 buff pushed', hasStage(st2, 'Impermanence P2 L4'), true);
-  eq('s=2: no stage2 yet',      hasStage(st2, 'Impermanence P2 L6'), false);
+  eq('s=2: stage1 buff pushed', hasStage(st2, 'Impermanence (ATK)'), true);
+  eq('s=2: no stage2 yet',      hasStage(st2, 'Impermanence (Attack Damage)'), false);
 
   // s=9: still no stage2
   const st9 = makeState();
   callN(st9, 9);
-  eq('s=9: no stage2 buff', hasStage(st9, 'Impermanence P2 L6'), false);
+  eq('s=9: no stage2 buff', hasStage(st9, 'Impermanence (Attack Damage)'), false);
 
   // s=10: Stage 2 fires at exactly s=10 (≥10)
   const st10 = makeState();
   callN(st10, 10);
-  eq('s=10: stage2 buff pushed', hasStage(st10, 'Impermanence P2 L6'), true);
-  eq('s=10: no stage3 yet',      hasStage(st10, 'Impermanence P2 L8'), false);
+  eq('s=10: stage2 buff pushed', hasStage(st10, 'Impermanence (Attack Damage)'), true);
+  eq('s=10: no stage3 yet',      hasStage(st10, 'Impermanence (Core Damage)'), false);
 
   // s=29: still no stage3
   const st29 = makeState();
   callN(st29, 29);
-  eq('s=29: no stage3 buff', hasStage(st29, 'Impermanence P2 L8'), false);
+  eq('s=29: no stage3 buff', hasStage(st29, 'Impermanence (Core Damage)'), false);
 
   // s=30: Stage 3 fires at exactly s=30
   const st30 = makeState();
   callN(st30, 30);
-  eq('s=30: stage3 buff pushed', hasStage(st30, 'Impermanence P2 L8'), true);
+  eq('s=30: stage3 buff pushed', hasStage(st30, 'Impermanence (Core Damage)'), true);
 
   // s=31+: capped at 30, stage1 buff not pushed twice
   const st31 = makeState();
   callN(st31, 31);
-  const stage1Buffs = st31.buffs.filter(b => b.name === 'Impermanence P2 L4');
+  const stage1Buffs = st31.buffs.filter(b => b.name === 'Impermanence (ATK)');
   eq('s=31: stage1 not pushed twice', stage1Buffs.length, 1);
 }
 
@@ -971,8 +971,8 @@ section('T17: onInterval — 同技能多 INTERVAL 触发器独立计时（Mari 
   let p1End = -1, p2End = -1;
   for (state.tick = 0; state.tick <= TICK_RATE * 30; state.tick++) {
     onInterval(state);
-    const p1 = state.buffs.find(b => b.name === 'Full Focus P1');
-    const p2 = state.buffs.find(b => b.name === 'Full Focus P2 L2');
+    const p1 = state.buffs.find(b => b.name === 'Full Focus P1 (ATK)');
+    const p2 = state.buffs.find(b => b.name === 'Full Focus P2 (ATK)');
     if (p1 && p1.endTick !== p1End) { p1Ticks.push(state.tick); p1End = p1.endTick; }
     if (p2 && p2.endTick !== p2End) { p2Ticks.push(state.tick); p2End = p2.endTick; }
   }
@@ -981,7 +981,7 @@ section('T17: onInterval — 同技能多 INTERVAL 触发器独立计时（Mari 
   eq('P1 于 10s/20s/30s 触发', p1Ticks.join(','), expected);
   eq('P2 于 10s/20s/30s 触发（回归：曾被 P1 抢占计时器而永不触发）', p2Ticks.join(','), expected);
 
-  const p2buff = state.buffs.find(b => b.name === 'Full Focus P2 L2');
+  const p2buff = state.buffs.find(b => b.name === 'Full Focus P2 (ATK)');
   eq('P2 为全员 buff（unitId: null）', p2buff?.unitId, null);
   eq('P2 atkFlat = ATK × p01%', p2buff?.atkFlat, Math.round(100000 * 0.3078));
 }
@@ -1063,7 +1063,7 @@ section('T19: Bunny Mode — 开局 Stance、形态带动、S2 形态 buff 切�
   eq('Stomp 回合制切换 1 回合', guilty.skillState.weaponSwitchRoundsLeft, 1);
   eq('Stomp 发间固定 90t', guilty.chargeTick, 90);
   eq('1 回合蓄力伤害 +1400%',
-    state.buffs.find(b => b.name === "I'm Finally Free...! L7")?.roundsLeft, 1);
+    state.buffs.find(b => b.name === "I'm Finally Free...! (Charge Damage)")?.roundsLeft, 1);
   state.tick = 90;
   executeSkillTriggers(state, 'FULL_CHARGE', { unit: guilty, isCharged: true });
   eq('Stomp 击发后恢复原武器弹药 4', guilty.ammoLeft, 4);
@@ -1114,7 +1114,8 @@ section('T20: Persona — 1 More 条件、Baton Pass / Follow Up 目标与 FOLLO
     eq('Follow Up → Makoto atkFlat = 施法者 ATK × 80.25%', follow?.atkFlat, 80250);
     eq('Follow Up 持续 25s', follow?.endTick, 25 * TICK_RATE);
     eq('FOLLOW_UP → Makoto S1 P4 分摊伤害 1 次', makoto.skillDamageCount['S1 P4'], 1);
-    eq('Yukiko 1 More → S1 P3 伤害 1 次', yukiko.skillDamageCount['S1 P3'], 1);
+    // Yukiko S1 仅 P3 一处伤害 → 标签为 'S1'（显示技能名）
+    eq('Yukiko 1 More → S1 P3 伤害 1 次', yukiko.skillDamageCount['S1'], 1);
     eq('Scarlet Flower 分摊伤害 +90.01%',
       state.buffs.find(b => b.name === 'Scarlet Flower' && b.unitId === 871)?.distributedDamagePct,
       0.9001);
@@ -1241,7 +1242,7 @@ section('T22: Phantom — S1 P4 消耗/生成时序、S2 P1→P2→P3、爆裂�
     eq('S2 P1 非分摊伤害，不享受 S2 P2', s2p1?.distributedDamagePct, 0);
     eq('S2 P3 享受刚触发的 S2 P2 分摊伤害 ▲', s2p3?.distributedDamagePct, DIST_PCT);
     eq('S2 P3 伤害明细列出 S2 P2',
-      s2p3?.buffBreakdown.some(b => b.name === "Thief's Vision P2"
+      s2p3?.buffBreakdown.some(b => b.name === "Thief's Vision P2 (Distributed Damage)"
         && b.distributedDamagePct === DIST_PCT), true);
     eq('S2 后 Calling Card 已移除', hasCard(state), false);
     eq('S2 结算后仍生成新 P4（命中时目标处于 Calling Card）', p4Active(state), P4_PCT);
@@ -1259,23 +1260,24 @@ section('T22: Phantom — S1 P4 消耗/生成时序、S2 P1→P2→P3、爆裂�
       ...mockRawSkill([861.12, 27.5, 10, 9, 30]) };
     shoot(state, phantom);
     shoot(state, phantom);                          // 生成 P4
-    pushBuff(state, { name: "Thief's Vision P2", unitId: 580,
+    pushBuff(state, { name: "Thief's Vision P2 (Distributed Damage)", unitId: 580,
       distributedDamagePct: DIST_PCT, stackLimit: 3, endTick: Infinity });
     state.hitLog.length = 0;
 
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: phantom });
-    const burstP1 = state.hitLog.find(h => h.label === 'Burst P1');
+    // 爆裂技能仅 P1 一处伤害 → 标签为 'Burst'
+    const burstP1 = state.hitLog.find(h => h.label === 'Burst');
     eq('Burst P1 已触发', !!burstP1, true);
     eq('Burst P1 享受已有 P4', burstP1?.attackDamagePct, P4_PCT);
     eq('Burst P1 为分摊伤害', burstP1?.isDistributed, true);
     eq('Burst P1 享受 S2 P2 分摊伤害 ▲', burstP1?.distributedDamagePct, DIST_PCT);
     eq('Burst P1 不享受 Burst P2 承伤 ▲', burstP1?.damageTakenPct, DIST_PCT);
     eq('Burst P1 伤害明细列出 S2 P2',
-      burstP1?.buffBreakdown.some(b => b.name === "Thief's Vision P2"), true);
+      burstP1?.buffBreakdown.some(b => b.name === "Thief's Vision P2 (Distributed Damage)"), true);
     eq('爆裂后 S2 P2 叠层已清除',
-      state.buffs.some(b => b.name === "Thief's Vision P2"), false);
+      state.buffs.some(b => b.name === "Thief's Vision P2 (Distributed Damage)"), false);
     eq('爆裂后 Burst P2 承伤 ▲ 已施加',
-      state.buffs.some(b => b.name === 'Secret Trick: Rampage of Thieves P2'), true);
+      state.buffs.some(b => b.name === 'Secret Trick: Rampage of Thieves (Damage Taken)'), true);
     eq('爆裂技能不消耗 P4', p4Active(state), P4_PCT);
     eq('爆裂后的下一发普攻仍享受 P4', shoot(state, phantom), P4_PCT);
   }
@@ -1348,7 +1350,7 @@ section('T24: Rouge 各 Max HP ▲ 取基础 MaxHP；getFinalAtk / getFinalMaxHp
   const state = mockState([rouge]);
   pushBuff(state, { name: 'test_maxhp', unitId: 272, maxHpPct: 0.5, maxHpFlat: 500000, endTick: Infinity });
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: rouge });
-  const gm = n => state.buffs.find(b => b.name === `Game Master ${n}`)?.maxHpFlat;
+  const gm = n => state.buffs.find(b => b.name === `Game Master ${n} (Max HP)`)?.maxHpFlat;
   eq('Game Master P2 = 基础 MaxHP × 10%', gm('P2'), 100000);
   eq('Game Master P3 = 基础 MaxHP × 20%', gm('P3'), 200000);
   eq('Game Master P4 = 基础 MaxHP × 30%', gm('P4'), 300000);
@@ -1372,6 +1374,44 @@ section('T24: Rouge 各 Max HP ▲ 取基础 MaxHP；getFinalAtk / getFinalMaxHp
   executeSkillTriggers(s3, 'ENTER_FULL_BURST');
   const picked = s3.buffs.filter(b => b.name === 'Straight Shot').map(b => b.unitId).sort().join(',');
   eq('102 选中最终 ATK 最高的 2 名（102、3）', picked, '102,3');
+}
+
+// ── T25: pushBuff unitIds（多目标合并日志）与 multiplier（动态倍率标记） ────────
+
+section('T25: pushBuff unitIds — 逐人独立 buff，日志合并为一行；multiplier 透传');
+{
+  const squad = [mockUnit(1), mockUnit(2), mockUnit(3)];
+  const state = mockState(squad, { pendingSkillEvents: [] });
+  const logCtx = { unitName: 'U1', skillLabel: 'Test', slot: 'S1', partIdx: 0, lineIdx: null, trigger: 'BATTLE_START' };
+
+  pushBuff(state, { name: 'Multi', unitIds: [2, 3], atkPct: 0.1, stackLimit: 2, endTick: 600 }, logCtx);
+  eq('为每个目标各推入 1 条 buff', state.buffs.filter(b => b.name === 'Multi').length, 2);
+  eq('目标 2 的 buff unitId=2', state.buffs.some(b => b.name === 'Multi' && b.unitId === 2), true);
+  eq('未命中单位 1', getBuffSums(state, 1).atkPct, 0);
+  eq('日志仅一行', state.pendingSkillEvents.length, 1);
+  eq('目标列列出各单位名', state.pendingSkillEvents[0].target, 'U2、U3');
+
+  // 再推一次：各目标独立叠层，仍只记一行
+  pushBuff(state, { name: 'Multi', unitIds: [2, 3], atkPct: 0.1, stackLimit: 2, endTick: 600 }, logCtx);
+  eq('各目标独立叠到 2 层', state.buffs.filter(b => b.name === 'Multi').every(b => b.stacks === 2), true);
+  eq('刷新同样只记一行', state.pendingSkillEvents.length, 2);
+
+  // 覆盖全队 → 目标显示「全体队友」
+  pushBuff(state, { name: 'All', unitIds: [1, 2, 3], atkFlat: 100, endTick: 600 }, logCtx);
+  eq('覆盖全队时目标为全体队友', state.pendingSkillEvents[2].target, '全体队友');
+
+  // 空数组：不推入、不记日志
+  pushBuff(state, { name: 'None', unitIds: [], atkFlat: 100, endTick: 600 }, logCtx);
+  eq('空 unitIds 不推入 buff', state.buffs.some(b => b.name === 'None'), false);
+  eq('空 unitIds 不记日志', state.pendingSkillEvents.length, 3);
+
+  // multiplier 透传到 buff 对象，并进入伤害明细快照
+  pushBuff(state, { name: 'Dyn', unitId: 1, atkFlat: 3000, multiplier: 3, endTick: Infinity });
+  eq('multiplier 写入 buff', state.buffs.find(b => b.name === 'Dyn')?.multiplier, 3);
+  const { snapshotBuffBreakdown } = await import('../../src/engine/battle-utils.js');
+  const bd = snapshotBuffBreakdown(state, 1).find(b => b.name === 'Dyn');
+  eq('伤害明细快照携带 multiplier', bd?.multiplier, 3);
+  eq('无 multiplier 的 buff 快照为 null', snapshotBuffBreakdown(state, 2).find(b => b.name === 'Multi')?.multiplier, null);
 }
 
 // ── 注册完整性：skills/ 目录下每个技能文件都必须在 SKILL_TRAITS 中注册 ─────────

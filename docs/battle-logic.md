@@ -661,6 +661,10 @@ burstPhase = 0（充能中）
 | `normalAttackTrueDamage` | 布尔标记：普通攻击（含武器切换射击）造成真实伤害——无视防御并计入 `trueDamagePct`（如 Guilty/Sin Bunny Mode: Engage） |
 | `stackLimit` | 叠加上限（默认 1；大于 1 时为可叠加效果，见 7.2） |
 | `isDebuff` | 是否为 debuff（影响免疫与驱散机制，见 7.3） |
+| `multiplier` | 数值已按动态倍率 n 放大时记录 n（如 Drunken 层数）；伤害公式明细显示「名称 *n」，不参与计算 |
+
+`pushBuff` 的目标字段：`unitId: <id>`（单体）、`unitId: null`（全队共享一条）、`unitIds: [...]`（多个指定目标：逐人独立 buff，日志合并为一行）。
+`name` 的命名规范见 [skill-modeling-guide.md](skill-modeling-guide.md)。
 
 ### 7.2 Buff 刷新与叠加规则
 

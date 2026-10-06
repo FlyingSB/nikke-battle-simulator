@@ -42,7 +42,7 @@ export default {
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          pushBuff(state, { name: 'Bunny Shift', unitId: caster.id,
+          pushBuff(state, { name: 'Bunny Shift (ATK)', unitId: caster.id,
             atkPct: getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100,
             endTick: Infinity });
         },
@@ -57,10 +57,10 @@ export default {
           // L1 为 ■ 触发条件行，效果行从 L2 起
           // TODO(实测) "Normal Attack Damage Multiplier" 暂按 normalAttackDamagePct（ExtraMultiplier 加法）建模；
           //   参考 Charge Damage Multiplier 与珍藏品同乘区的实测结论，可能应与珍藏品普攻倍率同乘区，待游戏内数据验证
-          pushBuff(state, { name: 'Bunny Shift P2 L2', unitId: caster.id,
+          pushBuff(state, { name: 'Bunny Shift (Normal Attack Damage)', unitId: caster.id,
             normalAttackDamagePct: getSkillValue(caster.rawSkill1, 1, lv) / 100,
             endRounds: getSkillValue(caster.rawSkill1, 2, lv) });
-          pushBuff(state, { name: 'Bunny Shift P2 L3', unitId: caster.id,
+          pushBuff(state, { name: 'Bunny Shift (Charge Damage)', unitId: caster.id,
             chargeDamagePct: getSkillValue(caster.rawSkill1, 3, lv) / 100,
             endRounds: getSkillValue(caster.rawSkill1, 4, lv) });
         },
@@ -155,13 +155,15 @@ export default {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
           const lv = caster.skillLevels[2];
+          // 爆裂技能唯一的效果段（其余为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Swift Piercing', unitId: caster.id,
             atkPct: getSkillValue(caster.rawBurst, 0, lv) / 100,
-            endTick: state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 1, lv) });
+            endTick: state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 1, lv) },
+            { ...state._logCtx, partIdx: null });
 
           if (state.enemyHp <= 0) return;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 2, lv) / 100, sums, 'Burst');
+          fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 2, lv) / 100, sums, 'Burst P2');
 
           if (state.enemyHp <= 0) return;
           const mode = getBunnyMode(caster);

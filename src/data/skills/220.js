@@ -30,8 +30,9 @@ export default {
 
           const atkPct = getSkillValue(caster.rawSkill1, 2, s1Lv) / 100;
           const end5   = state.tick + TICK_RATE * 5;
-          pushBuff(state, { name: 'Determination', unitId: caster.id, atkPct, endTick: end5 }, 
-            { ...state._logCtx, partIdx: 1 }
+          // S1 唯一的效果段（P1 为伤害）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'Determination', unitId: caster.id, atkPct, endTick: end5 },
+            { ...state._logCtx, partIdx: null }
           );
         },
       },
@@ -59,13 +60,14 @@ export default {
           const sums  = getBuffSums(state, caster.id);
           // P1: 技能伤害
           const dmgPct = getSkillValue(caster.rawSkill2, 0, s2Lv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, 'S2 P1');
+          fireSkillHit(state, caster, dmgPct, sums, 'S2');
           if (!state.fullBurstActive) return;
           // P2: Crit Rate ▲（Full Burst 期间已在上方确认）
           const crPct = getSkillValue(caster.rawSkill2, 1, s2Lv) / 100;
+          // S2 唯一的效果段（P1 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Seven Dwarves: V&VI', unitId: caster.id,
-            critRatePct: crPct, endTick: state.tick + TICK_RATE * 10 }, 
-            { ...state._logCtx, partIdx: 1 });
+            critRatePct: crPct, endTick: state.tick + TICK_RATE * 10 },
+            { ...state._logCtx, partIdx: null });
         },
       },
     ],

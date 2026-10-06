@@ -25,10 +25,11 @@ export default {
           const end = state.tick + TICK_RATE * 10;
 
           // Wind Code 敌人承伤 ▲ p00% 10s（仅对风属性敌人生效）
+          // S1 唯一的效果段（P2 为伤害）→ 日志标签省略 P 后缀
           if (state.enemyElement === 'Wind') {
             const dtPct = getSkillValue(caster.rawSkill1, 0, lv) / 100;
             pushBuff(state, { name: 'Ignition Sequence', unitId: '__enemy__', isDebuff: true,
-              enemyDamageTakenPct: dtPct, endTick: end });
+              enemyDamageTakenPct: dtPct, endTick: end }, { ...state._logCtx, partIdx: null });
           }
 
           // 全体敌人技能伤害 p02%
@@ -69,8 +70,9 @@ export default {
           const end = state.tick + TICK_RATE * 10;
 
           const dtPct = getSkillValue(caster.rawSkill2, 2, lv) / 100;
+          // S2 唯一的效果段（P2 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Journey Ahead', unitId: '__enemy__', isDebuff: true,
-            enemyDamageTakenPct: dtPct, endTick: end });
+            enemyDamageTakenPct: dtPct, endTick: end }, { ...state._logCtx, partIdx: null });
         },
       },
       // 每 5 发 → 对最低 HP 敌人造成 p06% 技能伤害（单 Boss 场景等同唯一目标）
@@ -104,10 +106,8 @@ export default {
           const atkPct  = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const atkFlat = Math.round(caster.stats.atk * atkPct);
           const end     = state.tick + TICK_RATE * 10;
-          for (const u of state.squad) {
-            if (u.id === caster.id) continue;
-            pushBuff(state, { name: 'Full Throttle', unitId: u.id, atkFlat, endTick: end });
-          }
+          const unitIds = state.squad.filter(u => u.id !== caster.id).map(u => u.id);
+          pushBuff(state, { name: 'Full Throttle', unitIds, atkFlat, endTick: end });
         },
       },
     ],

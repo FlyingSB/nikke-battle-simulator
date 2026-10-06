@@ -42,7 +42,7 @@ export default {
           st.dorothy234S1P1Pellets -= 80;
           const atk = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
           const hr  = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Flash P1', unitId: caster.id, pierce: true, attackDamagePct: atk, hitRatePct: hr,
+          pushBuff(state, { name: 'Flash', unitId: caster.id, pierce: true, attackDamagePct: atk, hitRatePct: hr,
             pelletFixed: 1, endRounds: 3 });
         },
       },
@@ -73,7 +73,7 @@ export default {
         on: 'BATTLE_START',
         handler(state, caster) {
           const pct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'Radiant Wings P1', unitId: caster.id,
+          pushBuff(state, { name: 'Radiant Wings (Pierce Damage)', unitId: caster.id,
             pierceDamagePct: pct, endTick: Infinity });
         },
       },
@@ -85,7 +85,7 @@ export default {
           const atkPct = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           const hrPct  = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
           const end10  = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'Radiant Wings P2', unitId: caster.id, atkPct, hitRatePct: hrPct, endTick: end10 });
+          pushBuff(state, { name: 'Radiant Wings (ATK)', unitId: caster.id, atkPct, hitRatePct: hrPct, endTick: end10 });
         },
       },
     ],
@@ -117,7 +117,7 @@ export default {
           const atkPct     = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const pelletFlat = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]);
           const end15      = state.tick + TICK_RATE * 15;
-          pushBuff(state, { name: 'False Salvation P1', unitId: caster.id, atkSpeedPct: atkSpdPct, atkPct, pelletFlat, endTick: end15 });
+          pushBuff(state, { name: 'False Salvation', unitId: caster.id, atkSpeedPct: atkSpdPct, atkPct, pelletFlat, endTick: end15 });
         },
       },
     ],

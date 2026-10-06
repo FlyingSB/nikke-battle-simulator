@@ -84,10 +84,8 @@ export default {
           caster.skillState.rougeCoinLevel = 1;
           const attackDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
 
-          for (const uid of adjacentTargetIds(state, caster)) {
-            pushBuff(state, { name: 'Coin Flip P1', unitId: uid,
-              attackDamagePct: attackDmgPct, endTick: Infinity });
-          }
+          pushBuff(state, { name: 'Sword Coin', unitIds: adjacentTargetIds(state, caster),
+            attackDamagePct: attackDmgPct, endTick: Infinity });
         },
       },
 
@@ -104,9 +102,7 @@ export default {
           caster.skillState.rougeS2FcCount  = 0;
           caster.skillState.rougeCoinLevel  = 2;
 
-          for (const uid of adjacentTargetIds(state, caster)) {
-            pushBuff(state, { name: 'Coin Flip P2', unitId: uid, endTick: Infinity });
-          }
+          pushBuff(state, { name: 'Shield Coin', unitIds: adjacentTargetIds(state, caster), endTick: Infinity });
         },
       },
 
@@ -129,7 +125,7 @@ export default {
 
           const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100);
-          pushBuff(state, { name: 'Coin Flip P3', unitId: null,
+          pushBuff(state, { name: 'Double Sword Coin', unitId: null,
             maxHpFlat, endTick: Infinity });
         },
       },
@@ -165,7 +161,7 @@ export default {
           if (ctx.unit?.id !== caster.id) return;
           const lv      = caster.skillLevels[2];
           const atkFlat = Math.round(caster.stats.atk * getSkillValue(caster.rawBurst, 0, lv) / 100);
-          pushBuff(state, { name: 'Game Master P1', unitId: null,
+          pushBuff(state, { name: 'Game Master (ATK)', unitId: null,
             atkFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -179,7 +175,7 @@ export default {
           const lv        = caster.skillLevels[2];
           const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawBurst, 2, lv) / 100);
-          pushBuff(state, { name: 'Game Master P2', unitId: null,
+          pushBuff(state, { name: 'Game Master P2 (Max HP)', unitId: null,
             maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -193,7 +189,7 @@ export default {
           const lv        = caster.skillLevels[2];
           const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawBurst, 4, lv) / 100);
-          pushBuff(state, { name: 'Game Master P3', unitId: null,
+          pushBuff(state, { name: 'Game Master P3 (Max HP)', unitId: null,
             maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -207,7 +203,7 @@ export default {
           const lv        = caster.skillLevels[2];
           const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawBurst, 6, lv) / 100);
-          pushBuff(state, { name: 'Game Master P4', unitId: null,
+          pushBuff(state, { name: 'Game Master P4 (Max HP)', unitId: null,
             maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },

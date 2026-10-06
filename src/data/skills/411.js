@@ -69,9 +69,8 @@ export default {
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          for (const u of [caster, ...adjacentAllies(state, caster)]) {
-            pushBuff(state, { name: PEACE_OF_MIND, unitId: u.id, endTick: Infinity });
-          }
+          const unitIds = [caster, ...adjacentAllies(state, caster)].map(u => u.id);
+          pushBuff(state, { name: PEACE_OF_MIND, unitIds, endTick: Infinity });
         },
       },
       // P1：Peace of Mind 每秒回复 p00% Flora 最终最大 HP
@@ -118,9 +117,8 @@ export default {
           const lv = s1._activeSkillLevel;
           const maxHpFlat = Math.round(caster.stats.hp * getSkillValue(s1, 6, lv) / 100);
           const endTick   = state.tick + TICK_RATE * getSkillValue(s1, 7, lv);
-          for (const u of peaceOfMindUnits(state)) {
-            pushBuff(state, { name: 'Petunia P3', unitId: u.id, maxHpFlat, endTick });
-          }
+          pushBuff(state, { name: 'Petunia (Max HP)', unitIds: peaceOfMindUnits(state).map(u => u.id),
+            maxHpFlat, endTick });
         },
       },
     ],
@@ -157,7 +155,7 @@ export default {
           if (!reached) return;
           const s2 = caster.ssrFavSkills.skill2;
           const lv = s2._activeSkillLevel;
-          pushBuff(state, { name: 'Iris P2', unitId: null,
+          pushBuff(state, { name: 'Iris (True Damage)', unitId: null,
             trueDamagePct: getSkillValue(s2, 3, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(s2, 4, lv) });
         },
@@ -170,9 +168,8 @@ export default {
           const lv = s2._activeSkillLevel;
           const atkFlat = Math.round(caster.stats.atk * getSkillValue(s2, 5, lv) / 100);
           const endTick = state.tick + TICK_RATE * getSkillValue(s2, 6, lv);
-          for (const u of peaceOfMindUnits(state)) {
-            pushBuff(state, { name: 'Iris P3', unitId: u.id, atkFlat, endTick });
-          }
+          pushBuff(state, { name: 'Iris (ATK)', unitIds: peaceOfMindUnits(state).map(u => u.id),
+            atkFlat, endTick });
         },
       },
     ],
@@ -201,11 +198,11 @@ export default {
           applyHeal(state, ALL_ALLIES,
             Math.round(casterFinalMaxHp(state, caster) * getSkillValue(burst, 0, lv) / 100),
             { lineIdx: 1 });
-          pushBuff(state, { name: 'Secret Garden L3', unitId: null,
+          pushBuff(state, { name: 'Secret Garden (True Damage)', unitId: null,
             trueDamagePct: getSkillValue(burst, 1, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(burst, 2, lv) },
             { ...state._logCtx, lineIdx: 2 });
-          pushBuff(state, { name: 'Secret Garden L4', unitId: null,
+          pushBuff(state, { name: 'Secret Garden (ATK)', unitId: null,
             atkFlat: Math.round(caster.stats.atk * getSkillValue(burst, 3, lv) / 100),
             endTick: state.tick + TICK_RATE * getSkillValue(burst, 4, lv) },
             { ...state._logCtx, lineIdx: 3 });

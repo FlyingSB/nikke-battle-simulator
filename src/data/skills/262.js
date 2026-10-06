@@ -30,7 +30,7 @@ export default {
         on: 'ENTER_FULL_BURST',
         handler(state, caster) {
           const atkPct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Calm Depths P1', unitId: caster.id,
+          pushBuff(state, { name: 'Calm Depths (ATK)', unitId: caster.id,
             atkPct, endTick: state.tick + TICK_RATE * 3 });
         },
       },
@@ -40,7 +40,7 @@ export default {
         conditions: [{ type: 'IS_CORE_HIT' }],
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Calm Depths P2', unitId: caster.id,
+          pushBuff(state, { name: 'Calm Depths (Attack Damage)', unitId: caster.id,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 60 });
         },
       },
@@ -69,7 +69,7 @@ export default {
           const target = withFinalAtk.reduce((a, b) => a.finalAtk < b.finalAtk ? a : b).u;
           caster.skillState.libS1T4Target = target.name;
           const chargeTimeReductionPct = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Calm Depths P4', unitId: target.id,
+          pushBuff(state, { name: 'Calm Depths (Charge Speed)', unitId: target.id,
             chargeTimeReductionTicks: Math.round(caster.chargeTimeTicks * chargeTimeReductionPct),
             endTick: state.tick + TICK_RATE * 10 });
         },
@@ -101,7 +101,7 @@ export default {
           if (caster.skillState.libRagingCurrentActive) return false;
           caster.skillState.libRagingCurrentActive = true;
           const attackDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'Strange Currents', unitId: caster.id,
+          pushBuff(state, { name: 'Raging Current', unitId: caster.id,
             attackDamagePct: attackDmgPct, endTick: Infinity });
         },
       },
@@ -135,8 +135,10 @@ export default {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
           const attackDmgPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
+          // 爆裂技能唯一的效果段（P2 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Submerged World', unitId: caster.id,
-            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
+            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 },
+            { ...state._logCtx, partIdx: null });
         },
       },
       // Burst P2：额外技能伤害（延迟 0.97s，受全爆裂加成）

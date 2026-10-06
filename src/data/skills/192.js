@@ -5,9 +5,9 @@ import { getSkillValue } from '../../data/models.js';
 // SSR 珍藏品: Fire Starter（id: 201101）
 
 // Temporary Modification 叠层 buff（S1 P2 L2）：层数即 buff.stacks，过期即叠层归零
-const TEMP_MOD_BUFF = 'Emergency-Crafted Bullets P2 L2';
+const TEMP_MOD_BUFF = 'Temporary Modification';
 // S2 两段效果：仅在 Temporary Modification 满层时存在
-const S2_BUFF_NAMES = ['Modification Successful P1', 'Modification Successful P2'];
+const S2_BUFF_NAMES = ['Modification Successful (Crit Rate)', 'Modification Successful (Attack Speed)'];
 
 // S2 效果由 S1 handler 推入，日志归属需显式改为 S2 槽位
 function s2LogCtx(state, caster, partIdx) {
@@ -75,7 +75,7 @@ export default {
             { ...state._logCtx, partIdx: 1, lineIdx: 1 });
 
           // P2 L3：全队 Crit Damage ▲
-          pushBuff(state, { name: 'Emergency-Crafted Bullets P2 L3', unitId: null, critDamagePct,
+          pushBuff(state, { name: 'Emergency-Crafted Bullets', unitId: null, critDamagePct,
             endTick: state.tick + TICK_RATE * critDmgDur },
             { ...state._logCtx, partIdx: 1, lineIdx: 2 });
 
@@ -166,13 +166,13 @@ export default {
           const casterAtk = caster.stats.atk;
 
           // P1：全队 ATK ▲（flat，基于施法者 ATK）
-          pushBuff(state, { name: 'Miracle of Makeshifts P1', unitId: null,
-            atkFlat: casterAtk * allPct * stacks, endTick },
+          pushBuff(state, { name: 'Miracle of Makeshifts P1 (ATK)', unitId: null,
+            atkFlat: casterAtk * allPct * stacks, multiplier: stacks, endTick },
             { ...state._logCtx, partIdx: 0 });
 
           // P2：SG 友军额外 ATK ▲
-          pushBuff(state, { name: 'Miracle of Makeshifts P2', unitId: null,
-            atkFlat: casterAtk * sgPct * stacks, weaponFilter: 'SG', endTick },
+          pushBuff(state, { name: 'Miracle of Makeshifts P2 (ATK)', unitId: null,
+            atkFlat: casterAtk * sgPct * stacks, multiplier: stacks, weaponFilter: 'SG', endTick },
             { ...state._logCtx, partIdx: 1 });
         },
       },

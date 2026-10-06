@@ -150,11 +150,11 @@ export default {
           caster.chargeTick = state.tick + STOMP_CHARGE_TICKS;
 
           // 行号按描述原文：L7 = Additional Effect 1，L8 = Additional Effect 2
-          pushBuff(state, { name: "I'm Finally Free...! L7", unitId: caster.id,
+          pushBuff(state, { name: "I'm Finally Free...! (Charge Damage)", unitId: caster.id,
             chargeDamagePct: getSkillValue(caster.rawBurst, 4, lv) / 100,
             endRounds: getSkillValue(caster.rawBurst, 5, lv) },
             { ...state._logCtx, lineIdx: 6 });
-          pushBuff(state, { name: "I'm Finally Free...! L8", unitId: caster.id,
+          pushBuff(state, { name: "I'm Finally Free...! (Attack Damage)", unitId: caster.id,
             attackDamagePct: getSkillValue(caster.rawBurst, 0, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 1, lv) },
             { ...state._logCtx, lineIdx: 7 });

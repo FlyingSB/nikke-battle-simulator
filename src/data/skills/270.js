@@ -116,7 +116,7 @@ export default {
             .filter(u => u.id !== caster.id)
             .sort((a, b) => (a.unitHp / a.stats.hp) - (b.unitHp / b.stats.hp))[0];
           if (!target) return;
-          pushBuff(state, { name: 'Showtime P2', unitId: target.id, maxHpPct: pct, endTick: end });
+          pushBuff(state, { name: 'Showtime (Max HP)', unitId: target.id, maxHpPct: pct, endTick: end });
         },
       },
 
@@ -126,7 +126,7 @@ export default {
         handler(state, caster) {
           const pct = getSkillValue(caster.rawBurst, 6, caster.skillLevels[2]) / 100;
           const end = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'Showtime', unitId: '__enemy__', isDebuff: true,
+          pushBuff(state, { name: 'Showtime (Damage Taken)', unitId: '__enemy__', isDebuff: true,
             enemyDamageTakenPct: pct, endTick: end });
         },
       },

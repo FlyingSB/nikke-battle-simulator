@@ -39,7 +39,8 @@ export default {
             atkPct, reloadSpeedPct: reloadSpdPct, maxAmmoPct: -maxAmmoDec, endTick };
           if (favS1) buff.attackDamagePct = getSkillValue(favS1, 6, favS1._activeSkillLevel ?? 10) / 100;
           // pushBuff 内部会调用 recalcMaxAmmo（§5.1.2），截断各单位 ammoLeft（§5.1.3）
-          pushBuff(state, buff);
+          // 基础段与 SSR 段合并为一条 buff → 日志标签省略 P 后缀
+          pushBuff(state, buff, { ...state._logCtx, partIdx: null });
         },
       },
     ],
@@ -68,8 +69,9 @@ export default {
           const lv   = favS2._activeSkillLevel ?? 10;
           const dtPct      = getSkillValue(favS2, 2, lv) / 100;
           const endTick    = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'LD Assault P1', unitId: '__enemy__', isDebuff: true,
-            enemyDamageTakenPct: dtPct, endTick });
+          // S2 唯一的效果段（其余为伤害）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'LD Assault', unitId: '__enemy__', isDebuff: true,
+            enemyDamageTakenPct: dtPct, endTick }, { ...state._logCtx, partIdx: null });
           const sums = getBuffSums(state, caster.id);
           const dmgPct = getSkillValue(favS2, 0, lv) / 100;
           fireSkillHit(state, caster, dmgPct, sums, 'S2 P1');
@@ -114,8 +116,9 @@ export default {
           const lv        = favBurst._activeSkillLevel ?? 10;
           const endTick   = state.tick + TICK_RATE * 10;
           const elemADPct = getSkillValue(favBurst, 4, lv) / 100;
-          pushBuff(state, { name: 'AK Missile P1', unitId: caster.id,
-            elementAdvantagePct: elemADPct, endTick });
+          // 爆裂技能唯一未具名效果段（P1 伤害 + 具名 Designated Target）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'AK Missile', unitId: caster.id,
+            elementAdvantagePct: elemADPct, endTick }, { ...state._logCtx, partIdx: null });
           state.pvDesignatedTargetEndTick = endTick;
         },
       },
@@ -128,7 +131,7 @@ export default {
           const lv     = favBurst._activeSkillLevel ?? 10;
           const sums   = getBuffSums(state, caster.id);
           const dmgPct = getSkillValue(favBurst, 0, lv) / 100;
-          fireSkillHit(state, caster, dmgPct, sums, 'Burst P2');
+          fireSkillHit(state, caster, dmgPct, sums, 'Burst');
         },
       },
     ],

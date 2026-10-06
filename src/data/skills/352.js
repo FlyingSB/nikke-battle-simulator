@@ -74,7 +74,7 @@ export default {
         handler(state, caster) {
           const lv  = caster.skillLevels[1];
           const pct = getSkillValue(caster.rawSkill2, 0, lv) / 100;
-          pushBuff(state, { name: 'Fire Away P1', unitId: null,
+          pushBuff(state, { name: 'Fire Away (Parts Damage)', unitId: null,
             damageToPartsPct: pct, endTick: Infinity });
         },
       },
@@ -87,7 +87,7 @@ export default {
           const s2Lv      = helmS2?._activeSkillLevel ?? 0;
           if (!helmS2 || s2Lv <= 0) return false;
           const atkDmgPct = getSkillValue(helmS2, 1, s2Lv) / 100;
-          pushBuff(state, { name: 'Fire Away', unitId: null,
+          pushBuff(state, { name: 'Fire Away (Attack Damage)', unitId: null,
             attackDamagePct: atkDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -149,7 +149,7 @@ export default {
           const bLv       = helmBurst?._activeSkillLevel ?? 0;
           if (!helmBurst || bLv <= 0) return false;
           const lsPct = getSkillValue(helmBurst, 1, bLv) / 100;
-          pushBuff(state, { name: 'Aegis Cannon P2', unitId: null,
+          pushBuff(state, { name: 'Aegis Cannon (Life Steal)', unitId: null,
             lifeStealPct: lsPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -164,7 +164,7 @@ export default {
           if (!helmBurst || bLv <= 0) return false;
           const cdPct = getSkillValue(helmBurst, 3, bLv) / 100;
           if (cdPct > 0)
-            pushBuff(state, { name: 'Aegis Cannon P3', unitId: caster.id,
+            pushBuff(state, { name: 'Aegis Cannon (Charge Damage)', unitId: caster.id,
               chargeDamageMultPct: cdPct, endTick: Infinity, endRounds: 10 });
         },
       },

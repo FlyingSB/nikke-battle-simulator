@@ -17,10 +17,10 @@ function updateRhCsConversion(state, caster, endTick = Infinity) {
   const excess   = Math.max(0, totalCS - 1.0);
   const convRate = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
   const cdBonus  = excess > 0 ? Math.round(excess * convRate * 100000) / 100000 : 0;
-  const convIdx = state.buffs.findIndex(b => b.name === 'Glaring Eyes P2' && b.unitId === caster.id);
+  const convIdx = state.buffs.findIndex(b => b.name === 'Glaring Eyes (Charge Damage)' && b.unitId === caster.id);
   if (convIdx !== -1) state.buffs.splice(convIdx, 1);
   if (cdBonus > 0) {
-    pushBuff(state, { name: 'Glaring Eyes P2', unitId: caster.id, chargeDamagePct: cdBonus, endTick },
+    pushBuff(state, { name: 'Glaring Eyes (Charge Damage)', unitId: caster.id, chargeDamagePct: cdBonus, endTick },
       { unitName: caster.name,
         skillLabel: caster.rawSkill1?.name_localkey ?? 'S1',
         slot: 'S1',
@@ -53,7 +53,7 @@ export default {
         handler(state, caster) {
           const end5       = state.tick + TICK_RATE * 5;
           const csPerStack = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Glaring Eyes P1', unitId: caster.id,
+          pushBuff(state, { name: 'Glaring Eyes (Charge Speed)', unitId: caster.id,
             chargeSpeedPct: csPerStack, endTick: end5, stackLimit: 10 });
           // CS_BUFF_CHANGED 由 pushBuff → _trackCsChange → flushCsChanged 自动分派，
           // 无需在此手动调用 updateRhCsConversion。
@@ -63,7 +63,7 @@ export default {
       {
         on: 'CS_BUFF_CHANGED',
         handler(state, caster) {
-          const p1 = state.buffs.find(b => b.name === 'Glaring Eyes P1' && b.unitId === caster.id);
+          const p1 = state.buffs.find(b => b.name === 'Glaring Eyes (Charge Speed)' && b.unitId === caster.id);
           updateRhCsConversion(state, caster, p1?.endTick ?? Infinity);
         },
       },
@@ -92,7 +92,7 @@ export default {
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          pushBuff(state, { name: 'Wild Tooth', unitId: caster.id, pierce: true, endTick: Infinity });
+          pushBuff(state, { name: 'Wild Tooth (Pierce)', unitId: caster.id, pierce: true, endTick: Infinity });
         },
       },
     ],
@@ -154,7 +154,7 @@ export default {
             const end10            = state.tick + TICK_RATE * 10;
             // S2 Part4：自身 ATK ▲[S2 param4]% 10s（仅 Red Wolf）
             const s2AtkPct         = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
-            pushBuff(state, { name: 'Wild Tooth P4', unitId: caster.id,
+            pushBuff(state, { name: 'Wild Tooth (ATK)', unitId: caster.id,
               atkPct: s2AtkPct, endTick: end10 },
               { unitName: caster.name,
                 skillLabel: caster.rawSkill2?.name_localkey ?? 'S2',
@@ -165,7 +165,7 @@ export default {
               });
             // Charge Speed ▲[Burst param9]% 10s（Red Wolf 追加效果）
             const chargeSpeedPct   = getSkillValue(caster.rawBurst, 9, caster.skillLevels[2]) / 100;
-            pushBuff(state, { name: 'Red Wolf P4 L8', unitId: caster.id,
+            pushBuff(state, { name: 'Red Wolf (Charge Speed)', unitId: caster.id,
               chargeSpeedPct, endTick: end10 }, { ...state._logCtx, partIdx: 3 });
             // 武器切换：Damage [Burst param6]% final ATK · FC 250% · 10s · 弹匣容量 99
             // Red Wolf 弹匣固定 99 发、切换时满弹，不受任何装弹数效果影响

@@ -44,7 +44,7 @@ export default {
             u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
           }
           if (state.buffLog && reductionTicks > 0)
-            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'Liter Boost P1 L3', unitId: null, reductionTicks });
+            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'Liter Boost (Burst CD)', unitId: null, reductionTicks });
         },
       },
       // S1 Part 2："前效重复触发"，每次使用爆裂技能时（累计计数）：
@@ -59,15 +59,15 @@ export default {
           const maxAmmoPct  = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
           const critDamagePct  = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
           const atkPct      = getSkillValue(caster.rawSkill1, 7, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Liter Boost P2 L3', unitId: null, maxAmmoPct, endTick: end5 });
+          pushBuff(state, { name: 'Liter Boost (Max Ammo)', unitId: null, maxAmmoPct, endTick: end5 });
           if (state.ammoLog) {
             for (const u of state.squad)
               state.ammoLog.push({ tick: state.tick, unitId: u.id, unitName: u.name,
                 delta: 0, ammoAfter: u.ammoLeft, maxAmmo: u.maxAmmo,
                 maxAmmoDelta: Math.round(u.baseAmmo * maxAmmoPct), source: `liter_s1_t1_maxAmmo(+${(maxAmmoPct*100).toFixed(2)}%)` });
           }
-          if (cnt >= 2) pushBuff(state, { name: 'Liter Boost P2 L4', unitId: null, critDamagePct: critDamagePct, endTick: end5 });
-          if (cnt >= 3) pushBuff(state, { name: 'Liter Boost P2 L5', unitId: null, atkPct,                   endTick: end5 });
+          if (cnt >= 2) pushBuff(state, { name: 'Liter Boost (Crit Damage)', unitId: null, critDamagePct: critDamagePct, endTick: end5 });
+          if (cnt >= 3) pushBuff(state, { name: 'Liter Boost (ATK)', unitId: null, atkPct,                   endTick: end5 });
         },
       },
       // 内部初始化（末尾放置不占用描述段 index）

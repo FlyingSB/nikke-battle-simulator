@@ -56,8 +56,9 @@ export default {
           const lv   = caster.skillLevels[0];
           const pct  = getSkillValue(caster.rawSkill1, 0, lv) / 100;
           const flat = Math.round(caster.stats.atk * pct);
-          pushBuff(state, { name: 'Agent\'s Gaze P1 L1', unitId: null,
-            atkFlat: flat, endTick: state.tick + TICK_RATE * 5 });
+          // S1 唯一未具名效果段（P2 为 Spy Lens）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'Agent\'s Gaze', unitId: null,
+            atkFlat: flat, endTick: state.tick + TICK_RATE * 5 }, { ...state._logCtx, partIdx: null });
         },
       },
 
@@ -85,7 +86,7 @@ export default {
             caster.skillState.aabS2FullyStacked = true;
             const lv2    = caster.skillLevels[1];
             const atkPct = getSkillValue(caster.rawSkill2, 2, lv2) / 100;
-            pushBuff(state, { name: 'Agent\'s Movement P2', unitId: caster.id, pierce: true, atkPct, endTick: Infinity });
+            pushBuff(state, { name: 'Agent\'s Movement (ATK)', unitId: caster.id, pierce: true, atkPct, endTick: Infinity });
           }
         },
       },
@@ -114,7 +115,7 @@ export default {
           if (!isInEffectiveRange(state, caster)) return;
           const lv  = caster.skillLevels[1];
           const pct = getSkillValue(caster.rawSkill2, 0, lv) / 100;
-          pushBuff(state, { name: 'Agent\'s Movement P1 L1', unitId: null,
+          pushBuff(state, { name: 'Agent\'s Movement (Pierce Damage)', unitId: null,
             pierceDamagePct: pct, endTick: state.tick + TICK_RATE * 5 });
         },
       },
@@ -153,7 +154,8 @@ export default {
           const atkDmgPct = getSkillValue(caster.rawBurst, 2, lv) / 100;
           const piercePct = getSkillValue(caster.rawBurst, 4, lv) / 100;
           pushBuff(state, { name: 'Cutting-Edge Agent Equipment', unitId: null,
-            attackDamagePct: atkDmgPct, pierceDamagePct: piercePct, endTick: end10 });
+            attackDamagePct: atkDmgPct, pierceDamagePct: piercePct, endTick: end10 },
+            { ...state._logCtx, partIdx: 1 });
         },
       },
     ],

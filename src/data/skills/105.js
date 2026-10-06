@@ -40,13 +40,16 @@ export default {
           const perStack = Math.round(
             caster.stats.hp * getSkillValue(caster.rawSkill1, 0, lv) / 100);
           const flat = perStack * st.mom_hpStacks;
+          // 已有 buff 直接改写数值；尚无 buff 的单位合并为一次 unitIds 推入
+          const missing = [];
           for (const t of state.squad) {
             const existing = state.buffs.find(b =>
-              b.name === 'Sequential Limit Release' && b.unitId === t.id);
+              b.name === 'Sequential Limit Release (Max HP)' && b.unitId === t.id);
             if (existing) existing.maxHpFlat = flat;
-            else pushBuff(state, { name: 'Sequential Limit Release', unitId: t.id,
-              maxHpFlat: flat, endTick: Infinity });
+            else missing.push(t.id);
           }
+          pushBuff(state, { name: 'Sequential Limit Release (Max HP)', unitIds: missing,
+            maxHpFlat: flat, endTick: Infinity });
         },
       },
 
@@ -56,7 +59,7 @@ export default {
         handler(state, caster) {
           const lv  = caster.skillLevels[0];
           const end = state.tick + TICK_RATE * getSkillValue(caster.rawSkill1, 4, lv);
-          pushBuff(state, { name: 'Sequential Limit Release P2', unitId: null,
+          pushBuff(state, { name: 'Sequential Limit Release (Attack Damage)', unitId: null,
             attackDamagePct: getSkillValue(caster.rawSkill1, 3, lv) / 100, endTick: end });
         },
       },
@@ -159,8 +162,10 @@ export default {
 
           // 全队攻击伤害 ▲ p07% 10s。
           const end10 = state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 7, lv);
+          // 爆裂技能唯一的效果段（P1 为武器切换 Matis UberBuster）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Matis UberBuster', unitId: null,
-            attackDamagePct: getSkillValue(caster.rawBurst, 6, lv) / 100, endTick: end10 });
+            attackDamagePct: getSkillValue(caster.rawBurst, 6, lv) / 100, endTick: end10 },
+            { ...state._logCtx, partIdx: null });
         },
       },
     ],

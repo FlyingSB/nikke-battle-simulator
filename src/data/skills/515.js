@@ -37,7 +37,7 @@ export default {
         handler(state, caster) {
           const atkDmgPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           pushBuff(state, { name: 'Beauty-Full', unitId: caster.id,
-            attackDamagePct: atkDmgPct, endTick: Infinity });
+            attackDamagePct: atkDmgPct, endTick: Infinity }, { ...state._logCtx, partIdx: 1 });
         },
       },
 
@@ -101,8 +101,9 @@ export default {
         on: 'BATTLE_START',
         handler(state, caster) {
           const atkPct = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'Mode Swap ATK', unitId: caster.id,
-            atkPct, endTick: Infinity });
+          // S2 唯一未具名效果段（Decoy / Destroy / Pinpoint 具名，P5 为伤害）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'Mode Swap', unitId: caster.id,
+            atkPct, endTick: Infinity }, { ...state._logCtx, partIdx: null });
         },
       },
 
@@ -112,7 +113,7 @@ export default {
         handler(state, caster) {
           const coreDmgPct = getSkillValue(caster.rawSkill2, 3, caster.skillLevels[1]) / 100;
           pushBuff(state, { name: 'Pinpoint', unitId: caster.id,
-            coreDamagePct: coreDmgPct, endTick: Infinity });
+            coreDamagePct: coreDmgPct, endTick: Infinity }, { ...state._logCtx, partIdx: 3 });
         },
       },
 
@@ -153,8 +154,9 @@ export default {
           const atkDmgPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const atkPct    = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
           // 先施加自身 buff，使本次爆裂伤害享受自身 ATK ▲ / 攻击伤害 ▲。
+          // 爆裂技能唯一的效果段（P2 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Glass Slippers Full Contact W', unitId: caster.id,
-            attackDamagePct: atkDmgPct, atkPct, endTick: end10 });
+            attackDamagePct: atkDmgPct, atkPct, endTick: end10 }, { ...state._logCtx, partIdx: null });
 
           if (state.enemyHp <= 0) return;
           const burstMult = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;

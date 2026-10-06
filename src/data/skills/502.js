@@ -71,24 +71,19 @@ export default {
           const lv = caster.skillLevels[0];
 
           // 首次到达 1 幽灵：给水属性友军附加 ATK flat buff（持续）
+          const waterIds = state.squad.filter(u => u.element === 'Water').map(u => u.id);
           if (newGhosts === 1) {
             const atkPct  = getSkillValue(caster.rawSkill1, 4, lv) / 100;
             const atkFlat = Math.round(caster.stats.atk * atkPct);
-            for (const u of state.squad) {
-              if (u.element !== 'Water') continue;
-              pushBuff(state, { name: 'Hello Ghost P2 L4', unitId: u.id,
-                atkFlat, endTick: Infinity });
-            }
+            pushBuff(state, { name: 'Hello Ghost (ATK)', unitIds: waterIds,
+              atkFlat, endTick: Infinity });
           }
 
           // 首次到达 4 幽灵（≥4）：额外给水属性友军附加 Elem Adv buff（持续）
           if (newGhosts === 4) {
             const elemAdvPct = getSkillValue(caster.rawSkill1, 6, lv) / 100;
-            for (const u of state.squad) {
-              if (u.element !== 'Water') continue;
-              pushBuff(state, { name: 'Hello Ghost P2 L6', unitId: u.id,
-                elementAdvantagePct: elemAdvPct, endTick: Infinity });
-            }
+            pushBuff(state, { name: 'Hello Ghost (Elem Adv Damage)', unitIds: waterIds,
+              elementAdvantagePct: elemAdvPct, endTick: Infinity });
           }
         },
       },
@@ -125,8 +120,9 @@ export default {
           const lv     = caster.skillLevels[1];
           const atkPct = getSkillValue(caster.rawSkill2, 0, lv) / 100;
           const end10  = state.tick + TICK_RATE * 10;
+          // S2 唯一的效果段（P2 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Ghostbuster', unitId: caster.id,
-            atkPct, endTick: end10 });
+            atkPct, endTick: end10 }, { ...state._logCtx, partIdx: null });
         },
       },
     ],
@@ -169,7 +165,7 @@ export default {
               state.pendingSkillHits.push({
                 fireTick: state.tick + delay * (h + 1),
                 caster, mult: hitPct, sums: preSums,
-                isCharged: false, label: 'Burst',
+                isCharged: false, label: 'Burst P2',
                 opts: { preBuffBreakdown },
               });
             }
@@ -181,7 +177,7 @@ export default {
               state.pendingSkillHits.push({
                 fireTick: state.tick + delay * (h + 1),
                 caster, mult: hitPct, sums: preSums,
-                isCharged: false, label: 'Burst',
+                isCharged: false, label: 'Burst P1',
                 opts: { preBuffBreakdown },
               });
             }
@@ -191,7 +187,7 @@ export default {
           // 幽灵减少后，检查 Elem Adv buff 条件（需 ≥4 幽灵）
           const newGhosts = caster.skillState.ebs_ghostCount;
           if (newGhosts < 4) {
-            state.buffs = state.buffs.filter(b => b.name !== 'Hello Ghost P2 L6');
+            state.buffs = state.buffs.filter(b => b.name !== 'Hello Ghost (Elem Adv Damage)');
           }
           // ATK buff（Hello Ghost P2 L1）：非13模式至少保留1幽灵，13模式后剩4幽灵，均 ≥1，故不移除
         },

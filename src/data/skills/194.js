@@ -77,7 +77,7 @@ export default {
           const lv   = caster.skillLevels[1];
           const sums = getBuffSums(state, caster.id);
           const mult = getSkillValue(caster.rawSkill2, 1, lv) / 100;
-          fireSkillHit(state, caster, mult, sums, 'S2 P1');
+          fireSkillHit(state, caster, mult, sums, 'S2');
         },
       },
       // S2 P2: 进入全爆裂 → 自身暴击率 ▲ p02% 10s
@@ -86,8 +86,10 @@ export default {
         handler(state, caster) {
           const lv        = caster.skillLevels[1];
           const critBonus = getSkillValue(caster.rawSkill2, 2, lv) / 100;
+          // S2 唯一的效果段（P1 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Snowstorm', unitId: caster.id,
-            critRatePct: critBonus, endTick: state.tick + TICK_RATE * 10 });
+            critRatePct: critBonus, endTick: state.tick + TICK_RATE * 10 },
+            { ...state._logCtx, partIdx: null });
         },
       },
     ],
@@ -113,12 +115,12 @@ export default {
 
           // ATK ▲ p00% 10s
           const atkPct = getSkillValue(caster.rawBurst, 0, lv) / 100;
-          pushBuff(state, { name: 'Guiding Lantern P1 L1', unitId: caster.id,
+          pushBuff(state, { name: 'Guiding Lantern (ATK)', unitId: caster.id,
             atkPct, endTick: state.tick + TICK_RATE * 10 });
 
           // 换弹速度 ▲ p02% 20s
           const reloadSpeedPct = getSkillValue(caster.rawBurst, 2, lv) / 100;
-          pushBuff(state, { name: 'Guiding Lantern P1 L2', unitId: caster.id,
+          pushBuff(state, { name: 'Guiding Lantern (Reload Speed)', unitId: caster.id,
             reloadSpeedPct, endTick: state.tick + TICK_RATE * 20 });
         },
       },

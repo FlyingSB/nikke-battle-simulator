@@ -75,7 +75,7 @@ export default {
             b.name === 'Annihilation State' && b.unitId === caster.id && b.endTick > state.tick);
           if (!annActive) return false;
           const atkDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'Emergency Repair', unitId: caster.id,
+          pushBuff(state, { name: 'Emergency Repair (Attack Damage)', unitId: caster.id,
             attackDamagePct: atkDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -157,7 +157,7 @@ export default {
           if (stacks > 0) {
             const annMult = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]) / 100;
             const sums    = getBuffSums(state, caster.id);
-            fireSkillHit(state, caster, annMult * stacks, sums, 'Burst P2');
+            fireSkillHit(state, caster, annMult * stacks, sums, 'Burst P2 Annihilation');
             state.buffs = state.buffs.filter(b =>
               !(b.name === 'Anti A.T. Field' && b.unitId === ENEMY_UNIT_ID));
           }
@@ -167,7 +167,7 @@ export default {
 
           // MG 过热速度 ▼100% for 3s：通过 buff 归零逐发增速
           if (caster.mgRofChangePerShot != null) {
-            pushBuff(state, { name: 'MG Heat Reduction', unitId: caster.id,
+            pushBuff(state, { name: 'Emergency Repair (MG Heat)', unitId: caster.id,
               mgHeatSpeedPct: -1, endTick: state.tick + TICK_RATE * 3 }, {
                 unitName: caster.name,
                 skillLabel: caster.rawSkill2?.name_localkey ?? 'S2',

@@ -54,8 +54,9 @@ export default {
         handler(state, caster) {
           const lv     = caster.skillLevels[0];
           const atkPct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
+          // S1 唯一的效果段（P1 为持续伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Shock Wave', unitId: caster.id,
-            atkPct, endTick: state.tick + TICK_RATE * 10 });
+            atkPct, endTick: state.tick + TICK_RATE * 10 }, { ...state._logCtx, partIdx: null });
         },
       },
     ],
@@ -113,7 +114,7 @@ export default {
         handler(state, caster) {
           const lv     = caster.skillLevels[2];
           const sdMult = getSkillValue(caster.rawBurst, 1, lv) / 100;
-          pushBuff(state, { name: 'Tempest', unitId: caster.id,
+          pushBuff(state, { name: 'A.N. Mode', unitId: caster.id,
             sustainedDamagePct: sdMult, endTick: state.tick + TICK_RATE * 10 });
         },
       },

@@ -105,7 +105,7 @@ export default {
       {},
 
       // S2 Part4：全爆裂结束且火力槽 > 0 → 每发充能 +flat 5s
-      //   flat_increment = burstEnergyPerShot × [S2 p02]% × 槽量
+      //   「filling speed ▲ n%」= 施法者命中目标每发充能的 n%：flat = targetBurstEnergyPerShot × [S2 p02]% × 槽量
       //   flat 加法，与基础充能叠加后整体乘 FC 倍率（不是百分比乘法）
       {
         on: 'FULL_BURST_END',
@@ -114,8 +114,8 @@ export default {
           if (gauge <= 0) return false;
           const rate          = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
           const duration      = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]);
-          const flatIncrement = Math.round(caster.burstEnergyPerShot * rate * gauge);
-          pushBuff(state, { name: 'Firepower Charge P4', unitId: caster.id,
+          const flatIncrement = Math.round(caster.targetBurstEnergyPerShot * rate * gauge);
+          pushBuff(state, { name: 'Firepower Charge (Burst Gauge)', unitId: caster.id,
             burstGaugeFlat: flatIncrement, endTick: state.tick + TICK_RATE * duration });
         },
       },
@@ -180,7 +180,7 @@ export default {
             caster.skillState.nveSuperFirepowerEndTick = end10;
             const sfAtkDmgPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
             // 触发器位于 triggers[0]，默认 logCtx 为 P1；显式指定 P2 L2 供日志 tooltip 高亮
-            pushBuff(state, { name: 'Super Firepower P2 L2', unitId: caster.id,
+            pushBuff(state, { name: 'Super Firepower', unitId: caster.id,
               attackDamagePct: sfAtkDmgPct, endTick: end10 },
               { ...state._logCtx, partIdx: 1, lineIdx: 1 });
           } else {
@@ -193,7 +193,7 @@ export default {
           // [TODO: P3 L2 Explosion Radius ▲p06% p07s — 引擎尚无爆炸半径机制，未建模]
           // P3 L3：常驻 Attack Damage buff
           const alwaysAtkDmgPct = getSkillValue(caster.rawBurst, 9, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'Super Firepower P3 L3', unitId: caster.id,
+          pushBuff(state, { name: 'Super Firepower P3 (Attack Damage)', unitId: caster.id,
             attackDamagePct: alwaysAtkDmgPct, endTick: end10 },
             { ...state._logCtx, partIdx: 2, lineIdx: 2 });
         },

@@ -173,12 +173,12 @@ function applyEffects(state, caster, targets, effects, ctx, logCtx = null) {
       : Infinity;
 
     switch (eff.type) {
-      case 'BUFF':
-        for (const t of targets) {
-          if (t === '__enemy__') continue;
-          pushBuff(state, { name: eff.name, unitId: t.id, endTick, ...statVal }, logCtx);
-        }
+      case 'BUFF': {
+        // 多目标以 unitIds 一次推入：各单位独立 buff，日志合并为一行
+        const unitIds = targets.filter(t => t !== '__enemy__').map(t => t.id);
+        pushBuff(state, { name: eff.name, unitIds, endTick, ...statVal }, logCtx);
         break;
+      }
 
       case 'BUFF_GLOBAL':
         // unitId=null：作为全队 buff 推入，区别于逐人推入（用于 Crown S1 之外的全员效果）

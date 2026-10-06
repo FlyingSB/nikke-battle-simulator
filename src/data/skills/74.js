@@ -12,10 +12,8 @@ const MAX_TICKETS     = 2;
 function issueTicket(state, caster) {
   const lv        = caster.skillLevels[0];
   const maxHpFlat = Math.round(caster.stats.hp * getSkillValue(caster.rawSkill1, 0, lv) / 100);
-  for (const u of state.squad) {
-    pushBuff(state, { name: TICKET, unitId: u.id, maxHpFlat,
-      stackLimit: MAX_TICKETS, endTick: Infinity });
-  }
+  pushBuff(state, { name: TICKET, unitIds: state.squad.map(u => u.id), maxHpFlat,
+    stackLimit: MAX_TICKETS, endTick: Infinity });
 }
 
 function findTicket(state, unitId) {

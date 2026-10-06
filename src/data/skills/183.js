@@ -20,10 +20,8 @@ function pushS2P1(state, caster) {
   const atkFlatPct = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
   const atkFlat    = Math.round(caster.stats.atk * atkFlatPct);
   const logCtx     = s2LogCtx(state, caster, 0);
-  for (const u of state.squad) {
-    if (u.id === caster.id || u.element !== 'Electric') continue;
-    pushBuff(state, { name: 'Blessings Upon You P1', unitId: u.id, elementAdvantagePct: elemAdvPct, atkFlat, endTick: end10 }, logCtx);
-  }
+  const unitIds    = state.squad.filter(u => u.id !== caster.id && u.element === 'Electric').map(u => u.id);
+  pushBuff(state, { name: 'Blessings Upon You P1 (ATK)', unitIds, elementAdvantagePct: elemAdvPct, atkFlat, endTick: end10 }, logCtx);
 }
 
 export default {
@@ -72,7 +70,7 @@ export default {
           if (caster.skillState.iceroseChargeCount < 6) return false;
           caster.skillState.iceroseChargeCount = 0;
           const maxHpPctPerStack = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
-          const existing = state.buffs.find(b => b.name === 'Meditation P3 L2' && b.unitId === caster.id);
+          const existing = state.buffs.find(b => b.name === 'Meditation' && b.unitId === caster.id);
           const stacks   = Math.min(10, (existing?.stackCount ?? 0) + 1);
           const end15    = state.tick + TICK_RATE * 15;
           if (existing) {
@@ -80,7 +78,7 @@ export default {
             existing.maxHpPct   = stacks * maxHpPctPerStack;
             existing.endTick    = end15;
           } else {
-            state.buffs.push({ name: 'Meditation P3 L2', unitId: caster.id,
+            state.buffs.push({ name: 'Meditation', unitId: caster.id,
               maxHpPct: maxHpPctPerStack, endTick: end15, stackCount: 1 });
           }
         },
@@ -179,9 +177,9 @@ export default {
           const end10        = state.tick + TICK_RATE * 10;
           const selfElemAdv  = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const selfHpAtkPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'Blessings Upon You P2 L2', unitId: caster.id,
+          pushBuff(state, { name: 'Blessings Upon You (Elem Adv Damage)', unitId: caster.id,
             elementAdvantagePct: selfElemAdv, endTick: end10 }, s2LogCtx(state, caster, 1, 1));
-          pushBuff(state, { name: 'Blessings Upon You P2 L3', unitId: caster.id,
+          pushBuff(state, { name: 'Blessings Upon You P2 (ATK)', unitId: caster.id,
             atkFlat: Math.round(buffedMaxHp * selfHpAtkPct), endTick: end10 }, s2LogCtx(state, caster, 1, 2));
         },
       },

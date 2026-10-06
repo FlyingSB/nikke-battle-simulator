@@ -29,9 +29,8 @@ export default {
           const sorted  = [...state.squad].sort((a, b) => getFinalAtk(state, b) - getFinalAtk(state, a));
           const targets = sorted.slice(0, 2);
 
-          for (const t of targets) {
-            pushBuff(state, { name: 'Straight Shot', unitId: t.id, chargeSpeedPct: csPct, atkPct, endTick });
-          }
+          pushBuff(state, { name: 'Straight Shot', unitIds: targets.map(t => t.id),
+            chargeSpeedPct: csPct, atkPct, endTick });
         },
       },
     ],

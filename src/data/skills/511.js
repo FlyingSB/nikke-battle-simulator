@@ -29,9 +29,9 @@ export default {
           const atkFlatPct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
           const atkFlat    = Math.round(finalHp * atkFlatPct);
           const endTick    = state.tick + TICK_RATE * 10;
-          const existing = state.buffs.find(b => b.name === 'Flawless Glass P1' && b.unitId === caster.id);
+          const existing = state.buffs.find(b => b.name === 'Flawless Glass (ATK)' && b.unitId === caster.id);
           if (existing) { existing.atkFlat = atkFlat; existing.endTick = endTick; }
-          else pushBuff(state, { name: 'Flawless Glass P1', unitId: caster.id, atkFlat, endTick });
+          else pushBuff(state, { name: 'Flawless Glass (ATK)', unitId: caster.id, atkFlat, endTick });
         },
       },
       // S1 Part2：全蓄力攻击 → 自身 Charge Speed ▲100%（自然装填到满后移除）
@@ -40,9 +40,9 @@ export default {
         on: 'FULL_CHARGE',
         handler(state, caster) {
           const existing = state.buffs.find(b =>
-            b.name === 'Flawless Glass P2' && b.unitId === caster.id);
+            b.name === 'Flawless Glass (Charge Speed)' && b.unitId === caster.id);
           if (existing) return;
-          pushBuff(state, { name: 'Flawless Glass P2', unitId: caster.id,
+          pushBuff(state, { name: 'Flawless Glass (Charge Speed)', unitId: caster.id,
             chargeSpeedPct: 1.0, endTick: Infinity });
         },
       },
@@ -50,7 +50,7 @@ export default {
         on: 'RELOAD_END',
         handler(state, caster) {
           state.buffs = state.buffs.filter(b =>
-            !(b.name === 'Flawless Glass P2' && b.unitId === caster.id));
+            !(b.name === 'Flawless Glass (Charge Speed)' && b.unitId === caster.id));
         },
       },
       // S1 Part3：全蓄力命中 → [S1 param3]% ATK 附加技能伤害，同时附加对应充能
@@ -63,7 +63,7 @@ export default {
           if (state.enemyHp <= 0) return;
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
           const hitMult = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
-          fireSkillHit(state, caster, hitMult, sums, 'S1 P3', {
+          fireSkillHit(state, caster, hitMult, sums, 'S1', {
             burstEnergy: caster.targetBurstEnergyPerShot ?? 0, burstEnergySource: 'S1_fc_bonus' });
         },
       },
@@ -106,9 +106,9 @@ export default {
           caster.skillState.cinderellaBeautyStacks = (caster.skillState.cinderellaBeautyStacks ?? 0) + 1;
           const stacks       = caster.skillState.cinderellaBeautyStacks;
           const maxHpPerStack = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
-          const beautyBuff   = state.buffs.find(b => b.name === 'Dirt-Resistant Mirror' && b.unitId === caster.id);
+          const beautyBuff   = state.buffs.find(b => b.name === 'Beautiful' && b.unitId === caster.id);
           if (beautyBuff) { beautyBuff.maxHpPct = stacks * maxHpPerStack; }
-          else state.buffs.push({ name: 'Dirt-Resistant Mirror', unitId: caster.id,
+          else state.buffs.push({ name: 'Beautiful', unitId: caster.id,
             maxHpPct: stacks * maxHpPerStack, endTick: Infinity });
         },
       },

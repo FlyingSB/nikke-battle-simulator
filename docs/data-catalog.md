@@ -193,8 +193,8 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Crown | [`330.json`](../src/data/static/nikke/330.json) | [`330.js`](../src/data/skills/330.js) |
 | ✔️ | Helm | [`352.json`](../src/data/static/nikke/352.json) | [`352.js`](../src/data/skills/352.js) |
 | ✔️ | Helm: Aquamarine | [`353.json`](../src/data/static/nikke/353.json) | [`353.js`](../src/data/skills/353.js) |
-| ❌ | Mast: Romantic Maid | [`354.json`](../src/data/static/nikke/354.json) | [`354.js`](../src/data/skills/354.js) |
-| ❌ | Anchor: Innocent Maid | [`355.json`](../src/data/static/nikke/355.json) | [`355.js`](../src/data/skills/355.js) |
+| ✔️ | Mast: Romantic Maid | [`354.json`](../src/data/static/nikke/354.json) | [`354.js`](../src/data/skills/354.js) |
+| ✔️ | Anchor: Innocent Maid | [`355.json`](../src/data/static/nikke/355.json) | [`355.js`](../src/data/skills/355.js) |
 | ✔️ | Zwei（SSR：Four-Leaf Clover Bookmark） | [`390.json`](../src/data/static/nikke/390.json) | [`390.js`](../src/data/skills/390.js) |
 | ❌ | Guilty: Mighty Bunny | [`404.json`](../src/data/static/nikke/404.json) | [`404.js`](../src/data/skills/404.js) |
 | ❌ | Sin: Swift Bunny | [`405.json`](../src/data/static/nikke/405.json) | [`405.js`](../src/data/skills/405.js) |

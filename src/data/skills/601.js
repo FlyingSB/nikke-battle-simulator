@@ -30,16 +30,14 @@ export default {
           const lv      = caster.skillLevels[0];
           const endTick = state.tick + TICK_RATE * 3;
 
-          // 全队：Projectile Explosion Damage ▲ p00% + Pierce Damage ▲ p02% 3s（合并）
+          // 全队：Projectile Explosion Damage ▲ p00% + Pierce Damage ▲ p02% + ATK ▲（p04% × 施放者 ATK）3s
+          // 三项同目标同时长且不在同一乘区，合并为一条 buff
           const projExpPct = getSkillValue(caster.rawSkill1, 0, lv) / 100;
-          const piercePct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-          pushBuff(state, { name: 'Let\'s Get the Show Started P1', unitId: null,
-            projectileExplosionDamagePct: projExpPct, pierceDamagePct: piercePct, endTick });
-
-          // 全队：ATK ▲（p04% × 施放者 ATK）flat 3s
-          const atkPct  = getSkillValue(caster.rawSkill1, 4, lv) / 100;
-          const atkFlat = Math.round(caster.stats.atk * atkPct);
-          pushBuff(state, { name: 'Let\'s Get the Show Started P1 L4', unitId: null, atkFlat, endTick });
+          const piercePct  = getSkillValue(caster.rawSkill1, 2, lv) / 100;
+          const atkPct     = getSkillValue(caster.rawSkill1, 4, lv) / 100;
+          const atkFlat    = Math.round(caster.stats.atk * atkPct);
+          pushBuff(state, { name: 'Let\'s Get the Show Started (ATK)', unitId: null,
+            projectileExplosionDamagePct: projExpPct, pierceDamagePct: piercePct, atkFlat, endTick });
         },
       },
     ],
@@ -70,7 +68,7 @@ export default {
         handler(state, caster) {
           const lv       = caster.skillLevels[1];
           const maxHpPct = getSkillValue(caster.rawSkill2, 0, lv) / 100;
-          pushBuff(state, { name: 'One More Song! P1 L1', unitId: caster.id,
+          pushBuff(state, { name: 'One More Song! (Max HP)', unitId: caster.id,
             maxHpPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -101,7 +99,7 @@ export default {
 
           // 延长所有队友的 Performance Charge Damage buff 到期时间
           for (const b of state.buffs) {
-            if (b.name === 'Get Ready for an Amazing Show!') b.endTick = ss.prika_performanceEndTick;
+            if (b.name === 'Performance') b.endTick = ss.prika_performanceEndTick;
           }
 
           // 追加 21 次 HoT（紧接原结束 tick 之后逐秒触发）
@@ -113,7 +111,7 @@ export default {
 
           // Effect 3：全队 Attack Damage ▲ p03% 10s
           const atkDmgPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
-          pushBuff(state, { name: 'One More Song! P2 L3', unitId: null,
+          pushBuff(state, { name: 'One More Song! (Attack Damage)', unitId: null,
             attackDamagePct: atkDmgPct, endTick });
         },
       },
@@ -153,7 +151,7 @@ export default {
 
           // Effect 2：全队 Charge Damage ▲ p04% 25s
           const chargeDmgPct = getSkillValue(caster.rawBurst, 4, lv) / 100;
-          pushBuff(state, { name: 'Get Ready for an Amazing Show!', unitId: null,
+          pushBuff(state, { name: 'Performance', unitId: null,
             chargeDamagePct: chargeDmgPct, endTick: state.tick + TICK_RATE * duration });
         },
       },

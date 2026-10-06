@@ -47,6 +47,11 @@ node scripts/tests/test-all.mjs
 
 提交引擎或数据相关的改动之前，全部七个套件必须通过（exit 0）。
 
+## 技能建模
+新建或修改 `src/data/skills/*.js` 前阅读 [docs/skill-modeling-guide.md](docs/skill-modeling-guide.md)：
+建模检查清单、伤害标签 / 效果段标签 / Buff 命名规范、`unitIds` 多目标合并与 `multiplier` 动态倍率显示。
+自定义命名必须在回复中列表汇报。
+
 ## 数据更新
 游戏更新时，CDN URL 的哈希值会发生变化。请更新 `src/data/manifest.js`。
 查找新 URL 的方法：在浏览器中打开 blablalink.com/shiftyspad，查看 Network 标签页中

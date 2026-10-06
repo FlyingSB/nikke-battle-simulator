@@ -56,6 +56,7 @@ export default {
       {
         on: 'ENTER_FULL_BURST',
         conditions: [{ type: 'IS_COMBAT_ASSIST' }],
+        partOverride: 1,   // ■ 第 2 段（CA 进入全爆裂），数组序号 2 被 FULL_BURST_END 占用
         handler(state, caster) {
           const cdSec        = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]);
           const attackDmgPct = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
@@ -63,8 +64,8 @@ export default {
           for (const u of state.squad)
             u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
           if (state.buffLog)
-            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'Battlefield Assessment P2 L1', unitId: null, reductionTicks });
-          pushBuff(state, { name: 'Battlefield Assessment P2 L2', unitId: null,
+            state.buffLog.push({ type: 'cd_reduction', tick: state.tick, name: 'Battlefield Assessment (Burst CD)', unitId: null, reductionTicks });
+          pushBuff(state, { name: 'Battlefield Assessment (Attack Damage)', unitId: null,
             attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -79,7 +80,7 @@ export default {
           const atkPct      = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           const partsDmgPct = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
           const endTick     = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'Battlefield Assessment P3', unitId: caster.id, atkPct, interruptionPartsDamagePct: partsDmgPct, endTick },
+          pushBuff(state, { name: 'Battlefield Assessment (ATK)', unitId: caster.id, atkPct, interruptionPartsDamagePct: partsDmgPct, endTick },
             { ...state._logCtx, partIdx: 2}
           );
         },
@@ -117,11 +118,12 @@ export default {
           caster.skillState.rapiProjectileThreshold    = 120;
           caster.skillState.rapiPendingProjectileCount = 0;
           caster.skillState.rapiProjectileBuffEndTick  = 0;
-          pushBuff(state, { name: 'Attachable Projectiles P1', unitId: caster.id,
+          // S2 唯一未具名效果段（P2 为具名的 Attachable Projectiles 弹丸）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'Attachable Projectiles', unitId: caster.id,
             elementAdvantageVs:            'Electric',
             projectileAttachmentDamagePct: attachBonus,
             projectileExplosionDamagePct:  explosionBonus,
-            endTick: Infinity });
+            endTick: Infinity }, { ...state._logCtx, partIdx: null });
         },
       },
       // S2（Attachable Projectiles）：每 120 发（全爆裂期间 60 发）触发 projectile
@@ -211,7 +213,7 @@ export default {
         conditions: [{ type: 'IS_COMBAT_ASSIST' }],
         handler(state, caster) {
           const atkPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'Power of Inheritance', unitId: null,
+          pushBuff(state, { name: 'Power of Inheritance (ATK)', unitId: null,
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -229,7 +231,7 @@ export default {
             : 28.08;
           state.pendingSkillHits.push({
             fireTick: state.tick + Math.round(0.1 * TICK_RATE),
-            caster, mult: burstMult, isCharged: false, label: 'Burst P3',
+            caster, mult: burstMult, isCharged: false, label: 'Burst',
             opts: { affectedByFullBurst: true },
           });
         },
@@ -242,7 +244,7 @@ export default {
         handler(state, caster) {
           const end10            = state.tick + TICK_RATE * 10;
           const burstAttachBonus = getSkillValue(caster.rawBurst, 5, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'Power of Inheritance P4', unitId: caster.id,
+          pushBuff(state, { name: 'Power of Inheritance (Attachment Damage)', unitId: caster.id,
             projectileAttachmentDamagePct: burstAttachBonus, endTick: end10 });
           caster.skillState.rapiProjectileThreshold   = 60;
           caster.skillState.rapiProjectileBuffEndTick = end10;

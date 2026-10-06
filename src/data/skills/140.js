@@ -39,7 +39,7 @@ export default {
         on: 'BATTLE_START',
         handler(state, caster) {
           const s1 = caster.ssrFavSkills.skill1;
-          pushBuff(state, { name: 'Black Typhoon P2', unitId: caster.id,
+          pushBuff(state, { name: 'Black Typhoon (Attack Damage)', unitId: caster.id,
             attackDamagePct: getSkillValue(s1, 6, s1._activeSkillLevel) / 100,
             endTick: Infinity });
         },
@@ -48,7 +48,7 @@ export default {
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          pushBuff(state, { name: 'Black Typhoon P3', unitId: caster.id,
+          pushBuff(state, { name: 'Black Typhoon (Elem Adv)', unitId: caster.id,
             elementAdvantageVs: 'Fire', endTick: Infinity });
         },
       },
@@ -81,7 +81,7 @@ export default {
         handler(state, caster) {
           const s2 = caster.ssrFavSkills.skill2;
           const lv = s2._activeSkillLevel;
-          pushBuff(state, { name: 'Noire Sensor P1', unitId: caster.id,
+          pushBuff(state, { name: 'Noire Sensor (ATK)', unitId: caster.id,
             critRatePct: getSkillValue(s2, 0, lv) / 100,
             atkPct:      getSkillValue(s2, 2, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(s2, 1, lv) });
@@ -93,7 +93,7 @@ export default {
         handler(state, caster) {
           const s2 = caster.ssrFavSkills.skill2;
           const lv = s2._activeSkillLevel;
-          pushBuff(state, { name: 'Noire Sensor P2', unitId: null, weaponFilter: 'SG',
+          pushBuff(state, { name: 'Noire Sensor (Max Ammo)', unitId: null, weaponFilter: 'SG',
             maxAmmoPct: getSkillValue(s2, 4, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(s2, 5, lv) });
         },
@@ -105,10 +105,9 @@ export default {
           const s2 = caster.ssrFavSkills.skill2;
           const lv = s2._activeSkillLevel;
           const endTick = state.tick + TICK_RATE * getSkillValue(s2, 7, lv);
-          for (const ally of waterIronShotgunAllies(state)) {
-            pushBuff(state, { name: 'Noire Sensor P3', unitId: ally.id,
-              elementAdvantagePct: getSkillValue(s2, 6, lv) / 100, endTick });
-          }
+          pushBuff(state, { name: 'Noire Sensor (Elem Adv Damage)',
+            unitIds: waterIronShotgunAllies(state).map(u => u.id),
+            elementAdvantagePct: getSkillValue(s2, 6, lv) / 100, endTick });
         },
       },
     ],
@@ -139,7 +138,7 @@ export default {
         handler(state, caster) {
           const burst = caster.ssrFavSkills.burst;
           const lv    = burst._activeSkillLevel;
-          pushBuff(state, { name: 'Trouble Shooter P1', unitId: caster.id,
+          pushBuff(state, { name: 'Trouble Shooter (ATK)', unitId: caster.id,
             atkSpeedPct: getSkillValue(burst, 0, lv) / 100,
             hitRatePct:  getSkillValue(burst, 2, lv) / 100,
             atkPct:      getSkillValue(burst, 4, lv) / 100,
@@ -153,10 +152,9 @@ export default {
           const burst = caster.ssrFavSkills.burst;
           const lv    = burst._activeSkillLevel;
           const endTick = state.tick + TICK_RATE * getSkillValue(burst, 7, lv);
-          for (const ally of waterIronShotgunAllies(state)) {
-            pushBuff(state, { name: 'Trouble Shooter P2', unitId: ally.id,
-              elementAdvantagePct: getSkillValue(burst, 6, lv) / 100, endTick });
-          }
+          pushBuff(state, { name: 'Trouble Shooter (Elem Adv Damage)',
+            unitIds: waterIronShotgunAllies(state).map(u => u.id),
+            elementAdvantagePct: getSkillValue(burst, 6, lv) / 100, endTick });
         },
       },
     ],

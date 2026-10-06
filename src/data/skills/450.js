@@ -63,10 +63,8 @@ export default {
           const coreDmgPct = getSkillValue(caster.rawSkill2, 2, lv) / 100;
           const endTick    = state.tick + TICK_RATE * 5;
           const sorted     = [...state.squad].sort((a, b) => b.stats.atk - a.stats.atk);
-          for (const t of sorted.slice(0, 2)) {
-            pushBuff(state, { name: 'Support of Friendship', unitId: t.id,
-              coreDamagePct: coreDmgPct, endTick });
-          }
+          pushBuff(state, { name: 'Support of Friendship', unitIds: sorted.slice(0, 2).map(t => t.id),
+            coreDamagePct: coreDmgPct, endTick });
         },
       },
       // Part2：每 5 发 → HP% 最低的 2 名友军 HP 回复 p06% caster MaxHP
@@ -109,7 +107,7 @@ export default {
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
-          pushBuff(state, { name: 'As Long As We\'re With Friends P1 L1', unitId: caster.id,
+          pushBuff(state, { name: 'As Long As We\'re With Friends (Pierce)', unitId: caster.id,
             pierce: true, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -119,7 +117,7 @@ export default {
         handler(state, caster) {
           const lv     = caster.skillLevels[2];
           const atkPct = getSkillValue(caster.rawBurst, 1, lv) / 100;
-          pushBuff(state, { name: 'As Long As We\'re With Friends P2 L1', unitId: null,
+          pushBuff(state, { name: 'As Long As We\'re With Friends P2 (ATK)', unitId: null,
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -130,7 +128,7 @@ export default {
           if (!(caster.shieldHp > 0 && caster.shieldEndTick > state.tick)) return false;
           const lv     = caster.skillLevels[2];
           const atkPct = getSkillValue(caster.rawBurst, 3, lv) / 100;
-          pushBuff(state, { name: 'As Long As We\'re With Friends P3 L1', unitId: null,
+          pushBuff(state, { name: 'As Long As We\'re With Friends P3 (ATK)', unitId: null,
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },

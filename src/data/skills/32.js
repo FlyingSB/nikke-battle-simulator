@@ -32,13 +32,13 @@ export default {
 
           const hr1 = getSkillValue(favS1, 1, lv) / 100;
           const hr2 = getSkillValue(favS1, 4, lv) / 100;
-          pushBuff(state, { name: 'Health Up! P1', unitId: null,
+          pushBuff(state, { name: 'Health Up! P1 (Hit Rate)', unitId: null,
             hitRatePct: hr1, endTick: end5 }, { ...state._logCtx, partIdx: 0 });
-          pushBuff(state, { name: 'Health Up! P2', unitId: null,
+          pushBuff(state, { name: 'Health Up! P2 (Hit Rate)', unitId: null,
             hitRatePct: hr2, endTick: end5, weaponFilter: 'SMG' }, { ...state._logCtx, partIdx: 1 });
 
           const atkPct = getSkillValue(favS1, 7, lv) / 100;
-          pushBuff(state, { name: 'Health Up! P3', unitId: caster.id,
+          pushBuff(state, { name: 'Health Up! (ATK)', unitId: caster.id,
             atkPct, endTick: end5 }, { ...state._logCtx, partIdx: 2 });
         },
       },
@@ -73,12 +73,12 @@ export default {
           const end10 = state.tick + TICK_RATE * 10;
 
           const critDamagePct = getSkillValue(favS2, 0, lv) / 100;
-          pushBuff(state, { name: 'Wake Up! P1', unitId: null,
+          pushBuff(state, { name: 'Wake Up! (Crit Damage)', unitId: null,
             critDamagePct: critDamagePct, endTick: end10 }, { ...state._logCtx, partIdx: 0 });
 
           const critRateSelf  = getSkillValue(favS2, 2, lv) / 100;
           const attackDmgSelf = getSkillValue(favS2, 4, lv) / 100;
-          pushBuff(state, { name: 'Wake Up! P2', unitId: caster.id,
+          pushBuff(state, { name: 'Wake Up! (Attack Damage)', unitId: caster.id,
             critRatePct: critRateSelf, attackDamagePct: attackDmgSelf, endTick: end10 }, 
             { ...state._logCtx, partIdx: 1 });
 
@@ -93,7 +93,7 @@ export default {
             .sort((a, b) => effectiveAtk(b) - effectiveAtk(a))[0];
           if (topAlly) {
             const crBonus = getSkillValue(favS2, 7, lv) / 100;
-            pushBuff(state, { name: 'Wake Up! P3', unitId: topAlly.id,
+            pushBuff(state, { name: 'Wake Up! (Crit Rate)', unitId: topAlly.id,
               critRatePct: crBonus, roundsLeft: 1, endTick: Infinity }, 
               { ...state._logCtx, partIdx: 2 });
           }
@@ -135,9 +135,8 @@ export default {
             .slice(0, 2);
           if (targets.length < 2) targets.push(caster);
 
-          for (const t of targets) {
-            pushBuff(state, { name: 'Powering Up!', unitId: t.id, atkPct, critDamagePct: cdPct, endTick: end10 });
-          }
+          pushBuff(state, { name: 'Powering Up!', unitIds: targets.map(t => t.id),
+            atkPct, critDamagePct: cdPct, endTick: end10 });
         },
       },
     ],

@@ -48,7 +48,7 @@ export default {
         on: 'BATTLE_START',
         handler(state, caster) {
           const p04 = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Seven Dwarves V+VI P2', unitId: caster.id,
+          pushBuff(state, { name: 'Auto Fire Ready', unitId: caster.id,
             defPct: p04, endTick: Infinity });
         },
       },
@@ -57,7 +57,7 @@ export default {
         on: 'BATTLE_START',
         handler(state, caster) {
           const p02 = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Seven Dwarves V+VI P3', unitId: '__enemy__', isDebuff: true,
+          pushBuff(state, { name: 'Seven Dwarves V+VI', unitId: '__enemy__', isDebuff: true,
             enemyDamageTakenPct: p02, endTick: Infinity });
         },
       },
@@ -73,7 +73,7 @@ export default {
 
           // Auto Fire Effect 1：p06% 对全体
           const p06 = getSkillValue(caster.rawSkill1, 5, s1Lv) / 100;
-          fireSkillHit(state, caster, p06, sums, 'S1 P4 L4', {
+          fireSkillHit(state, caster, p06, sums, 'S1 P4 Auto Fire (All)', {
             burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'swha_s1_aoe' });
 
           // Auto Fire Effect 2：p07% × ammo 顺序攻击（isCharged=false）
@@ -82,7 +82,7 @@ export default {
           const ammo    = faActive ? 15 : 5;
           const seqMult = p07 * (1 + (sums.sequentialAttackDamagePct ?? 0));
           for (let i = 0; i < ammo; i++) {
-            fireSkillHit(state, caster, seqMult, sums, 'S1 P4 L5', {
+            fireSkillHit(state, caster, seqMult, sums, 'S1 P4 Auto Fire (Sequential)', {
               burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'swha_s1_seq' });
           }
 
@@ -147,7 +147,7 @@ export default {
           const end5 = state.tick + TICK_RATE * 5;
           const p03  = getSkillValue(caster.rawSkill2, 2, lv) / 100;
           const p11  = getSkillValue(caster.rawSkill2, 10, lv) / 100;
-          pushBuff(state, { name: 'Shades of White P2', unitId: caster.id, pierce: true, atkPct: p03, damageToPartsPct: p11, endTick: end5 });
+          pushBuff(state, { name: 'Shades of White P2 (ATK)', unitId: caster.id, pierce: true, atkPct: p03, damageToPartsPct: p11, endTick: end5 });
         },
       },
 
@@ -157,7 +157,7 @@ export default {
         handler(state, caster) {
           const p05   = getSkillValue(caster.rawSkill2, 4, caster.skillLevels[1]) / 100;
           const end10 = state.tick + TICK_RATE * 10;
-          pushBuff(state, { name: 'Shades of White P3', unitId: caster.id,
+          pushBuff(state, { name: 'Shades of White P3 (ATK)', unitId: caster.id,
             atkPct: p05, endTick: end10 });
         },
       },
@@ -170,9 +170,9 @@ export default {
           const lv = caster.skillLevels[1];
           const p07 = getSkillValue(caster.rawSkill2, 6, lv) / 100;
           const p09 = getSkillValue(caster.rawSkill2, 8, lv) / 100;
-          pushBuff(state, { name: 'Shades of White P4 L2', unitId: caster.id,
+          pushBuff(state, { name: 'Shades of White (Charge Damage)', unitId: caster.id,
             chargeDamagePct: p07, endTick: state.tick + 1 });
-          pushBuff(state, { name: 'Shades of White P4 L3', unitId: caster.id,
+          pushBuff(state, { name: 'Shades of White (Sequential Damage)', unitId: caster.id,
             sequentialAttackDamagePct: p09, endTick: state.tick + 1 });
         },
       },
@@ -208,8 +208,9 @@ export default {
 
           // Attack Damage ▲ p03% (10s)
           const atkDmgPct = getSkillValue(caster.rawBurst, 2, bLv) / 100;
+          // 爆裂技能唯一的效果段（P2 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'Seven Dwarves Fully Active', unitId: caster.id,
-            attackDamagePct: atkDmgPct, endTick: end10 });
+            attackDamagePct: atkDmgPct, endTick: end10 }, { ...state._logCtx, partIdx: null });
 
           // Seven Dwarves Fully Active：2 次使用；蓄力时长切换至 3.2s；弹药上限升至 15（S1 handler 直接读取）
           caster.skillState.swhaFaUses = 2;

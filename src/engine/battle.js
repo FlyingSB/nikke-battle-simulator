@@ -1589,7 +1589,7 @@ export function tick(state) {
                    chargeDamageMultPct: (b.chargeDamageMultPct ?? 0) * k,
                    // 优越代码伤害仅在本次命中具备克制时生效（与 calcDamage 的 elemMult 口径一致）
                    elementAdvantagePct: bd.elemMult > 1 ? (b.elementAdvantagePct ?? 0) * k : 0,
-                   stacks: k,
+                   stacks: k, multiplier: b.multiplier ?? null,
                    sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null,
                    sourcePartIdx: b._sourcePartIdx ?? null };
         })

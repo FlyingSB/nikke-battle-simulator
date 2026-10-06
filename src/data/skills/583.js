@@ -33,19 +33,17 @@ export default {
           if (pmStacks > 0) {
             const atkFlat = Math.round(caster.stats.atk * atkPct * pmStacks);
             const end15   = state.tick + TICK_RATE * 15;
-            for (const u of state.squad) {
-              if (u.weaponType !== 'SG') continue;
-              pushBuff(state, { name: 'Keepsake Album P1 L1', unitId: u.id,
-                atkFlat, endTick: end15 });
-            }
+            const sgIds   = state.squad.filter(u => u.weaponType === 'SG').map(u => u.id);
+            pushBuff(state, { name: 'Keepsake Album', unitIds: sgIds,
+              atkFlat, multiplier: pmStacks, endTick: end15 });
           }
 
           // 移除 Making Memories 及其关联 buff（含 Happy Memories 弹丸数 ▲）
           state.buffs = state.buffs.filter(b =>
-            b.name !== 'Radiant Youth P1' &&
-            b.name !== 'Memories and Moments P1 L5' &&
-            b.name !== 'Memories and Moments P1 L6' &&
-            b.name !== 'Keepsake Album P2 L2',
+            b.name !== 'Making Memories' &&
+            b.name !== 'Happy Memories' &&
+            b.name !== 'Precious Moments' &&
+            b.name !== 'Snapshots of Youth',
           );
 
           // 重置所有 Making Memories 内部计数
@@ -106,7 +104,7 @@ export default {
             const stacks = caster.skillState.fortune_happyMemoriesStacks ?? 0;
             if (stacks < 3) {
               caster.skillState.fortune_happyMemoriesStacks = stacks + 1;
-              pushBuff(state, { name: 'Memories and Moments P1 L5', unitId: caster.id,
+              pushBuff(state, { name: 'Happy Memories', unitId: caster.id,
                 pelletFlat: getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]),
                 stackLimit: 3, endTick: Infinity });
 
@@ -116,8 +114,10 @@ export default {
                 caster.skillState.fortune_snapshotsOfYouthStacks = soStacks + 1;
                 // TODO(实测) "Normal Attack Damage Multiplier" 暂按 normalAttackDamagePct（ExtraMultiplier 加法）建模；
                 //   参考 Charge Damage Multiplier 与珍藏品同乘区的实测结论，可能应与珍藏品普攻倍率同乘区，待游戏内数据验证
-                pushBuff(state, { name: 'Keepsake Album P2 L2', unitId: caster.id,
-                  normalAttackDamagePct: 0.1, endTick: Infinity });
+                // 属 S1 P2，日志显式归属到 S1
+                pushBuff(state, { name: 'Snapshots of Youth', unitId: caster.id,
+                  normalAttackDamagePct: 0.1, endTick: Infinity },
+                  { ...state._logCtx, skillLabel: caster.rawSkill1?.name_localkey ?? 'S1', slot: 'S1', partIdx: 1, lineIdx: null });
               }
             }
           } else if (count >= 6) {
@@ -127,8 +127,9 @@ export default {
             const stacks = caster.skillState.fortune_preciousMomentsStacks ?? 0;
             if (stacks < 3) {
               caster.skillState.fortune_preciousMomentsStacks = stacks + 1;
-              pushBuff(state, { name: 'Memories and Moments P1 L6', unitId: caster.id,
-                atkPct, endTick: Infinity });
+              // 可叠层（上限 3）：stackLimit 使每次推入新增一层，getBuffSums 按层数累加
+              pushBuff(state, { name: 'Precious Moments', unitId: caster.id,
+                atkPct, stackLimit: 3, endTick: Infinity });
             }
             // 重置循环计数
             caster.skillState.fortune_mmShotCount = 0;
@@ -142,11 +143,9 @@ export default {
           const lv        = caster.skillLevels[1];
           const atkDmgPct = getSkillValue(caster.rawSkill2, 5, lv) / 100;
           const end10     = state.tick + TICK_RATE * 10;
-          for (const u of state.squad) {
-            if (u.id === caster.id || u.weaponType !== 'SG') continue;
-            pushBuff(state, { name: 'Memories and Moments P2 L2', unitId: u.id,
-              attackDamagePct: atkDmgPct, endTick: end10 });
-          }
+          const unitIds   = state.squad.filter(u => u.id !== caster.id && u.weaponType === 'SG').map(u => u.id);
+          pushBuff(state, { name: 'Memories and Moments (Attack Damage)', unitIds,
+            attackDamagePct: atkDmgPct, endTick: end10 });
         },
       },
     ],
@@ -179,7 +178,7 @@ export default {
           const atkDmgPct    = getSkillValue(caster.rawBurst, 2, lv) / 100;
 
           // Making Memories：暴击率 ▲ + Attack Damage ▲（持续到 Full Burst 结束时清除）
-          pushBuff(state, { name: 'Radiant Youth P1', unitId: caster.id,
+          pushBuff(state, { name: 'Making Memories', unitId: caster.id,
             critRatePct: critRatePct, attackDamagePct: atkDmgPct, endTick: Infinity });
 
           // Making Memories：立即补弹 2 发

@@ -7,12 +7,13 @@ function updateGoldenChipCritDmg(state, caster) {
   const stacks = caster.skillState.soda_goldenChipStacks ?? 0;
   const lv     = caster.skillLevels[0];
   const pct    = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-  const existing = state.buffs.find(b => b.name === 'Lucky Golden Chip P1 L2' && b.unitId === caster.id);
+  const existing = state.buffs.find(b => b.name === 'Golden Chip' && b.unitId === caster.id);
   if (existing) {
     existing.critDamagePct = pct * stacks;
+    existing.multiplier    = stacks;
   } else if (stacks > 0) {
-    state.buffs.push({ name: 'Lucky Golden Chip P1 L2', unitId: caster.id,
-      critDamagePct: pct * stacks, endTick: Infinity });
+    state.buffs.push({ name: 'Golden Chip', unitId: caster.id,
+      critDamagePct: pct * stacks, multiplier: stacks, endTick: Infinity });
   }
 }
 
@@ -68,16 +69,11 @@ export default {
           const attackDmgPct = getSkillValue(caster.rawSkill1, 4, lv) / 100;
           const end2         = state.tick + TICK_RATE * 2;
 
-          pushBuff(state, { name: 'Lucky Golden Chip P2 L3', unitId: caster.id,
-            attackDamagePct: attackDmgPct, endTick: end2 });
-
-          const allies = state.squad.filter(u => u.id !== caster.id);
-          if (allies.length > 0) {
-            allies.sort((a, b) => getFinalAtk(state, b) - getFinalAtk(state, a));  // "highest final ATK"
-            const top = allies[0];
-            pushBuff(state, { name: 'Lucky Golden Chip P2 L3', unitId: top.id,
-              attackDamagePct: attackDmgPct, endTick: end2 });
-          }
+          const allies  = state.squad.filter(u => u.id !== caster.id)
+            .sort((a, b) => getFinalAtk(state, b) - getFinalAtk(state, a));  // "highest final ATK"
+          const unitIds = [caster.id, ...allies.slice(0, 1).map(u => u.id)];
+          pushBuff(state, { name: 'Lucky Golden Chip (Attack Damage)', unitIds,
+            attackDamagePct: attackDmgPct, endTick: end2 }, { ...state._logCtx, partIdx: 2 });
         },
       },
     ],
@@ -193,14 +189,14 @@ export default {
           // Stage 2（≥20 层）: 先提升命中率（命中率当前不影响伤害计算）
           if (stacks >= 20) {
             const hitRatePct = getSkillValue(caster.rawBurst, 3, lv) / 100;
-            pushBuff(state, { name: 'Onward, Soda! P2', unitId: caster.id,
+            pushBuff(state, { name: 'Onward, Soda! (Hit Rate)', unitId: caster.id,
               hitRatePct: hitRatePct, endTick: end15 });
           }
 
           // Stage 3（≥30 层）: 先提升 ATK（让 Stage 1 伤害能纳入此加成）
           if (stacks >= 30) {
             const atkPct = getSkillValue(caster.rawBurst, 6, lv) / 100;
-            pushBuff(state, { name: 'Onward, Soda! P3', unitId: caster.id,
+            pushBuff(state, { name: 'Onward, Soda! (ATK)', unitId: caster.id,
               atkPct, endTick: end15 });
           }
 

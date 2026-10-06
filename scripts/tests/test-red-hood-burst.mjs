@@ -99,7 +99,7 @@ section('RH1 — Red Wolf 武器切换：10s 内攻击次数 = 32');
   const r = simulate({ squad, enemy: ENEMY, duration: 15, hitLog: true });
 
   // 从 buffLog 定位第一次武器切换窗口，再统计该窗口内 RH 命中次数
-  const wsBuff   = (r.buffLog ?? []).find(b => b.name === 'Wild Tooth P4' && b.unitId === 470 && b.type === 'buff_gain');
+  const wsBuff   = (r.buffLog ?? []).find(b => b.name === 'Wild Tooth (ATK)' && b.unitId === 470 && b.type === 'buff_gain');
   const wsStart  = wsBuff?.tick ?? -1;
   const wsEnd    = wsBuff?.endTick ?? -1;
   const rhHits   = (r.hitLog ?? []).filter(h => h.unitId === 470 && h.tick >= wsStart && h.tick <= wsEnd);
@@ -120,7 +120,7 @@ section('RH2 — Burst 结束后 Red Hood 回归普通 SR 射击节奏（非武�
 
   const r = simulate({ squad, enemy: ENEMY, duration: 30, hitLog: true });
 
-  const wsBuff2      = (r.buffLog ?? []).find(b => b.name === 'Wild Tooth P4' && b.unitId === 470 && b.type === 'buff_gain');
+  const wsBuff2      = (r.buffLog ?? []).find(b => b.name === 'Wild Tooth (ATK)' && b.unitId === 470 && b.type === 'buff_gain');
   const wsStart2     = wsBuff2?.tick    ?? -1;
   const wsEnd2       = wsBuff2?.endTick ?? -1;
   const burstRhHits  = (r.hitLog ?? []).filter(h => h.unitId === 470 && h.tick >= wsStart2 && h.tick <= wsEnd2);
@@ -150,7 +150,7 @@ section('RH3 — Red Wolf 切换武器弹匣固定 99，不受装弹数效果影
   const squad = [dummyUnit('Step1'), dummyUnit('Step2'), rh];
   const r = simulate({ squad, enemy: ENEMY, duration: 15, hitLog: true });
 
-  const wsBuff  = (r.buffLog ?? []).find(b => b.name === 'Wild Tooth P4' && b.unitId === 470 && b.type === 'buff_gain');
+  const wsBuff  = (r.buffLog ?? []).find(b => b.name === 'Wild Tooth (ATK)' && b.unitId === 470 && b.type === 'buff_gain');
   const wsHits  = (r.hitLog ?? []).filter(h => h.unitId === 470
     && h.tick >= (wsBuff?.tick ?? -1) && h.tick <= (wsBuff?.endTick ?? -1));
   const ammoSeq = wsHits.map(h => h.ammoBeforeShot);

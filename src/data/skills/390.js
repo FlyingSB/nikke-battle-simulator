@@ -41,11 +41,11 @@ export default {
           const pierce10sPct = getSkillValue(skillObj, 2, lv) / 100;
 
           // Pierce Damage ▲ p00%（endRounds:1 → 下次射击后整体失效）
-          pushBuff(state, { name: 'Pierce Equation P1 L2', unitId: null,
+          pushBuff(state, { name: 'Pierce Equation P1 (Pierce Damage 1R)', unitId: null,
             pierceDamagePct: pierce1rPct, endTick, endRounds: 1 });
 
           // Pierce Damage ▲ p02%（10s）
-          pushBuff(state, { name: 'Pierce Equation P1 L3', unitId: null,
+          pushBuff(state, { name: 'Pierce Equation P1 (Pierce Damage 10s)', unitId: null,
             pierceDamagePct: pierce10sPct, endTick });
         },
       },
@@ -61,7 +61,7 @@ export default {
           if (!favS1) return;
           const lv        = favS1._activeSkillLevel ?? 10;
           const piercePct = getSkillValue(favS1, 4, lv) / 100;
-          pushBuff(state, { name: 'Pierce Equation P2', unitId: null,
+          pushBuff(state, { name: 'Pierce Equation P2 (Pierce Damage)', unitId: null,
             pierceDamagePct: piercePct,
             endTick: state.tick + TICK_RATE * 10,
             endRounds: 1,
@@ -112,7 +112,7 @@ export default {
 
           const critPct = getSkillValue(skillObj, 2, lv) / 100;
           const dur     = getSkillValue(skillObj, 3, lv);   // base: 5s, SSR: 10s
-          pushBuff(state, { name: 'Frame Analysis P2', unitId: null,
+          pushBuff(state, { name: 'Frame Analysis P2 (Crit Rate)', unitId: null,
             critRatePct: critPct, endTick: state.tick + TICK_RATE * dur });
         },
       },
@@ -128,7 +128,7 @@ export default {
           const lv      = favS2._activeSkillLevel ?? 10;
           const critPct = getSkillValue(favS2, 4, lv) / 100;
           const dur     = getSkillValue(favS2, 6, lv);    // 5s
-          pushBuff(state, { name: 'Frame Analysis P3', unitId: null,
+          pushBuff(state, { name: 'Frame Analysis P3 (Crit Rate)', unitId: null,
             critRatePct: critPct,
             endTick: state.tick + TICK_RATE * dur,
             stackLimit: 3 });
@@ -205,7 +205,7 @@ export default {
           const skillObj = favBurst ?? caster.rawBurst;
 
           const piercePct = getSkillValue(skillObj, 2, lv) / 100;
-          pushBuff(state, { name: 'Overcharge Formula', unitId: null,
+          pushBuff(state, { name: 'Pierce Attacks 101', unitId: null,
             pierceDamagePct: piercePct, endTick: state.tick + TICK_RATE * 10 });
         },
       },

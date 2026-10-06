@@ -339,11 +339,11 @@ section('Maiden: Ice Rose (183) — 首击 0.73s，间隔 0.1s，默认（无标
   eq('preBuffBreakdown 含施放前 ATK buff', bdNames.includes('test_atk'), true);
   eq('preBuffBreakdown 不含 S2 Part2', bdNames.some(n => n.startsWith('Blessings Upon You P2')), false);
   // S2 Part2 在爆裂伤害确定后才推入：其 elemAdv 不应出现在预捕获 sums 中
-  eq('S2 Part2 已推入', state.buffs.some(b => b.name === 'Blessings Upon You P2 L2'), true);
+  eq('S2 Part2 已推入', state.buffs.some(b => b.name === 'Blessings Upon You (Elem Adv Damage)'), true);
   near('预捕获 sums 不含 S2 Part2 优越加成', h0?.sums?.elementAdvantagePct ?? 0, 0, 1e-9);
   // S2 Part2 L3：ATK ▲ 3.2% × 最终 MaxHP（1,700,000）
   eq('S2 Part2 L3 atkFlat = 3.2% × 最终 MaxHP',
-    state.buffs.find(b => b.name === 'Blessings Upon You P2 L3')?.atkFlat, Math.round(1_700_000 * 0.032));
+    state.buffs.find(b => b.name === 'Blessings Upon You P2 (ATK)')?.atkFlat, Math.round(1_700_000 * 0.032));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

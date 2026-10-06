@@ -50,7 +50,7 @@ export default {
           const lv = s1._activeSkillLevel;
           // L1 为 ■ 触发条件行，效果行从 L2 起
           pushConcealment(state, caster, getSkillValue(s1, 1, lv), { ...state._logCtx, lineIdx: 1 });
-          pushBuff(state, { name: 'On the Lam P1', unitId: caster.id,
+          pushBuff(state, { name: 'On the Lam (Crit Rate)', unitId: caster.id,
             critRatePct: getSkillValue(s1, 2, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(s1, 3, lv) },
             { ...state._logCtx, lineIdx: 2 });
@@ -64,7 +64,7 @@ export default {
         handler(state, caster) {
           if (!state.isStageTarget) return false;
           const s1 = caster.ssrFavSkills.skill1;
-          pushBuff(state, { name: 'On the Lam P3', unitId: caster.id,
+          pushBuff(state, { name: 'On the Lam (Elem Adv Damage)', unitId: caster.id,
             elementAdvantagePct: getSkillValue(s1, 7, s1._activeSkillLevel) / 100,
             endTick: Infinity });
         },
@@ -151,7 +151,7 @@ export default {
 
           // P1：Assalto
           fireSkillHit(state, caster, getSkillValue(burst, 1, lv) / 100,
-            getBuffSums(state, caster.id), 'Burst P1');
+            getBuffSums(state, caster.id), 'Burst P1 Assalto');
 
           // P2：隐匿状态 → 附加伤害
           if (isConcealed(state, caster) && state.enemyHp > 0) {
@@ -161,10 +161,11 @@ export default {
 
           // P3：水冷代码 stage target → 承伤 ▲ p04% 30s
           if (state.isStageTarget && state.enemyElement === 'Water') {
-            pushBuff(state, { name: 'Vendetta P3', unitId: ENEMY_UNIT_ID, isDebuff: true,
+            // 爆裂技能唯一的效果段（P1/P2 为伤害）→ 日志标签省略 P 后缀
+            pushBuff(state, { name: 'Vendetta', unitId: ENEMY_UNIT_ID, isDebuff: true,
               enemyDamageTakenPct: getSkillValue(burst, 4, lv) / 100,
               endTick: state.tick + TICK_RATE * getSkillValue(burst, 5, lv) },
-              { ...state._logCtx, partIdx: 2 });
+              { ...state._logCtx, partIdx: null });
           }
         },
       },

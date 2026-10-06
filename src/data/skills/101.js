@@ -30,7 +30,7 @@ export default {
           const end10 = state.tick + TICK_RATE * 10;
           const hrPct     = getSkillValue(favS1, 0, favLv) / 100;
           const atkAllPct = getSkillValue(favS1, 2, favLv) / 100;
-          pushBuff(state, { name: 'Overcharge P1', unitId: null, hitRatePct: hrPct, atkPct: atkAllPct, endTick: end10 });
+          pushBuff(state, { name: 'Overcharge P1 (ATK)', unitId: null, hitRatePct: hrPct, atkPct: atkAllPct, endTick: end10 });
         },
       },
       // P2：进入全爆裂 → SG 友军 ATK ▲[p05]% + Max Ammo ▲[p07]% 10s
@@ -43,7 +43,7 @@ export default {
           const end10 = state.tick + TICK_RATE * 10;
           const atkSgPct  = getSkillValue(favS1, 4, favLv) / 100;
           const ammoPct   = getSkillValue(favS1, 6, favLv) / 100;
-          pushBuff(state, { name: 'Overcharge P2', unitId: null, atkPct: atkSgPct, maxAmmoPct: ammoPct, weaponFilter: 'SG', endTick: end10 });
+          pushBuff(state, { name: 'Overcharge P2 (ATK)', unitId: null, atkPct: atkSgPct, maxAmmoPct: ammoPct, weaponFilter: 'SG', endTick: end10 });
         },
       },
     ],
@@ -128,7 +128,9 @@ export default {
           const end10     = state.tick + TICK_RATE * 10;
           const ammoPct   = getSkillValue(favBurst, 1, favLv) / 100;
           const atkDmgPct = getSkillValue(favBurst, 3, favLv) / 100;
-          pushBuff(state, { name: 'Drake Special', unitId: caster.id, maxAmmoPct: ammoPct, attackDamagePct: atkDmgPct, endTick: end10 });
+          // 爆裂技能唯一的效果段（P1 为伤害）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'Drake Special', unitId: caster.id, maxAmmoPct: ammoPct, attackDamagePct: atkDmgPct, endTick: end10 },
+            { ...state._logCtx, partIdx: null });
         },
       },
     ],

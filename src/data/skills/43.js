@@ -25,7 +25,7 @@ export default {
         handler(state, caster) {
           caster.skillState.dkw_s1_fcCount = (caster.skillState.dkw_s1_fcCount ?? 0) + 1;
           if (caster.skillState.dkw_s1_fcCount % 3 === 0) {
-            pushBuff(state, { name: 'Calm Sniping P1', unitId: caster.id, pierce: true, endRounds: 1 });
+            pushBuff(state, { name: 'Calm Sniping (Pierce)', unitId: caster.id, pierce: true, endRounds: 1 });
           }
         },
       },
@@ -36,11 +36,9 @@ export default {
           const lv  = caster.skillLevels[0];
           const pct = getSkillValue(caster.rawSkill1, 1, lv) / 100;
           const end = state.tick + TICK_RATE * 10;
-          for (const u of state.squad) {
-            if (u.weaponType !== 'SR') continue;
-            pushBuff(state, { name: 'Calm Sniping P2', unitId: u.id,
-              pierceDamagePct: pct, endTick: end });
-          }
+          const unitIds = state.squad.filter(u => u.weaponType === 'SR').map(u => u.id);
+          pushBuff(state, { name: 'Calm Sniping (Pierce Damage)', unitIds,
+            pierceDamagePct: pct, endTick: end });
         },
       },
     ],
@@ -119,9 +117,10 @@ export default {
           },
         ],
       },
-      // Wipe Out：对敌人施加 debuff 标记，持续 p02=10s
+      // Wipe Out：对敌人施加 debuff 标记，持续 p02=10s（属 ■ 第 1 段，与上方伤害同段）
       {
         on: 'BURST_SKILL_USE',
+        partOverride: 0,
         handler(state, caster) {
           pushBuff(state, { name: 'Wipe Out', unitId: null,
             endTick: state.tick + TICK_RATE * 10 });
@@ -139,11 +138,11 @@ export default {
           const end = state.tick + TICK_RATE * 10;
           // 零件核心敌人的核心命中同样算命中零件
           if (isPartsHit(state, ctx.hitPart)) {
-            pushBuff(state, { name: 'Kill the Target (parts)', unitId: u.id,
+            pushBuff(state, { name: 'Kill the Target (Core Damage)', unitId: u.id,
               coreDamagePct: getSkillValue(caster.rawBurst, 1, lv) / 100, endTick: end },
               { ...state._logCtx, partIdx: 1, lineIdx: 2 });
           } else {
-            pushBuff(state, { name: 'Kill the Target (body)', unitId: u.id,
+            pushBuff(state, { name: 'Kill the Target (ATK)', unitId: u.id,
               atkFlat: Math.round(caster.stats.atk * getSkillValue(caster.rawBurst, 3, lv) / 100), endTick: end },
               { ...state._logCtx, partIdx: 1, lineIdx: 3 });
           }

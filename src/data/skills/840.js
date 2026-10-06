@@ -30,12 +30,10 @@ export default {
           const trueDmgPct  = getSkillValue(caster.rawSkill1, 2, lv) / 100;
           const lsPct       = getSkillValue(caster.rawSkill1, 4, lv) / 100;
 
-          const ids = state.burstCastersThisRotation;
-          for (const u of state.squad) {
-            if (u.burstStep !== 'Step3' || !ids.has(u.id)) continue;
-            pushBuff(state, { name: 'Covert Support', unitId: u.id,
-              atkFlat, trueDamagePct: trueDmgPct, lifeStealPct: lsPct, endTick: end10 });
-          }
+          const ids     = state.burstCastersThisRotation;
+          const unitIds = state.squad.filter(u => u.burstStep === 'Step3' && ids.has(u.id)).map(u => u.id);
+          pushBuff(state, { name: 'Covert Support', unitIds,
+            atkFlat, trueDamagePct: trueDmgPct, lifeStealPct: lsPct, endTick: end10 });
         },
       },
     ],
@@ -117,14 +115,14 @@ export default {
           const lv    = caster.skillLevels[2];
           const end10 = state.tick + TICK_RATE * 10;
 
-          pushBuff(state, { name: 'Secret Agent P1', unitId: caster.id,
+          pushBuff(state, { name: 'Secret Agent', unitId: caster.id,
             atkPct: getSkillValue(caster.rawBurst, 0, lv) / 100,
             attackDamagePct: getSkillValue(caster.rawBurst, 2, lv) / 100, endTick: end10 });
 
           // Special Modification：下一发（1 round）蓄力速度 ▼300%，蓄力伤害 ▲{p06}%
           const chargeDmgPct = getSkillValue(caster.rawBurst, 6, lv) / 100;
           // chargeSpeedPct: -3.0 → 蓄力时间 ≈ 4× 正常值（模拟降速 300%）
-          pushBuff(state, { name: 'Secret Agent P2', unitId: caster.id,
+          pushBuff(state, { name: 'Special Modification', unitId: caster.id,
             chargeDamagePct: chargeDmgPct, chargeSpeedPct: -3.0, endRounds: 1 });
         },
       },

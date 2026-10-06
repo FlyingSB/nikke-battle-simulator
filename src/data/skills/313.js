@@ -64,7 +64,7 @@ export default {
           const lv           = caster.skillLevels[1];
           const reloadSpdPct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const end2         = state.tick + TICK_RATE * 2;
-          pushBuff(state, { name: 'Loving Maid P1 L2', unitId: caster.id,
+          pushBuff(state, { name: 'Loving Maid (Reload Speed)', unitId: caster.id,
             reloadSpeedPct: reloadSpdPct, endTick: end2 });
         },
       },
@@ -93,7 +93,7 @@ export default {
             const atkPct = getSkillValue(caster.rawSkill2, 5, lv) / 100;
             const end2   = now + TICK_RATE * 2;
             for (let i = 0; i < 5; i++) {
-              const slotName = 'Loving Maid P2 L4';
+              const slotName = 'Loving Maid (ATK)';
               const slot = state.buffs.find(b => b.name === slotName && b.unitId === caster.id);
               if (!slot) {
                 state.buffs.push({ name: slotName, unitId: caster.id, atkPct, endTick: end2 });
@@ -142,7 +142,9 @@ export default {
           const end10      = state.tick + TICK_RATE * 10;
           const atkDmgPct  = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const critDamagePct = getSkillValue(caster.rawBurst, 2, lv) / 100;
-          pushBuff(state, { name: 'Your Bashful Maid!', unitId: caster.id, attackDamagePct: atkDmgPct, critDamagePct, endTick: end10 });
+          // 爆裂技能唯一的效果段（P2 为伤害）→ 日志标签省略 P 后缀
+          pushBuff(state, { name: 'Your Bashful Maid!', unitId: caster.id, attackDamagePct: atkDmgPct, critDamagePct, endTick: end10 },
+            { ...state._logCtx, partIdx: null });
         },
       },
       // Burst P2：对所有敌人造成爆裂技能伤害 p04%

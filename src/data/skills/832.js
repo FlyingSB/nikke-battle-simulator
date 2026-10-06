@@ -29,7 +29,7 @@ export default {
         handler(state, caster) {
           const lv  = caster.skillLevels[0];
           const pct = getSkillValue(caster.rawSkill1, 2, lv) / 100;
-          pushBuff(state, { name: 'Precision Sniping', unitId: null,
+          pushBuff(state, { name: 'Precision Sniping (Pierce Damage)', unitId: null,
             pierceDamagePct: pct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
@@ -63,7 +63,7 @@ export default {
           const lv   = caster.skillLevels[1];
           const end5 = state.tick + TICK_RATE * 5;
           const selfAtkPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
-          pushBuff(state, { name: 'Full Focus P1', unitId: caster.id, pierce: true, atkPct: selfAtkPct, endTick: end5 });
+          pushBuff(state, { name: 'Full Focus P1 (ATK)', unitId: caster.id, pierce: true, atkPct: selfAtkPct, endTick: end5 });
         },
       },
       // S2 P2：全员 ATK flat ▲ p01% × Mari.ATK 5s
@@ -75,7 +75,7 @@ export default {
           const end5        = state.tick + TICK_RATE * 5;
           const allyAtkPct  = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const allyAtkFlat = Math.round(caster.stats.atk * allyAtkPct);
-          pushBuff(state, { name: 'Full Focus P2 L2', unitId: null,
+          pushBuff(state, { name: 'Full Focus P2 (ATK)', unitId: null,
             atkFlat: allyAtkFlat, endTick: end5 });
         },
       },
@@ -113,8 +113,10 @@ export default {
         handler(state, caster) {
           const lv           = caster.skillLevels[2];
           const attackDmgPct = getSkillValue(caster.rawBurst, 1, lv) / 100;
+          // 爆裂技能唯一的效果段（P1 为伤害）→ 日志标签省略 P 后缀
           pushBuff(state, { name: 'GPS Guided Missile', unitId: null,
-            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 });
+            attackDamagePct: attackDmgPct, endTick: state.tick + TICK_RATE * 10 },
+            { ...state._logCtx, partIdx: null });
         },
       },
     ],

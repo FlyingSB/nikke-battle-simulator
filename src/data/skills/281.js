@@ -40,7 +40,7 @@ export default {
           if (!s1 || lv <= 0) return;
           const mult = getSkillValue(s1, 1, lv) / 100;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, 'S1 P2');
+          fireSkillHit(state, caster, mult, sums, 'S1');
         },
       },
       // S1 SSR Fervor（被动）：战斗开始 → 激活 Fervor 状态（用于 S2 与 Burst）
@@ -96,7 +96,7 @@ export default {
             u.burstCdRemaining = Math.max(0, u.burstCdRemaining - reductionTicks);
           if (state.buffLog)
             state.buffLog.push({ type: 'cd_reduction', tick: state.tick,
-              name: 'Leave It To Me! P3 L1', unitId: null, reductionTicks });
+              name: 'Leave It To Me! (Burst CD)', unitId: null, reductionTicks });
         },
       },
     ],
@@ -155,7 +155,7 @@ export default {
           // 射速覆盖：1440 RPM（来源 nikke.gg，未实测验证，见文件顶部常量注释）
           caster.skillState.weaponSwitchRateOfFire    = BURST_WEAPON_RATE_OF_FIRE;
 
-          pushBuff(state, { name: 'Fair and Square! P1 L6', unitId: caster.id,
+          pushBuff(state, { name: 'Fair and Square! (Life Steal)', unitId: caster.id,
             lifeStealPct: lsPct, endTick: end10 });
 
           const s1   = caster.ssrFavSkills?.skill1;
@@ -176,7 +176,7 @@ export default {
           if (!burstSkill || lv <= 0) return false;
           const atkPct = getSkillValue(burstSkill, 8, lv) / 100;
           if (atkPct <= 0) return false;
-          pushBuff(state, { name: 'Fair and Square! P2', unitId: null,
+          pushBuff(state, { name: 'Fair and Square! (ATK)', unitId: null,
             atkFlat: Math.round(caster.stats.atk * atkPct), endTick: state.tick + TICK_RATE * 10 });
         },
       },
