@@ -1,5 +1,5 @@
 /**
- * Skill traits registry tests — pure, no CDN, no file I/O.
+ * Skill traits registry tests — pure, no CDN（仅注册完整性检查读取 skills/ 目录列表）.
  *
  * Covers:
  *   getSkillTraits          — null for unknown ids, correct object for registered ids (SKILL_TRAITS_BY_GROUP)
@@ -11,6 +11,7 @@
  * Run: node scripts/tests/test-skills.mjs
  */
 
+import { readdirSync } from 'node:fs';
 import {
   SKILL_TRAITS,
   SKILL_TRAITS_BY_GROUP,
@@ -1371,6 +1372,24 @@ section('T24: Rouge 各 Max HP ▲ 取基础 MaxHP；getFinalAtk / getFinalMaxHp
   executeSkillTriggers(s3, 'ENTER_FULL_BURST');
   const picked = s3.buffs.filter(b => b.name === 'Straight Shot').map(b => b.unitId).sort().join(',');
   eq('102 选中最终 ATK 最高的 2 名（102、3）', picked, '102,3');
+}
+
+// ── 注册完整性：skills/ 目录下每个技能文件都必须在 SKILL_TRAITS 中注册 ─────────
+// UI 以 MODELED_IDS（= SKILL_TRAITS 的键）判断角色是否可选；
+// 漏注册的技能文件会导致角色在选择器中显示为「未建模」（曾发生于 583）。
+
+section('注册完整性：skills/*.js ⇔ SKILL_TRAITS');
+{
+  const skillsDir = new URL('../../src/data/skills/', import.meta.url);
+  const fileIds = readdirSync(skillsDir)
+    .filter(f => /^\d+\.js$/.test(f))
+    .map(f => Number(f.slice(0, -3)))
+    .sort((a, b) => a - b);
+  const registeredIds = Object.keys(SKILL_TRAITS).map(Number);
+  const unregistered = fileIds.filter(id => !(id in SKILL_TRAITS));
+  const missingFile  = registeredIds.filter(id => !fileIds.includes(id));
+  eq('所有技能文件均已注册', unregistered.join(','), '');
+  eq('所有注册条目均有对应技能文件', missingFile.join(','), '');
 }
 
 summary('Skill traits tests');
