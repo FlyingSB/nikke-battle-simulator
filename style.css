@@ -91,6 +91,8 @@ body {
 .panel { display: flex; flex-direction: column; overflow: hidden; }
 .panel-scroll {
   flex: 1; overflow-y: auto; padding: 12px;
+  /* 始终预留滚动条槽位，内容宽度不随滚动条出现/消失而跳变 */
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--border2) transparent;
 }
@@ -816,8 +818,10 @@ select.input { cursor: pointer; }
 .char-card--unmodeled:hover { background: var(--surface2); border-color: var(--border); }
 
 /* ── 敌人行动阶段表格 ────────────────────────────────────── */
+/* table-layout: fixed —— 列宽由表头决定，不随内容撑开，保证左栏出现滚动条时表格不溢出卡片 */
 .enemy-actions-table {
   width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 0.72rem;
+  table-layout: fixed;
 }
 .enemy-actions-table th {
   text-align: left; padding: 3px 6px; color: var(--text-muted);
@@ -827,13 +831,14 @@ select.input { cursor: pointer; }
 .enemy-actions-table td {
   padding: 3px 4px; vertical-align: middle;
 }
+/* 时间 / 类型 / 删除 三列定宽，「值」列吸收剩余宽度 */
+.enemy-actions-table th:nth-child(1) { width: 54px; }
+.enemy-actions-table th:nth-child(2) { width: 62px; }
+.enemy-actions-table th:nth-child(4) { width: 28px; }
 .enemy-actions-table td:first-child,
-.enemy-actions-table th:first-child { width: 80px; white-space: nowrap; }
-.enemy-actions-table td:nth-child(2) { white-space: nowrap; min-width: 55px; }
-.enemy-actions-table td:nth-child(2) select.input-sm { min-width: 55px; width: 100%; }
-.enemy-actions-table td:nth-child(3) { min-width: 116px; }
+.enemy-actions-table td:nth-child(2) { white-space: nowrap; }
 .enemy-actions-table td:nth-child(3) > :not(template) { width: 100%; box-sizing: border-box; }
-.enemy-actions-table td:last-child { width: 28px; text-align: center; }
+.enemy-actions-table td:last-child { text-align: center; }
 .enemy-actions-table .input-sm {
   padding: 2px 5px; font-size: 0.7rem; height: 24px; width: 100%;
 }
