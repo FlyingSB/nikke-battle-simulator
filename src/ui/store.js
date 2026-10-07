@@ -948,6 +948,9 @@ export function createStore() {
     // 仅影响蓄力武器（SR/RL）的充能：Focus 蓄力角色每发充能 × (full_charge_burst_energy/10000)。
     focusSlot:    null,
     team:         Array.from({ length: 5 }, (_, i) => defaultSlot(i === 0)),
+    // 槽位拖拽换位：拖动中的源槽位下标 / 当前悬停的目标槽位下标（-1 = 无）
+    dragFrom:     -1,
+    dropTarget:   -1,
 
     // 角色选择器
     allChars:        [],
@@ -1329,6 +1332,46 @@ export function createStore() {
       if (slot.favoriteItem.resourceId) this._loadFavData(i, slot.favoriteItem.resourceId);
     },
 
+    // ── 槽位拖拽换位 ──────────────────────────────────────────────────────────
+
+    /**
+     * 交换两个槽位（等同游戏内调整站位）。槽位对象整体互换，
+     * 角色配置与已加载数据随角色移动；activeSlot / focusSlot 跟随原角色。
+     * @param {number} from
+     * @param {number} to
+     */
+    swapSlots(from, to) {
+      if (from === to || from < 0 || to < 0) return;
+      const remap = idx => (idx === from ? to : idx === to ? from : idx);
+      this.team = this.team.map((slot, idx) => this.team[remap(idx)]);
+      this.activeSlot = remap(this.activeSlot);
+      if (this.focusSlot != null) this.focusSlot = remap(this.focusSlot);
+    },
+
+    onSlotDragStart(i, event) {
+      this.dragFrom = i;
+      event.dataTransfer.effectAllowed = 'move';
+      // Firefox 需要设置数据才会开始拖拽
+      event.dataTransfer.setData('text/plain', String(i));
+    },
+
+    onSlotDragOver(i, event) {
+      if (this.dragFrom < 0) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      this.dropTarget = i;
+    },
+
+    onSlotDrop(i) {
+      if (this.dragFrom >= 0) this.swapSlots(this.dragFrom, i);
+      this.onSlotDragEnd();
+    },
+
+    onSlotDragEnd() {
+      this.dragFrom   = -1;
+      this.dropTarget = -1;
+    },
+
     clearSlot(i) {
       this.team[i] = defaultSlot(false);
       // 清空的若是 Focus 槽位，取消 Focus（避免指向空槽）
@@ -1472,12 +1515,13 @@ export function createStore() {
     },
 
     async _loadCubeData(i, resourceId) {
+      // await 前取槽位对象：加载期间若拖拽换位，数据仍写回原角色
+      const slot = this.team[i];
       try {
-        const data = await loadCube(resourceId);
-        this.team[i]._cubeData = data;
+        slot._cubeData = await loadCube(resourceId);
       } catch (err) {
         console.error(`[slot ${i}] Cube ${resourceId} 加载失败:`, err?.message ?? err);
-        this.team[i]._cubeData = null;
+        slot._cubeData = null;
       }
     },
 
@@ -1492,12 +1536,13 @@ export function createStore() {
     },
 
     async _loadFavData(i, resourceId) {
+      // await 前取槽位对象：加载期间若拖拽换位，数据仍写回原角色
+      const slot = this.team[i];
       try {
-        const data = await loadFavoriteItem(resourceId);
-        this.team[i]._favData = data;
+        slot._favData = await loadFavoriteItem(resourceId);
       } catch (err) {
         console.error(`[slot ${i}] FavItem ${resourceId} 加载失败:`, err?.message ?? err);
-        this.team[i]._favData = null;
+        slot._favData = null;
       }
     },
 

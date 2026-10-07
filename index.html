@@ -300,11 +300,20 @@
               :class="{
                 'slot-tab--active':  $store.sim.activeSlot === i,
                 'slot-tab--filled':  !!slot.resourceId,
-                'slot-tab--disabled': !slot.active && !slot.resourceId
+                'slot-tab--disabled': !slot.active && !slot.resourceId,
+                'slot-tab--dragging':    $store.sim.dragFrom === i,
+                'slot-tab--drop-target': $store.sim.dropTarget === i && $store.sim.dragFrom !== i
               }"
+              :title="slot.resourceId ? slot.name + '（可拖拽调整站位）' : ''"
+              :draggable="!!slot.resourceId"
+              @dragstart="$store.sim.onSlotDragStart(i, $event)"
+              @dragover="$store.sim.onSlotDragOver(i, $event)"
+              @dragleave="if ($store.sim.dropTarget === i) $store.sim.dropTarget = -1"
+              @drop.prevent="$store.sim.onSlotDrop(i)"
+              @dragend="$store.sim.onSlotDragEnd()"
               @click="$store.sim.handleSlotClick(i)">
               <div class="slot-tab-avatar"
-                x-show="slot.resourceId"
+                :class="{ 'slot-tab-avatar--empty': !slot.resourceId }"
                 :style="slot.resourceId ? 'background-image:url(src/data/static/images/sm/' + String(slot.resourceId).padStart(3,'0') + '_00.webp)' : ''">
               </div>
               <!-- Focus（受控）角色选择：仅蓄力武器（SR/RL）显示；点击切换，吃充能加成 -->

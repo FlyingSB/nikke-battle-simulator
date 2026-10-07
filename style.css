@@ -83,7 +83,8 @@ body {
 /* ── 3-column layout ─────────────────────────────────────── */
 .layout {
   display: grid;
-  grid-template-columns: 300px 390px 1fr;
+  /* 中栏 406px = 5 × 74px 槽位卡片 + 4 × 5px 间距 + 2 × 8px 槽位条内边距，刚好无横向滚动 */
+  grid-template-columns: 300px 406px 1fr;
   height: calc(100vh - 48px);
   overflow: hidden;
 }
@@ -206,39 +207,41 @@ select.input { cursor: pointer; }
   background: var(--surface); border-bottom: 1px solid var(--border);
   padding: 6px 8px; overflow-x: auto; flex-shrink: 0;
 }
+/* 槽位卡片：头像在上、名字在下，样式与角色选择器 .char-card 一致 */
 .slot-tab {
-  width: 64px; height: 64px; flex: none;
-  position: relative; overflow: hidden;
-  display: flex; align-items: flex-end; justify-content: center;
-  background: var(--surface2); border: 1px solid transparent;
-  border-radius: 6px; color: var(--text-muted);
-  cursor: pointer; transition: border-color 0.12s;
-  padding: 0;
+  flex: none;
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 5px 4px 6px; gap: 3px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--r-sm); color: var(--text-muted);
+  cursor: pointer; transition: all 0.1s; text-align: center;
 }
-.slot-tab::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(transparent 35%, rgba(0,0,0,0.68) 100%);
-  pointer-events: none; z-index: 1;
+.slot-tab:hover { background: var(--surface3); border-color: var(--border2); }
+.slot-tab--active,
+.slot-tab--active:hover { border-color: var(--accent); }
+/* 拖拽换位：源卡片半透明，悬停目标高亮 */
+.slot-tab[draggable="true"] { cursor: grab; }
+.slot-tab--dragging { opacity: 0.4; }
+.slot-tab--drop-target {
+  border-color: var(--accent); background: var(--surface3);
+  box-shadow: 0 0 0 1px var(--accent);
 }
-.slot-tab:hover { border-color: var(--border2); }
-.slot-tab--active { border-color: var(--accent); }
-.slot-tab--filled { color: var(--text-dim); }
 .slot-tab-avatar {
-  position: absolute; inset: 0;
+  width: 64px; height: 64px; flex: none;
+  pointer-events: none;
   background-size: cover; background-position: center top;
-  z-index: 0;
+  border-radius: calc(var(--r-sm) - 2px);
 }
+.slot-tab-avatar--empty { background: var(--surface); border: 1px dashed var(--border2); }
 .slot-tab-name {
-  position: relative; z-index: 2;
-  width: 100%; padding: 2px 3px 3px;
-  font-size: 0.55rem; font-weight: 600; line-height: 1.2;
-  white-space: normal; word-break: break-word; overflow-wrap: break-word;
-  text-align: center; color: var(--text-muted);
+  font-size: 0.68rem; font-weight: 600; line-height: 1.25; color: var(--text-muted);
+  width: 64px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.slot-tab--filled .slot-tab-name { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
+.slot-tab--filled .slot-tab-name { color: var(--text); }
 /* Focus（受控）角色徽标 — 蓄力武器槽位右上角，点击切换，吃充能加成 */
 .slot-focus-badge {
-  position: absolute; top: 2px; right: 2px; z-index: 3;
+  position: absolute; top: 7px; right: 6px; z-index: 3;
   width: 15px; height: 15px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 0.5rem; font-weight: 700; line-height: 1;
@@ -785,7 +788,7 @@ select.input { cursor: pointer; }
   margin: 8px 14px 2px; width: calc(100% - 28px);
 }
 .char-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
   gap: 5px; padding: 8px 14px;
   overflow-y: scroll;
   max-height: calc(80vh - 110px);
@@ -800,7 +803,7 @@ select.input { cursor: pointer; }
 }
 .char-card:hover { background: var(--surface3); border-color: var(--accent); }
 .char-card-img {
-  width: 100%; aspect-ratio: 1 / 1;
+  width: 64px; height: 64px; flex: none;
   object-fit: cover; object-position: top center;
   border-radius: calc(var(--r-sm) - 2px);
   display: block;
