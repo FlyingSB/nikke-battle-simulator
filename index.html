@@ -612,8 +612,16 @@
           </template>
 
           <template x-if="$store.sim.simRunning">
-            <div class="empty-result">
-              <p>⏳ 正在模拟…</p>
+            <div class="empty-result sim-running">
+              <p>⏳ 正在模拟…
+                <span class="sim-progress mono" x-show="$store.sim.simProgress.total > 0"
+                  x-text="$store.sim.simProgress.done + ' / ' + $store.sim.simProgress.total"></span>
+              </p>
+              <div class="sim-progress-bar" x-show="$store.sim.simProgress.total > 0">
+                <div class="sim-progress-fill"
+                  :style="'transform: scaleX(' + ($store.sim.simProgress.done / Math.max(1, $store.sim.simProgress.total)) + ')'"></div>
+              </div>
+              <button class="btn btn-sm btn-ghost" @click="$store.sim.cancelSimulate()">取消</button>
             </div>
           </template>
 
@@ -773,7 +781,7 @@
                         @click="$store.sim.setLogMode('detail')">详细</button>
                     </div>
                   </div>
-                  <div class="log-table-wrap">
+                  <div class="log-table-wrap" x-ref="logTableWrap">
                     <table class="log-table">
                       <thead>
                         <tr>
@@ -796,7 +804,7 @@
                         </tr>
                       </thead>
                       <tbody>
-                        <template x-for="(row, ri) in $store.sim.filteredLogRows()" :key="ri">
+                        <template x-for="(row, ri) in $store.sim.pagedLogRows()" :key="ri">
                           <tr :class="row.kind === 'event' ? 'log-row--event log-row--ev-' + row.eventType + (row.isDamage ? ' log-row--ev-skill-damage' : '') : ''">
                             <!-- Full Burst 轨道格 -->
                             <td class="log-track" :class="row.inFullBurst ? 'log-track--fb' : ''"></td>
@@ -805,7 +813,7 @@
                               <td class="log-track"
                                 :style="$store.sim.rowHasBuffTrack(row, bname) ? 'background:' + $store.sim.buffTrackColorFor(bname) : ''"></td>
                             </template>
-                            <td class="log-line" x-text="ri + 1"></td>
+                            <td class="log-line" x-text="$store.sim.logPageOffset() + ri + 1"></td>
                             <td class="log-time mono" x-text="$store.sim.formatLogTime(row)"></td>
                             <td x-text="row.name"></td>
                             <td class="log-label log-label--tip"
@@ -870,6 +878,23 @@
                       </tbody>
                     </table>
                   </div>
+                  <!-- 日志分页：一次只渲染一页，控制 DOM 与 Alpine 绑定数量 -->
+                  <nav class="log-pager" aria-label="战斗日志分页" x-show="$store.sim.logPageCount() > 1">
+                    <button class="btn btn-sm btn-ghost" aria-label="第一页"
+                      :disabled="$store.sim.logPageOffset() === 0"
+                      @click="$store.sim.setLogPage(0); $refs.logTableWrap.scrollTop = 0">«</button>
+                    <button class="btn btn-sm btn-ghost"
+                      :disabled="$store.sim.logPageOffset() === 0"
+                      @click="$store.sim.setLogPage($store.sim._clampedLogPage() - 1); $refs.logTableWrap.scrollTop = 0">‹ 上一页</button>
+                    <span class="log-pager-info mono"
+                      x-text="'第 ' + ($store.sim._clampedLogPage() + 1) + ' / ' + $store.sim.logPageCount() + ' 页 · 共 ' + $store.sim.filteredLogRows().length + ' 行'"></span>
+                    <button class="btn btn-sm btn-ghost"
+                      :disabled="$store.sim._clampedLogPage() >= $store.sim.logPageCount() - 1"
+                      @click="$store.sim.setLogPage($store.sim._clampedLogPage() + 1); $refs.logTableWrap.scrollTop = 0">下一页 ›</button>
+                    <button class="btn btn-sm btn-ghost" aria-label="最后一页"
+                      :disabled="$store.sim._clampedLogPage() >= $store.sim.logPageCount() - 1"
+                      @click="$store.sim.setLogPage($store.sim.logPageCount() - 1); $refs.logTableWrap.scrollTop = 0">»</button>
+                  </nav>
                 </section>
               </div><!-- /result-panel-log -->
 

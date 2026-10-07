@@ -375,6 +375,16 @@ select.input { cursor: pointer; }
   height: 180px; text-align: center;
   color: var(--text-muted); font-size: 0.8rem; line-height: 2;
 }
+.sim-running { flex-direction: column; gap: 8px; }
+.sim-progress { margin-left: 6px; color: var(--text-dim); }
+.sim-progress-bar {
+  width: 160px; height: 3px; overflow: hidden;
+  background: var(--surface3); border-radius: 2px;
+}
+.sim-progress-fill {
+  height: 100%; background: var(--accent);
+  transform-origin: left; transition: transform 0.2s ease-out;
+}
 .result-summary { display: flex; flex-direction: column; gap: 8px; }
 .result-kv { display: flex; align-items: baseline; justify-content: space-between; }
 .result-label { font-size: 0.7rem; color: var(--text-dim); }
@@ -509,6 +519,12 @@ select.input { cursor: pointer; }
   border: 1px solid var(--border); border-radius: var(--r-sm);
   scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
 }
+.log-pager {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  margin-top: 6px; flex-shrink: 0;
+}
+.log-pager .btn:disabled { opacity: 0.35; cursor: default; }
+.log-pager-info { font-size: 0.65rem; color: var(--text-dim); padding: 0 8px; }
 .log-table { width: 100%; border-collapse: collapse; font-size: 0.65rem; }
 .log-table th {
   background: var(--surface3); color: var(--text-dim); font-weight: 600;

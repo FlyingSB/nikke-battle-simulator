@@ -1902,15 +1902,19 @@ export function simulate(config) {
   setRng(config.rng);
   try {
     const state     = initBattle(config);
-    const allEvents = [];
+    // 只收集 buildResult 会用到的事件类型：每发射击的 hit 事件数量达数万条，
+    // 全量累积会让单次模拟的内存峰值翻倍，而结果中从不使用它们。
+    const logEvents = [];
 
     while (true) {
       const { over, events } = tick(state);
-      allEvents.push(...events);
+      for (const e of events) {
+        if (LOG_EVENT_TYPES.has(e.type)) logEvents.push(e);
+      }
       if (over) break;
     }
 
-    return buildResult(state, allEvents);
+    return buildResult(state, logEvents);
   } finally {
     setRng(null);
   }
@@ -1918,15 +1922,18 @@ export function simulate(config) {
 
 /**
  * 运行 N 次蒙特卡洛模拟，返回平均结果。
- * 日志取自第一次运行。
+ * 日志取自第一次运行；其余运行的日志立即丢弃，避免 N 份完整日志同时驻留内存。
  * @param {BattleConfig} config
  * @param {number} iterations
+ * @param {(done: number, total: number) => void} [onProgress] 每完成一次运行回调一次
  * @returns {BattleResult}
  */
-export function simulateMonteCarlo(config, iterations = 100) {
+export function simulateMonteCarlo(config, iterations = 100, onProgress) {
   const results = [];
   for (let i = 0; i < iterations; i++) {
-    results.push(simulate(config));
+    const r = simulate(config);
+    results.push(i === 0 ? r : { ...r, log: null });
+    onProgress?.(i + 1, iterations);
   }
   return averageResults(results);
 }

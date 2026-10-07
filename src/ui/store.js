@@ -12,8 +12,8 @@ import {
   getRosterEntry,
 } from '../data/account-loader.js';
 import { getAllCharacters, getCharacterByResourceId, normalizeCube, getSsrFavSkills } from '../data/models.js';
-import { simulate, simulateMonteCarlo } from '../engine/battle.js';
 import { computeFinalStats } from '../engine/stats.js';
+import { runSimulation, cancelSimulation, SimCancelledError } from './sim-runner.js';
 import { CUBE_NAMES, CUBE_URLS, FAVORITE_ITEM_URLS } from '../data/manifest.js';
 import { renderSkillDesc } from './skill-render.js';
 import { MODELED_IDS } from '../data/skill-traits.js';
@@ -35,6 +35,9 @@ function _postTrace(config, hitLog, battleLog, result) {
 }
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────
+
+// 战斗日志每页行数。每行约 30–60 个 DOM 节点及同量 Alpine 绑定，全量渲染数千行会占用数百 MB。
+const LOG_PAGE_SIZE = 200;
 
 const CLASS_LABEL   = { Attacker: '火力型', Defender: '防御型', Supporter: '辅助型' };
 const CORP_LABEL    = { ELYSION: '极乐净土', MISSILIS: '米西利斯', TETRA: '泰特拉', PILGRIM: '朝圣者', ABNORMAL: '反常' };
@@ -957,6 +960,9 @@ export function createStore() {
     hitLogRaw:     null,
     battleLogRaw:  null,
     simRunning:    false,
+    simProgress:   { done: 0, total: 0 },
+    // 日志分页：一次只渲染一页，避免数千行 × 每行数十个 Alpine 绑定撑爆内存（详细模式单次可达 600MB）。
+    logPage:       0,
     logMode:             'aggregate',
     logHiddenUnits:      [],
     logHiddenSkillLabels: [],
@@ -1666,13 +1672,12 @@ export function createStore() {
       }
 
       this.simRunning   = true;
+      this.simProgress  = { done: 0, total: 0 };
       this.result       = null;
       this.hitLogRows   = [];
       this.hitLogRaw    = null;
       this.battleLogRaw = null;
       this._squadLookup = null;
-
-      await new Promise(r => setTimeout(r, 10));
 
       try {
         const research    = this._research();
@@ -1804,27 +1809,39 @@ export function createStore() {
           mirLastBurstOnly: this.hasMaidenIceRose   && this.mirLastBurstOnly,
         };
 
-        const iters     = Math.max(1, Math.min(100, Number(this.iterations) || 30));
-        const mcResult  = simulateMonteCarlo(baseConfig, iters);
-        const single    = simulate({ ...baseConfig, hitLog: true });
+        const iters = Math.max(1, Math.min(100, Number(this.iterations) || 30));
+        this.simProgress = { done: 0, total: iters };
+        // 在 Worker 中运行：主线程保持可响应，模拟内存随线程结束整体释放。
+        const { mcResult, hitLog, log } = await runSimulation(baseConfig, iters, {
+          onProgress: (done, total) => { this.simProgress = { done, total }; },
+        });
 
+        // 冻结大块只读数据：Vue reactive 跳过不可扩展对象，避免为数万条命中记录逐个创建响应式代理。
         this.result        = { ...mcResult, iterations: iters };
-        this.hitLogRaw     = single.hitLog;
-        this.battleLogRaw  = single.log ?? [];
+        this.hitLogRaw     = Object.freeze(hitLog ?? []);
+        this.battleLogRaw  = Object.freeze(log ?? []);
+        this.logPage       = 0;
         this._rebuildLog();
         this.saveEnemyPresetIfNew();
-        _postTrace(baseConfig, single.hitLog, single.log ?? [], { ...mcResult, iterations: iters });
+        _postTrace(baseConfig, hitLog, log ?? [], { ...mcResult, iterations: iters });
       } catch (err) {
-        console.error('模拟出错:', err);
-        alert(`模拟出错：${err.message}`);
+        if (!(err instanceof SimCancelledError)) {
+          console.error('模拟出错:', err);
+          alert(`模拟出错：${err.message}`);
+        }
       } finally {
         this.simRunning = false;
       }
     },
 
+    cancelSimulate() {
+      cancelSimulation();
+    },
+
     // preserveFilters：切换聚合/详细模式时保留当前的角色、技能、Buff 轨道筛选；
     // 重新模拟时则不传，让筛选恢复默认（全部显示）。
-    _rebuildLog(preserveFilters = false) {
+    // mode：按哪种模式构建行，默认当前 logMode（setLogMode 需在切换 logMode 之前先构建）。
+    _rebuildLog(preserveFilters = false, mode = this.logMode) {
       if (!this.hitLogRaw || !this.result) { this.hitLogRows = []; return; }
       if (!preserveFilters) {
         this.logHiddenSkillLabels = [];
@@ -1833,11 +1850,13 @@ export function createStore() {
       const unitNames = Object.fromEntries(
         (this.result.units ?? []).map(u => [u.id, u.name])
       );
-      const hitRows   = this.logMode === 'detail'
+      const hitRows   = mode === 'detail'
         ? buildDetailLog(this.hitLogRaw, unitNames)
         : buildAggregateLog(this.hitLogRaw, unitNames);
-      const eventRows = buildEventRows(this.battleLogRaw, this._squadLookup, this.logMode);
-      this.hitLogRows = [...hitRows, ...eventRows].sort((a, b) => {
+      const eventRows = buildEventRows(this.battleLogRaw, this._squadLookup, mode);
+      // 先在本地（非响应式）数组上完成排序与后处理，最后冻结整体赋值，
+      // 避免逐行写入触发响应式追踪，也让模板拿到的行对象不被包装成 Proxy。
+      const rows = [...hitRows, ...eventRows].sort((a, b) => {
         const dt = a.tickStart - b.tickStart;
         if (dt !== 0) return dt;
         // 同 tick 内：_seq 还原真实执行顺序（burst_iii/skill_trigger/full_burst/hit 均带 _seq）
@@ -1853,7 +1872,7 @@ export function createStore() {
       // 满能量（增量被 cap 为 0）、能量重置（burst_end/timeout）、未触碰能量的事件均不展示。
       let inFB = false;
       let prevGauge = 0;  // 上一已知累计能量，战斗起始为 0
-      for (const row of this.hitLogRows) {
+      for (const row of rows) {
         if (row.kind === 'event' && row.eventType === 'full_burst') inFB = true;
         row.inFullBurst = inFB;
         if (row.kind === 'event' && (row.eventType === 'burst_end' || row.eventType === 'burst_timeout')) inFB = false;
@@ -1870,13 +1889,44 @@ export function createStore() {
         } else {
           row.gaugeAdded = null;
         }
+        // 行与其 buff 明细此后只读；冻结后 x-for 作用域不会再为它们创建响应式代理。
+        for (const buff of row.buffArr ?? []) Object.freeze(buff);
+        Object.freeze(row);
       }
+      this.hitLogRows = Object.freeze(rows);
+    },
+
+    // ── 日志分页 ──
+    logPageCount() {
+      return Math.max(1, Math.ceil(this.filteredLogRows().length / LOG_PAGE_SIZE));
+    },
+
+    // 筛选条件变化后总页数可能变少，读取时钳制到有效范围。
+    _clampedLogPage() {
+      return Math.min(this.logPage, this.logPageCount() - 1);
+    },
+
+    logPageOffset() {
+      return this._clampedLogPage() * LOG_PAGE_SIZE;
+    },
+
+    pagedLogRows() {
+      const start = this.logPageOffset();
+      return this.filteredLogRows().slice(start, start + LOG_PAGE_SIZE);
+    },
+
+    setLogPage(page) {
+      const last = this.logPageCount() - 1;
+      this.logPage = Math.max(0, Math.min(last, Number(page) || 0));
     },
 
     setLogMode(mode) {
-      this.logMode = mode;
       // 切换聚合/详细只改变行的呈现方式，保留用户已有的角色/技能/Buff 轨道筛选。
-      this._rebuildLog(true);
+      // 顺序很重要：先替换行、后改 logMode。Alpine 调度器在同一轮 flush 中不会重跑已执行过的 effect；
+      // 若先改 logMode，行内依赖 logMode 的绑定（如伤害 tooltip 的 :class）会先于 x-for 刷新行作用域执行，
+      // 读到旧行后就不再更新。
+      this._rebuildLog(true, mode);
+      this.logMode = mode;
     },
 
     logUnitNames() {

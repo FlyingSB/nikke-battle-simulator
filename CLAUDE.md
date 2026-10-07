@@ -17,6 +17,21 @@
 - **不要** 自行启动任何服务器（Live Server 由用户在 VS Code 中开启）。
 - Playwright MCP 以扩展模式连接用户浏览器（`@playwright/mcp@latest --extension`，注册在 `~/.claude.json`），工具名为 `mcp__playwright__*`。
 
+### 通过 MCP 运行模拟（避免卡死）
+模拟在 Web Worker 中运行（`src/ui/sim-runner.js` → `src/engine/sim-worker.js`），主线程始终可响应。
+页面上没有全局 `Alpine`，需用同 URL 动态 import 取得同一实例：
+`const { default: Alpine } = await import('https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/module.esm.js')`。
+
+- **启动后不要长时间 await**：`browser_evaluate` 中只触发 `Alpine.store('sim').runSimulate()`（不 await）或点击 ▶ 按钮，立即返回。
+- **轮询状态**：用短小的 `browser_evaluate` 读取 `window.__simDiag()`，返回
+  `{ state, runId, done, total, elapsedMs, error, heapMB, heapLimitMB }`。
+  `state` 取值：`running` / `done` / `error` / `timeout` / `cancelled`；
+  超时（30s + 2s × 迭代次数）会自动 terminate Worker 并置为 `timeout`。
+- **取消**：`Alpine.store('sim').cancelSimulate()`。
+- **判定页面已崩溃**：若一次简单的 `browser_evaluate`（如 `() => 1`）报错或无响应，视为渲染进程崩溃（OOM 等），
+  直接 `browser_tabs` close 当前标签后 `browser_tabs` new 打开 `http://127.0.0.1:5500` 恢复，不要等待用户手动关闭。
+- `heapMB` 接近 `heapLimitMB` 时先刷新页面再继续批量模拟。
+
 ## 项目结构
 ```
 src/data/      – CDN 数据获取与缓存
