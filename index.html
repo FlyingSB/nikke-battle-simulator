@@ -366,7 +366,8 @@
                     <span class="tag" x-text="$store.sim.activeSlotData.weaponType"></span>
                     <span class="tag" x-text="$store.sim.corpLabel($store.sim.activeSlotData.corporation)"></span>
                     <span class="tag tag-burst" x-text="$store.sim.burstLabel($store.sim.activeSlotData.burstStep)"></span>
-                    <span class="tag tag-dim" x-show="$store.sim.activeSlotData._loading">加载中…</span>
+                    <!-- 不用 x-show：Alpine 3.14 的 x-show 显隐经 rAF 延迟，_loading 同帧内多次翻转时会残留显示；:class 同步生效 -->
+                    <span class="tag tag-dim" :class="{ hidden: !$store.sim.activeSlotData._loading }">加载中…</span>
                   </div>
                 </div>
                 <div class="char-actions">
