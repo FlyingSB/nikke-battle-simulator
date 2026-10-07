@@ -819,7 +819,7 @@
                           <th>施展者</th>
                           <th>技能</th>
                           <th>目标</th>
-                          <th>Buff</th>
+                          <th class="log-buff-hd">Buff</th>
                           <th style="text-align:right">伤害</th>
                           <th x-show="$store.sim.logMode === 'detail'" style="text-align:right">弹药</th>
                           <th x-show="$store.sim.logMode === 'detail'" style="text-align:right">充能</th>
@@ -844,7 +844,12 @@
                               <span x-text="row.label"></span>
                               <span class="log-count" x-show="row.count > 1" x-text="'×' + row.count"></span>
                             </td>
-                            <td x-text="row.target ?? ''"></td>
+                            <!-- 多目标按「、」拆分：名字内部不断行、名字之间可换行，列宽收缩到最长的单个名字 -->
+                            <td class="log-target">
+                              <template x-for="(tg, ti) in (row.target ? row.target.split('、') : [])" :key="ti">
+                                <span class="log-target-item" x-text="tg"></span>
+                              </template>
+                            </td>
                             <td class="log-buff">
                               <span class="hit-tag hit-tag--crit"
                                 x-show="row._hit && row.isCrit">暴击</span>
