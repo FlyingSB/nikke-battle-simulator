@@ -141,34 +141,74 @@ body {
 .checkbox-label { display: flex; align-items: flex-start; gap: 6px; cursor: pointer; font-size: 0.7rem; color: var(--text-dim); line-height: 1.4; }
 .checkbox-label input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
 
+/* ── Pico 适配层 ─────────────────────────────────────────────
+   控件外观来自 vendor/pico-forms.css（Pico v2 表单模块摘录），
+   此处把 Pico 变量映射到本项目调色板，并把尺寸压回原有紧凑规格。 */
+:root {
+  --pico-font-family: var(--font-ui);
+  --pico-border-radius: var(--r-sm);
+  --pico-transition: 0.15s ease-in-out;
+  /* Pico 用 --pico-spacing 给 input / select / label 加外边距，本项目布局自行控制间距 */
+  --pico-spacing: 0;
+
+  --pico-primary: var(--accent);
+  --pico-primary-background: var(--accent-dim);
+  --pico-primary-border: var(--accent);
+  --pico-primary-focus: rgba(79, 163, 224, 0.35);
+  --pico-primary-inverse: #fff;
+
+  --pico-form-element-background-color: var(--surface3);
+  --pico-form-element-active-background-color: var(--bg);
+  --pico-form-element-selected-background-color: var(--border2);
+  --pico-form-element-border-color: var(--border2);
+  --pico-form-element-color: var(--text);
+  --pico-form-element-placeholder-color: var(--text-dim);
+  --pico-form-element-active-border-color: var(--accent);
+  --pico-form-element-focus-color: rgba(79, 163, 224, 0.35);
+  --pico-form-element-disabled-opacity: 0.4;
+
+  --pico-switch-background-color: var(--border2);
+  --pico-range-border-color: var(--border2);
+  --pico-range-active-border-color: var(--surface3);
+  --pico-range-thumb-color: var(--accent-dim);
+  --pico-range-thumb-active-color: var(--accent);
+}
+
+/* Pico 的 label 规则（display:block / 颜色 / fit-content 宽度）不适用于本项目布局，还原 */
+label { display: revert; color: inherit; font-weight: inherit; }
+label:has([type=checkbox], [type=radio]) { width: auto; }
+
+/* Pico 对 input 统一设 font-size: 1rem，复选框尺寸以 em 计，改为跟随所在行字号 */
+[type=checkbox], [type=radio] { font-size: inherit; margin: 0; flex-shrink: 0; }
+
 .input {
-  background: var(--bg); color: var(--text);
-  border: 1px solid var(--border2); border-radius: var(--r-sm);
-  padding: 5px 7px; font-size: 0.78rem;
-  font-family: inherit; width: 100%;
-  transition: border-color 0.15s;
+  --pico-form-element-spacing-vertical: 5px;
+  --pico-form-element-spacing-horizontal: 7px;
+  font-size: 0.78rem; line-height: normal;
 }
-.input:focus { outline: none; border-color: var(--accent); }
-.input:disabled { opacity: 0.4; cursor: not-allowed; }
-.input-sm { padding: 3px 5px; font-size: 0.7rem; }
+.input-sm {
+  --pico-form-element-spacing-vertical: 3px;
+  --pico-form-element-spacing-horizontal: 5px;
+  font-size: 0.7rem;
+}
+/* Pico 按 1rem 行高算固定高度，改为由字号 + 内边距自然撑开（与原尺寸一致） */
+.input:not([type=checkbox], [type=radio], [type=range]) { height: auto; }
+.input:disabled { cursor: not-allowed; }
 
-select.input { cursor: pointer; }
+/* 下拉箭头：缩小并贴近右侧，适配窄列 */
+select.input:not([multiple], [size]) {
+  padding-inline-end: calc(var(--pico-form-element-spacing-horizontal) + 14px);
+  background-position: center right 4px;
+  background-size: 12px auto;
+  cursor: pointer;
+}
 
-.input-range {
-  -webkit-appearance: none; appearance: none;
-  width: 100%; height: 4px;
-  background: var(--border2); border-radius: 2px; cursor: pointer;
-  padding: 0; border: none; outline: none;
-}
-.input-range::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none;
-  width: 14px; height: 14px; border-radius: 50%;
-  background: var(--accent); cursor: pointer;
-}
-.input-range::-moz-range-thumb {
-  width: 14px; height: 14px; border-radius: 50%; border: none;
-  background: var(--accent); cursor: pointer;
-}
+/* 滑条：沿用 Pico 轨道与配色，滑块缩回 14px */
+.input-range { height: 14px; cursor: pointer; }
+.input-range::-webkit-slider-runnable-track { height: 4px; }
+.input-range::-moz-range-track { height: 4px; }
+.input-range::-webkit-slider-thumb { width: 14px; height: 14px; margin-top: -5px; border-width: 2px; }
+.input-range::-moz-range-thumb { width: 14px; height: 14px; border-width: 2px; }
 .range-labels {
   display: flex; justify-content: space-between;
   font-size: 0.6rem; color: var(--text-muted); margin-top: 2px;
