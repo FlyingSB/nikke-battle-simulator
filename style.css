@@ -384,6 +384,9 @@ select.input:not([multiple], [size]) {
   margin-bottom: 5px;
 }
 .equip-slot-label { font-size: 0.7rem; font-weight: 600; color: var(--text-dim); }
+/* 等级下拉按内容取宽：父级 .row-inline 收缩适应内容，width:100% 会把「等级」挤成两行 */
+.equip-header .field-hint { white-space: nowrap; }
+.equip-header select.input { width: auto; }
 .equip-opts { display: flex; flex-direction: row; gap: 4px; }
 .opt-row { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .opt-type { width: 100%; font-size: 0.62rem; }
