@@ -278,6 +278,17 @@
                 </label>
               </div>
             </template>
+            <template x-if="$store.sim.hasMastRomanticMaid">
+              <div class="field-group mt-1">
+                <label class="field-label">Mast: Romantic Maid 爆裂时机</label>
+                <select class="input input-sm" x-model="$store.sim.mastBurstMode">
+                  <template x-for="opt in $store.sim.mastBurstOptions" :key="opt.value">
+                    <option :value="opt.value" x-text="opt.label"
+                      :selected="opt.value === $store.sim.effectiveMastBurstMode"></option>
+                  </template>
+                </select>
+              </div>
+            </template>
 
             <button class="btn btn-primary btn-block mt-1"
               :disabled="$store.sim.simRunning"

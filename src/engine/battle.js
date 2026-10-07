@@ -257,7 +257,64 @@ function shotsPerTick(state, unit) {
  * 若其 burst 技能冷却已结束则返回该单位，否则返回 null。
  */
 function selectBurstUnit(state, burstStep) {
-  return state.squad.find(u => u.burstStep === burstStep && u.canBurst !== false && u.burstCdRemaining <= 0) ?? null;
+  return state.squad.find(u => u.burstStep === burstStep && u.canBurst !== false && u.burstCdRemaining <= 0 &&
+    !isStunned(state, u)) ?? null;
+}
+
+/** 眩晕中（如 Mast: Romantic Maid 的 Hangover）的单位无法施放爆裂技能，由同阶段其他单位接替。 */
+function isStunned(state, u) {
+  return state.tick < (u.skillState.stunnedUntilTick ?? 0);
+}
+
+/** lastBurstOnly 策略：当前是否为战斗最后一个爆裂循环（剩余时间不足以再充满一次爆裂槽）。 */
+function isLastBurstCycle(state) {
+  const gaugeRefill = state.burstCycleStartTick - state.lastBurstEndTick;
+  const remaining   = MAX_TICKS - state.tick - TICK_RATE * 10;
+  return gaugeRefill > 0 && remaining <= gaugeRefill;
+}
+
+/** B3 候选：Step3 / StepFull、可施放，且未被 lastBurstOnly 策略在非最后一轮排除。 */
+function isBurst3Candidate(u, lastCycle) {
+  return (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
+    u.canBurst !== false && !(u.lastBurstOnly && !lastCycle);
+}
+
+/**
+ * 按 §6.0 从左到右选出本轮施放 B3 的单位；最后一轮时 lastBurstOnly 单位优先。
+ * cdLookahead > 0 时为预测用法：B2 阶段预判 cdLookahead tick 后进入阶段 3 时由谁施放 B3。
+ */
+function selectBurst3Unit(state, cdLookahead = 0) {
+  const lastCycle = state.squad.some(u => u.lastBurstOnly) && isLastBurstCycle(state);
+  const ready = state.squad.filter(u => isBurst3Candidate(u, lastCycle) && u.burstCdRemaining <= cdLookahead &&
+    !isStunned(state, u));
+  return (lastCycle ? ready.find(u => u.lastBurstOnly) : null) ?? ready[0] ?? null;
+}
+
+/**
+ * 爆裂轮次策略（unit.burstRoundPolicy）：本轮是否轮到该单位施放爆裂技能。
+ *   drunken3 — 自身 Drunken 叠满 3 层的轮次（Mast: Romantic Maid）
+ *   withB3   — 预测本轮 B3 施放者为 policy.b3Id 的轮次
+ */
+function isPolicyBurstRound(state, u) {
+  const policy = u.burstRoundPolicy;
+  if (policy.mode === 'drunken3') {
+    const stacks = state.buffs.find(b => b.name === 'Drunken' && b.unitId === u.id)?.stackCount ?? 0;
+    return stacks >= 3;
+  }
+  if (policy.mode === 'withB3') return selectBurst3Unit(state, state.burstStepTicks)?.id === policy.b3Id;
+  return true;
+}
+
+/**
+ * B2 选择：带爆裂轮次策略的单位在「自己的轮次」优先施放，其余轮次跳过；
+ * 无策略单位按 §6.0 从左到右照常选择。眩晕中的单位（任何策略下）均跳过。
+ */
+function selectBurst2Unit(state) {
+  const ready = state.squad.filter(u =>
+    u.burstStep === 'Step2' && u.canBurst !== false && u.burstCdRemaining <= 0 && !isStunned(state, u));
+  return ready.find(u => u.burstRoundPolicy && isPolicyBurstRound(state, u))
+    ?? ready.find(u => !u.burstRoundPolicy)
+    ?? null;
 }
 
 /**
@@ -375,7 +432,7 @@ function advanceAfterBurstI(state, fired) {
 
 /** Step2 burst：若冷却结束则释放。返回释放的单位，或 null。 */
 function applyBurstIISkills(state) {
-  const b2 = selectBurstUnit(state, 'Step2');
+  const b2 = selectBurst2Unit(state);
   if (!b2) return null;
 
   b2.burstCdRemaining = b2.burstSkillCooltime;
@@ -408,34 +465,7 @@ function applyBurstIISkills(state) {
 function applyFullBurstSkills(state, events) {
   // 1. 按 §6.0 从左到右选第一个 CD 就绪的 B3 单位施放；其余本轮无法施放。
   // lastBurstOnly 策略：非最后一轮跳过该单位；最后一轮时该单位优先于其他 B3。
-  const _hasLboFlag = state.squad.some(u => u.lastBurstOnly);
-  let step3;
-  if (_hasLboFlag) {
-    const _lboGaugeRefill = state.burstCycleStartTick - state.lastBurstEndTick;
-    const _lboRemaining   = MAX_TICKS - state.tick - TICK_RATE * 10;
-    const _lboIsLastCycle = _lboGaugeRefill > 0 && _lboRemaining <= _lboGaugeRefill;
-    if (_lboIsLastCycle) {
-      // 最后一轮：先尝试选带策略标记的单位，没有则回退正常顺序
-      step3 = state.squad.find(u =>
-        (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
-        u.canBurst !== false && u.burstCdRemaining <= 0 && u.lastBurstOnly
-      ) ?? state.squad.find(u =>
-        (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
-        u.canBurst !== false && u.burstCdRemaining <= 0
-      ) ?? null;
-    } else {
-      // 非最后一轮：跳过带策略标记的单位，选其他 B3
-      step3 = state.squad.find(u =>
-        (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
-        u.canBurst !== false && u.burstCdRemaining <= 0 && !u.lastBurstOnly
-      ) ?? null;
-    }
-  } else {
-    step3 = state.squad.find(u =>
-      (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
-      u.canBurst !== false && u.burstCdRemaining <= 0
-    ) ?? null;
-  }
+  const step3 = selectBurst3Unit(state);
 
   const firstFired = step3;
 
@@ -848,6 +878,18 @@ export function initBattle(config) {
     return unit;
   });
 
+  // Mast: Romantic Maid（354）爆裂轮次策略（config.mastBurstMode，默认 auto = CD 好了就开）：
+  //   drunken3 — 仅在 Drunken 3 层的轮次施放 B2
+  //   b3a/b3b  — 仅在队伍中第 1 / 第 2 名 B3（含 StepFull）施放 B3 的轮次施放 B2
+  const mastUnit = squad.find(u => u.id === 354);
+  if (mastUnit && config.mastBurstMode === 'drunken3') {
+    mastUnit.burstRoundPolicy = { mode: 'drunken3' };
+  } else if (mastUnit && (config.mastBurstMode === 'b3a' || config.mastBurstMode === 'b3b')) {
+    const b3Units = squad.filter(u => u.burstStep === 'Step3' || u.burstStep === 'StepFull');
+    const b3 = b3Units[config.mastBurstMode === 'b3a' ? 0 : 1];
+    if (b3) mastUnit.burstRoundPolicy = { mode: 'withB3', b3Id: b3.id };
+  }
+
   // 爆裂阶段间隔（ticks）：B1→B2 和 B2→B3 各等待此时长。
   // config.burstStepSecs 范围 0.1–0.6；默认 0.6 秒（游戏内实测值）。
   const burstStepTicks = Math.round(TICK_RATE * Math.max(0.1, Math.min(0.6, config.burstStepSecs ?? 0.6)));
@@ -1239,23 +1281,9 @@ export function tick(state) {
   // fullBurstActive 由 applyFullBurstSkills 在 B3 全部施放完毕后设置（文档 §6.5 时序）。
   if (state.burstPhase === 3 && !state.fullBurstActive && state.burstPhaseTick === Infinity) {
     // lastBurstOnly：非最后一轮时跳过带策略标记的单位（其他 B3 照常触发全爆裂）
-    const _hasLboFlag2    = state.squad.some(u => u.lastBurstOnly);
-    let _lboIsLastCycle2  = false;
-    if (_hasLboFlag2) {
-      const _lboGaugeRefill = state.burstCycleStartTick - state.lastBurstEndTick;
-      const _lboRemaining   = MAX_TICKS - state.tick - TICK_RATE * 10;
-      _lboIsLastCycle2 = _lboGaugeRefill > 0 && _lboRemaining <= _lboGaugeRefill;
-    }
-    const hasB3 = state.squad.some(u =>
-      (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
-      u.canBurst !== false &&
-      !(_hasLboFlag2 && u.lastBurstOnly && !_lboIsLastCycle2)
-    );
-    const b3Ready = !hasB3 || state.squad.some(u =>
-      (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
-      u.canBurst !== false && u.burstCdRemaining <= 0 &&
-      !(_hasLboFlag2 && u.lastBurstOnly && !_lboIsLastCycle2)
-    );
+    const lastCycle = state.squad.some(u => u.lastBurstOnly) && isLastBurstCycle(state);
+    const hasB3     = state.squad.some(u => isBurst3Candidate(u, lastCycle));
+    const b3Ready   = !hasB3 || selectBurst3Unit(state) !== null;
     if (b3Ready) {
       state.burstPhaseTimeoutTick = 0;
       state.fullBurstCount++;

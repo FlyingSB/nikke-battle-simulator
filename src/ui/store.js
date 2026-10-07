@@ -940,6 +940,8 @@ export function createStore() {
     burstStepSecs:      0.6,
     ebsLastBurstOnly: true,
     mirLastBurstOnly: true,
+    // Mast: Romantic Maid 爆裂轮次策略：auto / drunken3 / b3a / b3b（见 mastBurstOptions）
+    mastBurstMode:    'auto',
 
     // 队伍
     activeSlot:   0,
@@ -1043,6 +1045,32 @@ export function createStore() {
     // Maiden: Ice Rose（resource_id: 183）
     get hasMaidenIceRose() {
       return this._lastBurstOnlyAvailable(183);
+    },
+
+    // Mast: Romantic Maid（resource_id: 354）在队时显示爆裂轮次策略下拉菜单
+    get hasMastRomanticMaid() {
+      return this.team.some(s => s.active && s.resourceId === 354);
+    },
+
+    // 下拉选项：B3 A / B 按队伍槽位顺序取第 1 / 第 2 名 B3（含 StepFull），与引擎一致；
+    // 对应 B3 不存在时不提供该选项
+    get mastBurstOptions() {
+      const b3Names = this.team
+        .filter(s => s.active && s.resourceId && (s.burstStep === 'Step3' || s.burstStep === 'StepFull'))
+        .map(s => s.name);
+      const opts = [
+        { value: 'auto',     label: 'CD 好了就开' },
+        { value: 'drunken3', label: '仅在 Drunken 3 层时开' },
+      ];
+      if (b3Names[0]) opts.push({ value: 'b3a', label: `仅在 ${b3Names[0]} 的轮次开` });
+      if (b3Names[1]) opts.push({ value: 'b3b', label: `仅在 ${b3Names[1]} 的轮次开` });
+      return opts;
+    },
+
+    // 实际生效的策略：不在队或所选 B3 已不存在时回退为 auto
+    get effectiveMastBurstMode() {
+      if (!this.hasMastRomanticMaid) return 'auto';
+      return this.mastBurstOptions.some(o => o.value === this.mastBurstMode) ? this.mastBurstMode : 'auto';
     },
 
     maxBond(grade, corp) { return maxBond(grade, corp); },
@@ -1168,6 +1196,7 @@ export function createStore() {
         burstStepSecs:      this.burstStepSecs,
         ebsLastBurstOnly: this.ebsLastBurstOnly,
         mirLastBurstOnly: this.mirLastBurstOnly,
+        mastBurstMode:    this.mastBurstMode,
         focusSlot:          this.focusSlot,
         team: this.team.map(slot => ({
           active:       slot.active,
@@ -1233,6 +1262,7 @@ export function createStore() {
       if (state.burstStepSecs       != null) this.burstStepSecs       = state.burstStepSecs;
       if (state.ebsLastBurstOnly  != null) this.ebsLastBurstOnly  = state.ebsLastBurstOnly;
       if (state.mirLastBurstOnly  != null) this.mirLastBurstOnly  = state.mirLastBurstOnly;
+      if (state.mastBurstMode     != null) this.mastBurstMode     = state.mastBurstMode;
       if (state.focusSlot !== undefined)   this.focusSlot         = state.focusSlot;
       if (!Array.isArray(state.team)) return;
       state.team.forEach((saved, i) => {
@@ -1852,6 +1882,7 @@ export function createStore() {
           // 选项不可见（角色不在队 / 不足 3 名 B3）时不向引擎传递该策略
           ebsLastBurstOnly: this.hasEbsBoomAndShock && this.ebsLastBurstOnly,
           mirLastBurstOnly: this.hasMaidenIceRose   && this.mirLastBurstOnly,
+          mastBurstMode:    this.effectiveMastBurstMode,
         };
 
         const iters = Math.max(1, Math.min(100, Number(this.iterations) || 30));
