@@ -84,6 +84,7 @@ const FAV_ITEMS_RS = [
 // 详见 docs/ssr-collectible-rules.md
 const SSR_FAV_BY_CHAR = {
    32: 200601, // Miranda   → Sheet of Paper
+   80: 201601, // Centi     → Metal Pendant
   101: 200801, // Drake     → Villain Figurine
   140: 202101, // Sugar     → Commemorative Keychain
   170: 201401, // Privaty   → Central Government Special Medal

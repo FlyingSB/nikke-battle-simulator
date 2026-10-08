@@ -26,6 +26,7 @@ SSR 专属珍藏品（resource_id `200XXX` / `201XXX` / `202XXX`）会替换角�
 | 角色 | resource_id | SSR 珍藏品名称 | 珍藏品 resource_id |
 |------|:-----------:|--------------|:-----------------:|
 | Miranda | 32 | Sheet of Paper | 200601 |
+| Centi | 80 | Metal Pendant | 201601 |
 | Drake | 101 | Villain Figurine | 200801 |
 | Sugar | 140 | Commemorative Keychain | 202101 |
 | Privaty | 170 | Central Government Special Medal | 201401 |

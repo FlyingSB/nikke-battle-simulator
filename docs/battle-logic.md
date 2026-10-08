@@ -801,6 +801,10 @@ burstPhase = 0（充能中）
 - 刷新语义：已有护盾时取两者较大值（量与到期 tick 均取 max）。
 - 过期护盾在每 tick 开头清理。
 - **当前未建模**：护盾仅存储，未参与 HP 扣减计算（HP 直接受伤不经护盾）。
+- **共享护盾（shared shield）**：`applySharedShield(state, shieldAmt, shieldEndTick)`，如 Centi S2。
+  单一护盾池存于 `state.sharedShieldHp / sharedShieldEndTick`，不写入任何单位的 `shieldHp`，
+  **不派发 `APPLY_SHIELD`**（「when applying Shield」类技能如 Naga S1 P2 不响应），
+  「自身持有生效护盾」条件（如 Naga 爆裂 P3）也不计入。刷新与过期语义同 `applyShield`。
 
 ### 9.4 掩体治疗
 

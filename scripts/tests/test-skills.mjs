@@ -1414,6 +1414,89 @@ section('T25: pushBuff unitIds — 逐人独立 buff，日志合并为一行；m
   eq('无 multiplier 的 buff 快照为 null', snapshotBuffBreakdown(state, 2).find(b => b.name === 'Multi')?.multiplier, null);
 }
 
+// ── T26: Centi（SSR Metal Pendant）— S2 冷却轮询、S1 P1 冷却缩减、S1 P2 钢铁友军叠层、爆裂 DEF ▼ ──
+
+section('T26: Centi — S2 冷却 9s 轮询施放、全蓄力缩减冷却、S2 施放联动 S1 P2、爆裂 P1/P2');
+{
+  function centiSquad() {
+    const fav = (name, vals) => ({ ...mockRawSkill(vals), _activeSkillLevel: 1, name_localkey: name });
+    const ssrFavSkills = {
+      skill1: fav('Maintain Fortification', [9.16, 5.69, 10, 10, 7, 7, 5, 7, 100]),
+      skill2: fav('Field Discussion',       [7, 5, 4.6, 10, 8]),
+      burst:  fav('Start Construction',     [5, 145.46, 14.54, 10, 30.2]),
+    };
+    const centi = mockUnit(80, { weaponType: 'RL', element: 'Iron', unitHp: 1000000, ssrFavSkills,
+      rawSkill1: ssrFavSkills.skill1, rawSkill2: ssrFavSkills.skill2, rawBurst: ssrFavSkills.burst });
+    const iron  = mockUnit(9001, { element: 'Iron', unitHp: 500000 });
+    const fire  = mockUnit(9002, { element: 'Fire', unitHp: 500000 });
+    // Naga：S1 P2「when applying Shield」→ 用于验证共享护盾不派发 APPLY_SHIELD
+    const naga  = mockUnit(450, { unitHp: 500000,
+      rawSkill1: mockRawSkill([12, 14.57, 85.17, 10]),
+      rawSkill2: mockRawSkill([5, 2, 40.07, 5, 5, 2, 9.58]),
+      rawBurst:  mockRawSkill([10, 16.18, 10, 31.02, 10]) });
+    return { centi, iron, fire, naga };
+  }
+
+  const { centi, iron, fire, naga } = centiSquad();
+  const state = mockState([centi, iron, fire, naga], { pendingShieldReceived: [] });
+  executeSkillTriggers(state, 'PROGRAM_INIT');
+  eq('开局进入 9s 冷却', centi.skillState.centiS2ReadyTick, 9 * TICK_RATE);
+
+  // S1 P3：战斗开始 → Stockpile 标记 + 全员回复 7% 最终最大 HP
+  executeSkillTriggers(state, 'BATTLE_START');
+  eq('Stockpile 标记为全队 buff', state.buffs.find(b => b.name === 'Stockpile')?.unitId, null);
+  eq('开局回复 7% 施法者最终最大 HP', iron.unitHp, 500000 + 70000);
+
+  // 冷却未到：不施放（INTERVAL 首次调用仅记录起点）
+  state.tick = 100;
+  onInterval(state);
+  eq('冷却未到不施放 S2', state.buffs.some(b => b.name === 'Field Discussion (ATK)'), false);
+
+  // S1 P1：全蓄力 → 冷却 ▼ 9s × 9.16% = 49 ticks
+  onShotFired(state, centi, { sums: getBuffSums(state, 80), isCharged: true, hitPart: 'body', ammoAfterShot: 5 });
+  eq('全蓄力缩减 S2 冷却 49 ticks', centi.skillState.centiS2ReadyTick, 9 * TICK_RATE - 49);
+
+  // 就绪后由 INTERVAL 轮询施放
+  state.tick = centi.skillState.centiS2ReadyTick;
+  onInterval(state);
+  const atk = state.buffs.find(b => b.name === 'Field Discussion (ATK)');
+  eq('S2 施放：全员 ATK flat = 施法者 ATK × 4.6%', atk?.atkFlat, 4600);
+  eq('S2 ATK buff 上限 10 层', atk?.stackLimit, 10);
+  eq('S2 ATK buff 持续 8s', atk?.endTick, state.tick + 8 * TICK_RATE);
+  eq('共享护盾 = 7% 施法者最终最大 HP', state.sharedShieldHp, 70000);
+  eq('共享护盾持续 5s', state.sharedShieldEndTick, state.tick + 5 * TICK_RATE);
+  eq('共享护盾不写入单位 shieldHp', fire.shieldHp ?? 0, 0);
+  eq('共享护盾不进入 APPLY_SHIELD 派发队列', state.pendingShieldReceived.length, 0);
+  eq('Naga S1 P2（when applying Shield）未被共享护盾触发',
+    state.buffs.some(b => b.name === 'Guardian of Friendship'), false);
+  // 对照：Naga 自身真正获盾 → APPLY_SHIELD 应触发 S1 P2
+  executeSkillTriggers(state, 'APPLY_SHIELD', { unit: naga });
+  eq('Naga 自身获盾时 S1 P2 正常触发', state.buffs.some(b => b.name === 'Guardian of Friendship'), true);
+  eq('施放后重新进入 9s 冷却', centi.skillState.centiS2ReadyTick, state.tick + 9 * TICK_RATE);
+  const ironBuff = state.buffs.find(b => b.name === 'Maintain Fortification (Elem Adv Damage)' && b.unitId === 9001);
+  eq('S1 P2：钢铁友军属性克制攻击伤害 ▲ 5.69%', Math.round((ironBuff?.elementAdvantagePct ?? 0) * 1e6), 56900);
+  eq('S1 P2 上限 10 层', ironBuff?.stackLimit, 10);
+  eq('S1 P2 不给非钢铁友军',
+    state.buffs.some(b => b.name === 'Maintain Fortification (Elem Adv Damage)' && b.unitId === 9002), false);
+
+  // 第二次施放：ATK 与 Elem Adv 各叠 1 层
+  state.tick = centi.skillState.centiS2ReadyTick;
+  onInterval(state);
+  eq('第二次施放 ATK buff 叠至 2 层', atk?.stacks, 2);
+  eq('第二次施放 S1 P2 叠至 2 层', ironBuff?.stacks, 2);
+
+  // 爆裂：P1 伤害 1 次 + 敌方 DEF ▼ 14.54% 10s；P2 全员回复 30.2%
+  fire.unitHp = 100000;
+  executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: centi });
+  // 'Burst' 标签在 fireSkillHit 中解析为爆裂技能名
+  eq('爆裂 P1 伤害 1 次', centi.skillDamageCount['Start Construction'], 1);
+  const defDown = state.buffs.find(b => b.name === 'Start Construction (DEF Down)');
+  eq('敌方 DEF ▼ 14.54%', defDown?.enemyDefDownPct, 0.1454);
+  eq('DEF ▼ 作用于敌人', defDown?.unitId, '__enemy__');
+  eq('DEF ▼ 持续 10s', defDown?.endTick, state.tick + 10 * TICK_RATE);
+  eq('爆裂 P2 全员回复 30.2% 最终最大 HP', fire.unitHp, 100000 + 302000);
+}
+
 // ── 注册完整性：skills/ 目录下每个技能文件都必须在 SKILL_TRAITS 中注册 ─────────
 // UI 以 MODELED_IDS（= SKILL_TRAITS 的键）判断角色是否可选；
 // 漏注册的技能文件会导致角色在选择器中显示为「未建模」（曾发生于 583）。

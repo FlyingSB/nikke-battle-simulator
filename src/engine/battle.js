@@ -977,6 +977,10 @@ export function initBattle(config) {
     // Queue of units that received shields this tick. Populated by applyShield (battle-utils).
     // Consumed by flushShieldReceived() which dispatches APPLY_SHIELD triggers per unit.
     pendingShieldReceived: [],
+    // 共享护盾（shared shield，如 Centi S2）：单一护盾池，由 applySharedShield 写入；
+    // 不计入任何单位的 shieldHp，也不派发 APPLY_SHIELD。
+    sharedShieldHp:      0,
+    sharedShieldEndTick: 0,
     // Flag set when applyCoverHeal() is called (battle-utils). Consumed by flushCoverHeal()
     // which dispatches COVER_HEAL team trigger (e.g. Naga S1 Part1).
     pendingCoverHeal: false,
@@ -1204,6 +1208,7 @@ export function tick(state) {
   for (const u of state.squad) {
     if (u.shieldHp > 0 && state.tick >= u.shieldEndTick) u.shieldHp = 0;
   }
+  if (state.sharedShieldHp > 0 && state.tick >= state.sharedShieldEndTick) state.sharedShieldHp = 0;
 
   // ── 爆裂技能冷却递减 ─────────────────────────────────────────────────────────
   for (const u of state.squad) {

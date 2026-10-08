@@ -560,6 +560,27 @@ export function applyShield(state, unit, shieldAmt, shieldEndTick, logCtxOverrid
   _applyShieldUnit(state, unit, shieldAmt, shieldEndTick);
 }
 
+/**
+ * 施加「共享护盾」（shared shield，如 Centi S2）：单一护盾池挡在全队身前，
+ * 与各单位自身持有的护盾（unit.shieldHp）是不同机制：
+ *   - 不写入任何单位的 shieldHp，不推入 pendingShieldReceived，因此**不会**派发 APPLY_SHIELD
+ *     （「when applying Shield」类技能如 Naga S1 P2 不响应共享护盾）；
+ *   - 「自身持有生效护盾」类条件（如 Naga 爆裂 P3 读取 caster.shieldHp）同样不计入共享护盾。
+ * 存储于 state.sharedShieldHp / state.sharedShieldEndTick，刷新语义与 applyShield 相同（量与到期 tick 取 max）。
+ * 若 state._logCtx 存在（handler 路径），自动向战斗日志推入一条目标为「全体队友」的记录。
+ */
+export function applySharedShield(state, shieldAmt, shieldEndTick, logCtxOverride = null) {
+  if (shieldAmt <= 0) return;
+  _emitSkillEvent(state, '全体队友', logCtxOverride);
+  if ((state.sharedShieldHp ?? 0) > 0) {
+    state.sharedShieldHp      = Math.max(state.sharedShieldHp, shieldAmt);
+    state.sharedShieldEndTick = Math.max(state.sharedShieldEndTick ?? 0, shieldEndTick);
+  } else {
+    state.sharedShieldHp      = shieldAmt;
+    state.sharedShieldEndTick = shieldEndTick;
+  }
+}
+
 // ─── 掩体治疗 ─────────────────────────────────────────────────────────────
 
 /**

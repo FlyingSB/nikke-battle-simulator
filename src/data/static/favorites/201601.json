@@ -31,9 +31,9 @@
     4
   ],
   "powers": [
-    0,
-    0,
-    0
+    1288,
+    1288,
+    1288
   ],
   "name_localkey": "Metal Pendant",
   "description_localkey": "Even a workaholic who lives in her workshop can't escape love when it comes knocking.\nA first gift for someone may be rough around the edges, but that's what makes it pure and precious.",
@@ -55,7 +55,7 @@
       "level_up_cost_id": 0,
       "icon": "icn_skill_atkup_01",
       "name_localkey": "Gaze of Courage",
-      "description_localkey": "■ Activates at the start of the battle. \n<color=#00AEFF>Charge Damage <word_group=10029>Multiplier</word_group> ▲ {description_value_01}%.</color>\n<color=#00AEFF>DEF ▲ {description_value_02}%.</color>",
+      "description_localkey": "■ Activates at the start of battle. \n<color=#00AEFF>Charge Damage <word_group=10029>Multiplier</word_group> ▲ {description_value_01}%.</color>\n<color=#00AEFF>DEF ▲ {description_value_02}%.</color>",
       "info_description_localkey": "Burst Skill",
       "description_value_list": [
         {
@@ -93,7 +93,7 @@
       "level_up_cost_id": 0,
       "icon": "icn_skill_stathp_01",
       "name_localkey": "Grounding Pillar",
-      "description_localkey": "■ Activates at the start of the battle. \n<color=#00AEFF>Damage Taken ▼ {description_value_01}%.</color>\n<color=#00AEFF><word_group=10033>Max HP of Cover</word_group> ▲ {description_value_02}%.</color>",
+      "description_localkey": "■ Activates at the start of battle. \n<color=#00AEFF>Damage Taken ▼ {description_value_01}%.</color>\n<color=#00AEFF><word_group=10033>Max HP of cover</word_group> ▲ {description_value_02}%.</color>",
       "info_description_localkey": "Burst Skill",
       "description_value_list": [
         {
@@ -134,7 +134,7 @@
         "level_up_cost_id": 50202,
         "icon": "icn_skill_barrier_01",
         "name_localkey": "Field Discussion",
-        "description_localkey": "■ Affects all allies.\n<color=#00AEFF>Creates a <word_group=10023>Shield</word_group> equal to {description_value_01}% of the caster's <word_group=10025>final</word_group> Max HP for {description_value_02} sec.</color>",
+        "description_localkey": "■ Affects self.\n<color=#00AEFF>Creates a shared <word_group=10023>shield</word_group> with HP equal to {description_value_01}% of the skill user's <word_group=10025>final</word_group> max HP that protects all allies from damage. Lasts for {description_value_02} sec. </color>\n■ Affects all allies.\n<color=#00AEFF>ATK ▲ {description_value_03}% of the skill user's ATK. Stacks up to {description_value_04} times and lasts for {description_value_05} sec.</color>",
         "info_description_localkey": "Skill 2",
         "description_value_list": [
           {
@@ -165,9 +165,48 @@
               "5"
             ]
           },
-          {},
-          {},
-          {},
+          {
+            "description_value": [
+              "2.53",
+              "2.76",
+              "2.99",
+              "3.22",
+              "3.45",
+              "3.68",
+              "3.92",
+              "4.14",
+              "4.37",
+              "4.6"
+            ]
+          },
+          {
+            "description_value": [
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10"
+            ]
+          },
+          {
+            "description_value": [
+              "8",
+              "8",
+              "8",
+              "8",
+              "8",
+              "8",
+              "8",
+              "8",
+              "8",
+              "8"
+            ]
+          },
           {},
           {},
           {},
@@ -187,7 +226,7 @@
         "level_up_cost_id": 50102,
         "icon": "icn_skill_statreloadtime_01",
         "name_localkey": "Maintain Fortification",
-        "description_localkey": "■ Activates at the start of battle. Affects self.\n<color=#00AEFF>Forcefully uses Skill 2.</color>\n■ Activates when landing a Full Charge attack. Affects self.\n<color=#00AEFF><word_group=10031>Cooldown</word_group> of Skill 2 ▼ {description_value_01}%.</color>\n■ Activates when the shield created by Centi is destroyed. Affects all allies.\n<color=#00AEFF>Recovers {description_value_02}% of the caster's <word_group=10025>final</word_group> Max HP as HP.</color>",
+        "description_localkey": "■ Activates when landing a Full Charge attack. Affects self.\n<color=#00AEFF><word_group=10031>Cooldown</word_group> of Skill 2 ▼ {description_value_01}%.</color>\n■ Activates when Skill 2 activates. Affects all Iron Code allies.\n<color=#00AEFF><word_group=10009>Elemental Advantage Attack Damage</word_group> ▲ {description_value_02}%. Stacks up to {description_value_04} times and lasts for {description_value_03} sec.</color>\n■ Activates at the start of battle. Affects all allies.\n<color=#00AEFF>Stockpile: Stores excess incoming healing, up to {description_value_06}% of the skill user's max HP. Lasts for {description_value_07} sec.\nRestores HP equal to {description_value_08}% of the skill user's <word_group=10025>final</word_group> max HP.</color>\n■ Activates when an ally's HP (including this unit's) drops to {description_value_09}% or below while this unit is in the Stockpile state. Affects all allies.\n<color=#00AEFF>Restores HP equal to {description_value_05}% of the skill user's <word_group=10025>final</word_group> max HP.</color>",
         "info_description_localkey": "Skill 1",
         "description_value_list": [
           {
@@ -206,25 +245,116 @@
           },
           {
             "description_value": [
-              "5.73",
-              "6.17",
-              "6.62",
-              "7.05",
-              "7.5",
-              "7.93",
-              "8.38",
-              "8.82",
-              "9.26",
-              "9.7"
+              "3.13",
+              "3.41",
+              "3.7",
+              "3.98",
+              "4.27",
+              "4.56",
+              "4.84",
+              "5.12",
+              "5.41",
+              "5.69"
             ]
           },
-          {},
-          {},
-          {},
-          {},
-          {},
-          {},
-          {},
+          {
+            "description_value": [
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10"
+            ]
+          },
+          {
+            "description_value": [
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10",
+              "10"
+            ]
+          },
+          {
+            "description_value": [
+              "3.5",
+              "3.88",
+              "4.27",
+              "4.66",
+              "5.04",
+              "5.44",
+              "5.83",
+              "6.22",
+              "6.6",
+              "7"
+            ]
+          },
+          {
+            "description_value": [
+              "3.5",
+              "3.88",
+              "4.27",
+              "4.66",
+              "5.04",
+              "5.44",
+              "5.83",
+              "6.22",
+              "6.6",
+              "7"
+            ]
+          },
+          {
+            "description_value": [
+              "5",
+              "5",
+              "5",
+              "5",
+              "5",
+              "5",
+              "5",
+              "5",
+              "5",
+              "5"
+            ]
+          },
+          {
+            "description_value": [
+              "3.5",
+              "3.88",
+              "4.27",
+              "4.66",
+              "5.04",
+              "5.44",
+              "5.83",
+              "6.22",
+              "6.6",
+              "7"
+            ]
+          },
+          {
+            "description_value": [
+              "100",
+              "100",
+              "100",
+              "100",
+              "100",
+              "100",
+              "100",
+              "100",
+              "100",
+              "100"
+            ]
+          },
           {},
           {}
         ]
@@ -240,7 +370,7 @@
         "level_up_cost_id": 50302,
         "icon": "icn_skill_c080_ult",
         "name_localkey": "Start Construction",
-        "description_localkey": "■ Affects {description_value_01} enemy unit(s) with the lowest remaining HP.\n<color=#00AEFF>Deals {description_value_02}% of <word_group=10025>final</word_group> ATK as damage.\nDEF ▼ {description_value_03}% for {description_value_04} sec.</color>\n■ Affects self.\n<color=#00AEFF>Max HP ▲ {description_value_05}% for {description_value_06} sec.</color>",
+        "description_localkey": "■ Affects the {description_value_01} enemy unit(s) with the lowest remaining HP.\n<color=#00AEFF>Deals {description_value_02}% of <word_group=10025>final</word_group> ATK as damage.\nDEF ▼ {description_value_03}% for {description_value_04} sec.</color>\n■ Affects all allies.\n<color=#00AEFF>Restores HP equal to {description_value_05}% of the skill user's <word_group=10025>final</word_group> max HP.</color>",
         "info_description_localkey": "Burst Skill",
         "description_value_list": [
           {
@@ -301,32 +431,19 @@
           },
           {
             "description_value": [
-              "2.95",
-              "3.18",
-              "3.41",
-              "3.63",
-              "3.86",
-              "4.09",
-              "4.31",
-              "4.54",
-              "4.77",
-              "5"
+              "17.84",
+              "19.21",
+              "20.59",
+              "21.96",
+              "23.33",
+              "24.71",
+              "26.08",
+              "27.45",
+              "28.82",
+              "30.2"
             ]
           },
-          {
-            "description_value": [
-              "10",
-              "10",
-              "10",
-              "10",
-              "10",
-              "10",
-              "10",
-              "10",
-              "10",
-              "10"
-            ]
-          },
+          {},
           {},
           {},
           {},
