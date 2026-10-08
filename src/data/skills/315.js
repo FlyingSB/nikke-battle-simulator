@@ -2,20 +2,29 @@ import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Ade: Agent Bunny  (resource_id: 315)
+
+// Minimum Effective Range 的数值常量（技能表 const 值，不随等级变化）。
+const SPY_LENS_PCT_PER_STACK  = 4.44;  // S1 P2：每层 ▲4.44%
+const SPY_LENS_MAX_STACKS     = 10;
+const BURST_MIN_EFF_RANGE_PCT = 55.56; // 爆裂 P1：▲55.56%，10s
+const SR_BONUS_RANGE_MIN      = 45;    // SR 的 bonusrange_min（mock 单位无此字段时的回退值）
+
 // 计算当前 Minimum Effective Range 累积值（%）。
 // 来源：Spy Lens 叠层（每层 4.44%，最多 10 层）+ 爆裂技能（+55.56%，10s）。
 function calcMinEffRangePct(state, caster) {
-  const stacksPct = (caster.skillState.aabSpyLensStacks ?? 0) * 4.44;
-  const burstPct  = (caster.skillState.aabBurstMinEffRangeEndTick ?? 0) > state.tick ? 55.56 : 0;
+  const stacksPct = (caster.skillState.aabSpyLensStacks ?? 0) * SPY_LENS_PCT_PER_STACK;
+  const burstPct  = (caster.skillState.aabBurstMinEffRangeEndTick ?? 0) > state.tick ? BURST_MIN_EFF_RANGE_PCT : 0;
   return stacksPct + burstPct;
 }
 
-// Ade 的有效射程下界（连续距离刻度）。SR 默认优势射程 min=45（FAR）；
-// Minimum Effective Range 累积值扩展下界：≥44% → 35（MID 也计入）；≥99% → 20（NEAR 也计入）。
-// 阈值距离取自 constants.ZONE_TO_DISTANCE（NEAR20/MID35/FAR45），与几何命中模型同刻度。
+// Ade 的有效射程下界（连续距离刻度，与 bonusrange 同刻度）。
+// 机制（2026-10-07 训练场 BIGARMS 实测反推，见 dev/game-data.md「Ade: Agent Bunny」）：
+//   下界 = bonusrange_min × (1 − ΣMinimum Effective Range%)
+// 各百分比正是按 SR 的 bonusrange_min=45 设计的：4.44% = 2/45（每层缩 2 格）、
+// 55.56% = 25/45（爆裂缩 25 格）、10 层 + 爆裂 ≈ 100%（下界归零，全距离优势）。
 function effRangeMin(state, caster) {
-  const total = calcMinEffRangePct(state, caster);
-  return total >= 99 ? 20 : total >= 44 ? 35 : 45;
+  const base = caster.bonusRangeMin ?? SR_BONUS_RANGE_MIN;
+  return base * (1 - calcMinEffRangePct(state, caster) / 100);
 }
 
 // 判断当前敌人是否处于 Ade 的"有效射程"内（触发优势射程加成 / 全蓄力条件）。
@@ -63,8 +72,10 @@ export default {
       },
 
       // Part2：任意全蓄力（不需在有效射程内）→ 自身 Spy Lens 叠层（最多 10 层，5s 内未刷新则清零）
-      // 达到满层（10 层）时激活 S2 Part2 的 pierce + ATK% 持续效果
-      // 每次叠层后同步 effRangeMin，使下一发射击立即享受扩展的优势射程
+      // 达到满层（10 层）时激活 S2 Part2 的 pierce + ATK% 持续效果。
+      // 时机：射后（FULL_CHARGE）。实测（dev/game-data.md）第 10 枪首次获得距离优势，同枪触发的
+      // S1P1 / S2P1 / S2P2 均未作用于第 10 枪本身 → 叠层与满层激活都发生在本发伤害之后；
+      // 第 10 枪的距离判定用的是前 9 层（下界 27.04），第 9 枪用 8 层（下界 29.02）。
       {
         on: 'FULL_CHARGE',
         handler(state, caster) {
@@ -75,18 +86,20 @@ export default {
             caster.skillState.aabSpyLensStacks = 0;
           }
 
-          const stacks = Math.min(10, (caster.skillState.aabSpyLensStacks ?? 0) + 1);
+          const stacks = Math.min(SPY_LENS_MAX_STACKS, (caster.skillState.aabSpyLensStacks ?? 0) + 1);
           caster.skillState.aabSpyLensStacks  = stacks;
           caster.skillState.aabSpyLensEndTick = now + TICK_RATE * 5;
 
           syncEffRangeMin(state, caster);
 
           // 首次达到满层时激活 S2 Part2（pierce 持续 + ATK% 持续）
-          if (stacks >= 10 && !caster.skillState.aabS2FullyStacked) {
+          if (stacks >= SPY_LENS_MAX_STACKS && !caster.skillState.aabS2FullyStacked) {
             caster.skillState.aabS2FullyStacked = true;
             const lv2    = caster.skillLevels[1];
             const atkPct = getSkillValue(caster.rawSkill2, 2, lv2) / 100;
-            pushBuff(state, { name: 'Agent\'s Movement (ATK)', unitId: caster.id, pierce: true, atkPct, endTick: Infinity });
+            // 效果属 S2 P2，但由 S1 handler 推入 → 日志显式归属到 S2 P2
+            pushBuff(state, { name: 'Agent\'s Movement (ATK)', unitId: caster.id, pierce: true, atkPct, endTick: Infinity },
+              { ...state._logCtx, skillLabel: caster.rawSkill2?.name_localkey ?? 'S2', slot: 'S2', partIdx: 1, lineIdx: null });
           }
         },
       },

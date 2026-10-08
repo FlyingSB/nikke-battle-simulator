@@ -86,13 +86,17 @@ export default {
         on: 'SHOT_COUNT',
         opts: { every: 43, counterKey: 'crownShotCount' },
         handler(state, caster) {
-          pushBuff(state, { name: 'Relax', unitId: caster.id, endTick: Infinity, stackLimit: 20 }, false);
+          // Relax 每层：自身治疗效能 ▲ p02%（作用于 Crown 作为治疗者施放的治疗）
+          const potencyPct = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
+          pushBuff(state, { name: 'Relax', unitId: caster.id, healPotencyPct: potencyPct,
+            endTick: Infinity, stackLimit: 20 }, false);
           const relax = state.buffs.find(b => b.name === 'Relax' && b.unitId === caster.id);
           if (!relax || relax.stacks < 20) return;
-          state.buffs = state.buffs.filter(b => !(b.name === 'Relax' && b.unitId === caster.id));
+          // 满层：先治疗（享受 20 层 Relax 治疗效能），再移除 Relax
           const healPct      = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
-          const attackDmgPct = getSkillValue(caster.rawSkill2, 6, caster.skillLevels[1]) / 100;
-          applyHeal(state, caster, Math.round(getFinalMaxHp(state, caster) * healPct), { ...state._logCtx, partIdx: 1 });  // "caster's final Max HP"
+          applyHeal(state, caster, Math.round(getFinalMaxHp(state, caster) * healPct),
+            { ...state._logCtx, partIdx: 1 }, caster);  // "caster's final Max HP"
+          state.buffs = state.buffs.filter(b => !(b.name === 'Relax' && b.unitId === caster.id));
         },
       },
       // tdefIdx=1：■段1(Relax满层 Invulnerable/Taunt)防御性效果未建模，占位

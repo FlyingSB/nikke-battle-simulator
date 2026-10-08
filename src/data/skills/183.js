@@ -1,4 +1,4 @@
-﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, setMaxHpBuffValue,
          getBuffSums, snapshotBuffBreakdown, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
@@ -70,15 +70,16 @@ export default {
           if (caster.skillState.iceroseChargeCount < 6) return false;
           caster.skillState.iceroseChargeCount = 0;
           const maxHpPctPerStack = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
+          // 「without restoring HP」→ noRestore：只提升上限，不回复当前 HP
           const existing = state.buffs.find(b => b.name === 'Meditation' && b.unitId === caster.id);
           const stacks   = Math.min(10, (existing?.stackCount ?? 0) + 1);
           const end15    = state.tick + TICK_RATE * 15;
           if (existing) {
             existing.stackCount = stacks;
-            existing.maxHpPct   = stacks * maxHpPctPerStack;
+            setMaxHpBuffValue(state, existing, { maxHpPct: stacks * maxHpPctPerStack });
             existing.endTick    = end15;
           } else {
-            state.buffs.push({ name: 'Meditation', unitId: caster.id,
+            state.buffs.push({ name: 'Meditation', unitId: caster.id, noRestore: true,
               maxHpPct: maxHpPctPerStack, endTick: end15, stackCount: 1 });
           }
         },

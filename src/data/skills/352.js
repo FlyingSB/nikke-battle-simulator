@@ -45,7 +45,7 @@ export default {
           if (hpPct > 0) {
             const hpGain = Math.round(getFinalMaxHp(state, caster) * hpPct);  // "caster's final Max HP"
             // 全员治疗；HEAL_RECEIVED 触发由 battle.js 中 applyHeal 后调用 executeSkillTriggers 覆盖
-            applyHeal(state, ALL_ALLIES, hpGain);
+            applyHeal(state, ALL_ALLIES, hpGain, null, caster);
           }
           if (bgPct > 0)
             addBurstGauge(state, caster.name, 'helm_s1_gaugeBoost', Math.round(bgPct * BURST_GAUGE_MAX));

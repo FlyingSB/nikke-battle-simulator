@@ -43,7 +43,7 @@ export default {
         partOverride: 0,
         handler(state, caster) {
           const pct = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
-          applyHeal(state, ALL_ALLIES, Math.round(finalMaxHp(state, caster) * pct));
+          applyHeal(state, ALL_ALLIES, Math.round(finalMaxHp(state, caster) * pct), null, caster);
         },
       },
 
@@ -137,7 +137,7 @@ export default {
           const lv = caster.skillLevels[1];
           st.yk_nextMediaramaTick += Math.round(TICK_RATE * getSkillValue(caster.rawSkill2, 0, lv));
           const pct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
-          applyHeal(state, ALL_ALLIES, Math.round(finalMaxHp(state, caster) * pct));
+          applyHeal(state, ALL_ALLIES, Math.round(finalMaxHp(state, caster) * pct), null, caster);
         },
       },
       // S2 P2 解除：全爆裂结束。

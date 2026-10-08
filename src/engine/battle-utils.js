@@ -46,6 +46,8 @@ export const BUFF_NUMERIC_FIELDS = [
   'damageToPartsPct',
   'mgHeatSpeedPct',
   'pelletFlat',
+  // 治疗效能（Potency of HP restored ▲，挂在治疗者身上）/ 受治疗量（Incoming Healing ▲，挂在受治疗者身上）
+  'healPotencyPct', 'incomingHealPct',
 ];
 
 // ─── 最大装弹数管理 ─────────────────────────────────────────────────────────
@@ -319,6 +321,8 @@ function _pushBuffCore(state, buffObj, logCtx = null) {
     const limit = buffObj.stackLimit ?? 1;
     if (limit > 1 && (existing.stacks ?? 1) < limit) {
       existing.stacks = (existing.stacks ?? 1) + 1;
+      // 新增一层 Max HP ▲ → 当前 HP 同步提升一层的量（除非「without restoring HP」）
+      _restoreOnMaxHpGain(state, existing, existing.maxHpPct ?? 0, existing.maxHpFlat ?? 0);
     }
     // 仅纯永久 buff（无回合制）刷新时视为无实质变化，不记录日志
     const isInfiniteRefresh = existing.endTick === Infinity && buffObj.endTick === Infinity
@@ -338,6 +342,8 @@ function _pushBuffCore(state, buffObj, logCtx = null) {
     buff._sourceLineIdx    = logCtx.lineIdx ?? null;
   }
   state.buffs.push(buff);
+  // Max HP ▲ 首次生效 → 当前 HP 同步提升相同量（除非「without restoring HP」）
+  _restoreOnMaxHpGain(state, buff, (buff.maxHpPct ?? 0) * buff.stacks, (buff.maxHpFlat ?? 0) * buff.stacks);
   if (logCtx) _emitBuffEvent(state, buff, logCtx);
   if (state.buffLog) {
     state.buffLog.push({
@@ -347,6 +353,76 @@ function _pushBuffCore(state, buffObj, logCtx = null) {
     });
   }
   return true;
+}
+
+// ─── Max HP 变化与当前 HP ────────────────────────────────────────────────────
+//
+// 游戏内「Max HP ▲ X%」在提升上限的同时把当前 HP 提高相同的量（HP% 不变）；
+// 描述写明「without restoring HP」的效果只提升上限（buff 字段 noRestore: true）。
+// Max HP 效果到期时当前 HP 若高于新的上限则截断（见 clampHpToMax，由 battle.js 过期清理调用）。
+// 此处的「回复」不是治疗：不经 applyHeal、不派发 HEAL_RECEIVED、不受治疗效能影响。
+
+// buff 所作用的单位列表（unitId null → 全队）
+function _buffTargets(state, buff) {
+  if (!state.squad) return [];
+  if (buff.unitId === null || buff.unitId === undefined) return state.squad;
+  if (buff.unitId === ENEMY_UNIT_ID) return [];
+  const u = state.squad.find(u => u.id === buff.unitId);
+  return u ? [u] : [];
+}
+
+// ─── 当前 HP 写入（单一入口）────────────────────────────────────────────────
+//
+// 所有改变 unit.unitHp 的路径（治疗、生命偷取、Max HP 变化、自损、将来的受伤）都经 _setUnitHp，
+// 它把「首次变化前的 HP」记入 state.pendingHpChanged（unitId → { unit, prevHp }），
+// 由 skill-executor.dispatchHpChanged 派发 HP_CHANGED 团队触发（ctx.unit / prevHp / newHp）。
+function _setUnitHp(state, unit, newHp) {
+  const prev = unit.unitHp;
+  if (newHp === prev) return;
+  unit.unitHp = newHp;
+  if (state.pendingHpChanged instanceof Map && !state.pendingHpChanged.has(unit.id))
+    state.pendingHpChanged.set(unit.id, { unit, prevHp: prev });
+}
+
+// buff 的 Max HP 增量（deltaPct / deltaFlat）生效 → 各目标当前 HP 提升对应的量
+function _restoreOnMaxHpGain(state, buff, deltaPct, deltaFlat) {
+  if (buff.noRestore) return;
+  if (!deltaPct && !deltaFlat) return;
+  for (const u of _buffTargets(state, buff)) {
+    if (u.unitHp === undefined) continue;   // 未初始化 HP 的单位（测试 mock）不处理
+    const gain = Math.round(u.stats.hp * deltaPct + deltaFlat);
+    if (gain > 0) _setUnitHp(state, u, Math.min(getFinalMaxHp(state, u), u.unitHp + gain));
+  }
+}
+
+/**
+ * 就地改写已存在 buff 的 Max HP 数值（如 Laplace: Ultimate Hero Over Energy 阶段推进、
+ * Maxwell: Ordinary Mechanic 叠层写入「层数 × 每层」）。
+ * 增量部分按「Max HP ▲ 同步回复当前 HP」处理（buff.noRestore 时不回复）；数值降低时截断当前 HP。
+ * 技能文件修改 maxHpPct / maxHpFlat 字段时必须经此函数，不要直接赋值。
+ * @param {object} state
+ * @param {object} buff   state.buffs 中的 buff 对象
+ * @param {{ maxHpPct?: number, maxHpFlat?: number }} next  新的数值（缺省字段保持不变）
+ */
+export function setMaxHpBuffValue(state, buff, next) {
+  const oldPct  = buff.maxHpPct  ?? 0;
+  const oldFlat = buff.maxHpFlat ?? 0;
+  const newPct  = next.maxHpPct  ?? oldPct;
+  const newFlat = next.maxHpFlat ?? oldFlat;
+  if (next.maxHpPct  !== undefined) buff.maxHpPct  = newPct;
+  if (next.maxHpFlat !== undefined) buff.maxHpFlat = newFlat;
+  const k = buff.stacks ?? 1;
+  _restoreOnMaxHpGain(state, buff, (newPct - oldPct) * k, (newFlat - oldFlat) * k);
+  for (const u of _buffTargets(state, buff)) clampHpToMax(state, u);
+}
+
+/**
+ * 当前 HP 截断到最终 MaxHP（Max HP 效果到期 / 数值降低后调用）。
+ */
+export function clampHpToMax(state, unit) {
+  if (unit.unitHp === undefined) return;
+  const max = getFinalMaxHp(state, unit);
+  if (unit.unitHp > max) _setUnitHp(state, unit, max);
 }
 
 // buff 推入后：若含 maxAmmo 相关字段，对受影响单位重新计算最大弹匣。
@@ -507,24 +583,152 @@ function _emitSkillEvent(state, target, override = null) {
 // ─── HP 回复 ────────────────────────────────────────────────────────────────
 
 /**
- * 对目标单位施加 HP 回复。
- * targetUnit 可为单位对象或 ALL_ALLIES 哨兵（内部遍历 state.squad）。
- * 若 state._logCtx 存在（handler 路径），自动向战斗日志推入合并记录。
- * 调用方负责在回复后分派 HEAL_RECEIVED 触发（skill-executor.executeSkillTriggers）。
+ * 单位当前 HP 占最终 MaxHP 的比例（「HP 低于 X%」类条件统一用此函数判定）。
+ * unitHp 未初始化时视为满血。
  */
-export function applyHeal(state, targetUnit, amount, logCtxOverride = null) {
-  if (amount <= 0) return;
-  if (targetUnit === ALL_ALLIES) {
-    _emitSkillEvent(state, '全体队友', logCtxOverride);
+export function getHpRatio(state, unit) {
+  const max = getFinalMaxHp(state, unit);
+  if (!(max > 0)) return 1;
+  return (unit.unitHp ?? max) / max;
+}
+
+// 实际回复量：基础量 × (1 + 治疗者治疗效能) × (1 + 受治疗者受治疗量加成)
+function _effectiveHealAmount(state, baseAmount, caster, target) {
+  const potency  = caster ? (getBuffSums(state, caster.id).healPotencyPct ?? 0) : 0;
+  const incoming = getBuffSums(state, target.id).incomingHealPct ?? 0;
+  return Math.round(baseAmount * (1 + potency) * (1 + incoming));
+}
+
+// 溢出治疗储存（Stockpile / Storage）是否处于生效期
+function _overhealActive(state, unit) {
+  const o = unit.overheal;
+  return !!o && o.endTick > state.tick;
+}
+
+// 向单位增加 HP（上限为最终 MaxHP）；超出上限的部分在溢出储存生效期内存入储存池（不超过 cap）。
+// 只改变 HP / 储存池并记录 HP_CHANGED，不视为「受到治疗」。
+function _addHp(state, unit, amount) {
+  const max     = getFinalMaxHp(state, unit);
+  const cur     = unit.unitHp ?? max;
+  const applied = Math.max(0, Math.min(amount, max - cur));
+  _setUnitHp(state, unit, cur + applied);
+  const excess = amount - applied;
+  if (excess > 0 && _overhealActive(state, unit)) {
+    const o = unit.overheal;
+    o.hp = Math.min(o.cap, o.hp + excess);
+  }
+}
+
+// 单位「受到治疗」：增加 HP 并排入 HEAL_RECEIVED 派发队列
+function _healUnit(state, unit, amount) {
+  _addHp(state, unit, amount);
+  if (Array.isArray(state.pendingHealReceived)) state.pendingHealReceived.push(unit);
+}
+
+// 目标是否处于「平均分摊治疗」状态（buff 字段 shareHeal: true，如 Nayuta S1 P2 Hypocrisy）
+function _hasShareHeal(state, unit) {
+  return state.buffs.some(b => b.shareHeal
+    && (b.unitId === null || b.unitId === unit.id)
+    && !(b.endTick !== undefined && b.endTick !== Infinity && b.endTick <= state.tick));
+}
+
+// 对单个目标结算一次治疗：
+//   平均分摊状态下，实际回复量均分给全队 —— 只有原目标「受到治疗」（HEAL_RECEIVED），
+//   其余队员仅发生 HP 变化（HP_CHANGED）。
+function _healTarget(state, target, effectiveAmount) {
+  if (_hasShareHeal(state, target) && state.squad?.length > 1) {
+    const share = Math.round(effectiveAmount / state.squad.length);
     for (const u of state.squad) {
-      u.unitHp = Math.min(u.stats.hp, u.unitHp + amount);
-      if (Array.isArray(state.pendingHealReceived)) state.pendingHealReceived.push(u);
+      if (u === target) _healUnit(state, u, share);
+      else _addHp(state, u, share);
     }
     return;
   }
+  _healUnit(state, target, effectiveAmount);
+}
+
+/**
+ * 对目标单位施加 HP 回复。
+ * targetUnit 可为单位对象或 ALL_ALLIES 哨兵（内部遍历 state.squad）。
+ * amount 为技能描述给出的基础回复量；实际回复量另乘治疗者的治疗效能（healPotencyPct）
+ * 与受治疗者的受治疗量加成（incomingHealPct），上限为受治疗者的最终 MaxHP，
+ * 超出部分在溢出治疗储存（applyOverhealStorage）生效期内存入储存池。
+ * caster 为治疗者（施法单位）；省略时不计治疗效能。
+ * 若 state._logCtx 存在（handler 路径），自动向战斗日志推入合并记录。
+ * 调用方负责在回复后分派 HEAL_RECEIVED / HP_CHANGED 触发（battle.js flushHpEvents）。
+ */
+export function applyHeal(state, targetUnit, amount, logCtxOverride = null, caster = null) {
+  if (amount <= 0) return;
+  if (targetUnit === ALL_ALLIES) {
+    _emitSkillEvent(state, '全体队友', logCtxOverride);
+    for (const u of state.squad) _healTarget(state, u, _effectiveHealAmount(state, amount, caster, u));
+    return;
+  }
   _emitSkillEvent(state, targetUnit.name, logCtxOverride);
-  targetUnit.unitHp = Math.min(targetUnit.stats.hp, targetUnit.unitHp + amount);
-  if (Array.isArray(state.pendingHealReceived)) state.pendingHealReceived.push(targetUnit);
+  _healTarget(state, targetUnit, _effectiveHealAmount(state, amount, caster, targetUnit));
+}
+
+/**
+ * 生命偷取（「Recovers X% of attack damage as HP」）：命中造成伤害后按 sums.lifeStealPct 回复自身。
+ * 视为一次 HP 回复：受自身治疗效能 / 受治疗量加成影响，并派发 HEAL_RECEIVED
+ * （如 Crown S2 P3「recovery takes effect」可由 Helm 爆裂的全员生命偷取触发）。
+ * 不写战斗日志（每发射击都会触发，避免刷屏）。
+ */
+export function applyLifeSteal(state, unit, damage, sums) {
+  const pct = sums?.lifeStealPct ?? 0;
+  if (!(pct > 0) || !(damage > 0)) return;
+  _healTarget(state, unit, _effectiveHealAmount(state, damage * pct, unit, unit));
+}
+
+/**
+ * 扣减当前 HP（「Current HP ▼ X%」类自损效果，如 Scarlet S1、Grave 爆裂 Prediction）。
+ * amount 为扣减量（「Current HP ▼ X%」= 当前 HP × X%，由调用方换算）。
+ * 溢出治疗储存生效期内先扣储存池，再扣 HP；HP 不会降到 1 以下（自损不致死）。
+ * 若 state._logCtx 存在（handler 路径），自动向战斗日志推入记录。
+ * @returns {number} 实际扣减量（含储存池部分）
+ */
+export function applyHpLoss(state, unit, amount, logCtxOverride = null) {
+  if (!(amount > 0)) return 0;
+  let remaining = amount;
+  if (_overhealActive(state, unit) && unit.overheal.hp > 0) {
+    const fromStore = Math.min(unit.overheal.hp, remaining);
+    unit.overheal.hp -= fromStore;
+    remaining        -= fromStore;
+  }
+  const before = unit.unitHp ?? getFinalMaxHp(state, unit);
+  const after  = Math.max(1, before - remaining);
+  _setUnitHp(state, unit, after);
+  _emitSkillEvent(state, unit.name, logCtxOverride);
+  return (amount - remaining) + (before - after);
+}
+
+// ─── 溢出治疗储存 ─────────────────────────────────────────────────────────────
+
+/**
+ * 开启溢出治疗储存（Centi S1 P3 Stockpile / Anchor 爆裂 Storage）：
+ * 生效期内超出最终 MaxHP 的治疗量存入 unit.overheal.hp（上限 cap），HP 扣减时优先扣储存池；
+ * 到期由 expireOverheal 移除储存部分。储存池不计入 HP 比例（getHpRatio）。
+ * 重复开启：储存量保留，上限与到期取较大值。
+ * target 可为单位对象或 ALL_ALLIES；cap 可为数值或 (unit) => 数值（如「their Max HP」按各目标换算）。
+ */
+export function applyOverhealStorage(state, target, cap, endTick, logCtxOverride = null) {
+  const units = target === ALL_ALLIES ? state.squad : [target];
+  _emitSkillEvent(state, target === ALL_ALLIES ? '全体队友' : target.name, logCtxOverride);
+  for (const u of units) {
+    const c = Math.round(typeof cap === 'function' ? cap(u) : cap);
+    if (!(c > 0)) continue;
+    if (_overhealActive(state, u)) {
+      u.overheal.cap     = Math.max(u.overheal.cap, c);
+      u.overheal.endTick = Math.max(u.overheal.endTick, endTick);
+    } else {
+      u.overheal = { hp: 0, cap: c, endTick };
+    }
+  }
+}
+
+/** 溢出治疗储存到期清理（battle.js 每 tick 调用）：移除储存部分。 */
+export function expireOverheal(state, unit) {
+  if (unit.overheal && unit.overheal.endTick <= state.tick) unit.overheal = null;
 }
 
 // ─── 护盾 ──────────────────────────────────────────────────────────────────
@@ -585,12 +789,14 @@ export function applySharedShield(state, shieldAmt, shieldEndTick, logCtxOverrid
 
 /**
  * 标记掩体受到治疗（设置 state.pendingCoverHeal = true）。
- * 若 state._logCtx 存在（handler 路径），自动向战斗日志推入记录。
+ * 若 state._logCtx 存在（handler 路径），自动向战斗日志推入记录；
+ * targets 为受治疗掩体所属单位数组（如 Liter S2 的 2 名队友），缺省为全队掩体。
  * battle.js 的 flushCoverHeal 会分派 COVER_HEAL 团队触发。
- * 调用方负责传入实际治疗量（模拟器仅建模事件，不追踪掩体 HP 数值）。
+ * 模拟器仅建模事件，不追踪掩体 HP 数值。
  */
-export function applyCoverHeal(state, logCtxOverride = null) {
-  _emitSkillEvent(state, '掩体', logCtxOverride);
+export function applyCoverHeal(state, logCtxOverride = null, targets = null) {
+  const label = targets?.length ? `掩体（${targets.map(u => u.name).join('、')}）` : '掩体';
+  _emitSkillEvent(state, label, logCtxOverride);
   state.pendingCoverHeal = true;
 }
 
@@ -599,16 +805,18 @@ export function applyCoverHeal(state, logCtxOverride = null) {
 /**
  * 将持续治疗（HoT）推入 state.pendingHoTs。
  * target 可为单位对象或 ALL_ALLIES 哨兵（内部自动遍历 state.squad）。
- * durationSecs：持续秒数，每整秒触发一次治疗。
+ * amount 为每次的基础回复量；durationSecs：持续秒数，每整秒触发一次治疗。
+ * caster 为治疗者，记录为条目的 casterId：每次触发时按当时的治疗效能 / 受治疗量计算实际回复量。
  * 若 state._logCtx 存在（handler 路径），自动向战斗日志推入一条合并开始记录。
  */
-export function pushHoT(state, target, amount, durationSecs, logCtxOverride = null) {
+export function pushHoT(state, target, amount, durationSecs, logCtxOverride = null, caster = null) {
   if (amount <= 0 || durationSecs <= 0) return;
   _emitSkillEvent(state, target === ALL_ALLIES ? '全体队友' : target.name, logCtxOverride);
   const units = target === ALL_ALLIES ? state.squad : [target];
   for (const u of units) {
     for (let i = 1; i <= durationSecs; i++) {
-      state.pendingHoTs.push({ fireTick: state.tick + i * TICK_RATE, targetId: u.id, amount });
+      state.pendingHoTs.push({ fireTick: state.tick + i * TICK_RATE, targetId: u.id, amount,
+        casterId: caster?.id ?? null });
     }
   }
 }
@@ -782,9 +990,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state) + distributedDamagePct,
   });
   unit.totalDamage += damage;
-  if (sums.lifeStealPct > 0) {
-    unit.unitHp = Math.min(unit.stats.hp, unit.unitHp + damage * sums.lifeStealPct);
-  }
+  applyLifeSteal(state, unit, damage, sums);
   if (label) {
     unit.skillDamage        ??= {};
     unit.skillDamageCount   ??= {};

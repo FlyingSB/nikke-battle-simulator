@@ -2,6 +2,10 @@ import { pushBuff, applyHeal, TICK_RATE, pushHoT, ALL_ALLIES, getFinalMaxHp } fr
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Prika  (resource_id: 601)
+
+// S1 P2 Performance 期间的自身 buff（治疗效能 + Pierce 合并；主类型取 Pierce → 「技能名 (类型)」）
+const PERFORMANCE_POTENCY = 'Let\'s Get the Show Started (Pierce)';
+
 export default {
 
   // ── Let's Get the Show Started
@@ -9,8 +13,10 @@ export default {
   //   Projectile Explosion Damage ▲ {p00}% for {p01=3} sec.
   //   Pierce Damage ▲ {p02}% for {p03=3} sec.
   //   ATK ▲ {p04}% of the caster's ATK for {p05=3} sec.
-  // ■ Activates only while in Performance status. Affects self. (passive; not modeled as separate trigger)
+  // ■ Activates only while in Performance status. Affects self.
   //   Potency of HP restored ▲ {p06}% continuously. Gains Pierce continuously.
+  //   绑定于 Performance：治疗效能 + Pierce 合并为一条自身 buff，随 Performance 开始 / 延长
+  //   （爆裂 handler 与 Encore）推入并同步到期。
   //
   // group_id: 26011
   // p00 Projectile Explosion Damage ▲%: [11.82, 12.72, 13.63, 14.54, 15.45, 16.36, 17.27, 18.18, 19.09, 20]
@@ -19,7 +25,7 @@ export default {
   // p03 duration (const): [3, ...]
   // p04 ATK ▲%（基于施放者 ATK）: [11.11, 12.09, 13.08, 14.07, 15.06, 16.04, 17.03, 18.02, 19.01, 20]
   // p05 duration (const): [3, ...]
-  // p06 Potency of HP restored ▲%（Performance 中生效；burst HoT 计算时已折算）:
+  // p06 Potency of HP restored ▲%（Performance 中生效，作用于 Prika 作为治疗者的所有治疗）:
   //     [29.5, 31.77, 34.03, 36.3, 38.57, 40.84, 43.11, 45.38, 47.65, 49.92]
   skill1: {
     groupId: 26011,
@@ -97,15 +103,16 @@ export default {
           const oldEndTick = ss.prika_performanceEndTick;
           ss.prika_performanceEndTick += TICK_RATE * 21;
 
-          // 延长所有队友的 Performance Charge Damage buff 到期时间
+          // 延长所有队友的 Performance Charge Damage buff 与自身 S1 P2 治疗效能 buff 的到期时间
           for (const b of state.buffs) {
-            if (b.name === 'Performance') b.endTick = ss.prika_performanceEndTick;
+            if (b.name === 'Performance' || b.name === PERFORMANCE_POTENCY) b.endTick = ss.prika_performanceEndTick;
           }
 
-          // 追加 21 次 HoT（紧接原结束 tick 之后逐秒触发）
+          // 追加 21 次 HoT（紧接原结束 tick 之后逐秒触发；casterId 使每次按当时的治疗效能计算）
           for (const u of state.squad) {
             for (let i = 1; i <= 21; i++) {
-              state.pendingHoTs.push({ fireTick: oldEndTick + i * TICK_RATE, targetId: u.id, amount: ss.prika_hotAmount });
+              state.pendingHoTs.push({ fireTick: oldEndTick + i * TICK_RATE, targetId: u.id,
+                amount: ss.prika_hotAmount, casterId: caster.id });
             }
           }
 
@@ -141,13 +148,17 @@ export default {
           // Performance 持续 25s（Encore 可延长）
           ss.prika_performanceEndTick = state.tick + TICK_RATE * duration;
 
-          // Effect 1：HoT — p00% × Prika 最终 Max HP / s × 25s
-          // S1 在 Performance 中提升恢复效能 p06%（Performance 随此 burst 立即生效，预折算进 amount）
-          const hotPct     = getSkillValue(caster.rawBurst, 0, lv) / 100;
+          // S1 P2：Performance 期间自身治疗效能 ▲ p06% + Pierce（随 Performance 立即生效，日志归属 S1 P2）
           const potencyPct = getSkillValue(caster.rawSkill1, 6, caster.skillLevels[0]) / 100;
-          const amount     = Math.round(getFinalMaxHp(state, caster) * hotPct * (1 + potencyPct));  // "caster's final max HP"
+          pushBuff(state, { name: PERFORMANCE_POTENCY, unitId: caster.id, pierce: true,
+            healPotencyPct: potencyPct, endTick: ss.prika_performanceEndTick },
+            { ...state._logCtx, skillLabel: caster.rawSkill1?.name_localkey ?? 'S1', slot: 'S1', partIdx: 1, lineIdx: null });
+
+          // Effect 1：HoT — p00% × Prika 最终 Max HP / s × 25s（每次触发按当时治疗效能放大）
+          const hotPct     = getSkillValue(caster.rawBurst, 0, lv) / 100;
+          const amount     = Math.round(getFinalMaxHp(state, caster) * hotPct);  // "caster's final max HP"
           ss.prika_hotAmount = amount; // 供 Encore 延长时复用
-          pushHoT(state, ALL_ALLIES, amount, duration);
+          pushHoT(state, ALL_ALLIES, amount, duration, null, caster);
 
           // Effect 2：全队 Charge Damage ▲ p04% 25s
           const chargeDmgPct = getSkillValue(caster.rawBurst, 4, lv) / 100;

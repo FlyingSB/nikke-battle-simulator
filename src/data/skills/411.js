@@ -1,4 +1,4 @@
-import { pushBuff, applyHeal, getBuffSums, recalcMaxAmmo, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, applyShield, getBuffSums, getFinalMaxHp, recalcMaxAmmo, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Flora  (resource_id: 411)
@@ -58,19 +58,24 @@ export default {
   // p01 （未使用）               [1,...]
   // p02 shots (const):          [100,...]
   // p03 stack increase (const): [1,...]
-  // p04 Incoming Healing ▲%:    [2.36 … 4]   — 受治疗量加成不建模（对输出无影响）
+  // p04 Incoming Healing ▲%:    [2.36 … 4]   — 每层受治疗量 ▲（Peace of Mind buff 的 incomingHealPct，
+  //                                             可被 P2「可叠加 buff 层数 +1」加层，上限 p05）
   // p05 max stacks (const):     [5,...]
   // p06 Max HP ▲%:              [8.87 … 15.01]
   // p07 sec (const):            [2,...]
   skill1: {
     groupId: 124111,
     triggers: [
-      // P1：战斗开始 → 自身与相邻友军进入 Peace of Mind（永久）
+      // P1：战斗开始 → 自身与相邻友军进入 Peace of Mind（永久）：受治疗量 ▲ p04%/层，上限 p05 层
       {
         on: 'BATTLE_START',
         handler(state, caster) {
+          const s1 = caster.ssrFavSkills.skill1;
+          const lv = s1._activeSkillLevel;
           const unitIds = [caster, ...adjacentAllies(state, caster)].map(u => u.id);
-          pushBuff(state, { name: PEACE_OF_MIND, unitIds, endTick: Infinity });
+          pushBuff(state, { name: PEACE_OF_MIND, unitIds,
+            incomingHealPct: getSkillValue(s1, 4, lv) / 100,
+            stackLimit: getSkillValue(s1, 5, lv), endTick: Infinity });
         },
       },
       // P1：Peace of Mind 每秒回复 p00% Flora 最终最大 HP
@@ -85,7 +90,7 @@ export default {
             * getSkillValue(s1, 0, s1._activeSkillLevel) / 100);
           const prevCtx = state._logCtx;
           state._logCtx = null;
-          for (const u of peaceOfMindUnits(state)) applyHeal(state, u, amount);
+          for (const u of peaceOfMindUnits(state)) applyHeal(state, u, amount, null, caster);
           state._logCtx = prevCtx;
         },
       },
@@ -118,7 +123,7 @@ export default {
           const maxHpFlat = Math.round(caster.stats.hp * getSkillValue(s1, 6, lv) / 100);
           const endTick   = state.tick + TICK_RATE * getSkillValue(s1, 7, lv);
           pushBuff(state, { name: 'Petunia (Max HP)', unitIds: peaceOfMindUnits(state).map(u => u.id),
-            maxHpFlat, endTick });
+            maxHpFlat, noRestore: true, endTick });
         },
       },
     ],
@@ -142,17 +147,29 @@ export default {
   skill2: {
     groupId: 124112,
     triggers: [
-      // P1：相邻友军 HP ≤ 90% — 模拟器不建模敌方伤害，占位
-      {},
-      // P2：相邻友军达到最大 HP → 全员真实伤害 ▲ p03% 10s
-      // 「达到最大 HP」以 Peace of Mind 每秒治疗为触发契机：S1 INTERVAL 先于本触发器执行
-      // （同 tick 内 skill1 → skill2 顺序），治疗后任一相邻友军满血即触发。
+      // P1：相邻友军 HP 下降至 ≤ p00=90% → 全员护盾 p01% Flora 最终 MaxHP，p02 秒
+      //     由 HP_CHANGED 驱动，只响应 HP 下降（模拟器中仅自损类效果可触发）
       {
-        on: 'INTERVAL',
-        opts: { seconds: 1 },
-        handler(state, caster) {
-          const reached = adjacentAllies(state, caster).some(u => u.unitHp >= u.stats.hp);
-          if (!reached) return;
+        on: 'HP_CHANGED',
+        handler(state, caster, ctx) {
+          if (!ctx.unit || !(ctx.newHp < ctx.prevHp)) return false;
+          if (!adjacentAllies(state, caster).includes(ctx.unit)) return false;
+          const s2 = caster.ssrFavSkills.skill2;
+          const lv = s2._activeSkillLevel;
+          if (ctx.newHp > getFinalMaxHp(state, ctx.unit) * getSkillValue(s2, 0, lv) / 100) return false;
+          applyShield(state, ALL_ALLIES,
+            Math.round(casterFinalMaxHp(state, caster) * getSkillValue(s2, 1, lv) / 100),
+            state.tick + TICK_RATE * getSkillValue(s2, 2, lv));
+        },
+      },
+      // P2：相邻友军受到治疗且处于最大 HP → 全员真实伤害 ▲ p03% 10s
+      //     「达到最大 HP」以治疗落地（HEAL_RECEIVED，含 Peace of Mind 每秒治疗）为触发契机
+      {
+        on: 'HEAL_RECEIVED',
+        handler(state, caster, ctx) {
+          const u = ctx.unit;
+          if (!u || !adjacentAllies(state, caster).includes(u)) return false;
+          if (u.unitHp < getFinalMaxHp(state, u)) return false;
           const s2 = caster.ssrFavSkills.skill2;
           const lv = s2._activeSkillLevel;
           pushBuff(state, { name: 'Iris (True Damage)', unitId: null,
@@ -197,7 +214,7 @@ export default {
 
           applyHeal(state, ALL_ALLIES,
             Math.round(casterFinalMaxHp(state, caster) * getSkillValue(burst, 0, lv) / 100),
-            { lineIdx: 1 });
+            { lineIdx: 1 }, caster);
           pushBuff(state, { name: 'Secret Garden (True Damage)', unitId: null,
             trueDamagePct: getSkillValue(burst, 1, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(burst, 2, lv) },

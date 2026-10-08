@@ -1,8 +1,12 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, applyCoverHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Liter  (resource_id: 82)
+
+// S2 Volt Boost 为主动技能，CDN 不提供冷却时间，人工填写：15s。
+const S2_COOLDOWN_TICKS = 15 * TICK_RATE;
+
 export default {
 
   // ── Liter Boost
@@ -86,11 +90,32 @@ export default {
   // Restores {description_value_02}% of Cover HP.
   // p01: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
   // p02: [28.87, 31.5, 34.12, 36.75, 39.37, 42, 44.62, 47.25, 49.87, 52.5]
+  //
+  // Volt Boost 为主动技能（CharacterSkill 表），冷却 15s；与 Centi S2 约定一致：战斗开始先进入冷却，
+  // 就绪后由逐 tick 轮询施放。掩体 HP 数值不建模：各掩体视为同值，「最低掩体 HP 的 p00 名」按站位
+  // 从左到右取 p00 名；仅触发 COVER_HEAL 团队事件（同 Naga S1 / Zwei S2）。
   skill2: {
     groupId: 10822,
-    // [TODO] Liter S2：恢复 2 名友军的掩体 HP。
-    // 当前模拟器无受伤/掩体模型，不实现。
-    triggers: [],
+    triggers: [
+      {
+        on: 'PROGRAM_INIT',
+        handler(state, caster) {
+          caster.skillState.literS2ReadyTick = state.tick + S2_COOLDOWN_TICKS;
+        },
+      },
+      {
+        on: 'INTERVAL',
+        opts: { seconds: 1 / TICK_RATE },
+        partOverride: 0,
+        handler(state, caster) {
+          if (state.tick < (caster.skillState.literS2ReadyTick ?? S2_COOLDOWN_TICKS)) return false;
+          caster.skillState.literS2ReadyTick = state.tick + S2_COOLDOWN_TICKS;
+          const count   = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]);
+          const targets = state.squad.slice(0, count);   // 掩体 HP 同值 → 站位从左到右
+          applyCoverHeal(state, null, targets);
+        },
+      },
+    ],
   },
 
   // ── Double Boost

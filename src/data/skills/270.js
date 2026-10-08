@@ -1,4 +1,4 @@
-import { pushBuff, applyShield, pushHoT, TICK_RATE, ALL_ALLIES, getFinalMaxHp } from '../../engine/battle-utils.js';
+import { pushBuff, applyShield, pushHoT, getHpRatio, TICK_RATE, ALL_ALLIES, getFinalMaxHp } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Blanc  (resource_id: 270)
@@ -51,7 +51,7 @@ export default {
         handler(state, caster) {
           const pct    = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
           const amount = Math.round(getFinalMaxHp(state, caster) * pct);  // "caster's final Max HP"
-          pushHoT(state, ALL_ALLIES, amount, 5);
+          pushHoT(state, ALL_ALLIES, amount, 5, null, caster);
         },
       },
 
@@ -102,7 +102,7 @@ export default {
         handler(state, caster) {
           const pct    = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const amount = Math.round(getFinalMaxHp(state, caster) * pct);  // "caster's final Max HP"
-          pushHoT(state, ALL_ALLIES, amount, 8);
+          pushHoT(state, ALL_ALLIES, amount, 8, null, caster);
         },
       },
 
@@ -112,9 +112,10 @@ export default {
         handler(state, caster) {
           const pct    = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
           const end    = state.tick + TICK_RATE * 10;
+          // 稳定排序：HP% 相同时按站位从左到右
           const target = [...state.squad]
             .filter(u => u.id !== caster.id)
-            .sort((a, b) => (a.unitHp / a.stats.hp) - (b.unitHp / b.stats.hp))[0];
+            .sort((a, b) => getHpRatio(state, a) - getHpRatio(state, b))[0];
           if (!target) return;
           pushBuff(state, { name: 'Showtime (Max HP)', unitId: target.id, maxHpPct: pct, endTick: end });
         },

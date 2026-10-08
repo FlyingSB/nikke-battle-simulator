@@ -97,7 +97,7 @@ export default {
       },
     ],
     // [TODO] S2 Part2（Beast Cage）：全员 DEF ▲50.68% RH.DEF 10s
-    // [TODO] S2 Part3（The Last Howl）：自身攻击伤害→HP 回复 23.04% 10s
+    // S2 Part3（The Last Howl）：自身生命偷取 23.04% 10s — inline 于 Burst handler（Step2）
     // S2 Part4（Red Wolf）：自身 ATK ▲71.42% 10s — inline 于 Burst handler
     // [TODO] 用法2：AllStep B1 奇数轮/偶数轮 — Beast Cage 效果（全员 ATK ▲77.55% 施者ATK · 10s）
     // [TODO] 用法3：用法2补充 — 首轮额外使用一次 Beast Cage（利用一次性 -40s CD）
@@ -140,7 +140,8 @@ export default {
     triggers: [
       // Red Wolf（仅 Step3/StepFull）：
       //   S2 Part4 ATK ▲71.42% + CS ▲100.8% + 武器切换（51.46%·250%FC·10s·弹匣99）
-      //   Beast Cage（Step1）/ The Last Howl（Step2）使用 burst 时此 handler 直接返回。
+      //   The Last Howl（Step2）：自身治疗效能 ▲ p05% 10s + S2 Part3 生命偷取 10s（嘲讽 / CD▼40s 未建模）。
+      //   Beast Cage（Step1）使用 burst 时此 handler 直接返回（[TODO] 全员 ATK ▲ 未建模）。
       //   weaponSwitchChargeTimeTicks=19：跳过 fore/backswing，
       //   游戏实测 10s 内 32 次攻击 → 600/(32-1) = 19.35 ≈ 19 ticks/shot。
       {
@@ -149,7 +150,22 @@ export default {
           if (state.burstPhase === 1) {
 
           } else if (state.burstPhase === 2) {
-
+            const end10 = state.tick + TICK_RATE * 10;
+            // The Last Howl：自身治疗效能 ▲[Burst param4]% 10s（作用于自身施放的治疗与生命偷取）
+            const potencyPct = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
+            pushBuff(state, { name: 'The Last Howl (Heal Potency)', unitId: caster.id,
+              healPotencyPct: potencyPct, endTick: end10 });
+            // S2 Part3：The Last Howl 期间自身生命偷取 [S2 param2]% 10s（日志归属 S2 P3）
+            const lifeStealPct = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
+            pushBuff(state, { name: 'Wild Tooth (Life Steal)', unitId: caster.id,
+              lifeStealPct, endTick: end10 },
+              { unitName: caster.name,
+                skillLabel: caster.rawSkill2?.name_localkey ?? 'S2',
+                slot: 'S2',
+                partIdx: 2,
+                lineIdx: null,
+                trigger: state._logCtx?.trigger ?? 'BURST_SKILL_USE',
+              });
           } else if (state.burstPhase === 3) {
             const end10            = state.tick + TICK_RATE * 10;
             // S2 Part4：自身 ATK ▲[S2 param4]% 10s（仅 Red Wolf）

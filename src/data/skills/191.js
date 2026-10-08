@@ -1,8 +1,31 @@
 import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, TICK_RATE, BURST_GAUGE_MAX, getFinalAtk } from '../../engine/battle-utils.js';
+         getBuffSums, getHpRatio, TICK_RATE, BURST_GAUGE_MAX, getFinalAtk } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Alice  (resource_id: 191)
+
+const HC_PIERCE     = 'Healthy Carrot (Pierce)';
+const HC_LIFE_STEAL = 'Healthy Carrot (Life Steal)';
+
+// S2 Healthy Carrot：按当前 HP 比例切换形态（战斗开始 + 自身 HP_CHANGED）。
+//   HP ≥ p00%（80%）→ 持续 Pierce（P1）；HP 低于 p01%（80%）→ 攻击伤害的 p02% 回复 HP（P2，生命偷取）。
+// 两种形态互斥：切换时移除另一形态的 buff。模拟器中友军不受敌方伤害，通常始终处于 Pierce 形态。
+function syncHealthyCarrot(state, caster) {
+  const lv       = caster.skillLevels[1];
+  const above    = getHpRatio(state, caster) >= getSkillValue(caster.rawSkill2, 0, lv) / 100;
+  const hasBuff  = name => state.buffs.some(b => b.name === name && b.unitId === caster.id);
+  const dropBuff = name => { state.buffs = state.buffs.filter(b => !(b.name === name && b.unitId === caster.id)); };
+  const logCtx   = partIdx => ({ ...state._logCtx, partIdx });
+  if (above && !hasBuff(HC_PIERCE)) {
+    dropBuff(HC_LIFE_STEAL);
+    pushBuff(state, { name: HC_PIERCE, unitId: caster.id, pierce: true, endTick: Infinity }, logCtx(0));
+  } else if (!above && !hasBuff(HC_LIFE_STEAL)) {
+    dropBuff(HC_PIERCE);
+    pushBuff(state, { name: HC_LIFE_STEAL, unitId: caster.id,
+      lifeStealPct: getSkillValue(caster.rawSkill2, 2, lv) / 100, endTick: Infinity }, logCtx(1));
+  }
+}
+
 export default {
 
   // ── Energizing Carrot
@@ -49,14 +72,18 @@ export default {
   skill2: {
     groupId: 21912,
     triggers: [
-      // S2 Part1（Healthy Carrot）：HP > 80% → 自身持续 Pierce
-      // 模拟中队员 HP 始终为 100%，故战斗开始即激活。
-      // [TODO] 实现 HP 实时检测：HP > 80% 时激活/移除 pierce buff
-      // [TODO] S2 Part2：HP < 80% → 攻击时回复 8.12% ATK 量 HP（生命偷取）
+      // S2 Part1 / Part2（Healthy Carrot）：战斗开始按 HP 比例进入形态（见 syncHealthyCarrot）
       {
         on: 'BATTLE_START',
-        handler(state, caster) {
-          pushBuff(state, { name: 'Healthy Carrot (Pierce)', unitId: caster.id, pierce: true, endTick: Infinity });
+        handler(state, caster) { syncHealthyCarrot(state, caster); },
+      },
+      // 自身 HP 变化时重新判定，在 Pierce（P1）与生命偷取（P2）之间切换
+      {
+        on: 'HP_CHANGED',
+        partOverride: 0,
+        handler(state, caster, ctx) {
+          if (ctx.unit?.id !== caster.id) return false;
+          syncHealthyCarrot(state, caster);
         },
       },
     ],

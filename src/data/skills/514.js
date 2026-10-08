@@ -1,4 +1,4 @@
-import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, applyHpLoss, getFinalMaxHp, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Grave  (resource_id: 514)
@@ -17,7 +17,6 @@ export default {
   //   Heat Emission: Reload Ratio ▼ {p01=50}%. Removes Heat Emission under certain conditions.
   // ■ Activates only when in Heat Emission status. Affects self.
   //   Recovers {p02=2}% of caster's final Max HP every 1 sec continuously.
-  //   [HP 回复不建模 — 不影响 DPS 输出]
   // ■ Activates only when in Heat Emission status. Affects all allies.
   //   Burst Gauge filling speed ▲ {p03}% continuously.
   //   Pierce Damage ▲ {p04}% continuously.
@@ -25,7 +24,7 @@ export default {
   // group_id: 25141
   // p00 bullets removed (const): [100, ...]
   // p01 Reload Ratio▼% (const): [50, ...]
-  // p02 HP recovery %/sec (const): [2, ...]  — 不建模
+  // p02 HP recovery %/sec (const): [2, ...]
   // p03 Burst Gauge fill speed▲%: [23.02, 24.79, 26.56, 28.33, 30.1, 31.87, 33.64, 35.42, 37.19, 38.96]
   // p04 Pierce Damage▲%: [28.6, 30.8, 33, 35.2, 37.4, 39.6, 41.8, 44, 46.2, 48.4]
   //
@@ -75,6 +74,17 @@ export default {
           state.buffs = state.buffs.filter(b => b.name !== 'Heat Emission (Pierce Damage)');
           state.buffs.push({ name: 'Heat Emission (Pierce Damage)', unitId: null,
             pierceDamagePct: piercePct, endTick: Infinity });
+        },
+      },
+      // P2：Heat Emission 期间每秒回复自身 p02% 最终 MaxHP（每秒治疗不写日志，避免刷屏）
+      {
+        on: 'INTERVAL',
+        opts: { seconds: 1 },
+        partOverride: 1,
+        handler(state, caster) {
+          if (!state.buffs.some(b => b.name === 'Heat Emission' && b.unitId === caster.id)) return false;
+          const pct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
+          applyHeal(state, caster, Math.round(getFinalMaxHp(state, caster) * pct), false, caster);
         },
       },
       // Heat Emission 解除条件 a：普通攻击命中
@@ -171,7 +181,7 @@ export default {
   // ── Plot Spoiler
   // ■ Affects self.
   //   Prediction:
-  //   Current HP ▼ {p00=1}% every 1 sec, lasts for 10 sec.   [HP 扣减不建模]
+  //   Current HP ▼ {p00=1}% every 1 sec, lasts for 10 sec.   （按当前 HP 的 1% 扣减，HP 不低于 1）
   //   Grants unlimited ammunition for 10 sec.
   //   Gain Pierce for 10 sec.
   //   Pierce Damage ▲ {p01}% for 10 sec.
@@ -182,7 +192,7 @@ export default {
   //   Max Ammunition Capacity ▲ {p04=3} round(s) for 10 sec.
   //
   // group_id: 15143
-  // p00 HP drain %/sec (const): [1, ...]  — 不建模
+  // p00 HP drain %/sec (const): [1, ...]
   // p01 Self Pierce Damage▲%: [31.2, 33.6, 36, 38.4, 40.8, 43.2, 45.6, 48, 50.4, 52.8]
   // p02 All Attack Damage▲%: [28.48, 30.67, 32.86, 35.05, 37.25, 39.44, 41.63, 43.82, 46.01, 48.2]
   // p03 All Pierce Damage▲%: [23.63, 25.44, 27.26, 29.08, 30.9, 32.72, 34.53, 36.35, 38.17, 39.98]
@@ -202,6 +212,7 @@ export default {
 
           caster.skillState.grave_predictionEndTick = end;
           caster.skillState.grave_predShotCount     = 0;
+          caster.skillState.grave_hpDrainLeft       = 10;   // Current HP ▼ 每秒 1 次，共 10 次
           caster.skillState.unlimitedAmmoEndTick    = end;
           const selfPiercePct = getSkillValue(caster.rawBurst, 1, lv) / 100;
           const critRatePct   = getSkillValue(caster.rawBurst, 5, lv) / 100;
@@ -220,6 +231,19 @@ export default {
           const allPiercePct = getSkillValue(caster.rawBurst, 3, lv) / 100;
           pushBuff(state, { name: 'Plot Spoiler', unitId: null,
             attackDamagePct: atkDmgPct, pierceDamagePct: allPiercePct, maxAmmoFlat: 3, endTick: end });
+        },
+      },
+      // Burst P1（自身）：Prediction 期间每秒当前 HP ▼ p00%（当前 HP 的 1%，共 10 次；不写日志）
+      // 以计数器而非 predictionEndTick 判定：到期那一秒 S1 会先把 predictionEndTick 清零，计数器保证恰好 10 次。
+      {
+        on: 'INTERVAL',
+        opts: { seconds: 1 },
+        partOverride: 0,
+        handler(state, caster) {
+          if ((caster.skillState.grave_hpDrainLeft ?? 0) <= 0) return false;
+          caster.skillState.grave_hpDrainLeft--;
+          const pct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
+          applyHpLoss(state, caster, Math.round((caster.unitHp ?? getFinalMaxHp(state, caster)) * pct), false);
         },
       },
     ],

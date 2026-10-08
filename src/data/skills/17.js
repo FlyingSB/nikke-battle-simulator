@@ -152,7 +152,7 @@ export default {
           const sums    = getBuffSums(state, caster.id);
           const maxHp   = caster.stats.hp * (1 + sums.maxHpPct) + (sums.maxHpFlat ?? 0);
           const amt     = Math.round(maxHp * healPct);
-          applyHeal(state, ALL_ALLIES, amt);
+          applyHeal(state, ALL_ALLIES, amt, null, caster);
         },
       },
 

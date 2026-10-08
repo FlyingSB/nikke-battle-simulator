@@ -19,8 +19,8 @@ import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAU
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount } from './battle-utils.js';
-import { executeSkillTriggers, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount } from './battle-utils.js';
+import { executeSkillTriggers, dispatchHpChanged, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
 const MAX_TICKS = TICK_RATE * 180; // 战斗上限 3 分钟
@@ -318,20 +318,31 @@ function selectBurst2Unit(state) {
 }
 
 /**
- * 分派 HEAL_RECEIVED 触发：消费 state.pendingHealReceived 队列（由 applyHeal 填充），
- * 去重后逐单位调用 executeSkillTriggers。
- * 调用时机：每次可能触发 applyHeal 的操作（onShotFired、executeSkillTriggers）之后。
+ * 分派 HEAL_RECEIVED 与 HP_CHANGED 触发（flushHpEvents）：
+ *   1. 消费 state.pendingHealReceived 队列（由 applyHeal 填充），去重后逐单位派发 HEAL_RECEIVED；
+ *   2. 消费 state.pendingHpChanged（由 battle-utils 写入 HP 时填充），逐单位派发 HP_CHANGED；
+ *   3. handler 内可能再次治疗 / 改变 HP → 循环直到两个队列都为空（上限 8 轮，防止互相触发的死循环）。
+ * 调用时机：每次可能改变 HP 的操作（onShotFired、executeSkillTriggers、buff 到期截断）之后。
  */
-function flushHealReceived(state) {
-  if (!state.pendingHealReceived?.length) return;
-  const seen   = new Set();
-  const healed = state.pendingHealReceived.splice(0);
-  for (const u of healed) {
-    if (seen.has(u.id)) continue;
-    seen.add(u.id);
-    executeSkillTriggers(state, 'HEAL_RECEIVED', { unit: u });
+const FLUSH_HP_EVENTS_MAX_ROUNDS = 8;
+function flushHpEvents(state) {
+  for (let round = 0; round < FLUSH_HP_EVENTS_MAX_ROUNDS; round++) {
+    let any = false;
+    if (state.pendingHealReceived?.length) {
+      any = true;
+      const seen   = new Set();
+      const healed = state.pendingHealReceived.splice(0);
+      for (const u of healed) {
+        if (seen.has(u.id)) continue;
+        seen.add(u.id);
+        executeSkillTriggers(state, 'HEAL_RECEIVED', { unit: u });
+      }
+    }
+    if (dispatchHpChanged(state)) any = true;
+    if (!any) return;
   }
 }
+const flushHealReceived = flushHpEvents;
 
 /**
  * 分派 APPLY_SHIELD 触发：消费 state.pendingShieldReceived 队列（由 applyShield 填充）。
@@ -974,6 +985,9 @@ export function initBattle(config) {
     // Queue of units that received heals this tick. Populated by applyHeal (battle-utils).
     // Consumed by flushHealReceived() which dispatches HEAL_RECEIVED triggers.
     pendingHealReceived: [],
+    // 当前 HP 发生变化的单位（unitId → { unit, prevHp }），由 battle-utils 写入 HP 时填充，
+    // flushHpEvents → dispatchHpChanged 派发 HP_CHANGED。
+    pendingHpChanged: new Map(),
     // Queue of units that received shields this tick. Populated by applyShield (battle-utils).
     // Consumed by flushShieldReceived() which dispatches APPLY_SHIELD triggers per unit.
     pendingShieldReceived: [],
@@ -1018,12 +1032,15 @@ export function initBattle(config) {
       state.buffs.push({ name: 'Cube', unitId: unit.id, ...cubeBuffPcts, endTick: Infinity });
     recalcMaxAmmo(state, unit);   // 确认 unit.maxAmmo 与 initialMaxAmmo 一致
   }
+  // 开战满血：当前 HP 对齐到含方块永久 buff（如 Vigor Max HP ▲）的最终 MaxHP
+  for (const unit of state.squad) unit.unitHp = getFinalMaxHp(state, unit);
 
   // PROGRAM_INIT: 程序初始化阶段，仅用于 skillState 计数器/标志位归零，不写入战斗日志。
   executeSkillTriggers(state, 'PROGRAM_INIT');
   // BATTLE_START: dispatch all declarative battle-start triggers (e.g. LM Bubble debuff).
   executeSkillTriggers(state, 'BATTLE_START');
   flushCsChanged(state);
+  flushHpEvents(state);
 
   // Note: fav item collection skill effects are applied at unit creation (favNormalAttackDamageMult,
   // favChargeDmgPct, maxAmmo via ammoPct). coreDmgPct is not modeled. DEF▲ etc. are ignored.
@@ -1137,6 +1154,7 @@ export function tick(state) {
   // 清理过期 buff — 移除前收集需要重算 maxAmmo 的单位 ID，以及 CS buff 过期的单位 ID
   const _ammoRecalcIds  = new Set();
   const _csExpiredIds   = new Set();
+  const _hpClampIds     = new Set();
   const _expiredBuffs   = [];
   for (const b of state.buffs) {
     if (b.endTick <= state.tick) {
@@ -1147,6 +1165,14 @@ export function tick(state) {
           _ammoRecalcIds.add(b.unitId);
         } else {
           for (const u of state.squad) _ammoRecalcIds.add(u.id);
+        }
+      }
+      // Max HP buff 到期 → 当前 HP 截断到新的最终 MaxHP
+      if (b.maxHpPct != null || b.maxHpFlat != null) {
+        if (b.unitId != null) {
+          _hpClampIds.add(b.unitId);
+        } else {
+          for (const u of state.squad) _hpClampIds.add(u.id);
         }
       }
       if (b.chargeSpeedPct) {
@@ -1166,6 +1192,13 @@ export function tick(state) {
     const u = state.squad.find(u => u.id === uid);
     if (u) recalcMaxAmmo(state, u);
   }
+  for (const uid of _hpClampIds) {
+    const u = state.squad.find(u => u.id === uid);
+    if (u) clampHpToMax(state, u);
+  }
+  // 溢出治疗储存到期清理
+  for (const u of state.squad) expireOverheal(state, u);
+  if (_hpClampIds.size > 0) flushHpEvents(state);
 
   // CS buff 过期后通知受影响单位重算（此时过期 buff 已移除，getBuffSums 返回更新后的值）
   for (const uid of _csExpiredIds) {
@@ -1189,7 +1222,9 @@ export function tick(state) {
     state.pendingHoTs = state.pendingHoTs.filter(h => h.fireTick > state.tick);
     for (const h of dueHeals) {
       const target = state.squad.find(u => u.id === h.targetId);
-      if (target) applyHeal(state, target, h.amount);
+      // 治疗者（casterId）用于按触发时刻的治疗效能计算实际回复量
+      const caster = h.casterId != null ? state.squad.find(u => u.id === h.casterId) ?? null : null;
+      if (target) applyHeal(state, target, h.amount, null, caster);
     }
     if (dueHeals.length > 0) flushHealReceived(state);
   }
@@ -1855,9 +1890,8 @@ export function tick(state) {
         }
       }
       state.totalAmmoFired++;
-      if (sums.lifeStealPct > 0) {
-        unit.unitHp = Math.min(unit.stats.hp, unit.unitHp + damage * sums.lifeStealPct);
-      }
+      // 生命偷取（含双重命中的第二发），HEAL_RECEIVED 由下方 flushHealReceived 派发
+      applyLifeSteal(state, unit, damage + (isDoubleHit ? damage2 : 0), sums);
       events.push({ type: 'hit', tick: state.tick, unitId: unit.id, unitName: unit.name, damage, isCrit });
       if (isDoubleHit)
         events.push({ type: 'hit', tick: state.tick, unitId: unit.id, unitName: unit.name, damage: damage2, isCrit: isCrit2 });

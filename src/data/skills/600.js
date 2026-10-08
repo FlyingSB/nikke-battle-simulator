@@ -36,7 +36,7 @@ export default {
             // Dancing：全队持续 HP 回复（p02% × caster MaxHP / s × 3s）
             const pct    = getSkillValue(caster.rawSkill1, 2, lv) / 100;
             const amount = Math.round(getFinalMaxHp(state, caster) * pct);  // "caster's final Max HP"
-            pushHoT(state, ALL_ALLIES, amount, 3, { partIdx: 1 });
+            pushHoT(state, ALL_ALLIES, amount, 3, { partIdx: 1 }, caster);
           }
         },
       },

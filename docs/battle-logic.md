@@ -718,6 +718,7 @@ burstPhase = 0（充能中）
 | `INTERVAL` | 全程每 N 秒（首次在 t+Ns） | 团队/非团队 |
 | `INTERVAL_IN_BURST` | 全爆裂期间每 N 秒 | 团队 |
 | `HEAL_RECEIVED` | 某单位受到治疗时触发（ctx.unit = 受治疗者）；全队治疗产生 5 个独立事件，每个事件对应各自受治疗的单位 | 团队 |
+| `HP_CHANGED` | 某单位当前 HP 变化后触发（ctx.unit / prevHp / newHp）；来源见 §9.1 | 团队 |
 | `APPLY_SHIELD` | 某单位获得护盾时触发；全队获盾同样产生 5 个独立事件 | 非团队（仅 caster === ctx.unit 响应） |
 | `COVER_HEAL_RECEIVED` | 掩体受到治疗 | 团队 |
 | `CORE_HIT` | 命中敌人核心 | 非团队 |
@@ -786,14 +787,42 @@ burstPhase = 0（充能中）
 
 ### 9.1 体力治疗
 
-- `applyHeal(state, target, amount)`：`unitHp = min(maxHp, unitHp + amount)`。
+- `applyHeal(state, target, amount, logCtx, caster)`：
+  实际回复量 = `amount × (1 + 治疗者 healPotencyPct) × (1 + 受治疗者 incomingHealPct)`，
+  `unitHp = min(最终 MaxHP, unitHp + 实际回复量)`。`caster` 省略时不计治疗效能。
 - 治疗后将 target 推入 `pendingHealReceived` 队列。
 - `flushHealReceived()` 去重后逐单位触发 `HEAL_RECEIVED`。
+- **生命偷取** `applyLifeSteal(state, unit, damage, sums)`：普通攻击与技能命中后按 `sums.lifeStealPct` 回复自身，
+  同样计入治疗效能 / 受治疗量并派发 `HEAL_RECEIVED`（如 Helm 爆裂全员生命偷取可触发 Crown S2 P3）。不写战斗日志。
+- **HP 扣减** `applyHpLoss(state, unit, amount)`：「Current HP ▼ X%」类自损（Scarlet S1、Grave 爆裂），
+  按最终 MaxHP 换算，HP 下限 1。
+- **HP 比例** `getHpRatio(state, unit)` = `unitHp / 最终 MaxHP`（不含溢出储存池），「HP 低于 / 高于 X%」类条件统一用它判定。
+- **HP_CHANGED 事件**：所有写 HP 的路径（治疗、生命偷取、Max HP 同步回复 / 截断、`applyHpLoss`、将来的受伤）
+  都记入 `state.pendingHpChanged`，由 `flushHpEvents` → `dispatchHpChanged` 派发团队触发 `HP_CHANGED`
+  （ctx.unit / prevHp / newHp；同一 flush 周期合并，prevHp 为首次变化前的值；handler 内再改 HP 则进入下一轮，最多 8 轮）。
+  HP 条件类技能一律响应此事件：Scarlet S2 P2、Alice S2、Moran S2 P2、Noir S1（自身 HP）；
+  Soline S2、Centi S1 P4、Flora S2 P1（任意 / 相邻友军 HP **下降**跨过阈值，`newHp < prevHp`，治疗不会连锁触发）。
+- **溢出治疗储存** `applyOverhealStorage(state, target, cap, endTick)`（Centi S1 P3 Stockpile / Anchor 爆裂 Storage）：
+  生效期内超出最终 MaxHP 的治疗存入 `unit.overheal.hp`（上限 cap），`applyHpLoss` 先扣储存池再扣 HP，
+  到期 `expireOverheal` 移除储存部分；储存池不计入 HP 比例。
+- **平均分摊治疗**（buff 字段 `shareHeal: true`，Nayuta S1 P2 Hypocrisy）：目标受到的实际回复量均分给全队，
+  只有原目标视为「受到治疗」（HEAL_RECEIVED），其余队员仅发生 HP 变化（HP_CHANGED）。
+- **「n 名最低 XX 的队友」** 的筛选用稳定排序：判定值相同时按站位从左到右（如 Liter S2 掩体 HP 不建模 → 恒取最左 n 名）。
+
+### 9.1.1 Max HP 变化与当前 HP
+
+- 开战时 `unitHp = 最终 MaxHP`（含 Vigor 方块等永久 buff）。
+- `pushBuff` 推入含 `maxHpPct` / `maxHpFlat` 的 buff（或叠层 +1）时，受影响单位当前 HP 提升相同的量
+  （游戏内「Max HP ▲」保持 HP% 不变）；描述写「without restoring HP」的效果须带 `noRestore: true`，只提升上限。
+  该提升不是治疗：不派发 `HEAL_RECEIVED`，不受治疗效能影响。
+- 就地改写已有 buff 的 Max HP 数值须用 `setMaxHpBuffValue(state, buff, { maxHpPct, maxHpFlat })`。
+- Max HP buff 到期时 `clampHpToMax` 把当前 HP 截断到新的最终 MaxHP。
 
 ### 9.2 HoT（持续治疗）
 
-- 推入 `pendingHoTs`：`{ fireTick, targetId, amount }`。
-- 每 tick 处理到期条目，调用 `applyHeal` 并 flush；**会触发 `HEAL_RECEIVED` 事件**，与直接治疗行为一致。
+- 推入 `pendingHoTs`：`{ fireTick, targetId, amount, casterId }`，`amount` 为基础量。
+- 每 tick 处理到期条目，以 `casterId` 对应单位为治疗者调用 `applyHeal`（按触发时刻的治疗效能计算）并 flush；
+  **会触发 `HEAL_RECEIVED` 事件**，与直接治疗行为一致。
 
 ### 9.3 护盾
 
@@ -918,7 +947,8 @@ Fire（燃烧）→ Wind（风压）→ Iron（铁甲）→ Electric（电击）
 | 核心命中率（HitRate）| ✅ 已建模：几何模型 §3.8.1（散布圆 vs 核心透视半径，受 HitRate 收圆）。躯体恒命中，命中率仅影响核心 |
 | 距离优势 | ✅ 已改为各角色 `bonusrange_min/max` + 连续距离判定（废弃武器类型分档） |
 | 躯体命中率 | 未建模：实战 BOSS 体型庞大视为躯体恒命中；小体型/有空洞敌人躯体漏弹未覆盖 |
-| 掩体 HP | 仅建模事件，不追踪掩体数值 |
+| 掩体 HP | 仅建模事件，不追踪掩体数值（「最低掩体 HP」目标按站位从左到右） |
+| 「被攻击时」触发类效果 | 低优先级开发计划：Neon: Vision Eye S1 Healthy Body、Sugar S1 P1（掩体被攻击）、Scarlet S2 P1（30% 反击）；需先引入敌方伤害模型（受伤同样应派发 HP_CHANGED） |
 | 普通零件（Parts）| 未建模（§11.3.1）：零件血量难以估算，零件命中、摧毁零件的本体伤害与攻击阻止、爆炸对零件+本体各结算一次均不模拟。`hitPart='parts'` 仅保留为伤害公式与技能命中的参数 |
 | 零件核心（Parts Core）| ✅ 已建模（§3.8.2）：Ultra / Material H / Storm Bringer 专用 |
 | 阻止部位（Intercept Parts）命中 | 未建模；含"阻止部位伤害增加"的技能效果暂时忽略 |

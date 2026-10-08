@@ -96,11 +96,14 @@ export default {
           const coreDmgPct  = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           const atkFlatPct  = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
           const healPct     = getSkillValue(caster.rawSkill1, 7, caster.skillLevels[0]) / 100;
-          pushBuff(state, { name: 'Hypocrisy', unitId: null,
+          // shareHeal：「Equally shares HP recovery」— 期间任一队员受到的治疗均分给全队
+          //（仅原目标视为「受到治疗」，其余队员只发生 HP 变化；见 battle-utils applyHeal）
+          pushBuff(state, { name: 'Hypocrisy', unitId: null, shareHeal: true,
             coreDamagePct: coreDmgPct, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: end5 },
             { unitName: caster.name, skillLabel: caster.rawSkill1?.name_localkey ?? 'S1', slot: 'S1', partIdx: 1, lineIdx: null, trigger: 'INTERVAL' });
           applyHeal(state, caster, Math.round(getFinalMaxHp(state, caster) * healPct),  // "caster's final Max HP"
-            { unitName: caster.name, skillLabel: caster.rawSkill1?.name_localkey ?? 'S1', slot: 'S1', partIdx: 2, lineIdx: null, trigger: 'INTERVAL' });
+            { unitName: caster.name, skillLabel: caster.rawSkill1?.name_localkey ?? 'S1', slot: 'S1', partIdx: 2, lineIdx: null, trigger: 'INTERVAL' },
+            caster);
 
           // 层数上限 30；满层后 S1 Part2 仍每 3s 刷新
           if (caster.skillState.nayutaMemAbsStacks >= 30) return;

@@ -1,7 +1,22 @@
-﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, getHpRatio, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Noir  (resource_id: 271)
+
+// S1 Lucky Charm：Noir 自身 HP > p01% 时全员 ATK flat 持续生效；低于阈值时移除。
+// 战斗开始与自身 HP_CHANGED 时同步。
+function syncLuckyCharm(state, caster) {
+  const lv     = caster.skillLevels[0];
+  const above  = getHpRatio(state, caster) > getSkillValue(caster.rawSkill1, 0, lv) / 100;
+  const active = state.buffs.some(b => b.name === 'Lucky Charm');
+  if (above && !active) {
+    const atkFlat = Math.round(caster.stats.atk * getSkillValue(caster.rawSkill1, 1, lv) / 100);
+    pushBuff(state, { name: 'Lucky Charm', unitId: null, atkFlat, endTick: Infinity });
+  } else if (!above && active) {
+    state.buffs = state.buffs.filter(b => b.name !== 'Lucky Charm');
+  }
+}
+
 export default {
 
   // ── Lucky Charm
@@ -11,18 +26,19 @@ export default {
   // group_id: 22711
   // p01: [70, ...] (HP 阈值，固定)
   // p02: [8.32, 8.96, 9.6, 10.24, 10.88, 11.52, 12.16, 12.8, 13.44, 14.08] (ATK% of caster ATK)
-  //
-  // HP 条件在模拟器中恒满足，BATTLE_START 一次性施加永久 buff。
   skill1: {
     groupId: 22711,
     triggers: [
       {
         on: 'BATTLE_START',
-        handler(state, caster) {
-          const pct     = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
-          const atkFlat = Math.round(caster.stats.atk * pct);
-          pushBuff(state, { name: 'Lucky Charm', unitId: null,
-            atkFlat, endTick: Infinity });
+        handler(state, caster) { syncLuckyCharm(state, caster); },
+      },
+      {
+        on: 'HP_CHANGED',
+        partOverride: 0,
+        handler(state, caster, ctx) {
+          if (ctx.unit?.id !== caster.id) return false;
+          syncLuckyCharm(state, caster);
         },
       },
     ],

@@ -46,7 +46,7 @@ export default {
           const cdTicks   = Math.round(getSkillValue(caster.rawSkill1, 3, lv) * TICK_RATE);
           const endTick   = state.tick + TICK_RATE * 5;
 
-          pushBuff(state, { name: 'Card Throw', unitId: null, maxHpFlat, endTick });
+          pushBuff(state, { name: 'Card Throw', unitId: null, maxHpFlat, noRestore: true, endTick });
           for (const u of state.squad)
             u.burstCdRemaining = Math.max(0, u.burstCdRemaining - cdTicks);
         },
@@ -107,7 +107,7 @@ export default {
       },
 
       // Part3：累计施放 5 次爆裂技能且处于 Shield Coin（level=2）→ 叠加 Double Sword Coin（level→3）
-      // 全员永久 Max HP ▲（不恢复 HP，模拟器中 maxHpFlat 不触发治疗）
+      // 全员永久 Max HP ▲（原文未写 without restoring HP → 当前 HP 同步提升，由 pushBuff 处理）
       // 游戏内先结算 S3 各部分，之后才计入"使用了爆裂技能"次数：
       // 第 5 次爆裂时本部分生效，但 S3 P4 要到第 6 次爆裂才生效
       {
@@ -166,7 +166,7 @@ export default {
         },
       },
 
-      // Part2：有 Sword Coin（level≥1）→ 全员 Max HP ▲（不恢复 HP，10 sec）
+      // Part2：有 Sword Coin（level≥1）→ 全员 Max HP ▲（without restoring HP → noRestore，10 sec）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster, ctx) {
@@ -176,11 +176,11 @@ export default {
           const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawBurst, 2, lv) / 100);
           pushBuff(state, { name: 'Game Master P2 (Max HP)', unitId: null,
-            maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
+            maxHpFlat, noRestore: true, endTick: state.tick + TICK_RATE * 10 });
         },
       },
 
-      // Part3：有 Shield Coin（level≥2）→ 全员 Max HP ▲（10 sec；原文无"不恢复 HP"说明）
+      // Part3：有 Shield Coin（level≥2）→ 全员 Max HP ▲（10 sec；原文无"不恢复 HP"说明 → 当前 HP 同步提升）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster, ctx) {
@@ -194,7 +194,7 @@ export default {
         },
       },
 
-      // Part4：有 Double Sword Coin（level≥3）→ 全员 Max HP ▲（不恢复 HP，10 sec）
+      // Part4：有 Double Sword Coin（level≥3）→ 全员 Max HP ▲（without restoring HP → noRestore，10 sec）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster, ctx) {
@@ -204,7 +204,7 @@ export default {
           const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawBurst, 6, lv) / 100);
           pushBuff(state, { name: 'Game Master P4 (Max HP)', unitId: null,
-            maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
+            maxHpFlat, noRestore: true, endTick: state.tick + TICK_RATE * 10 });
         },
       },
     ],

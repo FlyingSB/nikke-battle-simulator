@@ -1,11 +1,11 @@
-import { pushBuff, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, getBuffSums, getHpRatio, getFinalMaxHp, applyHpLoss, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Scarlet  (resource_id: 222)
 // S2 Part2 激活条件：HP < 60%（首次低于阈值时永久生效，不重复叠加）
 function checkAndApplyS2P2(state, caster) {
   if (caster.skillState.scS2CritApplied) return;
-  if (caster.unitHp / caster.stats.hp >= 0.6) return;
+  if (getHpRatio(state, caster) >= 0.6) return;
   caster.skillState.scS2CritApplied = true;
   const lv    = caster.skillLevels[1];
   const cdPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
@@ -45,12 +45,10 @@ export default {
           pushBuff(state, { name: 'Blood for Blood', unitId: caster.id,
             atkPct, endTick });
 
-          // 扣除当前 HP 的 4.01%（不低于 1）
-          const hpCost = Math.round(caster.stats.hp * 0.0401);
-          caster.unitHp = Math.max(1, (caster.unitHp ?? caster.stats.hp) - hpCost);
-
-          // HP 下降后检测 S2 Part2 阈值
-          checkAndApplyS2P2(state, caster);
+          // 「Current HP ▼ p04%」：按当前 HP 的 p04% 扣减（HP 不低于 1；不单独写日志，与 ATK 叠层同段）
+          // S2 P2 的阈值检测由 HP_CHANGED 事件驱动
+          const hpCostPct = getSkillValue(caster.rawSkill1, 4, lv) / 100;
+          applyHpLoss(state, caster, Math.round((caster.unitHp ?? getFinalMaxHp(state, caster)) * hpCostPct), false);
         },
       },
     ],
@@ -71,10 +69,13 @@ export default {
   skill2: {
     groupId: 22222,
     triggers: [
-      // Part2：战斗开始时检测初始 HP（通常满血不触发；安全起见保留）
+      // Part2：自身 HP 变化（S1 自损等）→ 检测 HP < 60%（首次满足永久生效）
       {
-        on: 'BATTLE_START',
-        handler: checkAndApplyS2P2,
+        on: 'HP_CHANGED',
+        handler(state, caster, ctx) {
+          if (ctx.unit?.id !== caster.id) return false;
+          checkAndApplyS2P2(state, caster);
+        },
       },
     ],
   },
@@ -97,8 +98,7 @@ export default {
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
-          const hpPct = (caster.unitHp ?? caster.stats.hp) / caster.stats.hp;
-          if (hpPct >= 0.5) return false;
+          if (getHpRatio(state, caster) >= 0.5) return false;
           const lv    = caster.skillLevels[2];
           const crPct = getSkillValue(caster.rawBurst, 1, lv) / 100;
           // 爆裂技能唯一的效果段（P2 为伤害）→ 日志标签省略 P 后缀

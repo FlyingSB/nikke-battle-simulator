@@ -1,4 +1,4 @@
-import { pushBuff, getBuffSums, addBurstGauge,
+import { pushBuff, getBuffSums, addBurstGauge, setMaxHpBuffValue,
          TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
@@ -45,7 +45,8 @@ export default {
           for (const t of state.squad) {
             const existing = state.buffs.find(b =>
               b.name === 'Sequential Limit Release (Max HP)' && b.unitId === t.id);
-            if (existing) existing.maxHpFlat = flat;
+            // 新增一层的 Max HP 同步回复当前 HP（描述未写 without restoring HP）
+            if (existing) setMaxHpBuffValue(state, existing, { maxHpFlat: flat });
             else missing.push(t.id);
           }
           pushBuff(state, { name: 'Sequential Limit Release (Max HP)', unitIds: missing,

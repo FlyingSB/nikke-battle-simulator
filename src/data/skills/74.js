@@ -1,4 +1,4 @@
-import { pushBuff, applyHeal, getBuffSums, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, getBuffSums, getHpRatio, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Soline: Frost Ticket  (resource_id: 74)
@@ -99,25 +99,23 @@ export default {
   skill2: {
     groupId: 20742,
     triggers: [
-      // Part1：每秒检查 → 若有持票友军 HP < 15%，对其治疗（HP 比例最低的优先）
+      // Part1：任意队员 HP 变化（下降）后低于 p00=15% 且持票 → 对其治疗
+      //   由 HP_CHANGED 驱动：只响应 HP 下降（治疗后仍低于阈值不会连锁再触发）
       {
-        on: 'INTERVAL',
-        opts: { seconds: 1 },
-        handler(state, caster) {
-          const threshold = 0.15;
-          const eligible  = state.squad
-            .filter(u => u.unitHp / u.stats.hp < threshold && findTicket(state, u.id))
-            .sort((a, b) => (a.unitHp / a.stats.hp) - (b.unitHp / b.stats.hp));
-          if (eligible.length === 0) return false;
+        on: 'HP_CHANGED',
+        handler(state, caster, ctx) {
+          const target = ctx.unit;
+          if (!target || !(ctx.newHp < ctx.prevHp)) return false;
+          const lv        = caster.skillLevels[1];
+          const threshold = getSkillValue(caster.rawSkill2, 0, lv) / 100;
+          if (getHpRatio(state, target) >= threshold || !findTicket(state, target.id)) return false;
 
-          const lv      = caster.skillLevels[1];
           const healPct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const sums    = getBuffSums(state, caster.id);
           const maxHp   = caster.stats.hp * (1 + sums.maxHpPct) + (sums.maxHpFlat ?? 0);
           const healAmt = Math.round(maxHp * healPct);
 
-          const target  = eligible[0];
-          applyHeal(state, target, healAmt);
+          applyHeal(state, target, healAmt, null, caster);
 
           // First Train Discount 激活期间不消耗票；否则消耗被治疗目标 1 张票
           if (!isFirstTrainActive(state)) consumeTicket(state, findTicket(state, target.id));
@@ -152,7 +150,7 @@ export default {
           const maxHp   = caster.stats.hp * (1 + sums.maxHpPct) + (sums.maxHpFlat ?? 0);
           const healAmt = Math.round(maxHp * healPct);
 
-          applyHeal(state, ALL_ALLIES, healAmt);
+          applyHeal(state, ALL_ALLIES, healAmt, null, caster);
         },
       },
     ],

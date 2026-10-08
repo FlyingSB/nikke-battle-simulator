@@ -14,6 +14,11 @@
 3. **每个技能块前粘贴描述原文与参数数列**（`// ── 技能名` + 逐行描述 + `// pNN: [...]`），参数一律用 `getSkillValue` 读取。
 4. **按本文第 2–4 节为伤害标签、效果段标签、buff 命名**；自定义命名须在回复中列表汇报。
 5. **多目标效果用 `unitIds`**（第 5 节），不要在 `pushBuff` 外循环；动态倍率效果传 `multiplier`。
+   **HP 相关效果**：治疗用 `applyHeal(state, target, amount, logCtx, caster)` / `pushHoT(..., caster)`，
+   `amount` 为描述基础量，治疗者 `caster` 必须传入（治疗效能据此计算）；「Current HP ▼」用 `applyHpLoss`；
+   「Current HP ▼ X%」= 当前 HP × X%。「HP 低于 / 高于 X%」类条件一律用 `HP_CHANGED` 触发器 + `getHpRatio` 判定
+   （「跌破」类用 `ctx.newHp < ctx.prevHp` 的下降边沿）；`Max HP ▲` 默认同步回复当前 HP，「without restoring HP」加 `noRestore: true`；
+   溢出治疗储存用 `applyOverhealStorage`；「平均分摊治疗」在 buff 上加 `shareHeal: true`。
 6. **段号对齐**：触发器数组序号与 ■ 段不一致时用 `partOverride`，不要"接受偏移"。
 7. **注册**：在 `src/data/skill-traits.js` 注册；在 [data-catalog.md](data-catalog.md) 角色表添加条目。
 8. **测试**：`node scripts/tests/test-all.mjs` 全部通过。
@@ -89,12 +94,14 @@
 | `chargeSpeedPct` / `chargeTimeReductionTicks` | Charge Speed |
 | `reloadSpeedPct` | Reload Speed |
 | `maxAmmoPct` / `maxAmmoFlat` | Max Ammo |
-| `maxHpPct` / `maxHpFlat` | Max HP |
+| `maxHpPct` / `maxHpFlat` | Max HP（描述写「without restoring HP」时加 `noRestore: true`；就地改写数值须用 `setMaxHpBuffValue`） |
 | `atkSpeedPct` | Attack Speed |
 | `hitRatePct` | Hit Rate |
 | `defPct` / `defFlat` | DEF |
 | `burstGaugeFlat` | Burst Gauge（「Burst Gauge filling speed ▲ n%」= 施法者 `targetBurstEnergyPerShot` × n% 的固定值，对所有目标相同，用一条 `unitId: null` buff） |
-| `lifeStealPct` | Life Steal |
+| `lifeStealPct` | Life Steal（「Recovers X% of attack damage as HP」；视为 HP 回复，派发 HEAL_RECEIVED） |
+| `healPotencyPct` | Heal Potency（「Potency of HP restored ▲」，挂在治疗者身上；治疗调用须传 caster 才生效） |
+| `incomingHealPct` | Incoming Healing（「Incoming Healing ▲」，挂在受治疗者身上） |
 | `pierce` | Pierce |
 | `pelletFlat` / `pelletFixed` | Pellets |
 | `mgHeatSpeedPct` | MG Heat |

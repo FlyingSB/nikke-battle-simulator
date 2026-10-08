@@ -22,12 +22,15 @@ import {
 import {
   pushBuff, getBuffSums, decrementRoundBuffs, parseSkillDuration, TICK_RATE,
   getFinalAtk, getFinalMaxHp,
+  applyHeal, applyHpLoss, applyLifeSteal, clampHpToMax, getHpRatio, setMaxHpBuffValue, pushHoT,
+  applyOverhealStorage, expireOverheal,
 } from '../../src/engine/battle-utils.js';
 import { getSkillValue } from '../../src/data/models.js';
-import { onInterval, executeSkillTriggers, onShotFired } from '../../src/engine/skill-executor.js';
+import { onInterval, executeSkillTriggers, onShotFired, dispatchHpChanged } from '../../src/engine/skill-executor.js';
+import { unitDistanceAdvantage } from '../../src/engine/battle-utils.js';
 import { BUNNY_STANCE, BUNNY_ENGAGE, getBunnyMode,
          enterBunnyMode } from '../../src/data/skills/bunny-shared.js';
-import { eq, section, summary } from '../lib/test-harness.mjs';
+import { eq, near, section, summary } from '../lib/test-harness.mjs';
 
 // ── T1: getSkillTraits — unknown ids ─────────────────────────────────────────
 
@@ -1006,7 +1009,7 @@ function mockState(squad, extra = {}) {
   return {
     tick: 0, buffs: [], buffLog: null, hitLog: null, pendingSkillEvents: null, _logSeq: 0,
     enemyHp: 1e15, enemyDef: 0, enemyDamageTakenPct: 0, enemyElement: 'Wind',
-    fullBurstActive: false, burstPhase: 1, pendingHealReceived: [], squad, ...extra,
+    fullBurstActive: false, burstPhase: 1, pendingHealReceived: [], pendingHpChanged: new Map(), squad, ...extra,
   };
 }
 
@@ -1310,9 +1313,12 @@ section('T23: Soline: Frost Ticket — S1 P1 票 buff 叠层、S2 P2 First Train
   eq('爆裂发票上限 2 张', ticket(2)?.stacks, 2);
   eq('2 张票 Max HP 叠加', getBuffSums(state, 2).maxHpFlat, 200000);
 
+  // S2 由 HP_CHANGED（HP 下降至 15% 以下）驱动：用 applyHpLoss 模拟 HP 下降并派发事件
+  // 与引擎 flushHpEvents 一致：循环派发直到队列清空（handler 内的治疗会产生新的 HP 变化）
+  const dropTo = (u, hp) => { applyHpLoss(state, u, u.unitHp - hp); while (dispatchHpChanged(state)); };
+
   // First Train Discount 期间治疗不消耗票
-  ally.unitHp = 100000;
-  for (state.tick = 0; state.tick <= TICK_RATE; state.tick++) onInterval(state);
+  dropTo(ally, 100000);
   eq('S2 治疗低血量持票目标', ally.unitHp > 100000, true);
   eq('First Train Discount 期间不消耗票', ticket(2)?.stacks, 2);
 
@@ -1320,18 +1326,17 @@ section('T23: Soline: Frost Ticket — S1 P1 票 buff 叠层、S2 P2 First Train
   executeSkillTriggers(state, 'ENTER_FULL_BURST');
   eq('全爆裂移除 First Train Discount',
     state.buffs.some(b => b.name === 'First Train Discount'), false);
-  ally.unitHp = 100000;
-  for (; state.tick <= TICK_RATE * 2; state.tick++) onInterval(state);
+  dropTo(ally, 100000);
   eq('移除后治疗消耗目标 1 张票', ticket(2)?.stacks, 1);
   eq('不消耗其他队员的票', ticket(74)?.stacks, 2);
 
-  ally.unitHp = 100000;
-  for (; state.tick <= TICK_RATE * 3; state.tick++) onInterval(state);
+  dropTo(ally, 100000);
   eq('票耗尽后 buff 移除', ticket(2), undefined);
 
-  const hpBefore = ally.unitHp = 100000;
-  for (; state.tick <= TICK_RATE * 4; state.tick++) onInterval(state);
-  eq('无票目标不被 S2 治疗', ally.unitHp, hpBefore);
+  dropTo(ally, 100000);
+  eq('无票目标不被 S2 治疗', ally.unitHp, 100000);
+  // 治疗本身（HP 上升）不会连锁触发 S2
+  state.pendingHpChanged.clear();
 
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: soline });
   eq('票耗尽后再次发票从 1 张开始', ticket(2)?.stacks, 1);
@@ -1495,6 +1500,474 @@ section('T26: Centi — S2 冷却 9s 轮询施放、全蓄力缩减冷却、S2 �
   eq('DEF ▼ 作用于敌人', defDown?.unitId, '__enemy__');
   eq('DEF ▼ 持续 10s', defDown?.endTick, state.tick + 10 * TICK_RATE);
   eq('爆裂 P2 全员回复 30.2% 最终最大 HP', fire.unitHp, 100000 + 302000);
+}
+
+// ── T27: Ade: Agent Bunny (315) — Minimum Effective Range ─────────────────────
+// 机制：有效下界 = bonusrange_min(45) × (1 − Σ%)；Spy Lens 每层 4.44%（=2/45），爆裂 55.56%（=25/45）。
+// Spy Lens 叠层挂在 FULL_CHARGE（射后）：本发射击按叠层前的下界判定，S1P1/S2P1/S2P2 也不作用于本发。
+// 实测（dev/game-data.md）：P1 → 第 10 枪首次获得距离优势（判定用 9 层，下界 27.04），第 9 枪
+// （8 层，下界 29.02）未获得；同枪触发的 S1P1/S2P1/S2P2 均不作用于第 10 枪。P2 距离 20 → 10 层
+// 不触发，仅开爆裂（0 层）即触发。
+
+section('T27: Ade: Agent Bunny — Minimum Effective Range 连续下界与 Spy Lens 射后叠层');
+{
+  function makeAde() {
+    return mockUnit(315, {
+      bonusRangeMin: 45, bonusRangeMax: 100,
+      rawSkill1: mockRawSkill([8.98, 5, 4.44, 10, 5]),
+      rawSkill2: mockRawSkill([9.15, 5, 9.36]),
+      rawBurst:  mockRawSkill([55.56, 10, 29.85, 10, 5.14, 10]),
+    });
+  }
+  // 模拟一发全蓄力：本发距离优势判定（叠层前）→ 射后触发（Part1 有效射程判定 + Spy Lens 叠层）
+  // 返回 { adv, sums }：adv 为本发是否优势，sums 为本发伤害所用的 buff 汇总
+  function fullChargeShot(state, ade) {
+    state.tick += TICK_RATE;   // 1s 一发，Spy Lens 5s 内持续刷新
+    const sums = getBuffSums(state, 315);
+    const adv  = unitDistanceAdvantage(ade, state.enemyDistance);
+    onShotFired(state, ade, { sums, isCharged: true, hitPart: 'body', ammoAfterShot: 5 });
+    return { adv, sums };
+  }
+
+  // P1：距离 28（实测区间 [27.04, 29.02)）
+  {
+    const ade   = makeAde();
+    const state = mockState([ade], { enemyDistance: 28 });
+    let anyAdvBefore10 = false, shot10 = null;
+    for (let i = 1; i <= 10; i++) {
+      const r = fullChargeShot(state, ade);
+      if (i < 10) anyAdvBefore10 ||= r.adv;
+      if (i === 9) {
+        eq('第 9 枪射后 Spy Lens 9 层', ade.skillState.aabSpyLensStacks, 9);
+        near('9 层下界 = 45 × (1 − 39.96%) = 27.018', ade.skillState.effRangeMin, 27.018);
+        eq('前 9 枪未触发 S1 P1 Agent\'s Gaze', state.buffs.some(b => b.name === 'Agent\'s Gaze'), false);
+      }
+      if (i === 10) shot10 = r;
+    }
+    eq('前 9 枪均未进入有效射程（第 9 枪判定用 8 层，下界 29.02）', anyAdvBefore10, false);
+    eq('第 10 枪进入有效射程（判定用 9 层）', shot10.adv, true);
+    eq('第 10 枪伤害未计入 S2 P2 穿透', shot10.sums.pierce, false);
+    eq('第 10 枪伤害未计入 S2 P2 ATK%', shot10.sums.atkPct ?? 0, 0);
+    eq('第 10 枪射后 Spy Lens 10 层', ade.skillState.aabSpyLensStacks, 10);
+    near('10 层下界 = 45 × (1 − 44.4%) = 25.02', ade.skillState.effRangeMin, 25.02);
+    eq('第 10 枪射后触发 S1 P1 Agent\'s Gaze（全队 ATK flat）',
+      state.buffs.find(b => b.name === 'Agent\'s Gaze')?.atkFlat, Math.round(100000 * 0.0898));
+    eq('第 10 枪射后触发 S2 P1 Pierce Damage ▲9.15%',
+      state.buffs.find(b => b.name === 'Agent\'s Movement (Pierce Damage)')?.pierceDamagePct, 0.0915);
+    eq('第 10 枪射后满层激活 S2 P2 穿透 + ATK ▲9.36% 持续',
+      state.buffs.find(b => b.name === 'Agent\'s Movement (ATK)')?.pierce, true);
+    eq('第 11 枪伤害计入 S2 P2 穿透', fullChargeShot(state, ade).sums.pierce, true);
+  }
+
+  // P2：距离 20 —— 10 层也进不去，仅开爆裂即可
+  {
+    const ade   = makeAde();
+    const state = mockState([ade], { enemyDistance: 20 });
+    let anyAdv = false;
+    for (let i = 1; i <= 11; i++) anyAdv ||= fullChargeShot(state, ade).adv;
+    eq('10 层封顶', ade.skillState.aabSpyLensStacks, 10);
+    near('10 层下界 = 45 × (1 − 44.4%) = 25.02', ade.skillState.effRangeMin, 25.02);
+    eq('P2 10 层（第 11 枪判定）仍未进入有效射程', anyAdv, false);
+
+    // 10 层 + 爆裂 → 下界 ≈ 0，任意距离均为优势
+    executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: ade });
+    near('10 层 + 爆裂下界 = 45 × (1 − 99.96%) ≈ 0.018', ade.skillState.effRangeMin, 0.018);
+    eq('10 层 + 爆裂：距离 5 也为优势', unitDistanceAdvantage(ade, 5), true);
+  }
+  {
+    const ade   = makeAde();
+    const state = mockState([ade], { enemyDistance: 20 });
+    executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: ade });
+    near('仅爆裂（0 层）下界 = 45 × (1 − 55.56%) = 19.998', ade.skillState.effRangeMin, 19.998);
+    eq('P2 仅开爆裂即进入有效射程', unitDistanceAdvantage(ade, 20), true);
+    eq('爆裂 P2 全队 Attack Damage ▲29.85%',
+      state.buffs.find(b => b.name === 'Cutting-Edge Agent Equipment')?.attackDamagePct, 0.2985);
+
+    // 爆裂 10s 到期后下一发按 0 层 +1 重新判定：下界回到 43
+    state.tick += TICK_RATE * 10;
+    fullChargeShot(state, ade);
+    near('爆裂到期后 1 层下界 = 45 × (1 − 4.44%) = 43.002', ade.skillState.effRangeMin, 43.002);
+    eq('爆裂到期后距离 20 不再是优势', unitDistanceAdvantage(ade, 20), false);
+  }
+}
+
+// ── T28: HP / MaxHP 机制 ──────────────────────────────────────────────────────
+// 引擎：治疗效能（healPotencyPct）× 受治疗量（incomingHealPct）、上限为最终 MaxHP、
+//       Max HP ▲ 同步回复当前 HP（noRestore 除外）、到期截断、HP 扣减、生命偷取派发 HEAL_RECEIVED。
+
+section('T28a: 引擎 HP 机制 — 治疗效能 / 受治疗量 / 最终 MaxHP 上限 / Max HP 同步回复 / 扣减 / 生命偷取');
+{
+  const healer = mockUnit(1, { unitHp: 1000000 });
+  const target = mockUnit(2, { unitHp: 500000 });
+  const state  = mockState([healer, target]);
+
+  // 治疗效能 × 受治疗量
+  pushBuff(state, { name: 'Potency', unitId: 1, healPotencyPct: 0.5, endTick: Infinity });
+  pushBuff(state, { name: 'Incoming', unitId: 2, incomingHealPct: 0.1, endTick: Infinity });
+  applyHeal(state, target, 1000, null, healer);
+  eq('回复量 = 1000 × 1.5 × 1.1', target.unitHp, 500000 + 1650);
+  eq('受治疗者进入 HEAL_RECEIVED 队列', state.pendingHealReceived.includes(target), true);
+  applyHeal(state, target, 1000);
+  eq('无治疗者时只计受治疗量加成', target.unitHp, 500000 + 1650 + 1100);
+
+  // 上限 = 最终 MaxHP（含 maxHpPct buff）
+  pushBuff(state, { name: 'MaxHP20', unitId: 2, maxHpPct: 0.2, noRestore: true, endTick: 600 });
+  applyHeal(state, target, 10_000_000);
+  eq('治疗上限为最终 MaxHP = 1.2M', target.unitHp, 1200000);
+  near('getHpRatio 按最终 MaxHP 计算', getHpRatio(state, target), 1);
+
+  // 到期截断
+  state.buffs = state.buffs.filter(b => b.name !== 'MaxHP20');
+  clampHpToMax(state, target);
+  eq('Max HP buff 移除后当前 HP 截断到 1M', target.unitHp, 1000000);
+
+  // Max HP ▲ 同步回复（无 noRestore）：当前 HP 提升同量
+  target.unitHp = 800000;
+  pushBuff(state, { name: 'Restore10', unitId: 2, maxHpPct: 0.1, endTick: Infinity });
+  eq('Max HP ▲10% → 当前 HP +100000', target.unitHp, 900000);
+  pushBuff(state, { name: 'NoRestore', unitId: 2, maxHpFlat: 50000, noRestore: true, endTick: Infinity });
+  eq('without restoring HP → 当前 HP 不变', target.unitHp, 900000);
+  // 叠层 buff 每新增一层回复一层的量
+  pushBuff(state, { name: 'Stack', unitId: null, maxHpFlat: 10000, stackLimit: 3, endTick: Infinity });
+  eq('全队叠层 buff 第 1 层 → +10000', target.unitHp, 910000);
+  pushBuff(state, { name: 'Stack', unitId: null, maxHpFlat: 10000, stackLimit: 3, endTick: Infinity });
+  eq('第 2 层 → 再 +10000', target.unitHp, 920000);
+  // 就地改写数值
+  const stackBuff = state.buffs.find(b => b.name === 'Stack');
+  setMaxHpBuffValue(state, stackBuff, { maxHpFlat: 15000 });
+  eq('setMaxHpBuffValue 增量 (5000 × 2 层) 同步回复', target.unitHp, 930000);
+  setMaxHpBuffValue(state, stackBuff, { maxHpFlat: 0 });
+  eq('数值降低后截断：上限 1M×1.1+50000 = 1.15M，当前 930000 不变', target.unitHp, 930000);
+
+  // HP 扣减（不低于 1）
+  eq('applyHpLoss 返回实际扣减量', applyHpLoss(state, target, 30000), 30000);
+  eq('扣减后 HP', target.unitHp, 900000);
+  applyHpLoss(state, target, 5_000_000);
+  eq('自损不致死：HP 下限 1', target.unitHp, 1);
+
+  // 生命偷取：受自身治疗效能影响并派发 HEAL_RECEIVED
+  state.pendingHealReceived.length = 0;
+  healer.unitHp = 100000;
+  applyLifeSteal(state, healer, 10000, { lifeStealPct: 0.5 });
+  eq('生命偷取 = 10000 × 50% × (1 + 50% 效能)', healer.unitHp, 100000 + 7500);
+  eq('生命偷取派发 HEAL_RECEIVED', state.pendingHealReceived.includes(healer), true);
+  applyLifeSteal(state, healer, 10000, { lifeStealPct: 0 });
+  eq('lifeStealPct = 0 时无回复', healer.unitHp, 107500);
+
+  // HoT 记录 casterId
+  const hotState = mockState([healer, target], { pendingHoTs: [] });
+  pushHoT(hotState, target, 1000, 3, null, healer);
+  eq('HoT 条目数 = 持续秒数', hotState.pendingHoTs.length, 3);
+  eq('HoT 条目记录治疗者 id', hotState.pendingHoTs[0].casterId, 1);
+}
+
+section('T28b: Grave (514) — Prediction 每秒 HP ▼1%、Heat Emission 每秒回复 2% 最终 MaxHP');
+{
+  const grave = mockUnit(514, {
+    unitHp: 1000000, targetBurstEnergyPerShot: 1000, ammoLeft: 5,
+    rawSkill1: mockRawSkill([100, 50, 2, 38.96, 48.4]),
+    rawSkill2: mockRawSkill([15, 15.48, 30, 20.66, 60, 30.8]),
+    rawBurst:  mockRawSkill([1, 52.8, 48.2, 39.98, 3, 85.19]),
+  });
+  const state = mockState([grave]);
+  onInterval(state);   // 记录 INTERVAL 起点
+  executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: grave });
+  eq('Prediction 结束 tick = +10s', grave.skillState.grave_predictionEndTick, 10 * TICK_RATE);
+  // 「Current HP ▼1%」= 当前 HP 的 1%，逐秒复利递减
+  let expect = 1000000;
+  for (let s = 1; s <= 9; s++) { state.tick = s * TICK_RATE; onInterval(state); expect -= Math.round(expect * 0.01); }
+  eq('前 9 秒每秒 ▼ 当前 HP 的 1%', grave.unitHp, expect);
+  eq('Prediction 期间无 Heat Emission', state.buffs.some(b => b.name === 'Heat Emission'), false);
+  // 第 10 秒：同秒 Prediction 到期 → S1 先激活 Heat Emission 并回复 2% 最终 MaxHP，
+  // 随后爆裂触发器执行第 10 次扣血（当前 HP 已含该次回复）
+  state.tick = 10 * TICK_RATE; onInterval(state);
+  expect = expect + 20000; expect -= Math.round(expect * 0.01);
+  eq('Prediction 到期时 Heat Emission 已激活',
+    state.buffs.some(b => b.name === 'Heat Emission' && b.unitId === 514), true);
+  eq('第 10 次扣血与首次回复 +20000', grave.unitHp, expect);
+  eq('扣血计数归零', grave.skillState.grave_hpDrainLeft, 0);
+  state.tick = 11 * TICK_RATE; onInterval(state);
+  eq('Heat Emission 第 2 秒再回复 2% 且不再扣血', grave.unitHp, expect + 20000);
+  eq('回复进入 HEAL_RECEIVED 队列', state.pendingHealReceived.includes(grave), true);
+  eq('HP 变化进入 HP_CHANGED 队列', state.pendingHpChanged.has(514), true);
+}
+
+section('T28c: Red Hood (470) — The Last Howl：治疗效能 ▲ + S2 P3 生命偷取');
+{
+  const rh = mockUnit(470, { unitHp: 1000000,
+    rawSkill1: mockRawSkill([3.81, 10, 5, 240]),
+    rawSkill2: mockRawSkill([50.68, 10, 23.04, 10, 71.42, 10]),
+    rawBurst:  mockRawSkill([77.55, 10, 0, 10, 74.88, 10, 51.46, 100, 10, 100.8, 10]),
+  });
+  const state = mockState([rh], { burstPhase: 2 });
+  executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: rh });
+  const potency = state.buffs.find(b => b.name === 'The Last Howl (Heal Potency)');
+  near('自身治疗效能 ▲74.88% 10s', potency?.healPotencyPct, 0.7488);
+  eq('治疗效能持续 10s', potency?.endTick, 10 * TICK_RATE);
+  const ls = state.buffs.find(b => b.name === 'Wild Tooth (Life Steal)');
+  eq('S2 P3 生命偷取 23.04%', ls?.lifeStealPct, 0.2304);
+  eq('生命偷取归属 S2 P3', ls?._sourcePartIdx, 2);
+  applyLifeSteal(state, rh, 100000, getBuffSums(state, 470));
+  eq('The Last Howl 期间生命偷取受效能放大：100000 × 23.04% × 1.7488', rh.unitHp,
+    Math.min(1000000, 1000000 + Math.round(100000 * 0.2304 * 1.7488)));
+  rh.unitHp = 500000;
+  applyLifeSteal(state, rh, 100000, getBuffSums(state, 470));
+  eq('未满血时实际回复 40292', rh.unitHp, 500000 + Math.round(100000 * 0.2304 * 1.7488));
+  eq('Step2 不触发武器切换', rh.skillState.weaponSwitchEndTick ?? 0, 0);
+}
+
+section('T28d: Alice (191) — Healthy Carrot 按 HP 比例切换 Pierce / 生命偷取');
+{
+  const alice = mockUnit(191, { unitHp: 1000000,
+    rawSkill1: mockRawSkill([2, 11.67, 10, 7, 10]),
+    rawSkill2: mockRawSkill([80, 80, 8.12]),
+    rawBurst:  mockRawSkill([80.15, 10, 55.12, 10]),
+  });
+  const state = mockState([alice]);
+  const has = name => state.buffs.some(b => b.name === name && b.unitId === 191);
+  executeSkillTriggers(state, 'BATTLE_START');
+  eq('满血：Pierce 形态', has('Healthy Carrot (Pierce)'), true);
+  eq('满血：无生命偷取', has('Healthy Carrot (Life Steal)'), false);
+  applyHpLoss(state, alice, 300000); dispatchHpChanged(state);
+  eq('HP 70% < 80%：切换为生命偷取', has('Healthy Carrot (Life Steal)'), true);
+  eq('HP 70%：Pierce 移除', has('Healthy Carrot (Pierce)'), false);
+  eq('生命偷取 8.12%', state.buffs.find(b => b.name === 'Healthy Carrot (Life Steal)')?.lifeStealPct, 0.0812);
+  applyHeal(state, alice, 150000); dispatchHpChanged(state);
+  eq('HP 回到 85%：恢复 Pierce', has('Healthy Carrot (Pierce)'), true);
+  eq('HP 回到 85%：生命偷取移除', has('Healthy Carrot (Life Steal)'), false);
+}
+
+section('T28e: Moran (281) — Perseverance：HP < 20% 边沿触发，三阶段各一次且互不叠加');
+{
+  const fav = vals => ({ ...mockRawSkill(vals), _activeSkillLevel: 1 });
+  const moran = mockUnit(281, { unitHp: 1000000, ssrFavSkills: {
+    skill1: fav([3.51, 47.18, 5, 20]),
+    skill2: fav([91, 3, 69.84, 3, 51.09, 3, 3, 4, 20, 7.48]),
+    burst:  fav([14.7, 36.14, 10, 10, 35.14, 10, 14.85, 10, 42.57, 10]),
+  } });
+  const state = mockState([moran]);
+  const persev = () => state.buffs.find(b => b.name === 'Perseverance' && b.unitId === 281);
+  // 用 applyHpLoss / applyHeal 改变 HP 并派发 HP_CHANGED（边沿：变化前 ≥ 20%、变化后 < 20%）
+  const setHp = hp => {
+    if (hp < moran.unitHp) applyHpLoss(state, moran, moran.unitHp - hp);
+    else applyHeal(state, moran, hp - moran.unitHp);
+    while (dispatchHpChanged(state));
+  };
+  state.tick = TICK_RATE;
+  setHp(250000);
+  eq('HP 25% 未跌破 20%：不触发', persev(), undefined);
+  setHp(150000);
+  eq('跌破 20%：Once Max HP ▲91%', persev()?.maxHpPct, 0.91);
+  eq('持续 3s', persev()?.endTick, TICK_RATE + 3 * TICK_RATE);
+  eq('Max HP ▲ 同步回复：150000 + 910000', moran.unitHp, 150000 + 910000);
+  // 再次从阈值以上跌破（Max HP 同步回复后 HP 已回到阈值以上）
+  setHp(100000);
+  eq('Twice：Max HP ▲69.84% 替换 Once', persev()?.maxHpPct, 0.6984);
+  eq('阶段间不叠加（仅一条 Perseverance）',
+    state.buffs.filter(b => b.name === 'Perseverance').length, 1);
+  setHp(50000);
+  eq('Three Times：Max HP ▲51.09%', persev()?.maxHpPct, 0.5109);
+  eq('阶段计数 = 3', moran.skillState.moranPersevStage, 3);
+  const before = persev()?.endTick;
+  state.tick = 2 * TICK_RATE;
+  setHp(10000);
+  eq('第 4 次跌破不再触发（阶段上限 3，buff 不刷新）', persev()?.endTick, before);
+}
+
+section('T28f: 治疗效能 buff 来源 — Anchor S1 P1 / Prika S1 P2 / Crown Relax / Flora Peace of Mind 受治疗量 / Liter S2 掩体');
+{
+  // Anchor: Innocent Maid (355) 首次进入全爆裂 → 全员治疗效能 ▲30.96% 5s
+  {
+    const anchor = mockUnit(355, { unitHp: 1000000,
+      rawSkill1: mockRawSkill([30.96, 5, 30.4, 10, 1, 3.04, 8]),
+      rawSkill2: mockRawSkill([10.13, 10, 35.02, 10, 40.04, 15]),
+      rawBurst:  mockRawSkill([60.19, 25, 40.18, 30.09, 10]) });
+    const state = mockState([anchor], { pendingHoTs: [] });
+    executeSkillTriggers(state, 'PROGRAM_INIT');
+    executeSkillTriggers(state, 'ENTER_FULL_BURST');
+    const b = state.buffs.find(x => x.name === 'Starfish (Shaped) Omurice (Heal Potency)');
+    eq('Anchor 全员治疗效能 ▲30.96%', b?.healPotencyPct, 0.3096);
+    eq('作用于全队（unitId null）', b?.unitId, null);
+    eq('持续 5s', b?.endTick, 5 * TICK_RATE);
+  }
+  // Prika (601) 爆裂 → Performance 期间自身治疗效能 ▲49.92%，HoT 不再预折算
+  {
+    const prika = mockUnit(601, { unitHp: 1000000,
+      rawSkill1: mockRawSkill([20, 3, 13.09, 3, 20, 3, 49.92]),
+      rawSkill2: mockRawSkill([19.98, 10, 21, 25.01, 10, 21]),
+      rawBurst:  mockRawSkill([3.04, 25, 0, 0, 25, 25]) });
+    const ally  = mockUnit(9100, { unitHp: 100000 });
+    const state = mockState([prika, ally], { pendingHoTs: [] });
+    executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: prika });
+    const pot = state.buffs.find(x => x.name === 'Let\'s Get the Show Started (Pierce)');
+    near('Prika 自身治疗效能 ▲49.92%', pot?.healPotencyPct, 0.4992);
+    eq('S1 P2 同时获得 Pierce', pot?.pierce, true);
+    eq('效能 buff 随 Performance 25s 到期', pot?.endTick, 25 * TICK_RATE);
+    eq('效能 buff 日志归属 S1 P2', pot?._sourcePartIdx, 1);
+    const hot = state.pendingHoTs.find(h => h.targetId === 9100);
+    eq('HoT 基础量 = 3.04% 最终 MaxHP（未预折算效能）', hot?.amount, 30400);
+    eq('HoT 记录治疗者', hot?.casterId, 601);
+    applyHeal(state, ally, hot.amount, null, prika);
+    eq('HoT 触发时按效能放大：30400 × 1.4992', ally.unitHp, 100000 + Math.round(30400 * 1.4992));
+  }
+  // Crown (330) Relax 每层治疗效能 ▲4.06%
+  {
+    const crown = mockUnit(330, { unitHp: 1000000, weaponType: 'MG', ammoLeft: 100,
+      rawSkill1: mockRawSkill([64.51, 15, 44.35, 15, 37.44, 15, 44.35, 15]),
+      rawSkill2: mockRawSkill([43, 4.06, 20, 5, 5, 5.23, 20.99, 7]),
+      rawBurst:  mockRawSkill([36.24, 15, 10.45, 15]) });
+    const state = mockState([crown]);
+    for (let i = 0; i < 86; i++)
+      onShotFired(state, crown, { sums: getBuffSums(state, 330), isCharged: false, hitPart: 'body', ammoAfterShot: 5 });
+    const relax = state.buffs.find(b => b.name === 'Relax' && b.unitId === 330);
+    eq('86 发 → Relax 2 层', relax?.stacks, 2);
+    near('Relax 治疗效能 = 2 × 4.06%', getBuffSums(state, 330).healPotencyPct, 0.0812);
+  }
+  // Flora (411) Peace of Mind：受治疗量 ▲4%/层（上限 5），治疗按治疗者效能与受治疗者加成放大
+  {
+    const fav = vals => ({ ...mockRawSkill(vals), _activeSkillLevel: 1 });
+    const flora = mockUnit(411, { unitHp: 1000000, element: 'Electric', ssrFavSkills: {
+      skill1: fav([1, 1, 100, 1, 4, 5, 15.01, 2]),
+      skill2: fav([90, 10.22, 10, 30.97, 10, 45.12, 10]),
+      burst:  fav([10.45, 42.39, 10, 85.86, 10]),
+    } });
+    const ally  = mockUnit(9200, { unitHp: 100000 });
+    const state = mockState([flora, ally]);
+    executeSkillTriggers(state, 'BATTLE_START');
+    const pom = state.buffs.find(b => b.name === 'Peace of Mind' && b.unitId === 9200);
+    eq('相邻友军 Peace of Mind 受治疗量 ▲4%', pom?.incomingHealPct, 0.04);
+    eq('受治疗量可叠至 5 层', pom?.stackLimit, 5);
+    applyHeal(state, ally, 10000, null, flora);
+    eq('受治疗量加成：10000 × 1.04', ally.unitHp, 100000 + 10400);
+  }
+  // Liter (82) S2 Volt Boost：主动技能 15s 冷却，开局先进入冷却；目标 = 站位最左 2 人
+  {
+    const liter = mockUnit(82, { unitHp: 1000000, ammoLeft: 10, baseAmmo: 10,
+      rawSkill1: mockRawSkill([2.34, 2.7, 3.17, 45.17, 5, 12.46, 5, 14.42, 5]),
+      rawSkill2: mockRawSkill([2, 52.5]),
+      rawBurst:  mockRawSkill([66, 5]) });
+    const a = mockUnit(9301, { unitHp: 1000000 }), b = mockUnit(9302, { unitHp: 1000000 });
+    const state = mockState([a, liter, b], { pendingCoverHeal: false, pendingSkillEvents: [], _logSeq: 0 });
+    executeSkillTriggers(state, 'PROGRAM_INIT');
+    eq('开局进入 15s 冷却', liter.skillState.literS2ReadyTick, 15 * TICK_RATE);
+    state.tick = 15 * TICK_RATE - 1; onInterval(state);
+    eq('冷却未到不施放', state.pendingCoverHeal, false);
+    state.tick = 15 * TICK_RATE; onInterval(state);
+    eq('冷却到期施放 → 掩体治疗标记（COVER_HEAL 事件）', state.pendingCoverHeal, true);
+    eq('目标为站位最左 2 人', state.pendingSkillEvents.at(-1)?.target, '掩体（U9301、U82）');
+    eq('施放后重新进入 15s 冷却', liter.skillState.literS2ReadyTick, 30 * TICK_RATE);
+  }
+}
+
+section('T28g: 溢出治疗储存 / 平均分摊治疗 / Noir Lucky Charm / Centi S1 P4 / Flora S2 P1、P2 / Crown Relax 顺序');
+{
+  // 溢出治疗储存：超出最终 MaxHP 的治疗存入储存池（上限 cap），扣减时优先扣储存池，到期移除
+  {
+    const u = mockUnit(1, { unitHp: 900000 });
+    const state = mockState([u]);
+    applyOverhealStorage(state, u, 50000, 300);
+    applyHeal(state, u, 200000);
+    eq('HP 补满到最终 MaxHP', u.unitHp, 1000000);
+    eq('溢出 100000 存入储存池，受上限 50000 限制', u.overheal.hp, 50000);
+    eq('储存池不计入 HP 比例', getHpRatio(state, u), 1);
+    eq('扣减 30000 优先扣储存池', applyHpLoss(state, u, 30000), 30000);
+    eq('HP 不变', u.unitHp, 1000000);
+    eq('储存池剩余 20000', u.overheal.hp, 20000);
+    applyHpLoss(state, u, 50000);
+    eq('储存池用尽后扣 HP：1000000 − 30000', u.unitHp, 970000);
+    state.tick = 300; expireOverheal(state, u);
+    eq('到期移除储存部分', u.overheal, null);
+    applyHeal(state, u, 100000);
+    eq('到期后溢出不再储存', u.overheal, null);
+  }
+  // 平均分摊治疗（Nayuta S1 P2 Hypocrisy shareHeal）：原目标受到治疗，其他人仅 HP 变化
+  {
+    const a = mockUnit(1, { unitHp: 500000 }), b = mockUnit(2, { unitHp: 500000 });
+    const c = mockUnit(3, { unitHp: 500000 }), d = mockUnit(4, { unitHp: 500000 });
+    const state = mockState([a, b, c, d]);
+    pushBuff(state, { name: 'Hypocrisy', unitId: null, shareHeal: true, endTick: 300 });
+    applyHeal(state, b, 100000);
+    eq('原目标获得 1/4', b.unitHp, 525000);
+    eq('其他队员各获得 1/4', [a, c, d].map(u => u.unitHp).join(','), '525000,525000,525000');
+    eq('仅原目标进入 HEAL_RECEIVED 队列', state.pendingHealReceived.map(u => u.id).join(','), '2');
+    eq('四人均进入 HP_CHANGED 队列', [...state.pendingHpChanged.keys()].sort().join(','), '1,2,3,4');
+    state.tick = 300;
+    applyHeal(state, b, 100000);
+    eq('分摊状态到期后治疗不再分摊', b.unitHp, 625000);
+  }
+  // Noir (271) Lucky Charm：自身 HP > 70% 时全员 ATK flat；跌破后移除；回升后恢复
+  {
+    const noir = mockUnit(271, { unitHp: 1000000, rawSkill1: mockRawSkill([70, 14.08]) });
+    const state = mockState([noir]);
+    const lc = () => state.buffs.find(b => b.name === 'Lucky Charm');
+    executeSkillTriggers(state, 'BATTLE_START');
+    eq('开局 HP 100% > 70%：全员 ATK flat = 14.08% Noir ATK', lc()?.atkFlat, 14080);
+    applyHpLoss(state, noir, 350000); dispatchHpChanged(state);
+    eq('HP 65%：Lucky Charm 移除', lc(), undefined);
+    applyHeal(state, noir, 100000); dispatchHpChanged(state);
+    eq('HP 75%：Lucky Charm 恢复', lc()?.atkFlat, 14080);
+  }
+  // Centi (80) S1 P3 Stockpile 储存 + P4：Stockpile 期间任意友军 HP 下降 → 全员回复 7% 最终 MaxHP
+  {
+    const fav = (name, vals) => ({ ...mockRawSkill(vals), _activeSkillLevel: 1, name_localkey: name });
+    const centi = mockUnit(80, { unitHp: 1000000, ssrFavSkills: {
+      skill1: fav('Maintain Fortification', [9.16, 5.69, 10, 10, 7, 7, 5, 7, 100]),
+      skill2: fav('Field Discussion',       [7, 5, 4.6, 10, 8]),
+      burst:  fav('Start Construction',     [5, 145.46, 14.54, 10, 30.2]) } });
+    const ally = mockUnit(9400, { unitHp: 1000000 });
+    const state = mockState([centi, ally]);
+    executeSkillTriggers(state, 'PROGRAM_INIT');
+    executeSkillTriggers(state, 'BATTLE_START');
+    eq('Stockpile 储存上限 = 7% 施法者基础 MaxHP', ally.overheal?.cap, 70000);
+    eq('Stockpile 持续 5s', ally.overheal?.endTick, 5 * TICK_RATE);
+    eq('开局满血：P3 治疗 70000 全部进入储存池', ally.overheal?.hp, 70000);
+    dispatchHpChanged(state);
+    // 友军 HP 下降（先扣储存池再扣 HP）→ P4 全员回复
+    applyHpLoss(state, ally, 120000); dispatchHpChanged(state);
+    eq('扣减 120000：储存池 70000 先扣，HP −50000 后由 P4 回复 70000 补满', ally.unitHp, 1000000);
+    eq('P4 回复溢出 20000 回到储存池', ally.overheal?.hp, 20000);
+    eq('P4 对全员生效（Centi 自身满血，溢出进储存池）', centi.overheal?.hp, 70000);
+    // Stockpile 到期后不再触发
+    state.tick = 5 * TICK_RATE; state.buffs = state.buffs.filter(b => b.endTick > state.tick);
+    expireOverheal(state, ally); state.pendingHpChanged.clear();
+    applyHpLoss(state, ally, 10000); dispatchHpChanged(state);
+    eq('Stockpile 到期后 P4 不触发', ally.unitHp, 990000);
+  }
+  // Flora (411) S2 P1：相邻友军 HP 下降至 ≤90% → 全员护盾；S2 P2：相邻友军受治疗且满血 → 真实伤害 ▲
+  {
+    const fav = vals => ({ ...mockRawSkill(vals), _activeSkillLevel: 1 });
+    const flora = mockUnit(411, { unitHp: 1000000, element: 'Electric', ssrFavSkills: {
+      skill1: fav([1, 1, 100, 1, 4, 5, 15.01, 2]),
+      skill2: fav([90, 10.22, 10, 30.97, 10, 45.12, 10]),
+      burst:  fav([10.45, 42.39, 10, 85.86, 10]) } });
+    const adj = mockUnit(9500, { unitHp: 1000000, shieldHp: 0, shieldEndTick: 0 });
+    const far = mockUnit(9501, { unitHp: 1000000, shieldHp: 0, shieldEndTick: 0 });
+    flora.shieldHp = 0; flora.shieldEndTick = 0;
+    const state = mockState([flora, adj, far], { pendingShieldReceived: [] });
+    executeSkillTriggers(state, 'BATTLE_START'); state.pendingHpChanged.clear();
+    applyHpLoss(state, far, 200000); dispatchHpChanged(state);
+    eq('非相邻友军 HP 下降不触发 P1', far.shieldHp, 0);
+    applyHpLoss(state, adj, 50000); dispatchHpChanged(state);
+    eq('相邻友军 HP 95% 不触发 P1', adj.shieldHp, 0);
+    applyHpLoss(state, adj, 50000); dispatchHpChanged(state);
+    eq('相邻友军 HP 90% → 全员护盾 10.22% Flora 最终 MaxHP', far.shieldHp, 102200);
+    eq('P2 未触发（相邻友军未满血）', state.buffs.some(b => b.name === 'Iris (True Damage)'), false);
+    applyHeal(state, adj, 100000, null, flora); executeSkillTriggers(state, 'HEAL_RECEIVED', { unit: adj });
+    eq('相邻友军受治疗回到满血 → P2 全员真实伤害 ▲30.97%',
+      state.buffs.find(b => b.name === 'Iris (True Damage)')?.trueDamagePct, 0.3097);
+  }
+  // Crown (330) Relax 满层：先治疗（享受 20 层效能），再移除 Relax
+  {
+    const crown = mockUnit(330, { unitHp: 100000, weaponType: 'MG', ammoLeft: 100,
+      rawSkill1: mockRawSkill([64.51, 15, 44.35, 15, 37.44, 15, 44.35, 15]),
+      rawSkill2: mockRawSkill([43, 4.06, 20, 5, 5, 5.23, 20.99, 7]),
+      rawBurst:  mockRawSkill([36.24, 15, 10.45, 15]) });
+    const state = mockState([crown]);
+    for (let i = 0; i < 43 * 20; i++)
+      onShotFired(state, crown, { sums: getBuffSums(state, 330), isCharged: false, hitPart: 'body', ammoAfterShot: 5 });
+    eq('满层后 Relax 已移除', state.buffs.some(b => b.name === 'Relax'), false);
+    eq('治疗 = 5.23% × 1M × (1 + 20 × 4.06%)', crown.unitHp, 100000 + Math.round(52300 * 1.812));
+  }
 }
 
 // ── 注册完整性：skills/ 目录下每个技能文件都必须在 SKILL_TRAITS 中注册 ─────────

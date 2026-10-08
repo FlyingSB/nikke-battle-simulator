@@ -1,4 +1,4 @@
-import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
+import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, applyOverhealStorage,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX, pushHoT, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 import { getCharacterTraits } from '../../data/character-traits.js';
@@ -31,7 +31,7 @@ export default {
         },
       },
       // S1 Part 1（Starfish Omurice）："前效重复触发"，每次进入全爆裂：
-      //   [TODO] 第 1 次+：HP 回复效能 ▲30.96% 5s（全员）— 待治疗系统实现
+      //   第 1 次+：治疗效能 ▲30.96% 5s（全员；作用于各单位作为治疗者施放的治疗）
       //   第 2 次+：Distributed Damage ▲30.40% 10s（全员）
       //   第 3 次+：移除 1 层 Mast Drunken（防 Hangover；仅移除 isDebuff:true 且 stackLimit>1 的堆叠 buff）
       // 同一部队条件（Anchor + Mast 同队）在当前阵容中恒满足，注释保留
@@ -42,6 +42,11 @@ export default {
         handler(state, caster) {
           caster.skillState.anchorFbCount++;
           const cnt = caster.skillState.anchorFbCount;
+          if (cnt >= 1) {
+            const potencyPct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
+            pushBuff(state, { name: 'Starfish (Shaped) Omurice (Heal Potency)', unitId: null,
+              healPotencyPct: potencyPct, endTick: state.tick + TICK_RATE * 5 });
+          }
           if (cnt >= 2) {
             const distDmgPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
             pushBuff(state, { name: 'Starfish (Shaped) Omurice (Distributed Damage)', unitId: null,
@@ -71,7 +76,7 @@ export default {
           if (!hasSquadMate) return false;
           const hotHealPct = getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]) / 100;
           const amount     = Math.round(caster.stats.hp * hotHealPct);
-          pushHoT(state, ALL_ALLIES, amount, 8);
+          pushHoT(state, ALL_ALLIES, amount, 8, null, caster);
         },
       },
     ],
@@ -126,18 +131,23 @@ export default {
   burst: {
     groupId: 13553,
     triggers: [
-      // Burst（Seaside Stroll）：全员 ATK flat ▲30.09% Anchor ATK 10s
-      //   + 全员立即 HP 回复 40.18% caster max HP
-      //   [TODO: 过量治疗储存 60.19%×MaxHP 25s 未建模]
+      // Burst（Seaside Stroll）：全员 Storage（溢出治疗储存，上限 p01% 各自基础 MaxHP「their Max HP」，25s）
+      //   + 全员立即 HP 回复 40.18% caster max HP（Storage 先开启，本次治疗的溢出部分即可储存）
+      //   + 全员 ATK flat ▲30.09% Anchor ATK 10s
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
-          const atkFlatPct = getSkillValue(caster.rawBurst, 3, caster.skillLevels[2]) / 100;
-          const healPct    = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
+          const lv         = caster.skillLevels[2];
+          const atkFlatPct = getSkillValue(caster.rawBurst, 3, lv) / 100;
+          const healPct    = getSkillValue(caster.rawBurst, 2, lv) / 100;
+          const storePct   = getSkillValue(caster.rawBurst, 0, lv) / 100;
+          applyOverhealStorage(state, ALL_ALLIES, u => u.stats.hp * storePct,
+            state.tick + TICK_RATE * getSkillValue(caster.rawBurst, 1, lv), { ...state._logCtx, lineIdx: 1 });
           pushBuff(state, { name: 'Seaside Stroll', unitId: null,
-            atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: state.tick + TICK_RATE * 10 });
+            atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: state.tick + TICK_RATE * 10 },
+            { ...state._logCtx, lineIdx: 3 });
           const healAmt = Math.round(caster.stats.hp * healPct);
-          applyHeal(state, ALL_ALLIES, healAmt);
+          applyHeal(state, ALL_ALLIES, healAmt, { lineIdx: 2 }, caster);
         },
       },
     ],

@@ -1,4 +1,4 @@
-import { pushBuff, applyHeal, applySharedShield, fireSkillHit, getBuffSums, getFinalMaxHp,
+import { pushBuff, applyHeal, applyOverhealStorage, applySharedShield, fireSkillHit, getBuffSums, getFinalMaxHp,
          TICK_RATE, ALL_ALLIES, ENEMY_UNIT_ID } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
@@ -90,7 +90,7 @@ export default {
   // p02 sec (const):                   [10,...]
   // p03 max stacks (const):            [10,...]
   // p04 P4 heal % final max HP:        [3.5,3.88,4.27,4.66,5.04,5.44,5.83,6.22,6.6,7]
-  // p05 Stockpile cap % max HP:        [3.5,3.88,4.27,4.66,5.04,5.44,5.83,6.22,6.6,7]   — 溢出治疗储存量，不建模数值
+  // p05 Stockpile cap % max HP:        [3.5,3.88,4.27,4.66,5.04,5.44,5.83,6.22,6.6,7]   — 溢出治疗储存上限（施法者基础 MaxHP）
   // p06 Stockpile sec (const):         [5,...]
   // p07 P3 heal % final max HP:        [3.5,3.88,4.27,4.66,5.04,5.44,5.83,6.22,6.6,7]
   // p08 HP threshold % (const):        [100,...]
@@ -110,22 +110,36 @@ export default {
       },
       // P2：S2 施放时 → 钢铁代码友军属性克制攻击伤害 ▲（见 onFieldDiscussionCast，随 S2 施放触发）
       {},
-      // P3：战斗开始 → 全员进入 Stockpile（p06 秒，仅作状态标记）+ 回复 p07% 施法者最终最大 HP
+      // P3：战斗开始 → 全员进入 Stockpile（p06 秒：溢出治疗储存，上限 p05% 施法者基础 MaxHP；
+      //     同时推入同名标记 buff 供 P4 判定）+ 回复 p07% 施法者最终最大 HP
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          const s1 = caster.ssrFavSkills.skill1;
-          const lv = s1._activeSkillLevel;
-          pushBuff(state, { name: STOCKPILE, unitId: null,
-            endTick: state.tick + TICK_RATE * getSkillValue(s1, 6, lv) },
-            { ...state._logCtx, lineIdx: 1 });
+          const s1  = caster.ssrFavSkills.skill1;
+          const lv  = s1._activeSkillLevel;
+          const end = state.tick + TICK_RATE * getSkillValue(s1, 6, lv);
+          pushBuff(state, { name: STOCKPILE, unitId: null, endTick: end }, { ...state._logCtx, lineIdx: 1 });
+          applyOverhealStorage(state, ALL_ALLIES,
+            caster.stats.hp * getSkillValue(s1, 5, lv) / 100, end, false);   // "skill user's max HP"（非 final）
           applyHeal(state, ALL_ALLIES,
             Math.round(getFinalMaxHp(state, caster) * getSkillValue(s1, 7, lv) / 100),
-            { lineIdx: 2 });
+            { lineIdx: 2 }, caster);
         },
       },
-      // P4：Stockpile 期间友军 HP 降至 p08% 以下 → 全员回复 — 模拟器不建模敌方伤害，占位
-      {},
+      // P4：Stockpile 期间任意友军（含自身）HP 下降至 p08=100% 以下 → 全员回复 p04% 施法者最终最大 HP
+      //     由 HP_CHANGED 驱动，只响应 HP 下降（回复本身不会连锁触发）
+      {
+        on: 'HP_CHANGED',
+        handler(state, caster, ctx) {
+          if (!ctx.unit || !(ctx.newHp < ctx.prevHp)) return false;
+          if (!state.buffs.some(b => b.name === STOCKPILE && b.endTick > state.tick)) return false;
+          const s1 = caster.ssrFavSkills.skill1;
+          const lv = s1._activeSkillLevel;
+          if (ctx.newHp > getFinalMaxHp(state, ctx.unit) * getSkillValue(s1, 8, lv) / 100) return false;
+          applyHeal(state, ALL_ALLIES,
+            Math.round(getFinalMaxHp(state, caster) * getSkillValue(s1, 4, lv) / 100), null, caster);
+        },
+      },
     ],
   },
 
@@ -197,7 +211,7 @@ export default {
           // P2：全员回复 p04% 施法者最终最大 HP
           applyHeal(state, ALL_ALLIES,
             Math.round(getFinalMaxHp(state, caster) * getSkillValue(burst, 4, lv) / 100),
-            { partIdx: 1, lineIdx: null });
+            { partIdx: 1, lineIdx: null }, caster);
         },
       },
     ],

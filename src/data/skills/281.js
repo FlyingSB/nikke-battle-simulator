@@ -1,5 +1,5 @@
 ﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
+         getBuffSums, getFinalMaxHp, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Moran  (resource_id: 281)
@@ -79,8 +79,31 @@ export default {
     triggers: [
       // [TODO] S2 P1：末弹 → 最高 ATK 3 名敌人嘲讽 4s（无敌人选择/嘲讽模型）
       {},
-      // [TODO] S2 P2：HP 低于 91% 时分阶段（Once/Twice/Three Times）提升 MaxHP（无 HP 受伤模型）
-      {},
+      // S2 P2（Perseverance）：HP 低于 p09=20% 时按触发次数分阶段 Max HP ▲（每阶段一次/战，阶段间不叠加）
+      //   由自身 HP_CHANGED 驱动，「跌破阈值」为边沿触发（变化前 ≥ 阈值、变化后 < 阈值）。
+      //   模拟器中友军不受敌方伤害，实际仅自损类效果可能触发。
+      {
+        on: 'HP_CHANGED',
+        handler(state, caster, ctx) {
+          if (ctx.unit?.id !== caster.id) return false;
+          const s2 = caster.ssrFavSkills?.skill2;
+          const lv = s2?._activeSkillLevel ?? 0;
+          if (!s2 || lv <= 0) return false;
+          const st        = caster.skillState;
+          const threshold = getFinalMaxHp(state, caster) * getSkillValue(s2, 8, lv) / 100;
+          if (!(ctx.prevHp >= threshold && ctx.newHp < threshold)) return false;
+          const stage = (st.moranPersevStage ?? 0) + 1;
+          if (stage > 3) return false;
+          st.moranPersevStage = stage;
+          // Once / Twice / Three Times：(p01,p02) / (p03,p04) / (p05,p06)
+          const idx      = (stage - 1) * 2;
+          const maxHpPct = getSkillValue(s2, idx, lv) / 100;
+          const endTick  = state.tick + TICK_RATE * getSkillValue(s2, idx + 1, lv);
+          // 「Effect of each phase does not stack」：新阶段替换旧阶段
+          state.buffs = state.buffs.filter(b => !(b.name === 'Perseverance' && b.unitId === caster.id));
+          pushBuff(state, { name: 'Perseverance', unitId: caster.id, maxHpPct, endTick });
+        },
+      },
       //
       // S2 SSR Fervor：进入全爆裂时，Fervor 状态下 → 全员爆裂冷却 ▼X s（lv10=7.48s）
       {

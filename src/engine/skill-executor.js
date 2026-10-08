@@ -19,6 +19,10 @@
  *   INTERVAL            全程每 X 秒触发，不限于爆裂期间（通过 onInterval 驱动；首次于 t+Xs 触发）
  *   INTERVAL_IN_BURST   全爆裂期间每 X 秒生效 1 次（通过 onIntervalInBurst 驱动）
  *   HEAL_RECEIVED       任意友军受到治疗时（ctx.unit = 受治疗单位）
+ *   HP_CHANGED          任意友军当前 HP 发生变化后（团队触发；ctx.unit = 变化单位，ctx.prevHp / ctx.newHp）
+ *                       来源：治疗、生命偷取、Max HP 变化的同步回复 / 截断、applyHpLoss、（将来的）受伤。
+ *                       同一 flush 周期内多次变化合并为一次（prevHp 取首次变化前的值）。
+ *                       「HP 低于 / 高于 X%」类条件统一响应此事件（配合 getHpRatio）
  *   APPLY_SHIELD        任意友军获盾时（ctx.unit = 获盾单位；非团队触发，仅 caster === ctx.unit 的单位响应）
  *   COVER_HEAL          掩体受到治疗时（团队触发；ctx.unit 无意义；每 12 发由 Naga S1 驱动）
  *   CORE_HIT            命中敌人核心时（ctx.unit = 射击单位，ctx.isCore = true）
@@ -51,7 +55,7 @@
  *   BUFF_GLOBAL         同一条 buff 以 unitId=null 作用于全员（区别于逐人推 BUFF）
  *   DEBUFF_ENEMY        对敌人施加 debuff（enemyDamageTakenPct）
  *   SKILL_DAMAGE        技能伤害（count 次，mult 倍率）
- *   HEAL                治疗目标（pct = 占 caster.stats.hp 比例，或 flat 固定量）
+ *   HEAL                治疗目标（pct = 占 caster.stats.hp 比例，或 flat 固定量；caster 作为治疗者计入治疗效能）
  *   RELOAD_AMMO         补充弹药（pct = 占 maxAmmo 比例）
  *   REDUCE_BURST_CD     减少爆裂技能冷却时间（seconds）
  *   GRANT_BURST_GAUGE   增加共享爆裂槽（pct = 占上限比例）
@@ -83,8 +87,26 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, isPartsHit,
 const TEAM_TRIGGERS = new Set([
   'PROGRAM_INIT',
   'BATTLE_START', 'ENTER_BURST_I', 'ENTER_BURST_II', 'ENTER_BURST_III', 'ENTER_FULL_BURST', 'FULL_BURST_END',
-  'AMMO_MILESTONE', 'HEAL_RECEIVED', 'COVER_HEAL', 'BUFF_EXPIRE',
+  'AMMO_MILESTONE', 'HEAL_RECEIVED', 'HP_CHANGED', 'COVER_HEAL', 'BUFF_EXPIRE',
 ]);
+
+/**
+ * 分派 HP_CHANGED 触发：消费 state.pendingHpChanged（unitId → { unit, prevHp }，由 battle-utils 写入 HP 时填充）。
+ * 先取出并清空集合再逐单位派发，handler 内引起的新变化进入下一轮（由 battle.js flushHpEvents 循环处理）。
+ * @returns {boolean} 本次是否派发了任何事件
+ */
+export function dispatchHpChanged(state) {
+  if (!(state.pendingHpChanged instanceof Map) || state.pendingHpChanged.size === 0) return false;
+  const entries = [...state.pendingHpChanged.values()];
+  state.pendingHpChanged.clear();
+  let any = false;
+  for (const { unit, prevHp } of entries) {
+    if (unit.unitHp === prevHp) continue;
+    any = true;
+    executeSkillTriggers(state, 'HP_CHANGED', { unit, prevHp, newHp: unit.unitHp });
+  }
+  return any;
+}
 
 // 根据触发定义和施放者计算 logCtx，供 applyEffects / pushBuff 使用
 function buildLogCtx(caster, skillKey, tdefIdx, tdef, skill, trigger) {
@@ -232,7 +254,7 @@ function applyEffects(state, caster, targets, effects, ctx, logCtx = null) {
         }
         for (const t of targets) {
           if (t === '__enemy__') continue;
-          applyHeal(state, t, amount);
+          applyHeal(state, t, amount, null, caster);
           if (logCtx && !isAllAllies) {
             state.pendingSkillEvents?.push({
               type: 'skill_trigger', tick: state.tick,
