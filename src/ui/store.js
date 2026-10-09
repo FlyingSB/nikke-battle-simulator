@@ -938,7 +938,7 @@ export function createStore() {
 
     // 模拟选项
     iterations:         30,
-    burstStepSecs:      0.6,
+    burstStepSecs:      0.4,
     ebsLastBurstOnly: true,
     mirLastBurstOnly: true,
     // Mast: Romantic Maid 爆裂轮次策略：auto / drunken3 / b3a / b3b（见 mastBurstOptions）
@@ -1260,7 +1260,8 @@ export function createStore() {
         }
       }
       if (state.iterations          != null) this.iterations          = state.iterations;
-      if (state.burstStepSecs       != null) this.burstStepSecs       = state.burstStepSecs;
+      // 旧版本保存的 0.6s 等超出上限的值统一压到 0.4s（自动战斗实测上限）
+      if (state.burstStepSecs       != null) this.burstStepSecs       = Math.min(0.4, state.burstStepSecs);
       if (state.ebsLastBurstOnly  != null) this.ebsLastBurstOnly  = state.ebsLastBurstOnly;
       if (state.mirLastBurstOnly  != null) this.mirLastBurstOnly  = state.mirLastBurstOnly;
       if (state.mastBurstMode     != null) this.mastBurstMode     = state.mastBurstMode;
@@ -1811,6 +1812,10 @@ export function createStore() {
               : Math.round(((nd?.shot_detail?.maintain_fire_stance > 0
                   ? nd.shot_detail.maintain_fire_stance
                   : (nd?.shot_detail?.spot_last_delay ?? 0))) / 100 * 60),
+            // 非蓄力武器换弹完成后的对准期（spot_first_delay）：换弹不覆盖前摇（Rapi: Red Hood 实测 23t = 12 + 12）。
+            reloadAimTicks:        isChargeWeapon
+              ? 0
+              : Math.round((nd?.shot_detail?.spot_first_delay ?? 0) / 100 * 60),
             burstSkillCooltime:    nd ? Math.round(
               ((nd.ulti_skill_detail?.skill_cooltime_list?.[(slot.skills[2] >= 1 ? slot.skills[2] : 1) - 1]
                 ?? nd.ulti_skill_detail?.skill_cooltime

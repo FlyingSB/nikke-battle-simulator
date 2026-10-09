@@ -33,6 +33,9 @@ export const BURST_GAUGE_MAX = 1_000_000;
  *   停火时以 rate_of_fire_reset_time 的速率回落到 rate_of_fire
  *
  * 例如 Rapi Red Hood：60 → 4200 RPM，每发 +100 → 42 发 ≈ 3.17 秒达到上限
+ *
+ * 帧率封顶：客户端每帧最多一次射击，60fps 下每秒最多 60 发（= 3600 RPM）。
+ *   MG 顶速 4200 RPM 实际只打出 60 发/s（Rapi: Red Hood 实测，见 battle.js MAX_SHOTS_PER_TICK）。
  */
 
 // ── 优越代码 ─────────────────────────────────────────────────────────────

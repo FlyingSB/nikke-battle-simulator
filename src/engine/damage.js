@@ -49,6 +49,7 @@
  * MG 起速：起始为 rate_of_fire RPM，每发增加 rate_of_fire_change_pershot，
  *         上限为 end_rate_of_fire RPM
  * 例如 Rapi Red Hood：60→4200 RPM 需 42 发 ≈ 3.17 秒
+ * 帧率封顶：每 tick 最多 1 发（60 发/s），4200 RPM 实际只打出 60 发/s（battle.js MAX_SHOTS_PER_TICK）
  */
 
 import {

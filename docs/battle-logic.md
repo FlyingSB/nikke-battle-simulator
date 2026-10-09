@@ -352,12 +352,18 @@ chargeTick     = reloadPhaseEnd + foreswingTicks + effectiveCharge
 
 > 例：Helm（SR，后摇 12 t、前摇 12 t、蓄力 60 t，无蓄速）换弹速度 +125.20% → 装填 0 t。末发到换弹后首发 ＝ max(12, 0) + 12 + 60 ＝ **84 t**（与常规发间相同），而非忽略后摇的 72 t。
 
-**DOWN_Charge 型**（持续按住，无前后摇；换弹期间不松手、无需重新瞄准，不含前摇）：
+**DOWN_Charge 型**（持续按住，发间无前后摇；换弹动作**不重置也不覆盖**末发后摇与再次按下的前摇，三者**串联**）：
 ```
-chargeTick = reloadEndTick + effectiveCharge
+chargeTick = reloadEndTick + backswingTicks + foreswingTicks + effectiveCharge
 ```
 
-物理含义：UP 型换弹后枪膛回到待击发状态，等价于重新瞄准（前摇）＋蓄力一发。例如 Diesel: Winter Sweets（RL，前摇 0.2s + 蓄力 1.0s）换弹完成后约 1.2s 才打出换弹后第一发，与首发节奏一致。DOWN_Charge 型实测依据：Cinderella 33s = 88 发要求换弹后第一发 = 换弹完成 + 60 t（含前摇则预测 87 发，不符）；其 S1 P2 蓄速 +100% 在 `RELOAD_END` 被移除，换弹后首发的 `effectiveCharge` 即基础 60 t，与「蓄速作用于每次蓄力」一致。
+> **实测校准（2026-10-09，Anis: Star，后摇 12 t、前摇 12 t、爆裂固定蓄力 42 t）**：
+> - 换弹速度 114%（换弹 0 t）：弹匣归 0 到换弹后首发 **66 t** = 0 + 12 + 12 + 42；
+> - 换弹速度 74%（Crown + Resilience，换弹 2.0s × 0.26 = 31 t）：**96 t** ≈ 31 + 12 + 12 + 42 = 97。
+> 并行模型 `max(换弹, 前后摇) + 蓄力` 对第二组只能给出 73 t，排除；换弹速度封顶模型对第一组给出 90 t，排除。
+> 历史依据 Cinderella「33s = 88 发」按串联模型预测 87 发（差 1 发 = 0.4 s，在 33 s 窗口的计时精度内），以帧级实测为准。
+
+物理含义：UP 型换弹后枪膛回到待击发状态，等价于重新瞄准（前摇）＋蓄力一发。例如 Diesel: Winter Sweets（RL，前摇 0.2s + 蓄力 1.0s）换弹完成后约 1.2s 才打出换弹后第一发，与首发节奏一致。DOWN_Charge 型换弹后首发的 `effectiveCharge` 按 `RELOAD_END` 之后的 buff 汇总计算（Cinderella S1 P2 蓄速 +100% 在 `RELOAD_END` 被移除，换弹后首发即基础 60 t）。
 
 > **历史口径（已废弃）**：换弹后首发与开局首发曾使用基础 `chargeTimeTicks`（不应用蓄速）。该假设从未有实测支持（唯一相关实测 Cinderella 因 buff 已被移除而无法区分两种口径），已改为应用 `effectiveCharge`。
 
@@ -422,11 +428,25 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 
 > **实测依据**：Anis: Star / Crown / Red Hood / Helm / Privaty 队伍全爆裂期间换弹速度 ≥100%，实测 Helm 与 Red Hood（不使用 Red Wolf 时）始终满弹匣；实现前引擎中两者弹药逐发递减、打空后才换弹。
 
+#### 4.3.10 蓄力中途蓄力时长变化（每 tick 重算）
+
+引擎排定的 `chargeTick` 分解为 `chargeBaseTick + chargeFixedTicks + 当前有效蓄力`（`scheduleEngineCharge`），并记录 `engineChargeTick`。每 tick 射击判定前 `rescheduleEngineCharge` 用当前 buff 汇总重算：
+
+- 蓄速 buff 推入/过期、固定蓄力（如 Anis: Star 爆裂 0.7s）生效/过期时，正在进行的这一次蓄力**按新时长结算**；
+- 已蓄力时长 ≥ 新时长 → 视为已满蓄，**当 tick 立即击发**；
+- 技能 handler 显式改写过 `chargeTick`（与 `engineChargeTick` 不等）、武器切换期间、Alice Wonderland 快速攻击期间不重算。
+
+> **实测校准（2026-10-09，Anis: Star）**：全爆裂外两发间隔 60t；两发之间施放爆裂（蓄力固定 0.7s）→ 该发 ≈42t；两发之间爆裂效果过期 → 该发 60t。修正前引擎在排定时一次性固定发间，固定蓄力的生效/过期要到下一发才体现。
+
 ### 4.4 非蓄力武器射击节奏（rate_of_fire 累加器）
 
 适用 AR / SMG / MG / SG（`chargeTimeTicks = 0` 且 CDN `rate_of_fire > 0`）。
 
 **累加器模型**：每 tick `shotAccumulator += rof / 60 / TICK_RATE`（RPM → 发/tick），`shotsThisTick = floor(shotAccumulator)`，发射后扣除整数部分（保留小数，避免高 ROF 的逐 tick 取整损失）。`rof` 可被攻速 buff（`atkSpeedPct`）与 MG 起速（`mgCurrentRof`）覆盖。
+
+**帧率封顶（每 tick 最多 1 发）**：游戏客户端按帧结算射击，每帧最多一次普通攻击，60fps 上限下每秒最多 60 发（= 3600 RPM）。`shotsPerTick` 结果封顶 `MAX_SHOTS_PER_TICK = 1`，因此 MG 顶速 4200 RPM（70 发/s）实际只打出 60 发/s；SMG 1440 RPM（24 发/s）等不受影响。2025-04 客户端加入「修正最小发射次数」后，低帧率设备按 60fps 基准补发，故封顶值与设备实际帧率无关。
+
+> **实测校准（2026-10-09）**：Rapi: Red Hood（弹匣 913，Resilience 魔方）3 分钟普攻 9101 次（按弹药计数器逐弹匣统计）。换弹几乎瞬时（Crown 爆裂换弹速度）的连续弹匣仍需 ≈16s 打空（≈57–60 发/s），隐藏后首个弹匣 ≈17–18s（含 1s 首发等待 + 起速）；封顶前引擎按 70 发/s 分别跑出 13.0s / 14.6s，全场 10807 次，偏多 18.7%；封顶后 15.2s / 16.7s，全场 9394 次，偏多 3.2%（剩余偏差与实测弹匣耗时一致地约 5%，推测为设备实际帧率略低于 60，未建模）。逐弹匣实测明细见 dev/game-data.md「Rapi: Red Hood（MG，帧率封顶）」。
 
 **起手立即击发**：`shotAccumulator` 初值为 **1**（而非 0），使开局第一发立即击发，不必空等一个完整射击间隔。物理含义：战斗开始时枪已对准目标。
 
@@ -448,6 +468,7 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 - 起始射速 = `rate_of_fire`（CDN 值，RPM）。
 - 每发射击后：`mgCurrentRof += mgRofChangePerShot`，上限 `mgMaxRof`。
 - 不开火时（`shotsThisTick === 0`）：`mgCurrentRof -= mgRofDecayPerTick`，下限 `mgStartRof`。
+- `mgCurrentRof` 仍按 CDN 数值升到 `end_rate_of_fire`（4200），但实际发数受 §4.4 帧率封顶约束：达到 3600 RPM（36 发）后即为 1 发/tick，之后的起速不再增加射速。
 
 ### 4.6 SG 弹丸
 
@@ -516,13 +537,15 @@ finalMaxAmmo = Math.max(1, rawMax)
 2. 有效换弹速度：`fixedReloadSpeedPct`（若存在）覆盖所有其他加成；否则使用 `sums.reloadSpeedPct`。
 3. 装填时长：`Math.round(reloadTicks × Math.max(0, 1 − effectiveReloadSpeed)) + reloadRecoveryTicks`。
    - **折减部分**：乘法折减（非除以 `1 + speed`）；换弹速度 ≥100% 时为 0（瞬间装填）。例：基础 2s、换弹速度 +29.69% → `120 × 0.7031 ≈ 84 tick ≈ 1.41s`。
+   - **DOWN_Charge 型蓄力武器**：换弹不重置也不覆盖末发后摇与再次按下的前摇，三者串联；换弹后首发 = `换弹完成 + 后摇 + 前摇 + 蓄力`（§4.3.6）。实测（2026-10-09）：Anis: Star 换弹速度 114% 时 66t = 0 + 12 + 12 + 42，74% 时 96t ≈ 31 + 12 + 12 + 42。
    - **`reloadRecoveryTicks`（末发后摇）**：非蓄力武器的 CDN `spot_last_delay`（`maintain_fire_stance > 0` 时覆盖），**不受换弹速度折减**；蓄力武器为 0。例：Brid: Silent Track 基础 1.5s、换弹速度 +29.69%、后摇 0.2s → `90 × 0.7031 + 12 ＝ 63 + 12 ＝ 75 tick ≈ 1.25s`。
+   - **`reloadAimTicks`（换弹后对准期）**：非蓄力武器换弹完成（装填事件、`RELOAD_END`）之后再等 CDN `spot_first_delay`（通常 12 t）才恢复射击；期间射击累加器按当前 RPM 继续累积（封顶 1）、MG 射速继续衰减，故 MG 衰减不深时对准结束立即击发。实测（2026-10-09，Rapi: Red Hood）：换弹速度 114%（换弹 0 t）弹匣打空到首发 **23 t** ≈ 12 + 12；84%（无魔方，换弹 2.5s × 0.156 = 23 t）**48 t** = 23 + 12 + 12。与 DOWN_Charge 型（§4.3.6）同一规则：换弹动作不重置也不覆盖前后摇。
    - **UP 型蓄力武器**：后摇不是串联相加，而是与换弹**同时计时**，换弹相位 ＝ `max(backswingTicks, 折减后装填时长)`，从末发射击 tick 起算（§4.3.6）。此外，UP 型每次攻击后的后摇期间都会尝试换弹，后摇结束时打断；换弹时长 ≤ 后摇时可在后摇中补满，并记录装填事件（§4.3.9）。
 4. **装填完成时**计算本次应恢复的弹药量（不在装填开始时计算）：
    - 分段装填（`reloadFraction < 1`）：`Math.min(effectiveMax, Math.round(maxAmmo × reloadFraction))`。
    - 默认一次装满：`effectiveMax`。
 5. `effectiveMax` 即 `unit.maxAmmo`（已含所有 buff 和技能效果的缓存值，由 5.1.2 的时机维护）。
-6. **装填完成后衔接射击周期**：非蓄力 RPM 武器保留换弹期间并行累积的 `shotAccumulator`（封顶 1；装填 ≥ 发间时已到 1 → 立即击发，装填 < 发间时下一发落在「上一发 + RPM 发间」，见 §4.4）；MG 起速武器 `shotAccumulator = 0`（重新预热）；蓄力武器 `shotAccumulator = 0` 且重置 `chargeTick`（须重新前摇＋蓄力，见 §4.3.6）。
+6. **装填完成后衔接射击周期**：非蓄力 RPM 武器先经 `reloadAimTicks` 对准期（§5.2），期间保留并继续累积 `shotAccumulator`（封顶 1；装填 + 对准 ≥ 发间时已到 1 → 对准结束立即击发，否则下一发落在「上一发 + RPM 发间」，见 §4.4）；MG 起速武器 `shotAccumulator = 0`（重新预热）；蓄力武器 `shotAccumulator = 0` 且重置 `chargeTick`（须重新前摇＋蓄力，见 §4.3.6）。
 
 ### 5.3 Bastion 魔方（Reload Up HC）
 
@@ -582,10 +605,11 @@ HIDDEN 期间全队停止攻击，按弹匣状态分流（机制详述见 §11.2
 burstPhase = 0（充能中）
   → 槽满（>= 1,000,000）
     → ENTER_BURST_I 被动触发
+    → 等待 burstStepTicks（0.1–0.4s，默认 0.4s；自动战斗实测 0.4s 且为上限）
     → 等待 B1 单位冷却结束
       → B1 施放（BURST_SKILL_USE）
         → ENTER_BURST_II 被动触发
-        → 等待 burstStepTicks（0.1–0.6s，默认 0.6s）
+        → 等待 burstStepTicks
           → burstPhase = 2
           → 等待 B2 单位冷却结束
             → B2 施放（BURST_SKILL_USE）
@@ -593,6 +617,7 @@ burstPhase = 0（充能中）
               → 等待 burstStepTicks
                 → burstPhase = 3
                 → B3 施放（BURST_SKILL_USE；按 §6.0 从左到右选第一个 CD 就绪的单位；其余 B3 本轮无法施放）
+                → 固定等待 0.4s（FULL_BURST_ENTRY_DELAY_TICKS；实测无法通过操作缩短，不随 burstStepSecs 变化）
                 → ENTER_FULL_BURST 被动触发 → fullBurstActive = true（默认 10s 窗口，可被技能改变）
                 → pendingFireInBurstHits 结算
                   → 全爆裂窗口结束后

@@ -25,6 +25,22 @@ import { executeSkillTriggers, dispatchHpChanged, onShotFired, onIntervalInBurst
 export const TICK_RATE = 60; // 每秒 tick 数
 const MAX_TICKS = TICK_RATE * 180; // 战斗上限 3 分钟
 
+// 每帧（tick）最多一次普通攻击：游戏客户端按帧结算射击，60fps 上限下每秒最多 60 发。
+// MG 顶速 4200 RPM（70 发/s）超过此上限，实际只能打出 60 发/s。
+// 实测校准（2026-10-09）：Rapi: Red Hood 913 发弹匣在换弹几乎瞬时（Crown 爆裂换弹速度）时
+// 仍需 ≈16s 打空（≈57–60 发/s），而非 70 发/s 对应的 13s；全场 3 分钟普攻 9101 次，
+// 封顶前引擎跑出 10807 次。2025-04 客户端加入「修正最小发射次数」后，低帧率设备按 60fps
+// 基准补发，故射速上限即 60 发/s，与设备实际帧率无关。
+const MAX_SHOTS_PER_TICK = 1;
+
+// 爆裂阶段延迟上限（秒）：自动战斗中槽满→B1、B1→B2、B2→B3 各延迟 0.4s（2026-10-09 实测），
+// 手动操作只会更快，故 0.4s 既是默认值也是上限。
+export const BURST_STEP_SECS_MAX = 0.4;
+
+// B3 施放到进入全爆裂状态的固定延迟（2026-10-09 实测 0.4s，无法通过操作缩短，不随 burstStepSecs 变化）。
+const FULL_BURST_ENTRY_DELAY_TICKS = Math.round(TICK_RATE * 0.4);
+
+
 // ─── 武器射速（每 tick 的开火概率） ────────────────────
 const ATTACK_SPEED = {
   AR:  0.10,   // ~6 发/秒
@@ -174,6 +190,48 @@ function reloadDurationTicks(unit, sums) {
 }
 
 /**
+ * 引擎排定蓄力武器下一发：chargeTick = baseTick + fixedTicks + max(有效蓄力, DOWN_Charge RPM 下限)。
+ * 记录 chargeBaseTick / chargeFixedTicks / engineChargeTick，供 rescheduleEngineCharge 每 tick 按
+ * 当前蓄力时长重算（蓄速 buff / 固定蓄力在蓄力中途变化时立即生效，见 §4.3.10）。
+ * Alice Wonderland 快速攻击：发间固定 15t，不参与重算（engineChargeTick = null）。
+ * @param {object} state
+ * @param {object} unit
+ * @param {number} baseTick   发间起点（通常为射击 tick / 换弹相位结束 tick / HIDDEN 结束 tick）
+ * @param {number} fixedTicks 非蓄力段（UP 型：后摇+前摇或仅前摇；DOWN_Charge 型：0）
+ * @param {object} sums getBuffSums 汇总
+ */
+function scheduleEngineCharge(state, unit, baseTick, fixedTicks, sums) {
+  const effCharge = effectiveChargeTicks(state, unit, sums);
+  const fastTicks = aliceFastAttackNextTicks(state, unit, effCharge);
+  if (fastTicks != null) {
+    unit.chargeTick       = state.tick + fastTicks;
+    unit.engineChargeTick = null;
+    return;
+  }
+  unit.chargeBaseTick   = baseTick;
+  unit.chargeFixedTicks = fixedTicks;
+  unit.chargeTick       = baseTick + fixedTicks + Math.max(effCharge, downChargeRofFloorTicks(unit));
+  unit.engineChargeTick = unit.chargeTick;
+}
+
+/**
+ * 每 tick 重算引擎排定的 chargeTick：蓄力中途蓄力时长变化时按新时长结算，
+ * 已蓄力时长 ≥ 新时长则视为已满蓄，本 tick 立即击发（实测：Anis: Star 爆裂固定蓄力 0.7s 在两发间
+ * 生效/过期时，该发分别按 42t / 60t 打出）。技能 handler 显式改写过的 chargeTick 不重算。
+ * @param {object} state
+ * @param {object} unit
+ */
+function rescheduleEngineCharge(state, unit) {
+  if (unit.engineChargeTick == null || unit.chargeTick !== unit.engineChargeTick) return;
+  if ((unit.skillState?.aliceWonderlandEndTick ?? 0) >= state.tick) return;
+  const effCharge = effectiveChargeTicks(state, unit, getBuffSums(state, unit.id));
+  const next = unit.chargeBaseTick + unit.chargeFixedTicks + Math.max(effCharge, downChargeRofFloorTicks(unit));
+  if (next === unit.chargeTick) return;
+  unit.chargeTick       = next;
+  unit.engineChargeTick = next;
+}
+
+/**
  * 完成一次装填动作：恢复弹药、计数、记录装填事件（不处理射击节奏衔接与 RELOAD_END 触发）。
  * 分段装填（reloadFraction < 1）每次恢复 round(maxAmmo × reloadFraction) 发，不超过上限；
  * 弹匣未空时（后摇期间换弹）在剩余弹药基础上累加。
@@ -207,9 +265,10 @@ function refillMagazine(state, unit, events) {
  * @param {object[]} events 本 tick 事件列表
  */
 function scheduleBackswingReload(state, unit, events) {
-  if (unit.isDownCharge || unit.backswingTicks <= 0) return;
   if ((unit.skillState?.aliceWonderlandEndTick ?? 0) >= state.tick) return;
+  // DOWN_Charge 型同样记录末发 tick：换弹后首发需在末发后摇 + 前摇之后（§4.3.6），但不做后摇期间换弹
   unit.lastChargeShotTick = state.tick;
+  if (unit.isDownCharge || unit.backswingTicks <= 0) return;
   if ((unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick) return;
   if (unit.ammoLeft >= unit.maxAmmo) return;
   const dur = reloadDurationTicks(unit, getBuffSums(state, unit.id));
@@ -230,6 +289,7 @@ function scheduleBackswingReload(state, unit, events) {
  * rate_of_fire 武器当前每 tick 发数（RPM ÷ 3600，含攻速 buff；MG 起速用 mgCurrentRof 覆盖）。
  * 射击累加器与换弹期间的并行累积共用此值，保证两处节奏一致。
  * 武器切换期间若技能指定了 weaponSwitchRateOfFire（RPM），则以其覆盖原武器射速（如 Moran 爆裂）。
+ * 结果封顶 MAX_SHOTS_PER_TICK：客户端每帧最多一次射击，MG 顶速 4200 RPM 实际只打出 60 发/s。
  * @param {object} state
  * @param {object} unit
  * @returns {number} 每 tick 发数
@@ -243,7 +303,7 @@ function shotsPerTick(state, unit) {
   const atkSpeedPct = state.buffs
     .filter(b => (b.unitId === null || b.unitId === unit.id) && b.endTick > state.tick && (b.roundsLeft ?? 1) > 0)
     .reduce((a, b) => a + (b.atkSpeedPct ?? 0), 0);
-  return baseRof * (1 + atkSpeedPct) / 60 / TICK_RATE;
+  return Math.min(MAX_SHOTS_PER_TICK, baseRof * (1 + atkSpeedPct) / 60 / TICK_RATE);
 }
 
 // ─── Buff/伤害/回复辅助均已从 battle-utils.js 导入 ──────────────────────────
@@ -456,7 +516,7 @@ function applyBurstIISkills(state) {
 }
 
 /**
- * 所有"进入 Full Burst"时的效果。
+ * 施放 B3（进入全爆裂的第 1 步；第 2–4 步在 FULL_BURST_ENTRY_DELAY_TICKS 后由 enterFullBurst 执行）。
  *
  * 不变量：B3 的所有即时效果（伤害命中、buff、治疗、护盾）必须完全结算完毕，
  * 才能开始结算 Full Burst 效果（fullBurstActive=true、ENTER_FULL_BURST 触发器）。
@@ -503,7 +563,16 @@ function applyFullBurstSkills(state, events) {
     flushHealReceived(state);
     flushShieldReceived(state);
   }
+  return firstFired;
+}
 
+/**
+ * 进入全爆裂状态：B3 施放后固定延迟 FULL_BURST_ENTRY_DELAY_TICKS（0.4s）再执行
+ * （fullBurstActive=true → ENTER_FULL_BURST → pendingFireInBurstHits）。
+ * @param {object} state
+ * @param {object[]} events
+ */
+function enterFullBurst(state, events) {
   // 2. 所有 B3 施放完毕后，进入全爆裂状态
   state.fullBurstActive = true;
   state.fullBurstStartTick = state.tick;
@@ -530,8 +599,6 @@ function applyFullBurstSkills(state, events) {
     fireSkillHit(state, h.caster, h.mult, sums, h.label, h.opts);
   }
   state.pendingFireInBurstHits.length = 0;
-
-  return firstFired;
 }
 
 
@@ -622,6 +689,11 @@ export function initBattle(config) {
     // 非蓄力武器（AR/SMG/MG/SG）：末发后摇（CDN spot_last_delay）计入换弹相位。
     // 真机换弹相位 = 后摇 + 装填时长；引擎此前漏算后摇，使换弹偏快、整体偏慢。
     const reloadRecoveryTicks = isChargWeapon ? 0 : (cfg.reloadRecoveryTicks ?? 0);
+    // 非蓄力武器换弹完成后的对准期（CDN spot_first_delay）：换弹动作不覆盖前摇，换弹完成后须重新对准才恢复射击。
+    // 实测（2026-10-09，Rapi: Red Hood MG，后摇 12t、前摇 12t）：换弹速度 114%（换弹 0t）弹匣打空到首发 23t；
+    // 84%（无魔方，换弹 2.5s × 0.156 = 23t）48t = 23 + 12 + 12 + 首发立即。
+    const reloadAimTicks = isChargWeapon ? 0
+      : (cfg.reloadAimTicks ?? Math.round((cfg._nikkeData?.shot_detail?.spot_first_delay ?? 0) / 100 * TICK_RATE));
     const chargeTimeTicks = cfg.chargeTimeTicks ?? 0;
     // DOWN_Charge 型（持续按住自动连发，如 Liberalio）：发间无前后摇，只计蓄力时长。
     // UP 型（松手触发）：每次发射需重新瞄准（前摇）和恢复（后摇），前后摇正常计入。
@@ -678,6 +750,9 @@ export function initBattle(config) {
       backswingTicks,
       // 非蓄力武器换弹后摇（spot_last_delay）；蓄力武器为 0。仅用于换弹时长。
       reloadRecoveryTicks,
+      // 非蓄力武器换弹后对准期 ticks（spot_first_delay）；aimReadyTick = 换弹完成 + reloadAimTicks，之前不射击。
+      reloadAimTicks,
+      aimReadyTick:     0,
       isDownCharge,
       // Initial chargeTick: foreswing + charge only (no backswing before first shot).
       // DOWN_Charge 型第 1 发仍含前摇（初次对准目标）。
@@ -685,6 +760,14 @@ export function initBattle(config) {
       // 故首发蓄力同样应用此加成（技能 buff 此时尚未推入）。
       chargeTick:       foreswingTicks
         + Math.round(chargeTimeTicks * (1 - Math.min(0.99, stats.chargeSpeedPct ?? 0))),
+      // 引擎排定蓄力的分解（scheduleEngineCharge / rescheduleEngineCharge）：
+      // chargeTick = chargeBaseTick + chargeFixedTicks + 当前有效蓄力；engineChargeTick 记录引擎排定值，
+      // 与 chargeTick 不等说明技能 handler 已显式改写，不再重算。开局：起点 0 + 前摇 + 蓄力。
+      chargeBaseTick:   0,
+      chargeFixedTicks: foreswingTicks,
+      engineChargeTick: isChargWeapon
+        ? foreswingTicks + Math.round(chargeTimeTicks * (1 - Math.min(0.99, stats.chargeSpeedPct ?? 0)))
+        : null,
       // Permanent equipment ATK% multiplier (item "Increase ATK" + option ATK%).
       // Added to atkPct in getBuffSums so it stacks additively with skill ATK% buffs.
       equipAtkPct:              stats.equipAtkPct  ?? 0,
@@ -820,7 +903,7 @@ export function initBattle(config) {
       shieldHp:         0,
       shieldEndTick:    0,
       // Fractional shot accumulator for rate_of_fire weapons (AR/SMG/MG/SG).
-      // Eliminates per-tick rounding loss at high ROF (e.g. Crown 4200 RPM = 1.17 shots/tick).
+      // 消除逐 tick 取整损失（如 SMG 1440 RPM = 0.4 发/tick）；每 tick 发数封顶 1（见 MAX_SHOTS_PER_TICK）。
       // 种子 1：非蓄力武器开局/换弹后第一发立即击发（真机枪已对准），而非空等一个完整射击间隔。
       // 蓄力武器不读累加器，保持 0。
       // 种子 1 → 非蓄力武器第一发立即击发；蓄力武器与 MG 起速武器种子 0 →
@@ -901,9 +984,9 @@ export function initBattle(config) {
     if (b3) mastUnit.burstRoundPolicy = { mode: 'withB3', b3Id: b3.id };
   }
 
-  // 爆裂阶段间隔（ticks）：B1→B2 和 B2→B3 各等待此时长。
-  // config.burstStepSecs 范围 0.1–0.6；默认 0.6 秒（游戏内实测值）。
-  const burstStepTicks = Math.round(TICK_RATE * Math.max(0.1, Math.min(0.6, config.burstStepSecs ?? 0.6)));
+  // 爆裂阶段间隔（ticks）：槽满→B1、B1→B2、B2→B3 各等待此时长。
+  // config.burstStepSecs 范围 0.1–0.4；默认 0.4 秒（自动战斗实测值，且为上限）。
+  const burstStepTicks = Math.round(TICK_RATE * Math.max(0.1, Math.min(BURST_STEP_SECS_MAX, config.burstStepSecs ?? BURST_STEP_SECS_MAX)));
 
   // Enemy phase schedule: array of { startTick, zone } sorted ascending.
   // If config.enemy.phases is provided it overrides the default schedule.
@@ -952,6 +1035,8 @@ export function initBattle(config) {
     // { tick, unitName, source, energyAdded, gaugeAfter }
     burstEnergyLog:     config.burstEnergyLog ? [] : null,
     burstPhaseTick:     0,
+    // 槽满后 B1 最早可施放的 tick（槽满 + burstStepTicks）：进入阶段 1 到 B1 施放之间同样有延迟。
+    burstB1ReadyTick:   0,
     // Tick at which the current burst phase (1 or 2) times out if not advanced.
     // 0 when not in a timed phase. If state.tick >= burstPhaseTimeoutTick and phase is still 1 or 2,
     // the burst collapses and gauges reset to 0.
@@ -1103,28 +1188,15 @@ export function tick(state) {
             u.ammoBeforeHidden = 0;
           }
         }
-        // DOWN_Charge 型（持续按住）：HIDDEN 结束后需重新蓄力，chargeTick 重置。
-        // 无论 HIDDEN 期间是否发生换弹，出 HIDDEN 的第一发都要等完整 effectiveCharge。
+        // 蓄力武器 HIDDEN 结束后需重新蓄力，chargeTick 重置（无论 HIDDEN 期间是否发生换弹）：
+        //   DOWN_Charge 型（持续按住）：出 HIDDEN 的第一发等完整 effectiveCharge（受 RPM 发间下限约束）。
+        //   UP 型（松手触发）：重置为完整发间（后摇+前摇+蓄力）。
+        //   实测：Helm 180s=121发，完整发间重置(84t)预测精确匹配；不重置则预测125（每次HIDDEN多1发）。
+        //   Scarlet:BS 233发同模型误差≤1发。
         for (const u of state.squad) {
-          if (!u.isDownCharge || u.chargeTimeTicks <= 0) continue;
-          const sums       = getBuffSums(state, u.id);
-          const csFromBuff = u.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
-          const flatRed    = u.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
-          const afterPct   = Math.round(u.chargeTimeTicks * (1 - Math.min(0.99, (u.stats.chargeSpeedPct ?? 0) + csFromBuff)));
-          // 蓄速压至近零时同样受 RPM 发间下限约束（与射后调度一致）
-          u.chargeTick     = state.tick + Math.max(Math.max(0, afterPct - flatRed), downChargeRofFloorTicks(u));
-        }
-        // UP 型（松手触发）：HIDDEN 结束后同样重置为完整发间（后摇+前摇+蓄力）。
-        // 实测：Helm 180s=121发，完整发间重置(84t)预测精确匹配；不重置则预测125（每次HIDDEN多1发）。
-        // Scarlet:BS 233发同模型误差≤1发。
-        for (const u of state.squad) {
-          if (u.isDownCharge || u.chargeTimeTicks <= 0) continue;
-          const sums       = getBuffSums(state, u.id);
-          const csFromBuff = u.immuneSkillChargeSpeed ? 0 : sums.chargeSpeedPct;
-          const flatRed    = u.immuneSkillChargeSpeed ? 0 : (sums.chargeTimeReductionTicks ?? 0);
-          const afterPct   = Math.round(u.chargeTimeTicks * (1 - Math.min(0.99, (u.stats.chargeSpeedPct ?? 0) + csFromBuff)));
-          const effCharge  = Math.max(0, afterPct - flatRed);
-          u.chargeTick     = state.tick + u.backswingTicks + u.foreswingTicks + effCharge;
+          if (u.chargeTimeTicks <= 0) continue;
+          scheduleEngineCharge(state, u, state.tick,
+            u.isDownCharge ? 0 : u.backswingTicks + u.foreswingTicks, getBuffSums(state, u.id));
         }
       }
       events.push({ type: 'phase_change', tick: state.tick, zone: newZone });
@@ -1272,9 +1344,9 @@ export function tick(state) {
     events.push({ type: 'burst_timeout', tick: state.tick, gaugeAfter: 0 });
   }
 
-  // 阶段 1：等待 B1 冷却 — 每 tick 重试，直到有 B1 单位冷却结束。
-  //（槽填满的那一 tick 会跳过这段；那一 tick 由下方"填满槽"逻辑触发 B1。）
-  if (state.burstPhase === 1 && state.burstPhaseTick === Infinity) {
+  // 阶段 1：等待槽满延迟结束且有 B1 单位冷却结束 — 每 tick 重试。
+  // 槽满那一 tick 只进入阶段 1（触发 ENTER_BURST_I 被动），B1 最早在 burstStepTicks 后施放。
+  if (state.burstPhase === 1 && state.burstPhaseTick === Infinity && state.tick >= state.burstB1ReadyTick) {
     // _bSeq：在 executeSkillTriggers（BURST_SKILL_USE）运行前占用序列号，保证 burst_i 排在技能触发事件之前
     const _bSeq = state._logSeq++;
     const fired = applyBurstISkills(state);
@@ -1329,31 +1401,30 @@ export function tick(state) {
       state.fullBurstCount++;
       for (const u of state.squad) u.burstCount++;
       applyFullBurstSkills(state, events);
-      state.fullBurstTick = state.tick + TICK_RATE * 10; // 10s burst window
+      // B3 施放后固定 0.4s 再进入全爆裂（实测，无法通过操作缩短）
+      state.burstPhaseTick = state.tick + FULL_BURST_ENTRY_DELAY_TICKS;
     }
   }
 
-  // 共享槽填满 → 进入阶段 1（等待 B1 冷却；若冷却已结束立即尝试）
+  // B3 施放后的固定延迟结束 → 进入全爆裂状态，开始 10s 窗口
+  if (state.burstPhase === 3 && !state.fullBurstActive && state.burstPhaseTick !== Infinity
+      && state.tick >= state.burstPhaseTick) {
+    state.burstPhaseTick = Infinity;
+    enterFullBurst(state, events);
+    state.fullBurstTick = state.tick + TICK_RATE * 10; // 10s burst window
+  }
+
+  // 共享槽填满 → 进入阶段 1。B1 不在本 tick 施放：与 B1→B2、B2→B3 相同，槽满到 B1 施放
+  // 之间也有 burstStepTicks 延迟（自动战斗实测 0.4s），由上方阶段 1 分支在延迟结束后施放。
   if (state.burstPhase === 0 && state.burstGauge >= BURST_GAUGE_MAX) {
     state.burstCycleStartTick  = state.tick;   // 记录本轮 gauge 填满时刻
     state.burstPhase           = 1;
     state.burstPhaseTick       = Infinity;
+    state.burstB1ReadyTick     = state.tick + state.burstStepTicks;
     state.burstPhaseTimeoutTick = state.tick + TICK_RATE * 10;
     state.burstCastersThisRotation = new Set();
     // 进入 Burst 1 阶段时立即触发被动（不依赖 B1 是否 cast）
     applyEnterBurst1Passives(state);
-    const _bSeq2 = state._logSeq++;
-    const fired = applyBurstISkills(state);
-    if (fired) {
-      // 进入下一阶段的被动在 B1 施放后立即触发，然后才开始延迟
-      advanceAfterBurstI(state, fired);
-      if (fired.name != null) {
-        const bev = { type: 'burst_i', tick: state.tick, unitName: fired.name, _seq: _bSeq2 };
-        if (fired.combatAssistStatus != null) bev.isCA = !!fired.combatAssistStatus;
-        events.push(bev);
-      }
-      if (fired.name === 'Liter') events.push({ type: 'heal_cover', tick: state.tick });
-    }
   }
 
   // ── 全程定时技能（INTERVAL）：如 Nayuta S2 Memory Absorption ──────────
@@ -1427,23 +1498,41 @@ export function tick(state) {
       // 触发器若显式改写 chargeTick（如 104.js SDO 固定蓄力），以触发器为准。
       const chargeTickBeforeReloadHooks = unit.chargeTick;
       onReloadEnd(state, unit);
+      // 非蓄力武器：换弹完成后进入对准期（spot_first_delay），期间不射击（见下方门控）
+      if (unit.chargeTimeTicks === 0 && unit.reloadAimTicks > 0)
+        unit.aimReadyTick = state.tick + unit.reloadAimTicks;
       if (unit.chargeTimeTicks > 0 && unit.chargeTick === chargeTickBeforeReloadHooks) {
-        const effCharge = effectiveChargeTicks(state, unit, getBuffSums(state, unit.id));
-        // UP 型：末发后摇与换弹同时计时，换弹相位结束 = max(换弹完成, 末发 + 后摇)（§4.3.6）
+        // UP 型：末发后摇与换弹同时计时，换弹相位结束 = max(换弹完成, 末发 + 后摇)，之后前摇 + 蓄力（§4.3.6）。
+        // DOWN_Charge 型：换弹动作不重置也不覆盖前后摇，三者串联；首发 = 换弹完成 + 后摇 + 前摇 + 蓄力。
+        //   实测（2026-10-09，Anis: Star，后摇 12t、前摇 12t、固定蓄力 42t）：
+        //     换弹速度 114%（换弹 0t）→ 弹匣归 0 到首发 66t = 0 + 12 + 12 + 42；
+        //     换弹速度 74%（换弹 2.0s × 0.26 = 31t）→ 96t ≈ 31 + 12 + 12 + 42 = 97。
+        //   并行模型（max(换弹, 前后摇) + 蓄力）对第二组只能给出 73t，排除。
         const phaseEnd  = unit.isDownCharge
-          ? state.tick : Math.max(state.tick, unit.lastChargeShotTick + unit.backswingTicks);
-        unit.chargeTick = phaseEnd + (unit.isDownCharge ? 0 : unit.foreswingTicks) + effCharge;
-        // Alice Wonderland 快速攻击期间换弹：装填完成后应按快速攻击发间续发，
+          ? state.tick + unit.backswingTicks + unit.foreswingTicks
+          : Math.max(state.tick, unit.lastChargeShotTick + unit.backswingTicks);
+        // Alice Wonderland 快速攻击期间换弹：scheduleEngineCharge 内按快速攻击发间续发，
         // 而非重新满蓄（否则会出现"打完最后一发→装填→隔一个完整蓄力周期才续发"的错误间隔）。
-        if ((unit.skillState?.aliceWonderlandEndTick ?? 0) >= state.tick) {
-          const fastTicks  = aliceFastAttackNextTicks(state, unit, effCharge);
-          if (fastTicks != null) unit.chargeTick = state.tick + fastTicks;
-        }
+        scheduleEngineCharge(state, unit, phaseEnd,
+          unit.isDownCharge ? 0 : unit.foreswingTicks, getBuffSums(state, unit.id));
       }
     }
 
     // HIDDEN 阶段跳过射击（上方装填仍然允许）。
     if (state.currentPhaseZone === 'HIDDEN') {
+      if (unit.mgCurrentRof != null && unit.mgRofDecayPerTick > 0) {
+        unit.mgCurrentRof = Math.max(unit.mgStartRof, unit.mgCurrentRof - unit.mgRofDecayPerTick);
+      }
+      recoverAccuracy(unit, 1);
+      continue;
+    }
+
+    // 非蓄力武器换弹后对准期（spot_first_delay，§5.2）：不射击；射击累加器按当前 RPM 继续累积（封顶 1），
+    // MG 射速继续衰减。衰减不深时对准结束立即击发（Rapi: Red Hood 实测 23t = 后摇 12 + 前摇 12），
+    // 衰减到起始 RPM 时仍需等满一个发间。
+    if (unit.chargeTimeTicks === 0 && state.tick < unit.aimReadyTick) {
+      if (unit.rateOfFire > 0)
+        unit.shotAccumulator = Math.min(1, unit.shotAccumulator + shotsPerTick(state, unit));
       if (unit.mgCurrentRof != null && unit.mgRofDecayPerTick > 0) {
         unit.mgCurrentRof = Math.max(unit.mgStartRof, unit.mgCurrentRof - unit.mgRofDecayPerTick);
       }
@@ -1483,12 +1572,15 @@ export function tick(state) {
     const effectiveChargeTimeTicks = weaponSwitchChargeTimeTicks > 0
       ? weaponSwitchChargeTimeTicks : unit.chargeTimeTicks;
     if (effectiveChargeTimeTicks > 0) {
+      // 蓄力中途蓄力时长变化（蓄速 buff 推入/过期、固定蓄力生效/过期）按新时长结算（§4.3.10）
+      if (weaponSwitchChargeTimeTicks === 0) rescheduleEngineCharge(state, unit);
       // 蓄力武器：蓄力完成时打出 1 发，然后重置计时器。
       shotsThisTick = state.tick >= unit.chargeTick ? 1 : 0;
     } else if (unit.rateOfFire > 0) {
       unit.shotAccumulator += shotsPerTick(state, unit);
-      shotsThisTick         = Math.floor(unit.shotAccumulator);
-      unit.shotAccumulator -= shotsThisTick;
+      shotsThisTick         = Math.min(MAX_SHOTS_PER_TICK, Math.floor(unit.shotAccumulator));
+      // 帧率封顶：一帧内无法补发，累加器残量最多保留 1 发（种子 1 + 本 tick 满额累积时）。
+      unit.shotAccumulator  = Math.min(unit.shotAccumulator - shotsThisTick, 1);
     } else {
       shotsThisTick = rng() < (ATTACK_SPEED[unit.weaponType] ?? 0.20) ? 1 : 0;
     }
@@ -1882,10 +1974,12 @@ export function tick(state) {
       let _engineScheduledChargeTick = null;
       if (effectiveChargeTimeTicks > 0) {
         if (weaponSwitchChargeTimeTicks > 0) {
-          // 武器切换期间：直接使用切换武器的蓄力时长，不应用 fore/backswing
-          unit.chargeTick = state.tick + weaponSwitchChargeTimeTicks;
+          // 武器切换期间：直接使用切换武器的蓄力时长，不应用 fore/backswing，且不参与每 tick 重算
+          unit.chargeTick       = state.tick + weaponSwitchChargeTimeTicks;
+          unit.engineChargeTick = null;
         } else {
-          unit.chargeTick = state.tick + nextChargeShotDelayTicks(state, unit, sums);
+          scheduleEngineCharge(state, unit, state.tick,
+            unit.isDownCharge ? 0 : unit.backswingTicks + unit.foreswingTicks, sums);
           _engineScheduledChargeTick = unit.chargeTick;
         }
       }
@@ -1910,7 +2004,8 @@ export function tick(state) {
       // 仅当 chargeTick 仍是本次引擎排定值时重排，避免覆盖技能 handler 显式改写的 chargeTick。
       // 实测校准：Cinderella 首次全蓄力后第 2 发即按 20t RPM 发间打出（33s=88 发要求）。
       if (_engineScheduledChargeTick !== null && unit.chargeTick === _engineScheduledChargeTick) {
-        unit.chargeTick = state.tick + nextChargeShotDelayTicks(state, unit, getBuffSums(state, unit.id));
+        scheduleEngineCharge(state, unit, state.tick,
+          unit.isDownCharge ? 0 : unit.backswingTicks + unit.foreswingTicks, getBuffSums(state, unit.id));
       }
 
       // MG ramp：ROF per-shot ramp up（内联保留，非声明式）

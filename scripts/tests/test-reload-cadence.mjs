@@ -18,7 +18,7 @@
  * Run: node scripts/tests/test-reload-cadence.mjs
  */
 
-import { simulate } from '../../src/engine/battle.js';
+import { simulate, initBattle, tick } from '../../src/engine/battle.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
@@ -206,6 +206,147 @@ section('C7 — 换弹时长 > 后摇（60t）：后摇打断换弹，打空后�
   eq('仅打空后装填一次 @300t', reloads.join(','), '300');
   eq('换弹后首发 @372t', shots[3]?.[0], 372);
   eq('换弹后首发为满弹匣', shots[3]?.[1], 3);
+}
+
+// ─── C8：帧率封顶 — 每 tick 最多 1 发（§4.4） ───────────────────────────────
+// 客户端每帧最多一次射击：MG 顶速 4200 RPM（1.17 发/tick）实际只打出 60 发/s。
+// 实测校准（2026-10-09）：Rapi: Red Hood 913 发弹匣 ≈16s 打空（≈57–60 发/s），3 分钟 9101 次普攻。
+
+section('C8 — 帧率封顶：4200 RPM 每 tick 最多 1 发（Rapi: Red Hood 实测校准）');
+{
+  // 无起速的 4200 RPM 合成 MG：封顶前 600t 内 700 发，封顶后恰好 600 发（每 tick 1 发）
+  const flat = rofUnit({
+    weaponType:  'MG',
+    rateOfFire:  4200,
+    baseAmmo:    2000,
+    reloadTicks: 150,
+  });
+  const { shots } = runSolo(flat, 600);
+  eq('4200 RPM 600t 内射击数 = 600（每 tick 1 发）', shots.length, 600);
+  eq('任意相邻两发间隔 ≥ 1t（同 tick 绝不出现两发）',
+     shots.every((t, i) => i === 0 || t - shots[i - 1] >= 1), true);
+
+  // 带 CDN 起速参数的 MG（Rapi: Red Hood 口径）：起速完成后同样 1 发/tick
+  const ramp = rofUnit({
+    weaponType:  'MG',
+    rateOfFire:  60,
+    baseAmmo:    2000,
+    reloadTicks: 150,
+    _nikkeData:  { shot_detail: { rate_of_fire: 60, end_rate_of_fire: 4200,
+                                  rate_of_fire_change_pershot: 100, rate_of_fire_reset_time: 100 } },
+  });
+  const { shots: rampShots } = runSolo(ramp, 1200);
+  eq('起速 MG 首发 @60t（60 RPM 首发间隔）', rampShots[0], 60);
+  const steady = rampShots.filter(t => t > 600);
+  eq('起速完成后 600t 内恰好 600 发', steady.length, 600);
+  eq('起速完成后相邻两发间隔恒为 1t', steady.every((t, i) => i === 0 || t - steady[i - 1] === 1), true);
+}
+
+// ─── C9：爆裂阶段延迟 — 槽满→B1 同样延迟，默认 0.4s 且为上限（§6.2） ─────────────
+// 三名合成单位（B1/B2/B3），首发（tick 1）即把共享槽充满：
+//   tick 1 射击充满 → tick 2 爆裂状态机进入阶段 1 → B1 @2+24 → B2 @+24 → B3/全爆裂 @+24；
+//   传入 0.6s 被压到 0.4s，结果相同。
+
+section('C9 — 爆裂阶段延迟：槽满→B1 延迟 0.4s，0.4s 为上限（自动战斗实测）');
+{
+  const squadWith = () => ['Step1', 'Step2', 'Step3'].map(step => rofUnit({
+    weaponType: 'AR', rateOfFire: 600, baseAmmo: 300, reloadTicks: 120,
+    burstStep: step, targetBurstEnergyPerShot: 1_000_000,
+  }));
+  const run = (burstStepSecs) => {
+    const r = simulate({ squad: squadWith(), enemy: ENEMY, burstStepSecs });
+    const at = type => r.log.find(e => e.type === type)?.tick;
+    return [at('burst_i'), at('burst_ii'), at('burst_iii'), at('full_burst')].join(',');
+  };
+  eq('默认延迟：B1 @26、B2 @50、B3 @74、全爆裂 @98（进入阶段 1 @2 + 3×24t，B3 后固定 24t）', run(undefined), '26,50,74,98');
+  eq('传入 0.6s 被压到上限 0.4s，时序不变', run(0.6), '26,50,74,98');
+  eq('0.1s：B1 @8、B2 @14、B3 @20；B3→全爆裂固定 0.4s 不随之缩短 @44', run(0.1), '8,14,20,44');
+}
+
+// ─── C10：蓄力中途蓄力时长变化按新时长结算（§4.3.10） ────────────────────────────
+// DOWN_Charge RL（Anis: Star 口径）：前摇 12t、蓄力 60t、120 RPM（下限 30t）。
+// 实测：爆裂固定蓄力 0.7s（42t）在两发之间生效 → 该发 42t 打出；在两发之间过期 → 该发 60t 打出；
+// 已蓄力时长 ≥ 新时长 → 视为已满蓄，当 tick 立即打出。
+
+section('C10 — 蓄力中途时长变化：生效即按新时长结算，已超过则立即击发');
+{
+  const mk = () => rofUnit({
+    weaponType: 'RL', rateOfFire: 120, baseAmmo: 50, reloadTicks: 120,
+    chargeTimeTicks: 60, foreswingTicks: 12, backswingTicks: 12, isDownCharge: true,
+  });
+  // 固定蓄力在 tick 200 生效（上一发 @192，已蓄 8t）→ 下一发 @192+42=234，之后 42t 一发
+  {
+    const state = initBattle({ squad: [mk()], enemy: ENEMY, hitLog: true });
+    const u = state.squad[0];
+    for (let t = 0; t < 300; t++) {
+      if (state.tick === 200) { u.skillState.fixedChargeTimeTicks = 42; u.skillState.fixedChargeEndTick = 10_000; }
+      tick(state);
+    }
+    const shots = state.hitLog.filter(h => h.label === 'normal_shot').map(h => h.tick);
+    eq('固定蓄力中途生效：72,132,192 后改为 234,276', shots.join(','), '72,132,192,234,276');
+  }
+  // 固定蓄力在 tick 250 过期（上一发 @234，原定 @276）→ 该发按 60t @294，之后 60t 一发
+  {
+    const state = initBattle({ squad: [mk()], enemy: ENEMY, hitLog: true });
+    const u = state.squad[0];
+    for (let t = 0; t < 400; t++) {
+      if (state.tick === 200) { u.skillState.fixedChargeTimeTicks = 42; u.skillState.fixedChargeEndTick = 249; }
+      tick(state);
+    }
+    const shots = state.hitLog.filter(h => h.label === 'normal_shot').map(h => h.tick);
+    eq('固定蓄力中途过期：234 后该发按 60t @294，再 @354', shots.join(','), '72,132,192,234,294,354');
+  }
+  // 已蓄力 50t 时（上一发 @192，tick 242）固定蓄力 42t 生效 → 已超过新时长，当 tick 立即打出
+  {
+    const state = initBattle({ squad: [mk()], enemy: ENEMY, hitLog: true });
+    const u = state.squad[0];
+    for (let t = 0; t < 300; t++) {
+      if (state.tick === 242) { u.skillState.fixedChargeTimeTicks = 42; u.skillState.fixedChargeEndTick = 10_000; }
+      tick(state);
+    }
+    const shots = state.hitLog.filter(h => h.label === 'normal_shot').map(h => h.tick);
+    eq('已蓄力超过新时长：tick 243 立即击发，之后 42t 一发', shots.join(','), '72,132,192,243,285');
+  }
+}
+
+// ─── C11：DOWN_Charge 换弹后首发 = 换弹完成 + 后摇 + 前摇 + 蓄力（串联，§4.3.6） ──────
+// 实测（Anis: Star，后摇 12t、前摇 12t、固定蓄力 42t）：换弹速度 114%（换弹 0t）→ 66t；
+// 换弹速度 74%（换弹 31t）→ 96t ≈ 31 + 24 + 42。并行模型对后者只能给出 73t，排除。
+section('C11 — DOWN_Charge 换弹后首发：换弹完成 + 后摇 + 前摇 + 蓄力（串联）');
+{
+  const mk = (reloadSpeedPct) => rofUnit({
+    weaponType: 'RL', rateOfFire: 120, baseAmmo: 2, reloadTicks: 120,
+    chargeTimeTicks: 60, foreswingTicks: 12, backswingTicks: 12, isDownCharge: true,
+    _computedStats: { atk: 100_000, hp: 1_000_000, def: 1_000, critRate: 0, critDmg: 0, reloadSpeedPct },
+  });
+  // 瞬间换弹：第 2 发 @132 打空 → 换弹 @133 完成 → 首发 = 133 + 24 + 60 = 217
+  const fast = runSolo(mk(1.14), 400);
+  eq('瞬间换弹完成 @133', fast.reloads[0], 133);
+  eq('换弹后首发 @217（换弹完成 + 后摇 12 + 前摇 12 + 蓄力 60）', fast.shots[2], 217);
+  // 换弹速度 74%：换弹 round(120 × 0.26) = 31t @164 完成 → 首发 = 164 + 24 + 60 = 248
+  const mid = runSolo(mk(0.74), 400);
+  eq('换弹速度 74% 完成 @164', mid.reloads[0], 164);
+  eq('换弹后首发 @248（Anis: Star 96t 口径：31 + 24 + 42 → 此处蓄力 60）', mid.shots[2], 248);
+}
+
+// ─── C12：非蓄力武器换弹后对准期（spot_first_delay）——Rapi: Red Hood MG 实测 ──────
+// 弹匣打空 → 换弹（下一 tick 起）→ 末发后摇 12 → 对准 12 → 首发（MG 衰减不深时立即）。
+// 实测：换弹速度 114%（换弹 0t）23t；84%（无魔方，换弹 round(150 × 0.156) = 23t）48t。
+section('C12 — MG 换弹后对准期：Rapi: Red Hood 114% → 24t、84% → 48t（含换弹起算 1t）');
+{
+  const mk = (reloadSpeedPct) => rofUnit({
+    weaponType: 'MG', rateOfFire: 60, baseAmmo: 100, reloadTicks: 150,
+    reloadRecoveryTicks: 12, reloadAimTicks: 12,
+    _nikkeData: { shot_detail: { rate_of_fire: 60, end_rate_of_fire: 4200,
+                                 rate_of_fire_change_pershot: 100, rate_of_fire_reset_time: 100 } },
+    _computedStats: { atk: 100_000, hp: 1_000_000, def: 1_000, critRate: 0, critDmg: 0, reloadSpeedPct },
+  });
+  const gap = (unit) => {
+    const { shots } = runSolo(unit, 1200);
+    return shots[100] - shots[99];   // 第 100 发打空 → 第 101 发为换弹后首发
+  };
+  eq('114%：末发到换弹后首发 = 1 + 0 + 12 + 12 = 25t（实测 23）', gap(mk(1.14)), 25);
+  eq('84%：末发到换弹后首发 = 1 + 23 + 12 + 12 = 48t（实测 48）', gap(mk(0.8439)), 48);
 }
 
 summary('换弹节奏回归（换弹与射击间隔并行消化）');
