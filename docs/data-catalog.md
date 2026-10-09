@@ -200,14 +200,14 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ❌ | Guilty: Mighty Bunny | [`404.json`](../src/data/static/nikke/404.json) | [`404.js`](../src/data/skills/404.js) |
 | ❌ | Sin: Swift Bunny | [`405.json`](../src/data/static/nikke/405.json) | [`405.js`](../src/data/skills/405.js) |
 | ❌ | Flora（SSR：Planter We Made Together） | [`411.json`](../src/data/static/nikke/411.json) | [`411.js`](../src/data/skills/411.js) |
-| ❌ | Volume | [`431.json`](../src/data/static/nikke/431.json) | [`431.js`](../src/data/skills/431.js) |
+| ✔️ | Volume | [`431.json`](../src/data/static/nikke/431.json) | [`431.js`](../src/data/skills/431.js) |
 | ✔️ | Naga | [`450.json`](../src/data/static/nikke/450.json) | [`450.js`](../src/data/skills/450.js) |
 | ✔️ | Red Hood | [`470.json`](../src/data/static/nikke/470.json) | [`470.js`](../src/data/skills/470.js) |
 | ✔️ | Snow White: Heavy Arms | [`471.json`](../src/data/static/nikke/471.json) | [`471.js`](../src/data/skills/471.js) |
 | ✔️ | Elegg: Boom and Shock | [`502.json`](../src/data/static/nikke/502.json) | [`502.js`](../src/data/skills/502.js) |
 | ✔️ | Cinderella | [`511.json`](../src/data/static/nikke/511.json) | [`511.js`](../src/data/skills/511.js) |
 | ✔️ | Little Mermaid | [`513.json`](../src/data/static/nikke/513.json) | [`513.js`](../src/data/skills/513.js) |
-| ❌ | Grave | [`514.json`](../src/data/static/nikke/514.json) | [`514.js`](../src/data/skills/514.js) |
+| ✔️ | Grave | [`514.json`](../src/data/static/nikke/514.json) | [`514.js`](../src/data/skills/514.js) |
 | ❌ | Cinderella: Crystal Wave | [`515.json`](../src/data/static/nikke/515.json) | [`515.js`](../src/data/skills/515.js) |
 | ✔️ | Phantom（SSR：Precious Masks） | [`580.json`](../src/data/static/nikke/580.json) | [`580.js`](../src/data/skills/580.js) |
 | ❌ | Arcana: Fortune Mate | [`583.json`](../src/data/static/nikke/583.json) | [`583.js`](../src/data/skills/583.js) |

@@ -306,6 +306,20 @@ function _emitBuffEvent(state, buffObj, logCtx) {
 }
 
 /**
+ * 由 logCtx 生成 buff 的来源字段（供 UI Buff 悬浮提示定位到技能描述段落）。
+ * logCtx 为空时返回空对象。
+ */
+function _sourceFieldsFrom(logCtx) {
+  if (!logCtx) return {};
+  return {
+    _sourceCaster:     logCtx.unitName,
+    _sourceSkillLabel: logCtx.skillLabel,
+    _sourcePartIdx:    logCtx.partIdx ?? null,
+    _sourceLineIdx:    logCtx.lineIdx ?? null,
+  };
+}
+
+/**
  * 推入单条 buff（单一 unitId）。
  * @returns {boolean} 本次推入是否值得记录日志（纯永久 buff 的无实质刷新返回 false）
  */
@@ -332,15 +346,9 @@ function _pushBuffCore(state, buffObj, logCtx = null) {
     return !isInfiniteRefresh;
   }
   // 初次推入：设置 roundsLeft（回合制）和 stacks（初始层数为 1）
-  const buff = { ...buffObj, stacks: buffObj.stacks ?? 1 };
+  const buff = { ...buffObj, ..._sourceFieldsFrom(logCtx), stacks: buffObj.stacks ?? 1 };
   if (buff.endRounds !== undefined && buff.roundsLeft === undefined)
     buff.roundsLeft = buff.endRounds;
-  if (logCtx) {
-    buff._sourceCaster     = logCtx.unitName;
-    buff._sourceSkillLabel = logCtx.skillLabel;
-    buff._sourcePartIdx    = logCtx.partIdx ?? null;
-    buff._sourceLineIdx    = logCtx.lineIdx ?? null;
-  }
   state.buffs.push(buff);
   // Max HP ▲ 首次生效 → 当前 HP 同步提升相同量（除非「without restoring HP」）
   _restoreOnMaxHpGain(state, buff, (buff.maxHpPct ?? 0) * buff.stacks, (buff.maxHpFlat ?? 0) * buff.stacks);
@@ -457,12 +465,15 @@ export function pushBuff(state, buffObj, logCtx = null) {
     buffObj = { ...buffObj, endTick: Infinity };
   }
   // 规则0：多目标（unitIds）→ 逐单位推入独立 buff，日志合并为一行
+  //   逐单位推入时不传 logCtx（避免每单位各发一条事件），但来源字段仍需写入，
+  //   否则 Buff 悬浮提示无法链接到来源技能描述。
   if (Array.isArray(buffObj.unitIds)) {
     const { unitIds, ...rest } = buffObj;
     if (unitIds.length === 0) return;
+    const sourceFields = _sourceFieldsFrom(effectiveLogCtx);
     let shouldLog = false;
     for (const id of unitIds) {
-      const single = { ...rest, unitId: id };
+      const single = { ...rest, ...sourceFields, unitId: id };
       if (_pushBuffCore(state, single)) shouldLog = true;
       _maybeRecalcMaxAmmo(state, single);
       _trackCsChange(state, single);

@@ -67,9 +67,10 @@ export default {
         },
       },
       // S2 Part 2："前效重复触发"，每次使用爆裂技能时（累计计数）：
-      //   第 1 次+：全员 CritDmg ▲[p04]% 5s
-      //   第 2 次+：全员 CritDmg ▲[p06]% 5s
-      //   第 3 次+：全员 CritDmg ▲[p08]% 5s
+      //   L3 第 1 次+：全员 CritDmg ▲[p04]% 5s
+      //   L4 第 2 次+：全员 CritDmg ▲[p06]% 5s
+      //   L5 第 3 次+：全员 CritDmg ▲[p08]% 5s
+      //   （L1 为 ■ 触发条件行，L2 为 "Effect changes..." 说明行，故 lineIdx 为 2 / 3 / 4）
       // 注：属■段1，但因 PROGRAM_INIT+■段0 占用 tdefIdx=0,1，用 partOverride 对齐到 P2
       {
         on: 'BURST_SKILL_USE',
@@ -80,9 +81,12 @@ export default {
           const critDmg1   = getSkillValue(caster.rawSkill2, 3, caster.skillLevels[1]) / 100;
           const critDmg2   = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
           const critDmg3   = getSkillValue(caster.rawSkill2, 7, caster.skillLevels[1]) / 100;
-          if (cnt >= 1) pushBuff(state, { name: 'Drop the Beat (Crit Damage 1)', unitId: null, critDamagePct: critDmg1, endTick: end5 });
-          if (cnt >= 2) pushBuff(state, { name: 'Drop the Beat (Crit Damage 2)', unitId: null, critDamagePct: critDmg2, endTick: end5 });
-          if (cnt >= 3) pushBuff(state, { name: 'Drop the Beat (Crit Damage 3)', unitId: null, critDamagePct: critDmg3, endTick: end5 });
+          if (cnt >= 1) pushBuff(state, { name: 'Drop the Beat (Crit Damage 1)', unitId: null, critDamagePct: critDmg1, endTick: end5 },
+            { ...state._logCtx, lineIdx: 2 });
+          if (cnt >= 2) pushBuff(state, { name: 'Drop the Beat (Crit Damage 2)', unitId: null, critDamagePct: critDmg2, endTick: end5 },
+            { ...state._logCtx, lineIdx: 3 });
+          if (cnt >= 3) pushBuff(state, { name: 'Drop the Beat (Crit Damage 3)', unitId: null, critDamagePct: critDmg3, endTick: end5 },
+            { ...state._logCtx, lineIdx: 4 });
         },
       },
     ],

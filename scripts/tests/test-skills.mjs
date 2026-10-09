@@ -1395,6 +1395,11 @@ section('T25: pushBuff unitIds — 逐人独立 buff，日志合并为一行；m
   eq('未命中单位 1', getBuffSums(state, 1).atkPct, 0);
   eq('日志仅一行', state.pendingSkillEvents.length, 1);
   eq('目标列列出各单位名', state.pendingSkillEvents[0].target, 'U2、U3');
+  // 回归：多目标 buff 仍须写入来源字段，否则 UI Buff 悬浮提示无法链接到技能描述（Elegg 502 Hello Ghost）
+  const multi2 = state.buffs.find(b => b.name === 'Multi' && b.unitId === 2);
+  eq('多目标 buff 写入 _sourceCaster', multi2?._sourceCaster, 'U1');
+  eq('多目标 buff 写入 _sourceSkillLabel', multi2?._sourceSkillLabel, 'Test');
+  eq('多目标 buff 写入 _sourcePartIdx', multi2?._sourcePartIdx, 0);
 
   // 再推一次：各目标独立叠层，仍只记一行
   pushBuff(state, { name: 'Multi', unitIds: [2, 3], atkPct: 0.1, stackLimit: 2, endTick: 600 }, logCtx);
