@@ -1,0 +1,29 @@
+{
+  "name_localkey": "蕾雯",
+  "skill1_detail": {
+    "name_localkey": "震荡波",
+    "description_localkey": "■全蓄力攻击时，对距离瞄准线最近的1名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%持续伤害】【间隔1秒】【叠加{description_value_05}次】【持续{description_value_02}秒】</color>\n■进入全爆裂时间时，自身\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "湛蓝剑刃",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【要害击破：<word_group=10011>零件伤害</word_group>{description_value_01}%▲】\n【持续{description_value_02}秒】</color>\n■全爆裂时间开始时，自身\n<color=#00AEFF>【要害击破：<word_group=10011>零件伤害</word_group>{description_value_01}%▲】\n【持续{description_value_02}秒】</color>\n■当包含自身在内的某位队友<word_group=10052>破坏零件时</word_group>，若自身未处于A.N.模式，则自身\n<color=#00AEFF>【单点攻击：持续伤害{description_value_03}%▲】\n【持续{description_value_04}秒】\n【解除要害击破】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "暴风雨",
+    "description_localkey": "■对全体敌人（包括零件）造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的爆裂技能伤害】</color>\n■对自身施加\n<color=#00AEFF>【A.N.模式】：\n效果1：【解除单点攻击】\n效果2：【持续伤害{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Vital Attack": "要害击破",
+    "Single Point Attack": "单点攻击"
+  }
+}

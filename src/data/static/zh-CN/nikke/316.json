@@ -1,0 +1,25 @@
+{
+  "name_localkey": "薇尔维特",
+  "skill1_detail": {
+    "name_localkey": "恶作剧之手",
+    "description_localkey": "■战斗开始时与进入爆裂阶段2时\n<color=#00AEFF>【取得子弹】：\n功能：窃取敌人的子弹，\n来填满自身的<word_group=10098>弹药袋</word_group>。\n效果1：对全体敌人造成【减少{description_value_01}%子弹】\n效果2：自身【<word_group=10098>弹药袋</word_group>补充{description_value_02}发】【最多保存{description_value_03}发】【持续】【无法解除】</color>\n■全蓄力攻击时，若未处于全爆裂状态，自身\n<color=#00AEFF>功能：消耗<word_group=10098>弹药袋</word_group>的子弹强化自身。\n效果1：【消耗<word_group=10098>弹药袋</word_group>内的{description_value_04}发<word_group=10099>子弹</word_group>】\n效果2：【攻击力{description_value_05}%▲】【持续{description_value_06}秒】\n效果3：【攻击伤害{description_value_07}%▲】【持续{description_value_08}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "爱情子弹",
+    "description_localkey": "■全蓄力攻击时，仅限处在全爆裂时间\n<color=#00AEFF>功能：消耗<word_group=10098>弹药袋</word_group>的子弹强化队友。\n效果1：自身【消耗<word_group=10098>弹药袋</word_group>内的{description_value_01}发<word_group=10099>子弹</word_group>】\n效果2：全体队友【以施展者为基准的攻击力{description_value_02}%▲】【持续{description_value_03}秒】\n效果3：全体队友【蓄力伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>\n■普通攻击命中{description_value_06}次时，仅限处在全爆裂时间\n<color=#00AEFF>功能：消耗<word_group=10098>弹药袋</word_group>内的子弹对敌人造成额外伤害。\n效果1：自身【消耗<word_group=10098>弹药袋</word_group>内的{description_value_07}发<word_group=10099>子弹</word_group>】\n效果2：自身【攻击伤害{description_value_08}%▲】\n【持续{description_value_09}秒】\n效果3：对目标造成【<word_group=10025>最终</word_group>攻击力{description_value_10}%的额外伤害】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "俐落收尾",
+    "description_localkey": "■自身\n<color=#00AEFF>【变更使用武器】：\n伤害：<word_group=10025>最终</word_group>攻击力的{description_value_01}%\n持续时间：{description_value_02}秒\n额外效果\n【攻击伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  }
+}

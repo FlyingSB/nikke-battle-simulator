@@ -293,7 +293,6 @@
 |------|------|
 | BUFF | 施加增益 |
 | BUFF_GLOBAL | 施加全局增益 |
-| DEBUFF_ENEMY | 施加敌方减益 |
 | SKILL_DAMAGE | 技能伤害 |
 | HEAL | 治疗 |
 | RELOAD_AMMO | 补充弹药 |

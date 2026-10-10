@@ -1,6 +1,7 @@
 {
   "type": "module",
   "dependencies": {
+    "opencc-js": "^1.4.2",
     "puppeteer": "^22.0.0"
   }
 }

@@ -180,12 +180,18 @@ function nextChargeShotDelayTicks(state, unit, sums) {
  * 换弹时长 = 基础时长 ×(1 − 换弹速度%)，下限 0（≥100% 换弹速度即瞬间装填）。
  * 注意是乘法折减，不是除以 (1 + speed)：+29.69% → 2s ×0.7031 ≈ 1.41s。
  * fixedReloadSpeedPct：固定换弹速度加成，屏蔽其他换弹速度效果（如 Asuka: WILLE S2）。
+ * fixedReloadTicks + fixedReloadEndTick：固定换弹时长（「Reload time is fixed at X sec」，
+ *   如 Cinderella: Crystal Wave 的 Preparation for Change），生效期间忽略基础时长与换弹速度。
+ * @param {object} state
  * @param {object} unit
  * @param {object} sums getBuffSums 汇总
  * @returns {number} 换弹时长 ticks
  */
-function reloadDurationTicks(unit, sums) {
-  const effectiveReloadSpeed = unit.skillState?.fixedReloadSpeedPct ?? sums.reloadSpeedPct;
+function reloadDurationTicks(state, unit, sums) {
+  const st = unit.skillState;
+  if (st?.fixedReloadTicks != null && (st.fixedReloadEndTick ?? 0) >= state.tick)
+    return st.fixedReloadTicks;
+  const effectiveReloadSpeed = st?.fixedReloadSpeedPct ?? sums.reloadSpeedPct;
   return Math.round(unit.reloadTicks * Math.max(0, 1 - effectiveReloadSpeed));
 }
 
@@ -271,7 +277,7 @@ function scheduleBackswingReload(state, unit, events) {
   if (unit.isDownCharge || unit.backswingTicks <= 0) return;
   if ((unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick) return;
   if (unit.ammoLeft >= unit.maxAmmo) return;
-  const dur = reloadDurationTicks(unit, getBuffSums(state, unit.id));
+  const dur = reloadDurationTicks(state, unit, getBuffSums(state, unit.id));
   if (dur <= unit.backswingTicks) {
     if (dur === 0) {
       refillMagazine(state, unit, events);
@@ -969,6 +975,9 @@ export function initBattle(config) {
     // （EBS = Elegg: Boom and Shock 502；MIR = Maiden: Ice Rose 183）
     if (config.ebsLastBurstOnly && cfg.characterId === 502) unit.lastBurstOnly = true;
     if (config.mirLastBurstOnly && cfg.characterId === 183) unit.lastBurstOnly = true;
+    // Cinderella: Crystal Wave（515）手动打法：进入战斗时切换到 Snipe Mode（515.js 据此执行
+    // 「射击 1 发 → 主动装填 → 射击 1 发 → 主动装填」的切枪流程）。
+    if (config.ccwSnipeModeAtStart && cfg.characterId === 515) unit.ccwSnipeModeAtStart = true;
     return unit;
   });
 
@@ -1047,7 +1056,6 @@ export function initBattle(config) {
     totalAmmoFired:     0,
     lastMilestone400:   0,   // how many 400-ammo milestones have been crossed
     lastMilestone500:   0,   // how many 500-ammo milestones have been crossed
-    enemyDamageTakenPct: 0,  // sum of all Damage Taken debuffs on enemy
     // Shared burst gauge (0..BURST_GAUGE_MAX). All units contribute via their shots/skills.
     // Rotation triggers when >= BURST_GAUGE_MAX; resets to 0 after Full Burst ends.
     burstGauge:         0,
@@ -1106,15 +1114,19 @@ export function initBattle(config) {
       state.buffs.push({ name: 'OL Ammo', unitId: unit.id, maxAmmoPct: unit.stats.equipMaxAmmoPct, endTick: Infinity });
     if ((unit.favMaxAmmoFlat ?? 0) !== 0)
       state.buffs.push({ name: 'Fav Ammo', unitId: unit.id, maxAmmoFlat: unit.favMaxAmmoFlat, endTick: Infinity });
-    // 魔方换弹速度（Resilience Quick Reload HC）：computeFinalStats 已算入 unit.stats.reloadSpeedPct，
-    // 但换弹时长只读 getBuffSums().reloadSpeedPct（buff 汇总），故须作为永久 buff 推入，否则被静默丢弃。
-    if ((unit.stats.reloadSpeedPct ?? 0) !== 0)
-      state.buffs.push({ name: 'Cube Reload', unitId: unit.id, reloadSpeedPct: unit.stats.reloadSpeedPct, endTick: Infinity });
-    // 魔方开战永久 buff（Vigor Max HP / Destruction 零件 / Piercing 穿透 / Rupture 真实 / Diffusion 分摊伤害）：
-    // 各伤害路径已按命中类型从 getBuffSums 读取对应字段（仅穿透命中吃 pierceDamagePct 等），故统一作为 buff 推入。
-    const cubeBuffPcts = unit.stats.cubeBuffPcts ?? {};
-    if (Object.keys(cubeBuffPcts).length > 0)
-      state.buffs.push({ name: 'Cube', unitId: unit.id, ...cubeBuffPcts, endTick: Infinity });
+    // 魔方开战永久 buff：换弹速度（Resilience Quick Reload HC）、Vigor Max HP / Destruction 零件 /
+    // Piercing 穿透 / Rupture 真实 / Diffusion 分摊伤害。换弹时长与各伤害路径只从 getBuffSums 读取对应字段，
+    // 故须作为永久 buff 推入，否则被静默丢弃。buff 名取魔方技能原名（stats.cubeBuffs），日志据此显示与翻译。
+    if (unit.stats.cubeBuffs) {
+      for (const cb of unit.stats.cubeBuffs) state.buffs.push({ ...cb, unitId: unit.id, endTick: Infinity });
+    } else {
+      // 兼容直接构造 stats（无 cubeBuffs）的调用方：按合计字段推入
+      if ((unit.stats.reloadSpeedPct ?? 0) !== 0)
+        state.buffs.push({ name: 'Cube Reload', unitId: unit.id, reloadSpeedPct: unit.stats.reloadSpeedPct, endTick: Infinity });
+      const cubeBuffPcts = unit.stats.cubeBuffPcts ?? {};
+      if (Object.keys(cubeBuffPcts).length > 0)
+        state.buffs.push({ name: 'Cube', unitId: unit.id, ...cubeBuffPcts, endTick: Infinity });
+    }
     recalcMaxAmmo(state, unit);   // 确认 unit.maxAmmo 与 initialMaxAmmo 一致
   }
   // 开战满血：当前 HP 对齐到含方块永久 buff（如 Vigor Max HP ▲）的最终 MaxHP
@@ -1194,6 +1206,15 @@ export function tick(state) {
         //   实测：Helm 180s=121发，完整发间重置(84t)预测精确匹配；不重置则预测125（每次HIDDEN多1发）。
         //   Scarlet:BS 233发同模型误差≤1发。
         for (const u of state.squad) {
+          // 非蓄力武器处于蓄力型切换武器期间（如 Cinderella: Crystal Wave Snipe Mode）：
+          // 出 HIDDEN 后同样重新蓄力一次（切换武器固定蓄力时长，不含前后摇）。
+          const switchCharge = (u.skillState?.weaponSwitchEndTick ?? 0) > 0
+            && state.tick <= u.skillState.weaponSwitchEndTick
+            ? (u.skillState.weaponSwitchChargeTimeTicks ?? 0) : 0;
+          if (u.chargeTimeTicks <= 0 && switchCharge > 0) {
+            u.chargeTick = state.tick + switchCharge;
+            continue;
+          }
           if (u.chargeTimeTicks <= 0) continue;
           scheduleEngineCharge(state, u, state.tick,
             u.isDownCharge ? 0 : u.backswingTicks + u.foreswingTicks, getBuffSums(state, u.id));
@@ -1463,7 +1484,7 @@ export function tick(state) {
       if (unit.reloadTick === 0) {
         // 换弹相位 = 折减后的装填时长 + 末发后摇（非蓄力武器 spot_last_delay，不受换弹速度折减）。
         // UP 型蓄力武器的打空换弹已在射击 tick 由 scheduleBackswingReload 提前开始（后摇与换弹同时计时）。
-        const dur = reloadDurationTicks(unit, getBuffSums(state, unit.id)) + (unit.reloadRecoveryTicks ?? 0);
+        const dur = reloadDurationTicks(state, unit, getBuffSums(state, unit.id)) + (unit.reloadRecoveryTicks ?? 0);
         unit.reloadTick      = state.tick + dur;
         unit.reloadStartTick = state.tick;
       }
@@ -1683,7 +1704,7 @@ export function tick(state) {
                              damageToPartsMult: sums.damageToPartsPct ?? 0,
                              trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
                              ...(isPierce ? { pierceDamageMult: sums.pierceDamagePct } : {}) },
-        damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
+        damageTakenMult:   getEnemyDamageTakenPct(state),
       });
 
       // ── 零件核心穿透：额外本体伤害（与核心命中同时产生，使用相同 buff 快照，独立判定暴击）──
@@ -1719,7 +1740,7 @@ export function tick(state) {
                                damageToPartsMult: sums.damageToPartsPct ?? 0,
                                trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
                                pierceDamageMult: sums.pierceDamagePct },
-          damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
+          damageTakenMult:   getEnemyDamageTakenPct(state),
         }));
       }
 
@@ -1801,7 +1822,7 @@ export function tick(state) {
                                damageToPartsMult: sums2.damageToPartsPct ?? 0,
                                trueDamageMult: sums2.normalAttackTrueDamage ? (sums2.trueDamagePct ?? 0) : 0,
                                ...(isPierce ? { pierceDamageMult: sums2.pierceDamagePct } : {}) },
-          damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
+          damageTakenMult:   getEnemyDamageTakenPct(state),
         }));
       }
 
@@ -1809,6 +1830,9 @@ export function tick(state) {
       // 武器替换期间无限弹药（如 Moran burst），或 skillState.unlimitedAmmoEndTick 激活期间（如 Grave Prediction）
       const isUnlimitedAmmoShot = (weaponSwitchActive && unit.skillState.weaponSwitchUnlimitedAmmo)
         || (unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick;
+      // 「Expends ammo. Amount: N round(s)」（weaponSwitchAmmoCountPerShot，如 Cinderella: Crystal Wave
+      // Snipe Mode 全蓄力 = 40 发）：仅表示本发按 N 发计入「全队累计消耗弹药」类计数，弹匣实际仍只扣 1 发。
+      const ammoCounted = weaponSwitchActive ? Math.max(1, unit.skillState.weaponSwitchAmmoCountPerShot ?? 1) : 1;
       if (!isUnlimitedAmmoShot) {
         unit.ammoLeft--;
         // round-based buff（roundsLeft）：实弹命中时消耗 1 回合；无限弹期间不消耗。
@@ -1869,7 +1893,7 @@ export function tick(state) {
           hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
           favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
           attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct + projExpOf(sums), isFullBurst: state.fullBurstActive,
-          damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
+          damageTakenPct: getEnemyDamageTakenPct(state),
           enemyDef: isTrueDamage ? 0 : getEffectiveEnemyDef(state),
           isTrueDamage, trueDamagePct: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
           isPierce, pierceDamagePct: isPierce ? (sums.pierceDamagePct ?? 0) : 0,
@@ -1903,7 +1927,7 @@ export function tick(state) {
             hitMult, isCrit: isCritPartsCoreBody, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
             favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
             attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct + projExpOf(sums), isFullBurst: state.fullBurstActive,
-            damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
+            damageTakenPct: getEnemyDamageTakenPct(state),
             enemyDef: isTrueDamage ? 0 : getEffectiveEnemyDef(state),
             isPierce, pierceDamagePct: sums.pierceDamagePct ?? 0,
             isExplosive, isTrueDamage, trueDamagePct: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
@@ -1937,7 +1961,7 @@ export function tick(state) {
             favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
             attackDamagePct: sums2log.attackDamagePct + sums2log.normalAttackDamagePct + projExpOf(sums2log),
             isFullBurst: state.fullBurstActive,
-            damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state),
+            damageTakenPct: getEnemyDamageTakenPct(state),
             enemyDef: sums2log.normalAttackTrueDamage ? 0 : getEffectiveEnemyDef(state),
             isPierce, pierceDamagePct: isPierce ? (sums2log.pierceDamagePct ?? 0) : 0,
             isExplosive, isTrueDamage: sums2log.normalAttackTrueDamage,
@@ -1983,7 +2007,8 @@ export function tick(state) {
           _engineScheduledChargeTick = unit.chargeTick;
         }
       }
-      state.totalAmmoFired++;
+      // 全队累计消耗弹药：按本发计数（「Expends ammo」类切换武器按 N 发计，与 316.js 口径一致）。
+      state.totalAmmoFired += ammoCounted;
       // 生命偷取（含双重命中的第二发），HEAL_RECEIVED 由下方 flushHealReceived 派发
       applyLifeSteal(state, unit, damage + (isDoubleHit ? damage2 : 0), sums);
       events.push({ type: 'hit', tick: state.tick, unitId: unit.id, unitName: unit.name, damage, isCrit });

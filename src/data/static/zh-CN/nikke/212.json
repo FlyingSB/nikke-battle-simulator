@@ -1,0 +1,28 @@
+{
+  "name_localkey": "诺薇儿",
+  "skill1_detail": {
+    "name_localkey": "可疑！",
+    "description_localkey": "■对<word_group=10025>最终</word_group>防御力最高的{description_value_01}名敌人造成\n<color=#00AEFF>相当于【<word_group=10025>最终</word_group>攻击力{description_value_02}%的伤害】\n【防御力{description_value_03}%▼】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "侦探工具！",
+    "description_localkey": "■普通攻击命中{description_value_01}次时，自身\n<color=#00AEFF>【证物收集：防御力{description_value_02}% ▲】\\n【叠加{description_value_03}次】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "案件解决！",
+    "description_localkey": "■对<word_group=10025>最终</word_group>攻击力最高的{description_value_01}名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的爆裂技能伤害】</color>\n■若自身处于证物收集的最大叠加状态，则额外使{description_value_03}名敌人\n<color=#00AEFF>【所受伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Cornucopia": "证物收集"
+  }
+}

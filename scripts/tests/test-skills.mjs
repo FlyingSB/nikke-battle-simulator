@@ -1697,7 +1697,7 @@ section('T28b: Grave (514) — Prediction 每秒 HP ▼1%、Heat Emission 每秒
   eq('HP 变化进入 HP_CHANGED 队列', state.pendingHpChanged.has(514), true);
 }
 
-section('T28c: Red Hood (470) — The Last Howl：治疗效能 ▲ + S2 P3 生命偷取');
+section('T28c: Red Hood (470) — The Last Howl：受治疗量 ▲ + S2 P3 生命偷取');
 {
   const rh = mockUnit(470, { unitHp: 1000000,
     rawSkill1: mockRawSkill([3.81, 10, 5, 240]),
@@ -1706,14 +1706,14 @@ section('T28c: Red Hood (470) — The Last Howl：治疗效能 ▲ + S2 P3 生�
   });
   const state = mockState([rh], { burstPhase: 2 });
   executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: rh });
-  const potency = state.buffs.find(b => b.name === 'The Last Howl (Heal Potency)');
-  near('自身治疗效能 ▲74.88% 10s', potency?.healPotencyPct, 0.7488);
-  eq('治疗效能持续 10s', potency?.endTick, 10 * TICK_RATE);
+  const incoming = state.buffs.find(b => b.name === 'The Last Howl (Incoming Healing)');
+  near('自身受治疗量 ▲74.88% 10s', incoming?.incomingHealPct, 0.7488);
+  eq('受治疗量持续 10s', incoming?.endTick, 10 * TICK_RATE);
   const ls = state.buffs.find(b => b.name === 'Wild Tooth (Life Steal)');
   eq('S2 P3 生命偷取 23.04%', ls?.lifeStealPct, 0.2304);
   eq('生命偷取归属 S2 P3', ls?._sourcePartIdx, 2);
   applyLifeSteal(state, rh, 100000, getBuffSums(state, 470));
-  eq('The Last Howl 期间生命偷取受效能放大：100000 × 23.04% × 1.7488', rh.unitHp,
+  eq('The Last Howl 期间生命偷取受受治疗量放大：100000 × 23.04% × 1.7488', rh.unitHp,
     Math.min(1000000, 1000000 + Math.round(100000 * 0.2304 * 1.7488)));
   rh.unitHp = 500000;
   applyLifeSteal(state, rh, 100000, getBuffSums(state, 470));
@@ -1790,8 +1790,9 @@ section('T28f: 治疗效能 buff 来源 — Anchor S1 P1 / Prika S1 P2 / Crown R
     const state = mockState([anchor], { pendingHoTs: [] });
     executeSkillTriggers(state, 'PROGRAM_INIT');
     executeSkillTriggers(state, 'ENTER_FULL_BURST');
-    const b = state.buffs.find(x => x.name === 'Starfish (Shaped) Omurice (Heal Potency)');
-    eq('Anchor 全员治疗效能 ▲30.96%', b?.healPotencyPct, 0.3096);
+    const b = state.buffs.find(x => x.name === 'Starfish (Shaped) Omurice (Incoming Healing)');
+    eq('Anchor 全员受治疗量 ▲30.96%', b?.incomingHealPct, 0.3096);
+    eq('Anchor 不提供治疗效能', b?.healPotencyPct, undefined);
     eq('作用于全队（unitId null）', b?.unitId, null);
     eq('持续 5s', b?.endTick, 5 * TICK_RATE);
   }
@@ -1815,7 +1816,7 @@ section('T28f: 治疗效能 buff 来源 — Anchor S1 P1 / Prika S1 P2 / Crown R
     applyHeal(state, ally, hot.amount, null, prika);
     eq('HoT 触发时按效能放大：30400 × 1.4992', ally.unitHp, 100000 + Math.round(30400 * 1.4992));
   }
-  // Crown (330) Relax 每层治疗效能 ▲4.06%
+  // Crown (330) Relax 每层受治疗量 ▲4.06%
   {
     const crown = mockUnit(330, { unitHp: 1000000, weaponType: 'MG', ammoLeft: 100,
       rawSkill1: mockRawSkill([64.51, 15, 44.35, 15, 37.44, 15, 44.35, 15]),
@@ -1826,7 +1827,12 @@ section('T28f: 治疗效能 buff 来源 — Anchor S1 P1 / Prika S1 P2 / Crown R
       onShotFired(state, crown, { sums: getBuffSums(state, 330), isCharged: false, hitPart: 'body', ammoAfterShot: 5 });
     const relax = state.buffs.find(b => b.name === 'Relax' && b.unitId === 330);
     eq('86 发 → Relax 2 层', relax?.stacks, 2);
-    near('Relax 治疗效能 = 2 × 4.06%', getBuffSums(state, 330).healPotencyPct, 0.0812);
+    near('Relax 受治疗量 = 2 × 4.06%', getBuffSums(state, 330).incomingHealPct, 0.0812);
+    near('Relax 不提供治疗效能', getBuffSums(state, 330).healPotencyPct ?? 0, 0);
+    // Incoming Healing 作用于一切受到的治疗：无治疗者来源（caster=null）的治疗同样被放大
+    crown.unitHp = 500000;
+    applyHeal(state, crown, 10000, null, null);
+    near('他人治疗也受 Relax 放大：10000 × 1.0812', crown.unitHp, 500000 + 10000 * 1.0812, 1);
   }
   // Flora (411) Peace of Mind：受治疗量 ▲4%/层（上限 5），治疗按治疗者效能与受治疗者加成放大
   {
@@ -1961,7 +1967,7 @@ section('T28g: 溢出治疗储存 / 平均分摊治疗 / Noir Lucky Charm / Cent
     eq('相邻友军受治疗回到满血 → P2 全员真实伤害 ▲30.97%',
       state.buffs.find(b => b.name === 'Iris (True Damage)')?.trueDamagePct, 0.3097);
   }
-  // Crown (330) Relax 满层：先治疗（享受 20 层效能），再移除 Relax
+  // Crown (330) Relax 满层：先治疗（享受 20 层受治疗量加成），再移除 Relax
   {
     const crown = mockUnit(330, { unitHp: 100000, weaponType: 'MG', ammoLeft: 100,
       rawSkill1: mockRawSkill([64.51, 15, 44.35, 15, 37.44, 15, 44.35, 15]),

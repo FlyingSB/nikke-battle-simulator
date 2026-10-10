@@ -1,0 +1,25 @@
+{
+  "name_localkey": "特罗尼",
+  "skill1_detail": {
+    "name_localkey": "T.Rony轰炸机",
+    "description_localkey": "■全蓄力攻击命中时，若没有处于T.Rony轰炸机状态的敌人，则距离瞄准线最近的1个目标\n<color=#00AEFF>【<word_group=10049>累积爆炸技能</word_group>】【持续{description_value_01}秒】：\n功能：累积施展者造成的部分伤害。达到累积伤害上限，并对敌人造成伤害后解除。\n效果1：【累积伤害上限为施展者<word_group=10025>最终</word_group>攻击力的{description_value_03}%】\n效果2：【仅累积自身攻击伤害的{description_value_02}%】\n效果3：【<word_group=10049>累积爆炸技能</word_group>爆炸时，对<word_group=10020>攻击范围内的敌人</word_group>造成<word_group=10019>分摊伤害</word_group>】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "效率增加",
+    "description_localkey": "■全蓄力攻击{description_value_01}次时，自身\n<color=#00AEFF>【<word_group=10019>分摊伤害</word_group>{description_value_02}%▲】【持续{description_value_03}秒】</color>\n■全蓄力攻击命中{description_value_04}次时，目标\n<color=#00AEFF>【防御力{description_value_05}%▼】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "巨型T.Rony",
+    "description_localkey": "■自身\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>\n<color=#00AEFF>【<word_group=10049>累积爆炸技能</word_group>的伤害累积比例{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

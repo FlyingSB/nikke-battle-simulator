@@ -10,8 +10,16 @@
 
 import Alpine from 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/module.esm.js';
 import { createStore } from './ui/store.js';
+import { t } from './ui/i18n.js';
 
 Alpine.store('sim', createStore());
+
+// 模板文案：$t('key', params)。读取 store 的响应式 lang，切换界面语言时绑定自动重算。
+Alpine.magic('t', () => (key, params) => Alpine.store('sim').t(key, params));
+
+// 加载遮罩在 Alpine 启动前显示，按已保存的界面语言填写（createStore 已设置当前语言）
+document.getElementById('loaderTitle').textContent = t('app.title');
+document.getElementById('loadProgress').textContent = t('app.initializing');
 
 // ── 自动保存 ──────────────────────────────────────────────────────────────────
 document.addEventListener('alpine:initialized', () => {
@@ -69,7 +77,7 @@ window.__renderDamageChart = async function (result) {
       formatter: params => {
         const u    = units[params.dataIndex];
         const pct  = result.totalDamage > 0 ? (u.totalDamage / result.totalDamage * 100).toFixed(1) : '0.0';
-        return `${params.name}<br/>伤害：${fmtNum(u.totalDamage)}<br/>占比：${pct}%`;
+        return `${params.name}<br/>${t('log.col.damage')}: ${fmtNum(u.totalDamage)}<br/>${pct}%`;
       },
     },
     xAxis: {

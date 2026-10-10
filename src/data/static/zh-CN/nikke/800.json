@@ -1,0 +1,28 @@
+{
+  "name_localkey": "真纪真",
+  "skill1_detail": {
+    "name_localkey": "可否让我见识你的能耐？",
+    "description_localkey": "■被攻击{description_value_01}次时，全体队友\n<color=#00AEFF>【换弹速度{description_value_02}% ▲】【持续{description_value_03}秒】\n【防御力{description_value_04}% ▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "好像发现了啊。",
+    "description_localkey": "■进行{description_value_01}次普通攻击后，自身\n<color=#00AEFF>【注目：挑衅所有敌人】【{description_value_02}秒】</color>\n■被可造成无法战斗状态的攻击击中时，自身\n<color=#00AEFF>【<word_group=10006>不屈</word_group>】【持续{description_value_03}秒】【战斗中触发{description_value_04}次】\n【爆裂技能<word_group=10031>冷却时间</word_group>{description_value_05}秒 ▼】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "能不能安静一点？",
+    "description_localkey": "■自身\n<color=#00AEFF>【穿透特化】【持续{description_value_01}秒】\n【恢复相当于攻击伤害的{description_value_02}%】\n【持续{description_value_03}秒】</color>\n■若自身处于<word_group=10006>不屈</word_group>的状态，则自身\n<color=#00AEFF>【获得体力恢复量{description_value_04}% ▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Attract": "注目"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name_localkey": "索达：闪亮兔女郎",
+  "skill1_detail": {
+    "name_localkey": "幸运黄金筹码",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【黄金筹码叠加量{description_value_01}次▲】</color>\n■全爆裂时间持续期间，进行{description_value_02}次普通攻击时，自身\n<color=#00AEFF>【黄金筹码：暴击伤害{description_value_03}%▲】【叠加{description_value_04}次】【持续】</color>\n■在全爆裂时间持续期间，进行{description_value_02}次普通攻击时，自身与除自身以外<word_group=10025>最终</word_group>攻击力最高的{description_value_07}名队友\n<color=#00AEFF>【攻击伤害{description_value_05}%▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "初学者福利",
+    "description_localkey": "■进入爆裂阶段3时，全体队友\n<color=#00AEFF>【不同黄金筹码叠加量不同效果】【<word_group=10028>低级效果重复生效</word_group>】</color>\n第1阶：黄金筹码叠加{description_value_01}次以上时\n<color=#00AEFF>【延长时间I：全爆裂持续时间{description_value_02}秒▲】【全爆裂期间持续有效】</color>\n第2阶：黄金筹码叠加{description_value_03}次以上时\n<color=#00AEFF>【延长时间II：全爆裂持续时间{description_value_04}秒▲】【全爆裂期间持续有效】</color>\n■全爆裂持续期间，普通攻击时，对距离瞄准线最近的{description_value_05}名敌人\n<color=#00AEFF>【不同延长时间状态不同效果】【<word_group=10028>低级效果重复生效</word_group>】</color>\n第1阶：自身处于延长时间I状态时，造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_06}%的伤害】</color>\n第2阶：自身处于延长时间II状态时，造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_07}%的伤害】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "前进吧，索达！",
+    "description_localkey": "■使用前进吧，索达！时\n<color=#00AEFF>【不同黄金筹码叠加量不同效果】【<word_group=10028>低级效果重复生效</word_group>】【效果生效后黄金筹码叠加量{description_value_01}个▼】</color>\n第1阶段：对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的爆裂技能伤害】</color>\n第2阶段：黄金筹码叠加{description_value_03}次以上时，自身\n<color=#00AEFF>【命中率{description_value_04}%▲】【持续{description_value_05}秒】</color>\n第3阶段：黄金筹码叠加{description_value_06}次以上时，自身\n<color=#00AEFF>【攻击力{description_value_07}%▲】【持续{description_value_08}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Golden Chip": "黄金筹码",
+    "Time Extension I": "延长时间I",
+    "Time Extension II": "延长时间II"
+  }
+}

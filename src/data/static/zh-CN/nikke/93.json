@@ -1,0 +1,28 @@
+{
+  "name_localkey": "艾玛：战术升级",
+  "skill1_detail": {
+    "name_localkey": "营造环境",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【营造环境】：\n功能：向周围喷射溶液，营造有利于战斗的环境。\n效果1：【所受伤害{description_value_01}%▲】\n【持续{description_value_02}秒】\n效果1目标：全体敌人（包括营造环境期间登场的敌人）\n\n效果2：【营造环境：持续恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_03}%】【间隔1秒】\n【持续{description_value_04}秒】\n效果2目标：全体队友\n\n<word_group=10085>重复周期</word_group>：{description_value_05}秒</color>\n\n■敌人登场时，自身\n<color=#00AEFF>【暴露】【无法解除】\n效果：【注目：挑衅全体敌人】【持续】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "阵型LT",
+    "description_localkey": "■自身处于生存状态时，\n<color=#00AEFF>【阵型LT】：\n功能：对目标下达有利于战斗的战术效果。\n效果1：同一部队的全体队友【暴击伤害{description_value_01}%▲】【持续】\n效果2：全体队友【<word_group=10066>发射体爆炸伤害</word_group>{description_value_02}%▲】【持续】\n\n【对自身发动阵型AS效果时，套用额外效果】\n效果1：全体队友【无视防御力伤害{description_value_03}%▲】【持续】\n效果2：全体队友【<word_group=10066>发射体爆炸伤害</word_group>{description_value_04}%▲】【持续】\n效果3：自身【<word_group=10086>无法触发</word_group>暴露】【持续】\n效果4：自身【营造环境<word_group=10085>重复周期</word_group>{description_value_05}秒▼】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "战场布阵",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【战场布阵：以施展者为基准的攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■若自身处于营造环境状态，则赋予自身\n<color=#00AEFF>【营造环境强化】：\n功能：强化营造环境功能\n持续时间：10秒\n效果1：营造环境所受伤害增加倍率，变更为100%<word_group=10084>增加状态</word_group>\n效果1目标：全体敌人\n\n效果2：【获得体力恢复量{description_value_03}%▲】\n效果2目标：全体队友</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Battlefield Formation": "战场布阵"
+  }
+}

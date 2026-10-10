@@ -1,0 +1,38 @@
+{
+  "name_localkey": "手写信",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【普通攻击伤害{description_value_01}%<word_group=10029>倍率</word_group>▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  },
+  "favoriteitem_skill_group_data": {
+    "0": {
+      "info": {
+        "name_localkey": "能量提升！",
+        "description_localkey": "■除自身以外<word_group=10025>最终</word_group>攻击力最高的{description_value_01}名队友（目标人数不足时包含自身）\n<color=#00AEFF>【攻击力{description_value_02}%▲】【持续{description_value_03}秒】\n【暴击伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+        "info_description_localkey": "爆裂技能"
+      }
+    },
+    "1": {
+      "info": {
+        "name_localkey": "唤醒！",
+        "description_localkey": "■全爆裂时间开始时，全体队友\n<color=#00AEFF>【暴击伤害{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■全爆裂时间开始时，自身\n<color=#00AEFF>【暴击率{description_value_03}%▲】【持续{description_value_04}秒】\n【攻击伤害{description_value_05}%▲】【持续{description_value_06}秒】</color>\n■全爆裂时间开始时，除自身以外<word_group=10025>最终</word_group>攻击力最高的{description_value_07}名队友（目标人数不足时包含自身）\n<color=#00AEFF>【暴击率{description_value_08}%▲】【持续{description_value_09}发】</color>",
+        "info_description_localkey": "技能2"
+      }
+    },
+    "2": {
+      "info": {
+        "name_localkey": "健身！",
+        "description_localkey": "■普通攻击命中{description_value_01}次时，全体队友\n<color=#00AEFF>【命中率{description_value_02}%▲】【持续{description_value_03}秒】</color>\n■普通攻击命中{description_value_04}次时，全体持冲锋枪的队友\n<color=#00AEFF>【命中率{description_value_05}%▲】【持续{description_value_06}秒】</color>\n■普通攻击命中{description_value_07}次时，自身\n<color=#00AEFF>【攻击力{description_value_08}%▲】【持续{description_value_09}秒】</color>",
+        "info_description_localkey": "技能1"
+      }
+    }
+  }
+}

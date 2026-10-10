@@ -1,0 +1,25 @@
+{
+  "name_localkey": "产品08",
+  "skill1_detail": {
+    "name_localkey": "战术：装甲强化",
+    "description_localkey": "■普通攻击命中时，以{description_value_04}%的概率使剩余的体力数值最低的{description_value_01}名队友\n<color=#00AEFF>【防御力{description_value_02}% ▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "战术：精准射击",
+    "description_localkey": "■<word_group=10025>最终</word_group>攻击力最高的{description_value_01}名队友\n<color=#00AEFF>【暴击率{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "战术：功率提升",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【攻击力{description_value_01}% ▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  }
+}

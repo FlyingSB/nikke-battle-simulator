@@ -105,4 +105,33 @@ section('CB4: initBattle 推入永久 Cube buff');
   eq('Cube buff 永久', state.buffs.filter(x => x.name === 'Cube').every(x => x.endTick === Infinity), true);
 }
 
+// ── CB5 ───────────────────────────────────────────────────────────────────────
+section('CB5: 魔方 buff 名取魔方技能原名（stats.cubeBuffs）');
+{
+  const state = initBattle({ squad: [{
+    characterId: 93100, name: 'Dummy-CB5', element: 'Iron', weaponType: 'SR',
+    burstStep: 'Step1', nativeBurstStep: 'Step1',
+    _nikkeData: { shot_detail: { reload_bullet: 10000 } },
+    _computedStats: {
+      atk: 10_000, hp: 1_000_000, def: 500, critRate: 0, critDmg: 0.5,
+      reloadSpeedPct: 0.25, cubeBuffPcts: { trueDamagePct: 0.2 },
+      cubeBuffs: [
+        { name: 'Quick Reload HC',   reloadSpeedPct: 0.25 },
+        { name: 'True Damage Up HC', trueDamagePct:  0.2  },
+      ],
+    },
+    targetBurstEnergyPerShot: 0, burstEnergyPerShot: 0, burstSkillCooltime: 0,
+    baseAmmo: 6, reloadTicks: 120, shotDamageMult: 1.0, coreDmgIncrement: 0,
+    fullChargeDamage: 10000, reloadFraction: 1.0, rateOfFire: 60,
+  }], enemy: { maxHp: 1e15, def: 0, element: 'Iron', type: 'Boss', distance: 'NEAR', hasCore: false } });
+  const u = state.squad[0];
+  const names = state.buffs.filter(b => b.unitId === u.id && b.endTick === Infinity).map(b => b.name);
+  eq('Quick Reload HC 已推入',   names.includes('Quick Reload HC'), true);
+  eq('True Damage Up HC 已推入', names.includes('True Damage Up HC'), true);
+  eq('不再推入合计 buff（Cube / Cube Reload）', names.some(n => n === 'Cube' || n === 'Cube Reload'), false);
+  const sums = getBuffSums(state, u.id);
+  near('换弹速度合计不变', sums.reloadSpeedPct, 0.25, 1e-9);
+  near('真实伤害合计不变', sums.trueDamagePct,  0.2,  1e-9);
+}
+
 summary('魔方技能建模');

@@ -1,0 +1,25 @@
+{
+  "name_localkey": "杨",
+  "skill1_detail": {
+    "name_localkey": "支离破碎",
+    "description_localkey": "■全爆裂时间开始时，全体队友\n<color=#00AEFF>【蓄力伤害{description_value_01}%▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "多多益善",
+    "description_localkey": "■全蓄力攻击时，全体队友\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续{description_value_02}秒】\n【暴击率{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "一攫千金",
+    "description_localkey": "■对<word_group=10020>攻击范围内的敌人</word_group>造成\n相当于<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力\n{description_value_01}%的伤害】\n【强制移动至攻击范围中心】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name_localkey": "心爱的枕头",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【蓄力伤害{description_value_01}%<word_group=10029>倍率</word_group>▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  },
+  "favoriteitem_skill_group_data": {
+    "0": {
+      "info": {
+        "name_localkey": "……好想睡觉",
+        "description_localkey": "■全蓄力攻击命中时，目标\n<color=#00AEFF>【睡意：防御力{description_value_01}%▼】【叠加{description_value_02}次】【持续{description_value_03}秒】</color>\n■全蓄力攻击命中{description_value_04}次时，若目标处于睡意的最大叠加状态，则自身\n<color=#00AEFF>【起床：普通攻击变为无视防御力伤害】【持续{description_value_05}秒】</color>",
+        "info_description_localkey": "技能1"
+      }
+    },
+    "1": {
+      "info": {
+        "name_localkey": "……好烦",
+        "description_localkey": "■对<word_group=10025>最终</word_group>防御力最高的{description_value_01}名敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_02}%的伤害】\n【防御力{description_value_03}%▼】【持续{description_value_04}秒】</color>\n■全体队友\n<color=#00AEFF>【最大体力{description_value_05}%▲】【持续{description_value_06}秒】</color>\n■若自身处于起床状态，则全体队友\n<color=#00AEFF>【无视防御力伤害{description_value_07}%▲】【持续{description_value_08}秒】</color>",
+        "info_description_localkey": "爆裂技能"
+      }
+    },
+    "2": {
+      "info": {
+        "name_localkey": "……啊",
+        "description_localkey": "■全蓄力攻击时，全体队友\n<color=#00AEFF>【最大体力{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■全蓄力攻击时，若自身处于起床状态，则全体队友\n<color=#00AEFF>【无视防御力伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+        "info_description_localkey": "技能2"
+      }
+    }
+  },
+  "_terms": {
+    "Sleepy": "睡意",
+    "Wake Up": "起床"
+  }
+}

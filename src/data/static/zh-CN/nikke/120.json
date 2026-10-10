@@ -1,0 +1,24 @@
+{
+  "skill1_detail": {
+    "name_localkey": "纪录中的回忆",
+    "description_localkey": "■全蓄力攻击时，<word_group=10025>最终</word_group>攻击力最高的{description_value_01}名队友\n<color=#00AEFF>【最大装弹数{description_value_02}发▲】【持续{description_value_03}秒】\n【暴击伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "复苏的记忆",
+    "description_localkey": "■<word_group=10025>最终</word_group>攻击力最高的{description_value_01}名队友\n<color=#00AEFF>【蓄力伤害{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "蓝蝶之忆",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【攻击力{description_value_01}% ▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

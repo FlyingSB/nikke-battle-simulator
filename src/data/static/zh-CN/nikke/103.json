@@ -1,0 +1,29 @@
+{
+  "name_localkey": "拉普拉斯：究极英雄",
+  "skill1_detail": {
+    "name_localkey": "电力全满完全蓄力",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_01}%的攻击力▲】【持续】</color>\n■全蓄力攻击时，自身\n<color=#00AEFF>【预热：蓄力速度{description_value_02}%▲】【叠加{description_value_03}次】【持续】</color>\n■当自身处于预热最大叠加状态时，解除叠加后，自身\n<color=#00AEFF>【变更使用武器：电力全满完全蓄力】：\n伤害：<word_group=10025>最终</word_group>攻击力{description_value_05}%的伤害\n最大装弹数：{description_value_06}发（<word_group=10107>变更使用武器时，更新最大装弹数效果</word_group>）\n<word_group=10097>解除时间</word_group>：所有子弹射击完毕时\n额外效果：穿透特化</color>\n■电力全满完全蓄力结束时，自身\n<color=#00AEFF>【子弹减少{description_value_07}%】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "能量超载",
+    "description_localkey": "■普通攻击{description_value_08}次时，若自身处于电力全满完全蓄力状态，则自身\n<color=#00AEFF>【能量超载{description_value_09}%▲】【最大{description_value_01}%】【持续】</color>\n■当自身能量超载达{description_value_01}%时，<word_group=10100>重置</word_group>后自身\n<color=#00AEFF>【能量超载阶段增加】【能量超载各阶段效果】【<word_group=10028>低级效果重复生效</word_group>】\n阶段1：【仅最大体力{description_value_02}%▲】【持续】\n阶段2：【仅最大体力{description_value_03}%▲】【持续】\n阶段3：【仅最大体力{description_value_04}%▲】【持续】\n阶段4：【仅最大体力{description_value_05}%▲】【持续】</color>\n■进入爆裂3阶时，自身\n<color=#00AEFF>【攻击伤害{description_value_06}%▲】【持续{description_value_07}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "再生电力武装：雷霆战锤",
+    "description_localkey": "■自身\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的爆裂技能伤害】</color>\n■若自身处于阶段1以上的能量超载状态，则对距离瞄准线最近的1名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_04}%x能量超载阶段的额外伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Warm Up": "预热",
+    "Electric Power, Fully Full Charge": "电力全满完全蓄力"
+  }
+}

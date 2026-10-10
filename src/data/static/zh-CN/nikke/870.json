@@ -1,0 +1,28 @@
+{
+  "name_localkey": "QUEEN（真）",
+  "skill1_detail": {
+    "name_localkey": "人格面具：琼安",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【人格面具 - 琼安】【持续】【无法解除】：\n功能：透过人格面具强化自身。\n效果1：【核热强化：<word_group=10009>优越代码攻击伤害</word_group>{description_value_01}%▲】【持续】【无法解除】\n效果2：【防御诀窍：防御力{description_value_02}%▲】【持续】【无法解除】</color>\n■战斗开始时及全爆裂时间结束时，自身\n<color=#00AEFF>【攻击力{description_value_05}%▲】【持续{description_value_06}秒】</color>\n■1MORE生效时，对全体敌人造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的<word_group=10019>分摊伤害</word_group>】</color>\n■追击生效时，对全体敌人造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_04}%的<word_group=10019>分摊伤害</word_group>】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "铁．拳．制．裁！",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【攻击伤害{description_value_09}%▲】【持续】</color>\n■使用爆裂技能时，自身\n<color=#00AEFF>【铁．拳．制．裁！】【持续】\n【无法解除】：\n功能：强化自身。\n效果1：【高级核热强化：<word_group=10009>优越代码攻击伤害</word_group>{description_value_01}%▲】【持续】【无法解除】\n效果2：【拉库卡加：防御力{description_value_02}%▲】【持续】【无法解除】\n<word_group=10097>解除时间</word_group>：全爆裂时间结束时</color>\n■进入爆裂3阶时，自身\n<color=#00AEFF>【<word_group=10019>分摊伤害</word_group>{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■1MORE生效时，对除自身外<word_group=10082>基本爆裂阶段为{description_value_05}阶</word_group>且处于人格面具状态的全体队友\n<color=#00AEFF>【换手：以施展者为基准的攻击力{description_value_06}%▲】【叠加{description_value_07}次】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "玛哈芙雷达因",
+    "description_localkey": "■对全体敌人造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的<word_group=10019>分摊伤害</word_group>】</color>\n■若存在风压代码的敌人，自身\n<color=#00AEFF>【1MORE：攻击力{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Baton Pass": "换手"
+  }
+}

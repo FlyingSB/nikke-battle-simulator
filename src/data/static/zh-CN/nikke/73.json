@@ -1,0 +1,25 @@
+{
+  "name_localkey": "布丽德：静默轨道",
+  "skill1_detail": {
+    "name_localkey": "列车启动",
+    "description_localkey": "■全爆裂时间开始时，使全体风压代码敌人\n<color=#00AEFF>【所受伤害{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■全爆裂时间开始时，对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的伤害】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "前行之路",
+    "description_localkey": "■发动{description_value_01}次普通攻击时，使剩余体力最低的{description_value_02}名风压代码敌人\n<color=#00AEFF>【所受伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■发动{description_value_05}次普通攻击时，对剩余体力最低的{description_value_06}名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_07}%的伤害】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "全速行驶",
+    "description_localkey": "■除自身之外的全体队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

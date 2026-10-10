@@ -1,0 +1,25 @@
+{
+  "name_localkey": "米尔克：花漾兔女郎",
+  "skill1_detail": {
+    "name_localkey": "忍住害羞",
+    "description_localkey": "■全蓄力攻击时，赋予自身\n<color=#00AEFF>【穿透特化】【持续{description_value_01}秒】</color>\n■全蓄力状态持续{description_value_07}秒以上时，若自身不处于害羞状态，\n则<color=#00AEFF>获得【害羞】：\n功能：在降低换弹速度的状态下<word_group=10087>强制换弹</word_group>，但赋予攻击力增加和<word_group=10019>分摊伤害</word_group>效果\n效果1：对全体敌人造成【<word_group=10025>最终</word_group>攻击力{description_value_02}%的<word_group=10019>分摊伤害</word_group>】\n效果2：自身【子弹减少{description_value_08}%】\n效果3：自身【换弹速度固定为减少{description_value_03}%的状态】【<word_group=10088>适用于{description_value_04}次换弹</word_group>】\n效果4：自身【<word_group=10087>强制换弹</word_group>】\n效果5：自身【攻击力{description_value_05}%▲】\n【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "怒气爆发",
+    "description_localkey": "■若处于害羞状态时，自身\n<color=#00AEFF>【<word_group=10042>穿透伤害</word_group>{description_value_01}%▲】【持续】</color>\n■若自身处于看什么热闹，你们这些家伙！！状态时，每2秒对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的<word_group=10019>分摊伤害</word_group>】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "羞耻心爆发",
+    "description_localkey": "■赋予自身\n<color=#00AEFF>【看什么热闹，你们这些家伙！！】：\n【害羞免疫】【持续10秒】\n【<word_group=10042>穿透伤害</word_group>{description_value_01}%▲】【持续{description_value_02}秒】\n【攻击力{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  }
+}

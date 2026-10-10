@@ -80,6 +80,22 @@ body {
 .topbar-right  { display: flex; align-items: center; gap: 10px; }
 .topbar-status { font-size: 0.72rem; color: var(--text-dim); }
 
+/* 界面语言切换：分段按钮，当前语言以强调色填充 */
+.lang-switch {
+  display: inline-flex; padding: 2px; gap: 2px;
+  background: var(--bg); border: 1px solid var(--border2); border-radius: 99px;
+}
+.lang-switch-btn {
+  padding: 3px 10px; border: 0; border-radius: 99px;
+  background: transparent; color: var(--text-dim);
+  font: 500 0.68rem/1.4 var(--font-ui); cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.lang-switch-btn:hover { color: var(--text); background: var(--surface3); }
+.lang-switch-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lang-switch-btn--active,
+.lang-switch-btn--active:hover { background: var(--accent-dim); color: #fff; cursor: default; }
+
 /* ── 3-column layout ─────────────────────────────────────── */
 .layout {
   display: grid;

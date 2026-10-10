@@ -1,0 +1,27 @@
+{
+  "skill1_detail": {
+    "name_localkey": "正义的天秤",
+    "description_localkey": "■最后的子弹攻击时，\n<color=#00AEFF>【倾斜的天秤：暴击率{description_value_01}%▲】【叠加{description_value_02}次】【持续】\n【倾斜的天秤叠加量{description_value_03}个▲】</color>\n■<word_group=10083>弹丸暴击</word_group>命中{description_value_04}次时，对目标造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_05}%的额外伤害】</color>\n■全爆裂时间结束时，自身\n<color=#00AEFF>【解除倾斜的天秤】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "运行正义",
+    "description_localkey": "■倾斜的天秤生效时，全体队友\n<color=#00AEFF>【实现正义】\n功能：最大装弹数减少但攻击伤害增加\n效果1：【最大装弹数{description_value_01}%▼】【持续{description_value_02}秒】（<word_group=10081>相同效果不可重复</word_group>）\n效果2：【攻击伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■全爆裂时间结束时，全体队友\n<color=#00AEFF>【解除实现正义】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "正义的手段",
+    "description_localkey": "■自身\n<color=#00AEFF>【变更使用武器】：\n伤害：<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害\n<word_group=10038>弹丸</word_group>数量：10颗\n攻击速度：90%▼\n持续时间：{description_value_02}秒\n额外效果\n【以施展者为基准的攻击力{description_value_03}%▲】【持续{description_value_04}秒】\n【攻击伤害{description_value_05}%▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Tilted Scale": "倾斜的天秤"
+  }
+}

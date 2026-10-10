@@ -1,0 +1,15 @@
+{
+  "name_localkey": "战斗指挥官娃娃（限量版）",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【普通攻击伤害{description_value_01}%<word_group=10029>倍率</word_group>▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  }
+}

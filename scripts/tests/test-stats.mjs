@@ -194,6 +194,11 @@ async function main() {
   check('T8 HP',  stats.hp,  7070844);
   check('T8 DEF', stats.def, 41180);
 
+  // 魔方永久 buff 名取魔方技能原名（Resilience → Quick Reload HC），数值与换弹速度合计一致
+  const reloadBuff = stats.cubeBuffs?.find(b => b.reloadSpeedPct != null);
+  check('T8 魔方换弹 buff 名为 Quick Reload HC（1=是）', reloadBuff?.name === 'Quick Reload HC' ? 1 : 0, 1);
+  check('T8 魔方换弹 buff 数值 = reloadSpeedPct', reloadBuff?.reloadSpeedPct ?? 0, stats.reloadSpeedPct);
+
   // Print breakdown for debugging
   const base     = getBaseStats(rapiData, 592);
   const gcA      = applyGradeCore(base.atk, 3, 3, 'Attacker');

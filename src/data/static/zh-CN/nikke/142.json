@@ -1,0 +1,25 @@
+{
+  "name_localkey": "普琳玛",
+  "skill1_detail": {
+    "name_localkey": "……好想睡觉",
+    "description_localkey": "■普通攻击命中{description_value_01}次时，目标\n<color=#00AEFF>【防御力{description_value_02}%▼】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "……啊",
+    "description_localkey": "■全蓄力攻击时，全体队友\n<color=#00AEFF>【最大体力{description_value_01}%▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "……好烦",
+    "description_localkey": "■对<word_group=10025>最终</word_group>防御力最高的{description_value_01}名敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_02}%的伤害】\n【防御力{description_value_03}%▼】【持续{description_value_04}秒】</color>\n■全体队友\n<color=#00AEFF>【最大体力{description_value_05}%▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  }
+}

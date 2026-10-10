@@ -1,0 +1,28 @@
+{
+  "name_localkey": "普莉卡",
+  "skill1_detail": {
+    "name_localkey": "表演开始。",
+    "description_localkey": "■发动全蓄力攻击时，全体队友\n<color=#00AEFF>【<word_group=10066>发射体爆炸伤害</word_group>{description_value_01}%▲】【持续{description_value_02}秒】\n【<word_group=10042>穿透伤害</word_group>{description_value_03}%▲】【持续{description_value_04}秒】\n【以施展者为基准的攻击力{description_value_05}%▲】【持续{description_value_06}秒】</color>\n■仅在自身处于表演状态时，自身\n<color=#00AEFF>【给予的体力恢复量{description_value_07}%▲】【持续】\n【穿透特化】【持续】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "再来一首！",
+    "description_localkey": "■全爆裂时间开始时，自身\n<color=#00AEFF>【最大体力{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■合唱生效时，若自身处于表演状态，\n<color=#00AEFF>【安可】：\n功能：延长自身表演时间并强化队友。\n效果1：赋予合唱施展者【<word_group=10102>舞台定位</word_group>：歌唱】【持续】【无法解除】\n效果2：全体队友【表演<word_group=10051>持续时间{description_value_03}秒▲</word_group>】\n效果3：全体队友【攻击伤害{description_value_04}%▲】【持续{description_value_05}秒】\n效果4：自身【爆裂技能<word_group=10031>冷却时间</word_group>{description_value_06}秒▲】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "让你见识最棒的演出！",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【表演】：\n功能：恢复并强化队友。\n效果1：【持续恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_01}%】【间隔1秒】【持续{description_value_02}秒】【无法解除】\n效果2：【蓄力伤害{description_value_05}%▲】【持续{description_value_06}秒】【无法解除】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Assigned Part": "舞台定位"
+  }
+}

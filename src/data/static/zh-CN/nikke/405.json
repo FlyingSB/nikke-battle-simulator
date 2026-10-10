@@ -1,0 +1,25 @@
+{
+  "name_localkey": "森：疾速兔女郎",
+  "skill1_detail": {
+    "name_localkey": "兔兔切换",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续】</color>\n■全蓄力时，若自身未处于疾速兔萝状态，则自身\n<color=#00AEFF>【普通攻击伤害<word_group=10029>倍率</word_group>{description_value_02}%▲】【持续{description_value_03}发】\n【蓄力伤害{description_value_04}%▲】【持续{description_value_05}发】</color>\n■战斗开始时及维持全蓄力状态{description_value_06}秒以上时，自身\n<color=#00AEFF>【仅生效符合当前状态的<word_group=10110>兔兔模式</word_group>】</color>\n自身处于<word_group=10110>兔兔模式</word_group>：架势状态时，\n<color=#00AEFF>【<word_group=10110>兔兔模式</word_group>：出击】【持续】【无法解除】</color>\n自身未处于<word_group=10110>兔兔模式</word_group>：架势状态时，\n<color=#00AEFF>【<word_group=10110>兔兔模式</word_group>：架势】【持续】【无法解除】</color>\n■自身套用<word_group=10110>兔兔模式</word_group>：出击时，所有处于<word_group=10110>兔兔模式</word_group>：架势状态的队友\n<color=#00AEFF>【<word_group=10110>兔兔模式</word_group>：出击】【持续】【无法解除】</color>\n■自身套用<word_group=10110>兔兔模式</word_group>：架势时，所有处于<word_group=10110>兔兔模式</word_group>：出击状态的队友\n<color=#00AEFF>【<word_group=10110>兔兔模式</word_group>：架势】【持续】【无法解除】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "切换弹",
+    "description_localkey": "■仅限自身处于<word_group=10110>兔兔模式</word_group>：出击状态时，自身\n<color=#00AEFF>【噪音弹】\n功能：将攻击转换为无视防御力伤害。\n效果1：【普通攻击变为无视防御力伤害】【持续】【无法解除】\n效果2：【疾速兔萝变为无视防御力伤害】【持续】【无法解除】</color>\n■仅限自身处于<word_group=10110>兔兔模式</word_group>：架势状态时，自身\n<color=#00AEFF>【强化弹】\n功能：强化攻击能力。\n效果1：【暴击率{description_value_01}%▲】【持续】【无法解除】\n效果2：【暴击伤害{description_value_02}%▲】【持续】【无法解除】</color>\n■使用爆裂技能时，自身\n<color=#00AEFF>【疾速兔萝：变更使用武器】：\n蓄力时间：固定为0.5秒\n伤害：<word_group=10025>最终</word_group>攻击力的{description_value_03}%\n全蓄力伤害：300%伤害\n持续时间：{description_value_04}秒</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "疾速贯穿",
+    "description_localkey": "■自身\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的爆裂技能伤害】</color>\n■自身处于<word_group=10110>兔兔模式</word_group>：架势状态时，则对同一敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_04}%的额外伤害】</color>\n■自身处于<word_group=10110>兔兔模式</word_group>：出击状态时，则对同一敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_05}%的无视防御力伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

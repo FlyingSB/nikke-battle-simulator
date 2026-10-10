@@ -96,7 +96,7 @@ export default {
           const unitIds = state.squad.filter(unit =>
             unit.mgRofChangePerShot != null && state.burstCastersThisRotation?.has(unit.id)).map(u => u.id);
           if (unitIds.length === 0) return false;
-          pushBuff(state, { name: 'Maintenance and Resupply (MG Heat)', unitIds,
+          pushBuff(state, { name: 'Maintenance and Resupply (MG Heating up)', unitIds,
             mgHeatSpeedPct, endTick }, { ...state._logCtx, partIdx: 0 });
         },
       },

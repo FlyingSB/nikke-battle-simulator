@@ -1,0 +1,33 @@
+{
+  "name_localkey": "灰姑娘：琉璃波光",
+  "skill1_detail": {
+    "name_localkey": "美丽-全开",
+    "description_localkey": "■换弹填满弹匣后，若自身处于切换准备状态，自身\n<color=#00AEFF>【变更使用武器：狙击模式】：\n蓄力时间：1秒\n伤害：造成相当于<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害\n全蓄力伤害：250%伤害\n最大装弹数：15发（<word_group=10106>完成换弹后，最大装弹数效果将更新</word_group>）\n额外效果1：穿透特化\n额外效果2：全蓄力攻击时<word_group=10099>消耗子弹</word_group>{description_value_02}发\n额外效果3：蓄力时间固定为1秒\n解除条件：在切换准备状态下，换弹填满弹匣</color>\n■战斗开始时，自身\n<color=#00AEFF>【美丽-全开：攻击伤害{description_value_03}%▲】【持续】</color>\n■换弹填满弹匣后，自身\n<color=#00AEFF>【切换准备：换弹时间固定为3秒】【持续{description_value_04}秒】【最后的子弹攻击时解除】</color>\n■每{description_value_10}秒对距离瞄准线最近的1名敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_07}%的伤害】</color>\n■<word_group=10078>队友消耗的子弹数总和</word_group>每达到{description_value_08}发时，全体队友\n<color=#00AEFF>【<word_group=10015>爆裂进度补充</word_group>{description_value_09}%】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "模式切换",
+    "description_localkey": "■战斗开始时及使用爆裂技能时，自身\n<color=#00AEFF>【<word_group=10024>诱饵</word_group>：产生相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_01}%的分身】【持续】</color>\n■战斗开始时，自身\n<color=#00AEFF>【攻击力{description_value_02}%▲】【持续】</color>\n■狙击模式生效时，自身\n<color=#00AEFF>【毁灭：<word_group=10011>零件伤害</word_group>{description_value_03}%▲】【持续】\n【解除精准】</color>\n■战斗开始时与狙击模式解除时，自身\n<color=#00AEFF>【精准：核心伤害{description_value_04}%▲】【持续】\n【解除毁灭】</color>\n■全爆裂时间开始时，若此前自身使用过爆裂技能，\n<color=#00AEFF>【不同模式套用不同效果】\n【只发动对应效果】</color>\n若自身处于狙击模式，对全体敌人（包括零件）造成\n<color=#00AEFF>效果1：【<word_group=10025>最终</word_group>攻击力{description_value_05}%的伤害】</color>\n若自身不处于狙击模式，则对核心启动的所有敌人造成\n<color=#00AEFF>效果1：【<word_group=10025>最终</word_group>攻击力{description_value_06}%的\n<word_group=10104>核心命中伤害</word_group>】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "水晶鞋．完全连接W",
+    "description_localkey": "■自身\n<color=#00AEFF>【攻击伤害{description_value_01}%▲】【持续{description_value_02}秒】\n【攻击力{description_value_05}%▲】【持续{description_value_06}秒】</color>\n■对<word_group=10025>最终</word_group>攻击力最高的1名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_04}%的爆裂技能伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Snipe Mode": "狙击模式",
+    "Beauty-Full": "美丽-全开",
+    "Preparation for Change": "切换准备",
+    "Decoy": "诱饵",
+    "Destroy": "毁灭",
+    "Pinpoint": "精准"
+  }
+}

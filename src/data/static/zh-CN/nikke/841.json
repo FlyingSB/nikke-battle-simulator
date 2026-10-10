@@ -1,0 +1,28 @@
+{
+  "name_localkey": "吉儿",
+  "skill1_detail": {
+    "name_localkey": "麦格农弹",
+    "description_localkey": "■战斗开始时，以及换弹填满弹匣后，自身\n<color=#00AEFF>【麦格农弹：普通攻击伤害{description_value_01}%<word_group=10029>倍率</word_group>▲】【持续{description_value_02}发】</color>\n■使用爆裂技能时，自身\n<color=#00AEFF>【无视防御力伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "硫酸弹",
+    "description_localkey": "■战斗开始时，以及换弹填满弹匣后，自身\n<color=#00AEFF>【硫酸弹】\n功能：换弹填满弹匣后，仅第一发子弹对目标造成持续伤害\n效果：【<word_group=10025>最终</word_group>攻击力{description_value_01}%的持续伤害】【间隔1秒】【持续{description_value_02}秒】</color>\n■进入全爆裂时间时，自身\n<color=#00AEFF>【攻击力{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "超级警察",
+    "description_localkey": "■自身\n<color=#00AEFF>【换弹速度固定为增加{description_value_01}%的状态】【持续{description_value_02}秒】\n【子弹减少{description_value_05}%】\n【<word_group=10087>强制换弹</word_group>】\n【命中率{description_value_06}%▲】【持续{description_value_07}秒】\n【攻击伤害{description_value_08}%▲】【持续{description_value_09}秒】\n【普通攻击变为无视防御力伤害】【持续{description_value_10}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Magnum Ammo": "麦格农弹"
+  }
+}

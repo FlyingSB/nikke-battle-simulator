@@ -1,0 +1,25 @@
+{
+  "name_localkey": "布兰儿",
+  "skill1_detail": {
+    "name_localkey": "幸运守护",
+    "description_localkey": "■进行{description_value_01}次普通攻击时，<color=#00AEFF>【产生相当于施展者\n<word_group=10025>最终</word_group>最大体力{description_value_02}%的\n队友共用<word_group=10023>护盾</word_group> 】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "双子兔 W",
+    "description_localkey": "■全爆裂时间结束时，全体队友\n<color=#00AEFF>【持续恢复相当于施展者\n<word_group=10025>最终</word_group>最大体力的{description_value_01}%】\n【间隔1秒】【持续{description_value_02}秒】</color>\n■全爆裂时间结束时，若有同一部队的队友，\n则自身<color=#00AEFF>【爆裂技能<word_group=10031>冷却时间</word_group>{description_value_03}秒▼】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "Show Time",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【持续恢复施展者<word_group=10025>最终</word_group>\n最大体力的{description_value_01}% 】【间隔1秒】\n【持续{description_value_02}秒】</color>\n■除自身以外的剩余的体力数值最低的{description_value_03}名队友\n<color=#00AEFF>【<word_group=10006>不屈</word_group>】【持续{description_value_04}秒】\n【最大体力{description_value_05}% ▲】【持续{description_value_06}秒】</color>\n■全体敌人\n<color=#00AEFF>【所受伤害{description_value_07}% ▲】【持续{description_value_08}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  }
+}

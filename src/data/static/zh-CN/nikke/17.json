@@ -1,0 +1,29 @@
+{
+  "name_localkey": "阿妮斯：超级巨星",
+  "skill1_detail": {
+    "name_localkey": "星落",
+    "description_localkey": "■战斗开始时，只要自身处于生存状态，全体队友\n<color=#00AEFF>【<word_group=10014>爆裂进度补充速度</word_group>{description_value_05}%▲】【持续】</color>\n■战斗开始时及全爆裂时间结束时\n<color=#00AEFF>【各编队的效果】【只发动对应效果】\n除自身以外，<word_group=10067>若队伍中有未进入基本爆裂阶段{description_value_01}的队友</word_group>\n效果1：自身【大家的星星<word_group=10101>解除</word_group>】\n效果2：对自身施加【只属于我的星星：攻击力{description_value_02}%▲】【持续】【无法解除】\n效果3：全体队友\n【爆裂技能<word_group=10031>冷却时间</word_group>{description_value_03}秒▼】\n除自身以外，<word_group=10067>若队伍中有进入基本爆裂阶段{description_value_01}的队友</word_group>\n效果1：自身【只属于我的星星<word_group=10101>解除</word_group>】\n效果2：对自身施加【大家的星星：变更为<word_group=10062>重新进入爆裂阶段{description_value_01}</word_group>】【持续】【无法解除】</color>\n■全蓄力攻击命中时，对目标造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_04}%的额外伤害】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "星尘",
+    "description_localkey": "■全爆裂时间开始时，若自身处于只属于我的星星状态，全体队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■全蓄力攻击时，若自身处于大家的星星状态，则全体队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_03}%】</color>\n■全爆裂时间开始时，自身与<word_group=10025>最终</word_group>防御力低于自身的全体队友\n<color=#00AEFF>【<word_group=10066>发射体爆炸伤害</word_group>{description_value_04}%▲】【持续{description_value_05}秒】</color>\n■全爆裂时间开始时，全体队友\n<color=#00AEFF>【攻击伤害{description_value_06}%▲】【持续{description_value_07}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "超级巨星阿妮斯",
+    "description_localkey": "■赋予自身\n<color=#00AEFF>【流星】\n功能：在阿妮斯周围产生小型流星，自动攻击随机目标。\n伤害：<word_group=10025>最终</word_group>攻击力的{description_value_01}%\n攻击间隔：0.25秒\n持续时间：{description_value_02}秒\n额外效果\n【蓄力时间固定为{description_value_10}秒】【持续{description_value_02}秒】\n【爆炸范围{description_value_03}%▲】【持续{description_value_02}秒】\n【防御力{description_value_05}%▲】【持续{description_value_02}秒】</color>\n■若自身处于只属于我的星星状态，则自身\n<color=#00AEFF>【攻击伤害{description_value_06}%▲】【持续{description_value_07}秒】</color>\n■若自身处于大家的星星状态，则全体队友\n<color=#00AEFF>【以施展者为基准的最大体力{description_value_08}%▲】【持续{description_value_09}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "My Own Star": "只属于我的星星",
+    "Everyone's Star": "大家的星星"
+  }
+}

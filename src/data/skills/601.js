@@ -14,7 +14,7 @@ export default {
   //   Pierce Damage ▲ {p02}% for {p03=3} sec.
   //   ATK ▲ {p04}% of the caster's ATK for {p05=3} sec.
   // ■ Activates only while in Performance status. Affects self.
-  //   Potency of HP restored ▲ {p06}% continuously. Gains Pierce continuously.
+  //   Outgoing Healing ▲ {p06}% continuously. Gains Pierce continuously.
   //   绑定于 Performance：治疗效能 + Pierce 合并为一条自身 buff，随 Performance 开始 / 延长
   //   （爆裂 handler 与 Encore）推入并同步到期。
   //
@@ -25,7 +25,7 @@ export default {
   // p03 duration (const): [3, ...]
   // p04 ATK ▲%（基于施放者 ATK）: [11.11, 12.09, 13.08, 14.07, 15.06, 16.04, 17.03, 18.02, 19.01, 20]
   // p05 duration (const): [3, ...]
-  // p06 Potency of HP restored ▲%（Performance 中生效，作用于 Prika 作为治疗者的所有治疗）:
+  // p06 Outgoing Healing ▲%（Performance 中生效，作用于 Prika 作为治疗者的所有治疗）:
   //     [29.5, 31.77, 34.03, 36.3, 38.57, 40.84, 43.11, 45.38, 47.65, 49.92]
   skill1: {
     groupId: 26011,

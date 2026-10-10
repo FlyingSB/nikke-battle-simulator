@@ -1,0 +1,25 @@
+{
+  "name_localkey": "爱蜜莉雅",
+  "skill1_detail": {
+    "name_localkey": "微精灵的祝福",
+    "description_localkey": "■全蓄力攻击时，自身\n<color=#00AEFF>【蓄力速度{description_value_01}%▲】【持续{description_value_02}发】\n【<word_group=10041>自身每发最终最大装弹数，\n蓄力伤害</word_group>{description_value_03}%▲】【持续{description_value_04}发】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "大精灵的锤矛",
+    "description_localkey": "■全蓄力攻击命中时，对目标\n<color=#00AEFF>【<word_group=10040>本体造成相当于自身施加伤害量{description_value_01}%的固定伤害</word_group>】</color>\n■全爆裂时间开始时，自身\n<color=#00AEFF>【最大装弹数{description_value_02}发▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "冰结的魔女",
+    "description_localkey": "■自身\n<color=#00AEFF>【爆炸范围{description_value_05}%▲】【持续{description_value_06}秒】\n【冰结的魔女】\n功能：蓄力速度降低，但蓄力伤害增加持续{description_value_02}发\n效果1：【蓄力速度{description_value_01}%▼】\n效果2：【蓄力伤害{description_value_03}%▲】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

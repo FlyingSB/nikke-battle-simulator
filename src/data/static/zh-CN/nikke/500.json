@@ -1,0 +1,60 @@
+{
+  "name_localkey": "伊莱格",
+  "skill1_detail": {
+    "name_localkey": "短路",
+    "description_localkey": "■战斗开始时，全体队友\n<color=#00AEFF>【<word_group=10007>攻击敌人发射体时，对该发射体造成的伤害</word_group> {description_value_01}%▲】【持续】</color>\n■普通攻击命中{description_value_02}次时，若目标处于BOOM安装状态，则对目标和周围的{description_value_03}名敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_04}%的<word_group=10019>分摊伤害</word_group>】</color>",
+    "info_description_localkey": "技能1",
+    "description_value_list": {
+      "3": {
+        "description_value": {
+          "0": "93.75",
+          "1": "100.97",
+          "2": "108.18",
+          "3": "115.39",
+          "4": "122.6",
+          "5": "129.81",
+          "6": "137.03",
+          "7": "144.24",
+          "8": "151.45",
+          "9": "158.65"
+        }
+      }
+    }
+  },
+  "skill2_detail": {
+    "name_localkey": "快速蓄电",
+    "description_localkey": "■普通攻击命中{description_value_01}次时，\n若目标处于BOOM安装状态，则全体队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_02}%▲】\n【持续{description_value_03}秒】</color>\n■<word_group=10105>目标</word_group>出现时，全体队友\n<color=#00AEFF>【<word_group=10015>爆裂进度补充</word_group> {description_value_04}%】【战斗中触发1次】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "BOOM安装",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【<word_group=10019>分摊伤害</word_group>{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■对距离瞄准线最近的1名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的爆裂技能伤害】</color>\n<color=#00AEFF>【BOOM安装：防御力{description_value_04}%▼】\n【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能",
+    "description_value_list": {
+      "2": {
+        "description_value": {
+          "0": "187.09",
+          "1": "201.48",
+          "2": "215.87",
+          "3": "230.26",
+          "4": "244.66",
+          "5": "259.05",
+          "6": "273.44",
+          "7": "287.83",
+          "8": "302.22",
+          "9": "316.66"
+        }
+      }
+    }
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "BOOM Install": "BOOM安装"
+  }
+}

@@ -62,7 +62,7 @@
 - **critRate**：基础 0.15 + 装备 critRatePct。
 - **critDmg**：基础 0.50 + 装备 critDamagePct（传入 `calcDamage` 的 `critDmgIncrement`）。
 - **chargeSpeedPct**：装备词条 + 魔方 Adjutant 被动之和。
-- **reloadSpeedPct**：仅来自魔方（Resilience Quick Reload HC），不叠加装备词条。`computeFinalStats` 算入 `stats.reloadSpeedPct` 后，由 `initBattle` 作为永久 buff（`Cube Reload`）推入 `state.buffs`，使换弹时长计算（§5.2）通过 `getBuffSums().reloadSpeedPct` 统一读取；若不推入则会被静默丢弃（换弹按基础时长计算）。
+- **reloadSpeedPct**：仅来自魔方（Resilience Quick Reload HC），不叠加装备词条。`computeFinalStats` 算入 `stats.reloadSpeedPct` 后，由 `initBattle` 作为永久 buff（名称取魔方技能原名 `Quick Reload HC`，见 `stats.cubeBuffs`；直接构造 stats 无该字段时回退为 `Cube Reload`）推入 `state.buffs`，使换弹时长计算（§5.2）通过 `getBuffSums().reloadSpeedPct` 统一读取；若不推入则会被静默丢弃（换弹按基础时长计算）。
 - **elementDmgPct**：装备词条 + 魔方 Anti Code HC 之和。
 - **cubeBuffPcts**：魔方主技能中作为开战永久 buff 建模的效果，键为 buff 字段名；由 `initBattle` 作为永久 buff（`Cube`）推入 `state.buffs`，各伤害路径按命中类型从 `getBuffSums` 读取（如仅穿透命中吃 `pierceDamagePct`）。
 
@@ -162,7 +162,7 @@ ExtraMult = 1 + Σ(以下各项，生效时才加）
 DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 ```
 
-- `enemyDamageTakenPct`：对敌 debuff（"Damage Taken ▲"）的累加器，全局共享。
+- `enemyDamageTakenPct`：对敌 debuff（"Damage Taken ▲"）的 buff 字段（`unitId: '__enemy__'`），由 `getEnemyDamageTakenPct` 汇总未过期条目（含叠层）。
 - `distributedDamagePct`：分摊伤害加成（特定技能），与 `enemyDamageTakenPct` 同属承伤类乘法项。
 
 ### 3.7 暴击判定
@@ -486,7 +486,17 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 - 期间可选无限装弹（`unlimitedAmmo: true`）。
 - 切换结束后可有 `backswingTicks` 的封锁期（`weaponSwitchPostBackswingEndTick`）。
 - 切换武器后，当前武器弹匣默认为满弹；若有技能在切换时显式设定弹药数，则以技能值为准。
-- 可选覆盖：`weaponSwitchCoreRate`（切换武器核心率，缺省按切换武器类型硬编码，见 §3.8）；`weaponSwitchLabel`（命中统计/日志标签，缺省为 `Burst <爆裂技能名>`，切换来源为 S1/S2 时应显式指定，如 Drake: Great Villain S1）；`weaponSwitchRateOfFire`（切换武器射速 RPM，仅对非蓄力累加器模型生效，缺省沿用原武器 `rate_of_fire`；如 Moran 爆裂 1440 RPM，数据来自 nikke.gg，未实测验证）。
+- 可选覆盖：`weaponSwitchCoreRate`（切换武器核心率，缺省按切换武器类型硬编码，见 §3.8）；`weaponSwitchLabel`（命中统计/日志标签，缺省为 `Burst <爆裂技能名>`，切换来源为 S1/S2 时应显式指定，如 Drake: Great Villain S1）；`weaponSwitchRateOfFire`（切换武器射速 RPM，仅对非蓄力累加器模型生效，缺省沿用原武器 `rate_of_fire`；如 Moran 爆裂 1440 RPM，数据来自 nikke.gg，未实测验证）；`weaponSwitchAmmoCountPerShot`（「Expends ammo. Amount: N round(s)」：每发按 N 发计入全队累计消耗弹药 `totalAmmoFired`（S1 P5 一类「累计消耗弹药」计数），弹匣实际仍只扣 1 发；如 Cinderella: Crystal Wave Snipe Mode 全蓄力 = 40 发）。
+- **非蓄力武器切换为蓄力型武器**（`weaponSwitchChargeTimeTicks > 0` 且原武器 `chargeTimeTicks = 0`，如 Cinderella: Crystal Wave MG → Snipe Mode）：换弹完成后仍经原武器的对准期 `reloadAimTicks`，之后由技能 `RELOAD_END` 触发器排定 `chargeTick = 换弹完成 + 对准期 + 切换武器蓄力`；HIDDEN 退出时重置为 `now + 切换武器蓄力`。
+- **切换武器自带基础弹匣**（如 Snipe Mode 15 发）：技能改写 `unit.baseAmmo` 后调用 `recalcMaxAmmo`，装备词条（百分比 buff）按新基础自动生效，珍藏品装弹数 flat（引擎按原武器基础预折）由技能按同一百分比重算；`weaponSwitchMaxAmmo = null` 使日志弹匣上限跟随 `unit.maxAmmo`。
+
+#### 4.7.1 Cinderella: Crystal Wave 形态切换（Preparation for Change / Snipe Mode）
+
+- 任意装填到满弹 → **Preparation for Change**（6s，`skillState.fixedReloadTicks = 180` + `fixedReloadEndTick`，换弹时长固定 3s、忽略换弹速度，见 §5.2），打出末弹时移除。
+- Preparation for Change 期间再次装填到满弹 → 切换 **Snipe Mode**（`'SR'` 型武器切换：固定蓄力 1s、62.13% ATK、全蓄力 250%、Pierce；弹匣以 15 发为基础重算装备词条 / 珍藏品 / 魔方等装弹数效果，每发实际扣 1 发；「全蓄力 Expends ammo 40 发」仅按 40 发计入累计消耗弹药）；再次满足则切回 MG。Snipe Mode 弹匣耗时远超 6s，末弹移除 Preparation for Change，因此其后的装填不再触发切换。距离优势仍按原武器 MG 判定。
+- 形态变化派发 `SNIPE_MODE_CHANGED`（ctx.active），S2 据此互换 Destroy / Pinpoint；S2 P5 两分支（Snipe Mode 全体伤害 / 非 Snipe Mode 核心打击）互斥，统一标签 `S2 P5`（显示「Mode Swap P5」）。
+- **未建模 / 存疑**：Snipe Mode 普攻的爆裂充能沿用 MG 每发 `target_burst_energy_pershot`（1000），切换武器真实充能值无数据；核心倍率沿用 MG `core_damage_rate`（×2）。
+- 自动战斗不主动装填 → 默认恒为 MG。UI 选项「进入战斗时切换到 Snipe Mode」（`config.ccwSnipeModeAtStart`）按手动打法模拟：进入 Snipe Mode 之前每发射击后立即主动装填（弹匣置 0，下一 tick 走常规换弹流程，不触发 `LAST_BULLET`）。无换弹速度 / 装弹数加成时：MG 首发 @60t → 装填 1 + 150 + 12 → PfC → 对准 12 + 起速首发 60 → 装填 1 + 180 + 12 → Snipe Mode → 首发 +12 + 60；此后弹匣内每 60t 一发，打空后装填 1 + 150 + 12、对准 12、蓄力 60 再续。回归测试：`test-crystal-wave.mjs`。
 
 ---
 
@@ -535,6 +545,7 @@ finalMaxAmmo = Math.max(1, rawMax)
 
 1. `ammoLeft <= 0`（且无限装弹未激活）时进入装填。
 2. 有效换弹速度：`fixedReloadSpeedPct`（若存在）覆盖所有其他加成；否则使用 `sums.reloadSpeedPct`。
+   **固定换弹时长**：`skillState.fixedReloadTicks` 在 `fixedReloadEndTick >= tick` 期间直接作为折减后装填时长（忽略基础时长与换弹速度；「Reload time is fixed at X sec」，如 Cinderella: Crystal Wave 的 Preparation for Change 3s），末发后摇 `reloadRecoveryTicks` 仍照常追加。
 3. 装填时长：`Math.round(reloadTicks × Math.max(0, 1 − effectiveReloadSpeed)) + reloadRecoveryTicks`。
    - **折减部分**：乘法折减（非除以 `1 + speed`）；换弹速度 ≥100% 时为 0（瞬间装填）。例：基础 2s、换弹速度 +29.69% → `120 × 0.7031 ≈ 84 tick ≈ 1.41s`。
    - **DOWN_Charge 型蓄力武器**：换弹不重置也不覆盖末发后摇与再次按下的前摇，三者串联；换弹后首发 = `换弹完成 + 后摇 + 前摇 + 蓄力`（§4.3.6）。实测（2026-10-09）：Anis: Star 换弹速度 114% 时 66t = 0 + 12 + 12 + 42，74% 时 96t ≈ 31 + 12 + 12 + 42。
@@ -677,7 +688,7 @@ burstPhase = 0（充能中）
 | `maxAmmoFlat` | 弹匣容量固定加成（到期时同样截断当前弹药，与 `maxAmmoPct` 行为一致） |
 | `maxAmmoPct` | 弹匣容量百分比加成（到期时截断当前弹药） |
 | `burstGaugeFlat` | 每发充能固定加成 |
-| `enemyDamageTakenPct` | 敌方承伤 debuff（叠加到全局累加器） |
+| `enemyDamageTakenPct` | 敌方承伤 debuff（`unitId: '__enemy__'` 的 buff，按层数汇总） |
 | `atkSpeedPct` | 攻击速度%（影响 RPM） |
 | `lifeStealPct` | 生命偷取% |
 | `pierceDamagePct` | 穿透伤害% |
@@ -712,8 +723,6 @@ burstPhase = 0（充能中）
 - **驱散**：移除目标身上 `isDebuff=true` 的效果（不影响 buff）。
 
 对敌 debuff（如 `enemyDamageTakenPct`）不需要额外的全局累加器，其到期、刷新、叠加规则与普通 buff 相同，`getBuffSums` 时对敌方单位求和即可。
-
-> **当前实现**：`DEBUFF_ENEMY` 效果仍直接累加到 `state.enemyDamageTakenPct` 全局累加器，尚未迁移至统一 buff 数组管理（待改造）。
 
 ### 7.4 getBuffSums
 
@@ -752,6 +761,7 @@ burstPhase = 0（充能中）
 | `ONE_MORE` | Persona 联动「1 More」生效于 ctx.unit（技能文件派发） | 非团队 |
 | `FOLLOW_UP` | Persona 联动「Follow Up」生效于 ctx.unit（技能文件派发） | 非团队 |
 | `BUNNY_MODE_CHANGED` | ctx.unit 的 Bunny Mode 形态变化后（技能文件派发） | 非团队 |
+| `SNIPE_MODE_CHANGED` | ctx.unit 的 Snipe Mode 生效 / 移除后（ctx.active；`515.js` 派发） | 非团队 |
 
 ### 8.2 作用范围（target 字段）
 
@@ -775,7 +785,6 @@ burstPhase = 0（充能中）
 |------|------|
 | `BUFF` | 对每个目标单独推入 buff（unitId = 目标 ID） |
 | `BUFF_GLOBAL` | 推入全队 buff（unitId = null） |
-| `DEBUFF_ENEMY` | 对敌增加承伤%（累加到 enemyDamageTakenPct） |
 | `SKILL_DAMAGE` | 技能伤害（count 次，mult 倍率） |
 | `HEAL` | 治疗目标（pct×maxHP 或 flat） |
 | `RELOAD_AMMO` | 补充弹药（`floor(maxAmmo × pct)`） |

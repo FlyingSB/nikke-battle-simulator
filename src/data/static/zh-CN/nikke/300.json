@@ -1,0 +1,25 @@
+{
+  "name_localkey": "士兵E.G.",
+  "skill1_detail": {
+    "name_localkey": "鹰眼",
+    "description_localkey": "■普通攻击命中时，以{description_value_03}%的概率，自身\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "老鹰战术",
+    "description_localkey": "■自身\n<color=#00AEFF>【最大装弹数{description_value_01}% ▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "鹰击",
+    "description_localkey": "■对<word_group=10020>攻击范围内的敌人</word_group>造成\n相当于<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力\n{description_value_02}%的伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  }
+}

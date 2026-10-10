@@ -1,0 +1,30 @@
+{
+  "name_localkey": "克劳斯特",
+  "skill1_detail": {
+    "name_localkey": "炙烧、炖煮",
+    "description_localkey": "■全蓄力攻击时，若处于梅纳状态，则全体队友\n<color=#00AEFF>【梅纳<word_group=10051>持续时间{description_value_02}秒▲</word_group>】</color>\n■全蓄力攻击时，若处于汆烫状态，则全体队友\n<color=#00AEFF>【汆烫<word_group=10051>持续时间{description_value_02}秒▲</word_group>】</color>\n■非全蓄力攻击的普通攻击成功{description_value_04}次时，则全体队友\n<color=#00AEFF>【梅纳：以施展者为基准的攻击力{description_value_05}%▲】【持续{description_value_06}秒】\n【解除汆烫】</color>\n■全蓄力状态维持{description_value_07}秒以上并运行{description_value_08}次时，全体队友\n<color=#00AEFF>【汆烫：以施展者为基准的攻击力{description_value_09}%▲】【持续{description_value_10}秒】\n【解除梅纳】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "实在的料理",
+    "description_localkey": "■非全蓄力攻击的普通攻击成功{description_value_02}次时，非处于实在的料理状态的全体队友\n<color=#00AEFF>【实在的料理：以施展者为基准的防御力{description_value_03}%▲】【持续{description_value_04}秒】\n【<word_group=10005>解除减益效果</word_group>1个】</color>\n■全蓄力状态持续{description_value_05}秒以上并运行{description_value_06}次时，非处于实在的料理状态的全体队友\n<color=#00AEFF>【实在的料理：以施展者为基准的防御力{description_value_07}%▲】【持续{description_value_08}秒】\n【<word_group=10005>解除减益效果</word_group>1个】</color>\n■进入全爆裂时间时，处于梅纳或汆烫状态的目标\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_09}%▲】【持续{description_value_10}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "真正的味道",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【攻击伤害{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■处于梅纳状态时，则全体队友\n<color=#00AEFF>【<word_group=10019>分摊伤害</word_group>{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■处于汆烫状态时，则全体队友\n<color=#00AEFF>【持续伤害{description_value_05}%▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Maillard": "梅纳",
+    "Blanching": "汆烫",
+    "Reliable Cooking": "实在的料理"
+  }
+}

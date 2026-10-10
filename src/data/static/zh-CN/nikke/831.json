@@ -1,0 +1,25 @@
+{
+  "name_localkey": "零",
+  "skill1_detail": {
+    "name_localkey": "先发制人",
+    "description_localkey": "■发动{description_value_01}次普通攻击时，自身\n<color=#00AEFF>【<word_group=10009>优越代码攻击伤害</word_group>{description_value_02}%▲】【持续{description_value_03}秒】</color>\n■普通攻击命中{description_value_04}次时，对距离瞄准线最近<word_group=10020>攻击范围内的敌人</word_group>造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_05}%的伤害】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "攻击支持",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【<word_group=10054>对护盾造成的伤害</word_group>{description_value_01}%▲】【持续】</color>\n■进入爆裂阶段{description_value_02}时，所有燃烧代码的队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "歼灭用高爆弹",
+    "description_localkey": "■所有燃烧代码队友\n<color=#00AEFF>【产生相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_01}%的<word_group=10023>护盾</word_group>】【持续{description_value_02}秒】【攻击伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■对全体敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_05}%的伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

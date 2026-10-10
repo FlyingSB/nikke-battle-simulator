@@ -1,0 +1,25 @@
+{
+  "name_localkey": "米哈拉",
+  "skill1_detail": {
+    "name_localkey": "忍耐",
+    "description_localkey": "■最后的子弹命中时，自身 \n<color=#00AEFF>【暴击伤害{description_value_01}% ▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "苦难之路",
+    "description_localkey": "■使用爆裂技能时，自身\n<color=#00AEFF>【不同的使用次数，不同的额外效果】\n【<word_group=10028>低级效果重复生效</word_group>】\n1次：【苦难之路1：攻击力{description_value_01}% ▲】\n【持续{description_value_02}秒】\n2次：【苦难之路2：暴击率{description_value_03}% ▲】\n【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "意识共享",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【全爆裂时间持续时间5秒▼】</color>\n■对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的爆裂技能伤害】</color>\n■若自身处于苦难之路2的状态，则对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的额外伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

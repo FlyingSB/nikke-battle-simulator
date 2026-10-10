@@ -60,12 +60,12 @@ export default {
   },
 
   // ── Royal Attire
-  // ■ Activates after {description_value_01} normal attack(s). Affects self.
-  // Relax: Potency of HP restored ▲ {description_value_02}% continuously, stacks up to {description_value_03} time(s).
-  // ■ Activates when Relax is fully stacked. Affects self after the stacks are removed.
+  // ■ Activates after performing {description_value_01} normal attacks. Affects self.
+  // Relax: Incoming Healing ▲ {description_value_02}% continuously. Stacks up to {description_value_03} times.
+  // ■ Activates when Relax is at max stacks. Removes stacks and affects self.
   // Invulnerable for {description_value_04} sec.
-  // Attract: Taunt all enemies for {description_value_05} sec.
-  // Recovers {description_value_06}% of the caster's final Max HP as HP.
+  // Attract: Taunts all enemies for {description_value_05} sec.
+  // Restores HP equal to {description_value_06}% of the skill user's final max HP.
   // ■ Activates when recovery takes effect. Affects all allies.
   // Attack Damage ▲ {description_value_07}% for {description_value_08} sec.
   // p01: [65, 62, 59, 56, 53, 51, 49, 47, 45, 43]
@@ -86,13 +86,13 @@ export default {
         on: 'SHOT_COUNT',
         opts: { every: 43, counterKey: 'crownShotCount' },
         handler(state, caster) {
-          // Relax 每层：自身治疗效能 ▲ p02%（作用于 Crown 作为治疗者施放的治疗）
-          const potencyPct = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
-          pushBuff(state, { name: 'Relax', unitId: caster.id, healPotencyPct: potencyPct,
+          // Relax 每层：自身受治疗量（Incoming Healing）▲ p02%，作用于 Crown 受到的一切治疗（含其他角色的治疗）
+          const incomingPct = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
+          pushBuff(state, { name: 'Relax', unitId: caster.id, incomingHealPct: incomingPct,
             endTick: Infinity, stackLimit: 20 }, false);
           const relax = state.buffs.find(b => b.name === 'Relax' && b.unitId === caster.id);
           if (!relax || relax.stacks < 20) return;
-          // 满层：先治疗（享受 20 层 Relax 治疗效能），再移除 Relax
+          // 满层：先治疗（享受 20 层 Relax 受治疗量加成），再移除 Relax
           const healPct      = getSkillValue(caster.rawSkill2, 5, caster.skillLevels[1]) / 100;
           applyHeal(state, caster, Math.round(getFinalMaxHp(state, caster) * healPct),
             { ...state._logCtx, partIdx: 1 }, caster);  // "caster's final Max HP"

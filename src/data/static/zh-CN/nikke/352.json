@@ -1,0 +1,25 @@
+{
+  "name_localkey": "海伦",
+  "skill1_detail": {
+    "name_localkey": "阵前指挥",
+    "description_localkey": "■最后的子弹命中时，全体队友\n<color=#00AEFF>【普通攻击暴击率{description_value_01}% ▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "开炮",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【<word_group=10000>阻止部位攻击伤害</word_group>{description_value_01}%▲】【持续】</color>\n■全爆裂时间开始时，全体队友\n<color=#00AEFF>【攻击伤害{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "宙斯盾加农炮",
+    "description_localkey": "■对<word_group=10025>最终</word_group>攻击力最高的1名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的爆裂技能伤害】</color>\n■全体队友\n<color=#00AEFF>【恢复相当于攻击伤害的{description_value_02}%】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

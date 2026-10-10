@@ -1,0 +1,25 @@
+{
+  "name_localkey": "吉尔提：神力兔女郎",
+  "skill1_detail": {
+    "name_localkey": "该怎么做才好呢……？",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续】</color>\n■战斗开始时及维持全蓄力状态{description_value_02}秒以上时，若未处于神力重踏状态，自身\n<color=#00AEFF>【仅生效符合当前状态的<word_group=10110>兔兔模式</word_group>】</color>\n自身处于<word_group=10110>兔兔模式</word_group>：架势状态时，\n<color=#00AEFF>【<word_group=10110>兔兔模式</word_group>：出击】【持续】【无法解除】</color>\n自身未处于<word_group=10110>兔兔模式</word_group>：架势状态时，\n<color=#00AEFF>【<word_group=10110>兔兔模式</word_group>：架势】【持续】【无法解除】</color>\n■自身套用<word_group=10110>兔兔模式</word_group>：出击时，所有处于<word_group=10110>兔兔模式</word_group>：架势状态的队友\n<color=#00AEFF>【<word_group=10110>兔兔模式</word_group>：出击】【持续】【无法解除】</color>\n■自身套用<word_group=10110>兔兔模式</word_group>：架势时，所有处于<word_group=10110>兔兔模式</word_group>：出击状态的队友\n<color=#00AEFF>【<word_group=10110>兔兔模式</word_group>：架势】【持续】【无法解除】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "这个……可以解开吗？",
+    "description_localkey": "■仅限自身处于<word_group=10110>兔兔模式</word_group>：出击状态时，\n<color=#00AEFF>【锁链解放】\n功能：将攻击转换为无视防御力伤害。\n效果1：自身【普通攻击变为无视防御力伤害】【持续】【无法解除】\n效果2：自身【神力重踏变为无视防御力伤害】【持续】【无法解除】\n效果3：全蓄力攻击命中时，对目标造成【<word_group=10025>最终</word_group>攻击力{description_value_01}%的无视防御力伤害】</color>\n■仅限处于<word_group=10110>兔兔模式</word_group>：架势状态时，\n<color=#00AEFF>【锁链强化】\n功能：强化攻击能力。\n效果1：自身【攻击伤害{description_value_02}%▲】【持续】【无法解除】\n效果2：自身【蓄力伤害{description_value_03}%▲】【持续】【无法解除】\n效果3：全蓄力攻击命中时，对目标造成【<word_group=10025>最终</word_group>攻击力{description_value_04}%的额外伤害】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "终于解开了……！",
+    "description_localkey": "■自身\n<color=#00AEFF>【神力重踏：变更使用武器】：\n蓄力时间：固定为1.5秒\n伤害：<word_group=10025>最终</word_group>攻击力的{description_value_03}%\n全蓄力伤害：250%伤害\n持续时间：{description_value_04}发\n额外效果1：【蓄力伤害{description_value_05}%▲】【持续{description_value_06}发】\n额外效果2：【攻击伤害{description_value_01}%▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

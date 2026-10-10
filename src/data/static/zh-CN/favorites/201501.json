@@ -1,0 +1,41 @@
+{
+  "name_localkey": "四叶草书签",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【普通攻击伤害{description_value_01}%<word_group=10029>倍率</word_group>▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  },
+  "favoriteitem_skill_group_data": {
+    "0": {
+      "info": {
+        "name_localkey": "超载公式",
+        "description_localkey": "■自身\n<color=#00AEFF>【变更使用武器】：\n蓄力时间：1.2秒\n伤害：<word_group=10025>最终</word_group>攻击力的{description_value_01}%\n全蓄力伤害：300%伤害\n最大装弹数：{description_value_02}发\n额外效果：穿透特化</color>\n■全体队友\n<color=#00AEFF>【穿透学概论：<word_group=10042>穿透伤害</word_group>{description_value_03}%▲】\n【持续{description_value_04}秒】</color>",
+        "info_description_localkey": "爆裂技能"
+      }
+    },
+    "1": {
+      "info": {
+        "name_localkey": "骨架解析",
+        "description_localkey": "■普通攻击{description_value_01}次时，全体队友\n<color=#00AEFF>【<word_group=10017>掩体体力恢复</word_group>{description_value_02}%】</color>\n■全爆裂时间开始时，全体队友\n<color=#00AEFF>【暴击率{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■普通攻击时，若自身处于穿透学概论状态，全体队友\n<color=#00AEFF>【暴击率{description_value_05}%▲】【叠加{description_value_06}次】【持续{description_value_07}秒】</color>",
+        "info_description_localkey": "技能2"
+      }
+    },
+    "2": {
+      "info": {
+        "name_localkey": "穿透算式",
+        "description_localkey": "■全爆裂时间开始时，全体队友\n<color=#00AEFF>【<word_group=10042>穿透伤害</word_group>{description_value_01}%▲】【持续{description_value_02}发】\n【<word_group=10042>穿透伤害</word_group>{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■全爆裂时间持续期间进行普通攻击时，全体队友\n<color=#00AEFF>【<word_group=10042>穿透伤害</word_group>{description_value_05}%▲】【叠加{description_value_06}次】【持续{description_value_07}发】</color>",
+        "info_description_localkey": "技能1"
+      }
+    }
+  },
+  "_terms": {
+    "Pierce Attacks 101": "穿透学概论"
+  }
+}

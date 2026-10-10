@@ -1,0 +1,28 @@
+{
+  "name_localkey": "索林：霜雪车票",
+  "skill1_detail": {
+    "name_localkey": "我来检查车票！",
+    "description_localkey": "■战斗开始时及使用爆裂技能时，全体队友\n<color=#00AEFF>【发放1张车票：最多可发放2张】【持续】\n车票效果：【仅以施展者为基准的最大体力{description_value_01}% X 车票数▲】</color>\n■全爆裂时间开始时，全体队友\n<color=#00AEFF>【爆裂技能<word_group=10031>冷却时间</word_group>{description_value_03}秒▼】</color>\n■全爆裂时间开始时，全体队友\n<color=#00AEFF>【解除首班车优惠】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "我来协助你搭乘列车！",
+    "description_localkey": "■当包括自身在内的某位队友体力在{description_value_01}%以下时，若目标处于持有车票状态，则目标\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_02}%】\n【车票{description_value_03}张▼】</color>\n■战斗开始时，全体队友\n<color=#00AEFF>【首班车优惠】【持续{description_value_04}秒】\n功能：「我来协助你搭乘列车！」的效果不会消耗车票。</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "我会带你平安抵达！",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_01}%】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Ticket effect": "发放1张车票"
+  }
+}

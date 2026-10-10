@@ -1,0 +1,25 @@
+{
+  "name_localkey": "伊莱格：BOOM与惊吓",
+  "skill1_detail": {
+    "name_localkey": "哈啰幽灵",
+    "description_localkey": "■战斗开始时，随机对1名敌人施加\n<color=#00AEFF>【附身】【持续{description_value_03}秒】\n功能：寻找附身在敌人身上的幽灵并进行捕捉\n需要命中次数：{description_value_02}次（全体队友一并累积）\n效果：\n【命中次数达到100%时，捕捉1个幽灵】\n【最多{description_value_04}个】\n<word_group=10085>重复周期</word_group>：{description_value_01}秒</color>\n■对水冷代码全体队友施加\n<color=#00AEFF>【幽灵数量对应效果】【<word_group=10028>低级效果重复生效</word_group>】</color>\n仅限幽灵数量在1个以上时，\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_05}%▲】\n【持续】</color>\n仅限幽灵数量在{description_value_06}个以上时，\n<color=#00AEFF>【<word_group=10009>优越代码攻击伤害</word_group>{description_value_07}%▲】【持续】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "幽灵克星",
+    "description_localkey": "■使用爆裂技能时，自身\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■在幽灵数量达到上限时发动幽灵捕捉，可对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的伤害】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "恶灵13",
+    "description_localkey": "■若自身幽灵数量并非13个，则随机对敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害】\n【<word_group=10050>依次攻击</word_group>{description_value_02}次】\n【幽灵数量{description_value_03}个▼】【最少维持1个】</color>\n■若自身幽灵数量为13个，则随机对敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_04}%的伤害】\n【<word_group=10050>依次攻击</word_group>{description_value_05}次】\n【幽灵数量{description_value_06}个▼】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

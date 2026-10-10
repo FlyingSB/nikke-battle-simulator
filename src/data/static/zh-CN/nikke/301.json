@@ -1,0 +1,25 @@
+{
+  "name_localkey": "士兵F.A.",
+  "skill1_detail": {
+    "name_localkey": "鹰翼",
+    "description_localkey": "■被攻击时，以{description_value_01}%的概率自身\n<color=#00AEFF>【防御力{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "鹰巢",
+    "description_localkey": "■自身\n<color=#00AEFF>【恢复相当于攻击伤害{description_value_01}%的体力】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "猎鹰推进器",
+    "description_localkey": "■自身\n<color=#00AEFF>【最大体力{description_value_01}% ▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  }
+}

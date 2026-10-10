@@ -1,0 +1,28 @@
+{
+  "name_localkey": "爱德：特务兔女郎",
+  "skill1_detail": {
+    "name_localkey": "特务的视线",
+    "description_localkey": "■以全蓄力攻击命中合理射程内的目标时，全体队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■全蓄力攻击时，自身\n<color=#00AEFF>【隐藏式镜头：<word_group=10037>最小合理射程</word_group>{description_value_03}%▲】【叠加{description_value_04}次】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "特务的行动",
+    "description_localkey": "■以全蓄力攻击命中合理射程内的目标时，全体队友\n<color=#00AEFF>【<word_group=10042>穿透伤害</word_group>{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■若自身处于隐藏式镜头最大叠加状态时，自身\n<color=#00AEFF>【穿透特化】【持续】\n【攻击力{description_value_03}%▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "最尖端特务装备",
+    "description_localkey": "■自身\n<color=#00AEFF>【<word_group=10037>最小合理射程</word_group>{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■全体队友\n<color=#00AEFF>【攻击伤害{description_value_03}%▲】【持续{description_value_04}秒】\n【<word_group=10042>穿透伤害</word_group>{description_value_05}%▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Spy Lens": "隐藏式镜头"
+  }
+}

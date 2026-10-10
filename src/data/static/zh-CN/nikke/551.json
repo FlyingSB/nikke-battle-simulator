@@ -1,0 +1,25 @@
+{
+  "name_localkey": "克雷伊",
+  "skill1_detail": {
+    "description_localkey": "■在全爆裂时间持续期间，进行{description_value_01}次普通攻击时，全体队友\n<color=#00AEFF>【胜利的呐喊：无视防御力伤害{description_value_02}%▲】\n【叠加{description_value_03}次】【持续{description_value_04}秒】\n【<word_group=10007>攻击敌人发射体时，对相关发射体施加的伤害</word_group>{description_value_05}%▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "description_localkey": "■进入爆裂阶段1时，全体队友\n<color=#00AEFF>【<word_group=10039>免疫减益效果</word_group>{description_value_01}个】【持续{description_value_03}秒】</color>\n■仅限自身处于胜利的呐喊状态时，全体队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_02}%▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "description_localkey": "■全体队友\n<color=#00AEFF>【无视防御力伤害{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■自身\n<color=#00AEFF>【普通攻击变为无视防御力伤害】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Victorious Battle Cry": "胜利的呐喊"
+  }
+}

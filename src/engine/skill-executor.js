@@ -38,6 +38,8 @@
  *   FOLLOW_UP           Persona 联动「Follow Up」生效于 ctx.unit 时（非团队；同上，如 Yukiko S2 → 队友）
  *   BUNNY_MODE_CHANGED  ctx.unit 的 Bunny Mode 形态变化后（非团队；由 src/data/skills/bunny-shared.js
  *                       派发，Guilty: Mighty Bunny / Sin: Swift Bunny S2 据此刷新形态效果）
+ *   SNIPE_MODE_CHANGED  ctx.unit 的 Snipe Mode 生效 / 移除后（非团队；ctx.active = 是否处于 Snipe Mode；
+ *                       由 src/data/skills/515.js 派发，Cinderella: Crystal Wave S2 据此切换 Destroy / Pinpoint）
  *   DURING_FULL_CHARGE  全蓄力击发之前（ctx.unit = 射击单位；推入的 buff 作用于本次射击，见 fireDuringFullChargeTriggers）
  *
  * 作用范围（target 字段）：
@@ -53,7 +55,6 @@
  * 效果类型（effects[].type）：
  *   BUFF                施加/刷新 buff（所有持续效果均按此处理）
  *   BUFF_GLOBAL         同一条 buff 以 unitId=null 作用于全员（区别于逐人推 BUFF）
- *   DEBUFF_ENEMY        对敌人施加 debuff（enemyDamageTakenPct）
  *   SKILL_DAMAGE        技能伤害（count 次，mult 倍率）
  *   HEAL                治疗目标（pct = 占 caster.stats.hp 比例，或 flat 固定量；caster 作为治疗者计入治疗效能）
  *   RELOAD_AMMO         补充弹药（pct = 占 maxAmmo 比例）
@@ -206,24 +207,6 @@ function applyEffects(state, caster, targets, effects, ctx, logCtx = null) {
         // unitId=null：作为全队 buff 推入，区别于逐人推入（用于 Crown S1 之外的全员效果）
         pushBuff(state, { name: eff.name, unitId: null, endTick, ...statVal }, logCtx);
         break;
-
-      case 'DEBUFF_ENEMY': {
-        const val = typeof eff.damageTakenPct === 'function'
-          ? eff.damageTakenPct(caster, state)
-          : eff.damageTakenPct;
-        state.enemyDamageTakenPct += val;
-        if (logCtx) {
-          state.pendingSkillEvents?.push({
-            type: 'skill_trigger', tick: state.tick,
-            unitName: logCtx.unitName, skillLabel: logCtx.skillLabel, slot: logCtx.slot,
-            partIdx: logCtx.partIdx, trigger: logCtx.trigger ?? '',
-            lineIdx: logCtx.lineIdx ?? null,
-            target: '敌人',
-            gaugeAfter: state.burstGauge,
-          });
-        }
-        break;
-      }
 
       case 'SKILL_DAMAGE': {
         const sums  = ctx.sums ?? getBuffSums(state, caster.id);

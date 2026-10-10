@@ -1,0 +1,29 @@
+{
+  "name_localkey": "罗珊娜",
+  "skill1_detail": {
+    "name_localkey": "高歌离席",
+    "description_localkey": "■普通攻击命中{description_value_01}次时，自身\n<color=#00AEFF>【隐身：<word_group=10004>从单体攻击目标中排除</word_group>，直接被攻击时解除】【持续{description_value_02}秒】\n【暴击率{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■普通攻击施展{description_value_05}次时，对<word_group=10025>最终</word_group>攻击力最高的{description_value_06}名敌人\n<color=#00AEFF>【<word_group=10022>解除增益效果</word_group>{description_value_07}个】【战斗中发动{description_value_08}次】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "教父",
+    "description_localkey": "■战斗开始时，自身<color=#00AEFF>【隐身：\n<word_group=10004>从单体攻击目标中排除。</word_group> 直接被攻击时解除】\n【持续{description_value_01}秒】</color>\n■当某位妮姬处于无法战斗状态时，\n自身<color=#00AEFF>【疯狂：攻击力{description_value_02}% ▲】\n【叠加{description_value_03}次】【持续{description_value_04}秒】\n【<word_group=10015>爆裂进度补充</word_group> {description_value_05}%】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "复仇",
+    "description_localkey": "■<word_group=10021>优先</word_group> 对火力型的{description_value_01}名敌人\n造成相当于<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力 {description_value_02}%的伤害】</color>\n■若自身处于隐身状态，则对相同目标敌人\n造成相当于<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的额外伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Concealment": "隐身",
+    "Frenzy": "疯狂"
+  }
+}

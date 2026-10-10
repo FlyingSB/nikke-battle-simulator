@@ -1,0 +1,28 @@
+{
+  "name_localkey": "阿尔卡娜：命运伴侣",
+  "skill1_detail": {
+    "name_localkey": "堆栈的相册",
+    "description_localkey": "■全爆裂时间结束时，持有霰弹枪的全体队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_01}% X 珍贵的回忆叠加数▲】【持续{description_value_02}秒】</color>\n■幸福的回忆生效时，自身\n<color=#00AEFF>【青春的纪录：普通攻击伤害{description_value_03}%<word_group=10029>倍率</word_group>▲】【叠加{description_value_04}次】【持续】</color>\n■全爆裂时间结束时，自身\n<color=#00AEFF>【解除留下回忆】\n【解除青春的纪录】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "记忆与回忆",
+    "description_localkey": "■普通攻击时，若自身处于留下回忆状态，则自身\n<color=#00AEFF>【不同攻击次数不同效果】【仅套用对应次数效果】【解除留下回忆时<word_group=10100>重置</word_group>】\n2次：【子弹补充{description_value_01}发】\n4次：【幸福的回忆：<word_group=10038>弹丸</word_group>数量{description_value_02}个▲】【叠加{description_value_03}次】【持续】\n6次：【珍贵的回忆：攻击力{description_value_04}%▲】【叠加{description_value_05}次】【持续】</color>\n■使用爆裂技能时，除自身外持有霰弹枪的全体队友\n<color=#00AEFF>【攻击伤害{description_value_06}%▲】【持续{description_value_07}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "闪耀的青春",
+    "description_localkey": "■自身\n<color=#00AEFF>【留下回忆】：\n功能：强化自身攻击能力。\n效果1：【暴击率{description_value_01}%▲】【持续】\n效果2：【子弹补充{description_value_02}发】\n效果3：【攻击伤害{description_value_03}%▲】【持续】</color>\n■对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_04}%的爆裂技能伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Snapshots of Youth": "青春的纪录"
+  }
+}

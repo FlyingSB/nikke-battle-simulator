@@ -1,0 +1,42 @@
+{
+  "name_localkey": "乐谱笔记",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【核心伤害{description_value_01}%▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  },
+  "favoriteitem_skill_group_data": {
+    "0": {
+      "info": {
+        "name_localkey": "渐强",
+        "description_localkey": "■普通攻击暴击命中{description_value_01}次时，自身\n<color=#00AEFF>【渐强：暴击伤害{description_value_02}%▲】【叠加{description_value_03}次】\n【持续{description_value_04}秒】</color>\n■普通攻击暴击命中{description_value_07}次时，对敌人造成\n<color=#00AEFF>【加强音：<word_group=10025>最终</word_group>攻击力{description_value_05}%的额外伤害】</color>\n■加强音触发暴击时，则对同一敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_06}%的额外伤害】</color>\n■战斗开始时，自身\n<color=#00AEFF>【强制使用技能1】</color>",
+        "info_description_localkey": "技能2"
+      }
+    },
+    "1": {
+      "info": {
+        "name_localkey": "渐弱",
+        "description_localkey": "■自身\n<color=#00AEFF>【暴击率{description_value_01}%▲】【持续{description_value_02}秒】</color>\n<color=#00AEFF>【攻击力{description_value_03}%▲】【持续{description_value_04}秒】</color>\n<color=#00AEFF>【普通攻击暴击率{description_value_05}%▲】【持续{description_value_06}秒】</color>",
+        "info_description_localkey": "技能1"
+      }
+    },
+    "2": {
+      "info": {
+        "name_localkey": "乐章最高潮",
+        "description_localkey": "■随机对敌人\n造成<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害】\n【<word_group=10050>依次攻击</word_group>{description_value_02}次】</color>\n■若自身处于渐强最大叠加状态，则对同一敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_03}%的额外伤害】</color>",
+        "info_description_localkey": "爆裂技能"
+      }
+    }
+  },
+  "_terms": {
+    "Crescendo": "渐强",
+    "Marcato": "加强音"
+  }
+}

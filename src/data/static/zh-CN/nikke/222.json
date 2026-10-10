@@ -1,0 +1,25 @@
+{
+  "name_localkey": "红莲",
+  "skill1_detail": {
+    "name_localkey": "割肉断骨",
+    "description_localkey": "■普通攻击命中{description_value_01}次时，自身 \n<color=#00AEFF>【攻击力{description_value_02}% ▲】\\n【叠加{description_value_04}次】【持续{description_value_03}秒】 \n【当前体力{description_value_05}% ▼】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "人剑合一",
+    "description_localkey": "■被攻击时，以{description_value_01}%的概率对目标造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力\n{description_value_02}%的额外伤害】</color>\n■自身体力为{description_value_03}%以下时，自身\n<color=#00AEFF>【暴击伤害{description_value_04}%▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "红莲一闪",
+    "description_localkey": "■自身体力为{description_value_01}%以下时，自身\n<color=#00AEFF>【暴击率{description_value_02}%▲】【持续{description_value_03}秒】</color>\n■对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_04}%的爆裂技能伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  }
+}

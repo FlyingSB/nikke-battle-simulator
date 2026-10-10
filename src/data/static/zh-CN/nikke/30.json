@@ -1,0 +1,25 @@
+{
+  "name_localkey": "波莉",
+  "skill1_detail": {
+    "name_localkey": "无畏感召",
+    "description_localkey": "■普通攻击{description_value_01}次时，全体队友\n<color=#00AEFF>【攻击力{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "犬疗",
+    "description_localkey": "■自身与除自身以外剩余体力最低的{description_value_01}名队友\n<color=#00AEFF>【防御力{description_value_02}%▲】【持续{description_value_03}秒】\n【<word_group=10044>所受伤害平均分摊</word_group>】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "波莉警戒线",
+    "description_localkey": "■自身\n<color=#00AEFF>【产生相当于施展者<word_group=10025>最终</word_group>最大体力\n{description_value_01}%的队友共用<word_group=10023>护盾</word_group>】\n【持续{description_value_02}秒】</color>\n■全体队友\n<color=#00AEFF>【攻击力{description_value_03}% ▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

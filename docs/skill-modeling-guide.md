@@ -99,12 +99,12 @@
 | `hitRatePct` | Hit Rate |
 | `defPct` / `defFlat` | DEF |
 | `burstGaugeFlat` | Burst Gauge（「Burst Gauge filling speed ▲ n%」= 施法者 `targetBurstEnergyPerShot` × n% 的固定值，对所有目标相同，用一条 `unitId: null` buff） |
-| `lifeStealPct` | Life Steal（「Recovers X% of attack damage as HP」；视为 HP 回复，派发 HEAL_RECEIVED） |
-| `healPotencyPct` | Heal Potency（「Potency of HP restored ▲」，挂在治疗者身上；治疗调用须传 caster 才生效） |
-| `incomingHealPct` | Incoming Healing（「Incoming Healing ▲」，挂在受治疗者身上） |
+| `lifeStealPct` | Life Steal（「Restores HP equal to X% of attack damage」，旧版原文「Recovers X% of attack damage as HP」；视为 HP 回复，派发 HEAL_RECEIVED） |
+| `healPotencyPct` | Outgoing Healing（「Outgoing Healing ▲」，施放的治疗量；挂在治疗者身上，治疗调用须传 caster 才生效） |
+| `incomingHealPct` | Incoming Healing（「Incoming Healing ▲」，受到的治疗量；挂在受治疗者身上，作用于一切受到的治疗。旧版原文「Potency of HP restored ▲」多数已统一为此词，个别描述写作「Healing ▲」，以实际效果为准） |
 | `pierce` | Pierce |
 | `pelletFlat` / `pelletFixed` | Pellets |
-| `mgHeatSpeedPct` | MG Heat |
+| `mgHeatSpeedPct` | MG Heating up |
 | `enemyDamageTakenPct` | Damage Taken |
 | `enemyDefDownPct` | DEF Down |
 | 爆裂冷却缩减（`buffLog` cd_reduction 条目） | Burst CD |

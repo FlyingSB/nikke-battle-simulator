@@ -1,0 +1,25 @@
+{
+  "name_localkey": "神罚",
+  "skill1_detail": {
+    "name_localkey": "高速进化",
+    "description_localkey": "■普通攻击命中时，对目标造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力\n{description_value_01}%的额外伤害】</color>\n■普通攻击命中{description_value_02}次时，自身\n<color=#00AEFF>【暴击伤害{description_value_03}% ▲】\n【叠加{description_value_04}次】【持续{description_value_05}秒】\n【最大装弹数{description_value_06}% ▼】\n【叠加{description_value_07}次】【持续{description_value_08}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "大飞跃",
+    "description_localkey": "■全爆裂时间开始时，全体队友\n<color=#00AEFF>【命中率{description_value_01}% ▲】【持续{description_value_02}秒】</color>\n■普通攻击命中{description_value_03}次时，若自身处于命中率增加状态，则自身\n<color=#00AEFF>【攻击力{description_value_04}% ▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "新世界",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【全爆裂持续时间5秒▲】</color>\n■自身\n<color=#00AEFF>【装弹数无限】【持续{description_value_02}秒】\n【歼灭模式】：\n功能：瞄准线扩大 & 同时瞄准处于瞄准范围内的所有敌人。\n无视BOSS阻止部位及零件，\n将其视为单体敌人\n伤害：相当于<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害\n持续时间：{description_value_02}秒</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name_localkey": "爱因",
+  "skill1_detail": {
+    "name_localkey": "羽翼就位",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【召唤4架<word_group=10053>新生羽翼</word_group>】</color>\n■进入爆裂阶段3时，自身\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "羽翼射击",
+    "description_localkey": "■若已召唤<word_group=10053>新生羽翼</word_group>，随机对{description_value_01}名敌人造成\n<color=#00AEFF>【<word_group=10053>新生羽翼</word_group>攻击：相当于<word_group=10025>最终</word_group>攻击力 {description_value_02}%的无视防御力的伤害】</color>\n■全蓄力攻击时，自身\n<color=#00AEFF>【蓄力伤害 {description_value_03}% ▲】【持续{description_value_04}发】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "全面羽翼攻击",
+    "description_localkey": "■自身\n<color=#00AEFF>【召唤6架<word_group=10053>新生羽翼</word_group>】</color>\n<color=#00AEFF>【无视防御力伤害{description_value_01}%▲】【持续{description_value_02}秒】</color>\n<color=#00AEFF>【蓄力伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■对<word_group=10025>最终</word_group>防御力最高的{description_value_05}名敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_06}%的无视防御力伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Near Feather Attack": "新生羽翼攻击"
+  }
+}

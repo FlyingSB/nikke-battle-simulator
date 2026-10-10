@@ -46,7 +46,7 @@ export const BUFF_NUMERIC_FIELDS = [
   'damageToPartsPct',
   'mgHeatSpeedPct',
   'pelletFlat',
-  // 治疗效能（Potency of HP restored ▲，挂在治疗者身上）/ 受治疗量（Incoming Healing ▲，挂在受治疗者身上）
+  // 治疗效能（Outgoing Healing ▲，挂在治疗者身上）/ 受治疗量（Incoming Healing ▲，挂在受治疗者身上，作用于一切受到的治疗）
   'healPotencyPct', 'incomingHealPct',
 ];
 
@@ -200,8 +200,7 @@ export function getEffectiveEnemyDef(state) {
 
 /**
  * 构建敌人承伤 debuff 的 buffBreakdown 条目，与 damageTakenMult 来源严格对应：
- *   1. state.buffs 中 unitId === '__enemy__' 的具名条目
- *   2. state.enemyDamageTakenPct 标量（无 buff 条目的技能，如 Asuka:WILLE ATF 叠层）
+ *   state.buffs 中 unitId === '__enemy__' 的具名条目。
  * 返回的条目可直接 spread 进 hitLog 的 buffBreakdown 数组。
  */
 export function getEnemyDebuffBreakdown(state) {
@@ -220,14 +219,6 @@ export function getEnemyDebuffBreakdown(state) {
       stacks:           b.stacks ?? 1,
       multiplier:       b.multiplier ?? null,
     }));
-  if (state.enemyDamageTakenPct !== 0) {
-    // 无 buff 条目的标量承伤（当前仅 Asuka:WILLE ATF 叠层使用此路径）
-    entries.push({
-      name:           'ATF叠层',
-      damageTakenPct: state.enemyDamageTakenPct,
-      isEnemyDebuff:  true,
-    });
-  }
   return entries;
 }
 
@@ -680,7 +671,7 @@ export function applyHeal(state, targetUnit, amount, logCtxOverride = null, cast
 }
 
 /**
- * 生命偷取（「Recovers X% of attack damage as HP」）：命中造成伤害后按 sums.lifeStealPct 回复自身。
+ * 生命偷取（「Restores HP equal to X% of attack damage」）：命中造成伤害后按 sums.lifeStealPct 回复自身。
  * 视为一次 HP 回复：受自身治疗效能 / 受治疗量加成影响，并派发 HEAL_RECEIVED
  * （如 Crown S2 P3「recovery takes effect」可由 Helm 爆裂的全员生命偷取触发）。
  * 不写战斗日志（每发射击都会触发，避免刷屏）。
@@ -998,7 +989,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
                          trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
                          sequentialAttackDamageMult: opts.isSequentialAttack ? (sums.sequentialAttackDamagePct ?? 0) : 0,
                          damageToPartsMult: sums.damageToPartsPct ?? 0 },
-    damageTakenMult:   state.enemyDamageTakenPct + getEnemyDamageTakenPct(state) + distributedDamagePct,
+    damageTakenMult:   getEnemyDamageTakenPct(state) + distributedDamagePct,
   });
   unit.totalDamage += damage;
   applyLifeSteal(state, unit, damage, sums);
@@ -1034,7 +1025,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       projectileExplosionDamagePct,
       affectedByFullBurst: opts.affectedByFullBurst ?? false,
       isFullBurst,
-      damageTakenPct: state.enemyDamageTakenPct + getEnemyDamageTakenPct(state) + distributedDamagePct,
+      damageTakenPct: getEnemyDamageTakenPct(state) + distributedDamagePct,
       enemyDef: isTrueDamage ? 0 : getEffectiveEnemyDef(state),
       isDistributed, distributedDamagePct,
       isCore, coreDmgIncrement, damage,

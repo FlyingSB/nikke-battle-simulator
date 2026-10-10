@@ -167,7 +167,7 @@ export default {
 
           // MG 过热速度 ▼100% for 3s：通过 buff 归零逐发增速
           if (caster.mgRofChangePerShot != null) {
-            pushBuff(state, { name: 'Emergency Repair (MG Heat)', unitId: caster.id,
+            pushBuff(state, { name: 'Emergency Repair (MG Heating up)', unitId: caster.id,
               mgHeatSpeedPct: -1, endTick: state.tick + TICK_RATE * 3 }, {
                 unitName: caster.name,
                 skillLabel: caster.rawSkill2?.name_localkey ?? 'S2',

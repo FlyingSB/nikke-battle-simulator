@@ -1,0 +1,15 @@
+{
+  "name_localkey": "遗迹粉碎魔方",
+  "harmonycube_skill_group": {
+    "0": {
+      "name_localkey": "真实伤害提升 HC",
+      "description_localkey": "■战斗开始时，\n<color=#00AEFF>【无视防御力伤害{description_value_01}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "反向代码 HC",
+      "description_localkey": "■战斗开始时，\n<color=#00AEFF>【<word_group=10009>优越代码攻击伤害</word_group>{description_value_01}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  }
+}

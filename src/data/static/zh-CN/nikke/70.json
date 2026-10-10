@@ -1,0 +1,24 @@
+{
+  "name_localkey": "布丽德",
+  "skill1_detail": {
+    "name_localkey": "加速",
+    "description_localkey": "■进行{description_value_03}次普通攻击时，自身\n<color=#00AEFF>【攻击力{description_value_01}% ▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "泄露",
+    "description_localkey": "■对<word_group=10025>最终</word_group>防御力最高的1名敌人造成\n相当于<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "description_localkey": "■对<word_group=10025>最终</word_group>防御力最高的1名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的爆裂技能伤害】</color>\n■自身体力为最大值时，对同一敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的额外伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

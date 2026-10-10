@@ -1,0 +1,25 @@
+{
+  "name_localkey": "泷奈",
+  "skill1_detail": {
+    "name_localkey": "战斗校正",
+    "description_localkey": "■战斗开始时及全爆裂时间结束时，自身\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■全爆裂时间开始时，自身\n<color=#00AEFF>【无视防御力伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "战场控制",
+    "description_localkey": "■全体敌人\n<color=#00AEFF>【所受伤害{description_value_01}%▲】【持续{description_value_02}秒】\n【昏迷】【持续{description_value_03}秒】</color>\n■全体队友\n<color=#00AEFF>【无视防御力伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "压制开始",
+    "description_localkey": "■自身\n<color=#00AEFF>【变更使用武器】\n伤害：<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害\n持续时间：{description_value_02}秒\n额外效果\n自身：【普通攻击变更为无视防御力伤害】【持续{description_value_03}秒】\n命中目标：【所受伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  }
+}

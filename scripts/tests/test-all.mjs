@@ -26,6 +26,7 @@ const SUITES = [
   { name: 'Skills',     file: 'test-skills.mjs',     note: 'skill traits registry'                   },
   { name: 'RapiB1/B3',   file: 'test-rapi-burst.mjs',   note: 'Rapi burst-step & Combat Assist, no I/O' },
   { name: 'Cinderella', file: 'test-cinderella.mjs', note: 'Cinderella skill fixes, no I/O'           },
+  { name: 'CrystalWave', file: 'test-crystal-wave.mjs', note: 'Cinderella: Crystal Wave Snipe Mode, local JSON' },
   { name: 'ReloadCadence', file: 'test-reload-cadence.mjs', note: 'reload/RPM cadence, no I/O'        },
   { name: 'PartsCore',  file: 'test-parts-core.mjs', note: 'PARTS_CORE enemy core state, no I/O'     },
   { name: 'Cubes',      file: 'test-cubes.mjs',      note: 'harmony cube skill modeling, local JSON'  },
@@ -34,6 +35,7 @@ const SUITES = [
   { name: 'Stats',      file: 'test-stats.mjs',      note: 'may fetch from CDN'                      },
   { name: 'RedHoodBurst', file: 'test-red-hood-burst.mjs', note: 'Red Hood weapon switch shot count' },
   { name: 'BurstTiming', file: 'test-burst-timing.mjs',   note: 'B3 burst direct damage delay & bonus behavior' },
+  { name: 'I18n',       file: 'test-i18n.mjs',       note: 'UI dictionaries & zh-CN text patches, local JSON' },
 ];
 
 const LINE = '═'.repeat(62);

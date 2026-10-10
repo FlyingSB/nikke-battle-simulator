@@ -1,0 +1,32 @@
+{
+  "name_localkey": "阿尔卡娜",
+  "skill1_detail": {
+    "name_localkey": "苏醒的命运",
+    "description_localkey": "■全爆裂时间结束时，自身若处于命运之轮牌状态，刚使用爆裂技能且处于<word_group=10082>基本爆裂阶段Step{description_value_01}的</word_group>全体电击代码队友\n<color=#00AEFF>【魔法师牌：技能2<word_group=10031>冷却时间</word_group>{description_value_02}%▼】【持续{description_value_03}秒】\n【攻击伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>\n■全爆裂时间结束时，全体队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_06}%▲】\n【持续{description_value_07}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "循环的命运",
+    "description_localkey": "■全爆裂时间结束时，自身若处于命运之轮牌状态，刚使用爆裂技能且处于<word_group=10082>基本爆裂阶段Step{description_value_01}的</word_group>全体电击代码队友\n<color=#00AEFF>【力量牌：以施展者为基准的攻击力{description_value_02}%▲】【持续{description_value_03}秒】</color>\n■全爆裂时间结束时，自身若处于命运之轮牌状态，全体队友\n<color=#00AEFF>【死神牌：爆裂技能<word_group=10031>冷却时间</word_group>{description_value_04}秒▼】\n【以施展者为基准的攻击力{description_value_05}%▲】【持续{description_value_06}秒】</color>\n■全爆裂时间结束时，全体队友\n<color=#00AEFF>【攻击伤害{description_value_07}%▲】【持续{description_value_08}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "命运的束缚",
+    "description_localkey": "■全体电击代码的队友\n<color=#00AEFF>【命运之轮牌：攻击伤害{description_value_01}%▲】\n【持续{description_value_02}秒】</color>\n■对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的爆裂技能伤害】\n【审判牌：所受伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "The Magician": "魔法师牌",
+    "Strength": "力量牌",
+    "Death": "死神牌",
+    "Wheel of Fortune": "命运之轮牌",
+    "Judgement": "审判牌"
+  }
+}

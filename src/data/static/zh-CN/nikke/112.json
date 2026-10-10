@@ -1,0 +1,28 @@
+{
+  "name_localkey": "毒蛇",
+  "skill1_detail": {
+    "name_localkey": "蛇形判断",
+    "description_localkey": "■若<word_group=10105>目标</word_group>出现，则全体队友\n<color=#00AEFF>【攻击力{description_value_01}% ▲】【持续{description_value_02}秒】\n【命中率{description_value_03}% ▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "蛇鳞",
+    "description_localkey": "■自身<color=#00AEFF>【命中率{description_value_01}% ▲】【持续】</color>\n■全爆裂时间开始时，自身\n<color=#00AEFF>【撒娇：<word_group=10004>从单体攻击目标中排除</word_group>，\n直接被攻击时解除】【持续{description_value_02}秒】\n【无敌】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "蛇伤",
+    "description_localkey": "■对指定的{description_value_01}名敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力 {description_value_02}%的伤害】</color> \n■若命中对象为<word_group=10105>指定目标</word_group>，则使同一敌人\n<color=#00AEFF>【防御力{description_value_03}% ▼】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Vamp": "撒娇"
+  }
+}

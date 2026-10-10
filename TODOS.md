@@ -139,7 +139,7 @@
 
 **背景：** 2026-09-24 建模 Guilty: Mighty Bunny / Sin: Swift Bunny 时加入。自动战斗判定依据：SR 满蓄即松手，不会产生「按住满蓄」时长。
 
-**依赖 / 阻塞：** Cinderella: Crystal Wave 依赖 Snipe Mode 建模；Milk: Blooming Bunny 依赖技能建模。Guilty / Sin 无依赖，可直接做。中等优先级。
+**依赖 / 阻塞：** Milk: Blooming Bunny 依赖技能建模。Guilty / Sin 无依赖，可直接做。中等优先级。
 
 ---
 

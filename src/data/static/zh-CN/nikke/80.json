@@ -1,0 +1,25 @@
+{
+  "name_localkey": "桑迪",
+  "skill1_detail": {
+    "name_localkey": "维修工程",
+    "description_localkey": "■全蓄力攻击命中时，自身\n<color=#00AEFF>【技能2的<word_group=10031>冷却时间</word_group>{description_value_01}%▼】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "现场检查",
+    "description_localkey": "■自身\n<color=#00AEFF>【产生相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_01}%的队友共用<word_group=10023>护盾</word_group>】\n【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "开始动工",
+    "description_localkey": "■对剩余的体力最低的{description_value_01}名敌人造成\n相当于<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的伤害】\n【防御力 {description_value_03}% ▼】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  }
+}

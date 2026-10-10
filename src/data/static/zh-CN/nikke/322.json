@@ -1,0 +1,30 @@
+{
+  "name_localkey": "玛律恰那：海洋进修",
+  "skill1_detail": {
+    "name_localkey": "紧急哨子",
+    "description_localkey": "■全爆裂时间开始时，若此前自身使用过爆裂技能，对<word_group=10025>最终</word_group>最大体力最高的{description_value_01}名敌人\n<color=#00AEFF>【指定警戒对象】：\n效果1：【<word_group=10025>最终</word_group>攻击力{description_value_02}%的额外伤害】\n效果2：目标存活时【警戒对象：攻击力{description_value_03}%▼】【持续{description_value_04}秒】</color>\n■<word_group=10077>敌人死亡时</word_group>，若目标处于警戒对象状态，对随机{description_value_01}名敌人\n<color=#00AEFF>【指定警戒对象】：\n效果1：【<word_group=10025>最终</word_group>攻击力{description_value_02}%的额外伤害】\n效果2：目标存活时【警戒对象：攻击力{description_value_03}%▼】【持续{description_value_04}秒】</color>\n■普通攻击命中{description_value_08}次时，若目标为高危险对象状态，则对目标造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_09}%的额外伤害】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "企鹅紧急出动",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【哨子：攻击力{description_value_01}%▲】【叠加{description_value_02}次】【持续】\n【哨子叠加量{description_value_03}个▲】</color>\n■每当莱彻为{description_value_04}架以下的情况持续{description_value_05}秒时，自身\n<color=#00AEFF>【哨子：攻击力{description_value_01}%▲】【叠加{description_value_02}次】【持续】</color>\n■每当莱彻为{description_value_06}架以上的情况持续{description_value_07}秒时，\n<color=#00AEFF>【企鹅紧急出动】：\n功能：莱彻数量在{description_value_06}架以上时，消耗哨子并对莱彻发动紧急攻击\n效果1：对全体敌人造成相当于【<word_group=10025>最终</word_group>攻击力{description_value_08}%的额外伤害】\n效果2：自身【哨子叠加量{description_value_09}个▼】</color>\n■莱彻出现及死亡时，仅限莱彻数量在{description_value_10}架以下的状态，自身\n<color=#00AEFF>【<word_group=10009>优越代码攻击伤害</word_group>{description_value_11}%▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "企鹅螺旋",
+    "description_localkey": "■自身\n<color=#00AEFF>【<word_group=10009>优越代码攻击伤害</word_group>{description_value_01}%▲】【持续{description_value_02}秒】\n【攻击伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■对全体电击代码的敌人\n<color=#00AEFF>【高危险对象：防御力{description_value_05}%▼】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Flagged Target": "警戒对象",
+    "Whistle": "哨子",
+    "High-Risk Target": "高危险对象"
+  }
+}

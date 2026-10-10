@@ -1,0 +1,25 @@
+{
+  "name_localkey": "爱丽丝",
+  "skill1_detail": {
+    "name_localkey": "力量红萝卜",
+    "description_localkey": "■全爆裂时间开始时，<word_group=10025>最终</word_group>攻击力最高的{description_value_01}名队友\n<color=#00AEFF>【以施展者为基准的蓄力速度{description_value_02}%▲】【持续{description_value_03}秒】\n【蓄力伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "健康红萝卜",
+    "description_localkey": "■自身体力为{description_value_01}%以上时，自身\n<color=#00AEFF>【穿透特化】【持续】</color>\n■自身体力为{description_value_02}%以下时，自身\n<color=#00AEFF>【恢复相当于攻击伤害的{description_value_03}%】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "奇异国度",
+    "description_localkey": "■自身\n<color=#00AEFF>【蓄力速度{description_value_01}%▲】【持续{description_value_02}秒】\n【攻击力{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

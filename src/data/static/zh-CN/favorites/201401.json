@@ -1,0 +1,41 @@
+{
+  "name_localkey": "中央政府特别勋章",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【核心伤害{description_value_01}%▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  },
+  "favoriteitem_skill_group_data": {
+    "0": {
+      "info": {
+        "name_localkey": "AK飞弹",
+        "description_localkey": "■自身\n<color=#00AEFF>【<word_group=10009>优越代码攻击伤害</word_group>{description_value_05}%▲】【持续{description_value_06}秒】</color>\n■对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的爆裂技能伤害】\n【昏迷】【持续{description_value_02}秒】\n【指定目标：攻击力{description_value_03}%▼】【持续{description_value_04}秒】</color>",
+        "info_description_localkey": "爆裂技能"
+      }
+    },
+    "1": {
+      "info": {
+        "name_localkey": "LD强袭",
+        "description_localkey": "■最后的子弹命中时，目标\n<color=#00AEFF>【所受伤害{description_value_03}%▲】【持续{description_value_04}秒】\n【<word_group=10025>最终</word_group>攻击力{description_value_01}%的额外伤害】</color>\n■最后的子弹命中时，若命中对象为指定目标状态，则对同一敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的额外伤害】</color>",
+        "info_description_localkey": "技能2"
+      }
+    },
+    "2": {
+      "info": {
+        "name_localkey": "EX弹匣",
+        "description_localkey": "■全爆裂时间开始时，全体队友\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续{description_value_02}秒】\n【换弹速度{description_value_03}%▲】【持续{description_value_04}秒】\n【最大装弹数{description_value_05}%▼】【持续{description_value_06}秒】\n【攻击伤害{description_value_07}%▲】【持续{description_value_08}秒】</color>",
+        "info_description_localkey": "技能1"
+      }
+    }
+  },
+  "_terms": {
+    "Designated Target": "指定目标"
+  }
+}

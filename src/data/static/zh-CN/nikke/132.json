@@ -1,0 +1,25 @@
+{
+  "name_localkey": "梅里：海湾女神",
+  "skill1_detail": {
+    "name_localkey": "海边的阳光",
+    "description_localkey": "■全爆裂时间开始时，全体队友\n<color=#00AEFF>【不同起始次数不同效果】\n【<word_group=10028>低级效果重复生效</word_group>】\n1次：【恢复施展者<word_group=10025>最终</word_group>最大体力的{description_value_01}%】\n【间隔1秒】【持续{description_value_02}秒】\n2次：【恢复施展者<word_group=10025>最终</word_group>最大体力的{description_value_03}%】\n【间隔1秒】【持续{description_value_04}秒】\n3次：【恢复施展者<word_group=10025>最终</word_group>最大体力的{description_value_05}%】\n【间隔1秒】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "浸湿双脚的海浪",
+    "description_localkey": "■使用爆裂技能时，水冷代码全体队友\n<color=#00AEFF>【不同起始次数不同效果】\n【<word_group=10028>低级效果重复生效</word_group>】\n1次：【<word_group=10009>优越代码攻击伤害</word_group>{description_value_01}% ▲】\n【持续{description_value_02}秒】 \n2次：【<word_group=10009>优越代码攻击伤害</word_group>{description_value_03}% ▲】\n【持续{description_value_04}秒】 \n3次：【<word_group=10009>优越代码攻击伤害</word_group>{description_value_05}% ▲】\n【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "平静的水面",
+    "description_localkey": "■水冷代码全体队友\n<color=#00AEFF>【攻击力 {description_value_01}% ▲】【持续{description_value_02}秒】</color>\n■全体队友\n<color=#00AEFF>【最大体力以施展者<word_group=10025>最终</word_group>\n最大体力为基准{description_value_03}% ▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

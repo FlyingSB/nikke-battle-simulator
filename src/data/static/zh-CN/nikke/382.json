@@ -1,0 +1,28 @@
+{
+  "name_localkey": "莱昂纳",
+  "skill1_detail": {
+    "name_localkey": "响亮的咆哮",
+    "description_localkey": "■进行{description_value_01}次普通攻击时，全体队友\n<color=#00AEFF>【咆哮：暴击率 {description_value_02}% ▲】\n【叠加{description_value_03}次】【持续{description_value_04}秒】</color>\n■进行{description_value_05}次普通攻击时，持有霰弹枪的全体队友<color=#00AEFF>【<word_group=10036>最大合理射程</word_group> {description_value_06}% ▲】【持续{description_value_07}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "勇敢的眼神",
+    "description_localkey": "■全爆裂时间开始时，全体队友\n<color=#00AEFF>【命中率{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■全爆裂时间开始时，<word_group=10025>最终</word_group>攻击力最高并持有霰弹枪的{description_value_03}名队友\n<color=#00AEFF>【<word_group=10038>弹丸</word_group>数量{description_value_04}个▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "狮子之心",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【暴击伤害{description_value_01}% ▲】【持续{description_value_02}秒】</color>\n■若自身处于咆哮的最大叠加状态，则持有霰弹枪的全体队友\n<color=#00AEFF>【暴击率 {description_value_03}% ▲】 【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Roar": "咆哮"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name_localkey": "百合",
+  "skill1_detail": {
+    "name_localkey": "精密调整",
+    "description_localkey": "■随机1名队友\n<color=#00AEFF>【以施展者为基准的攻击力 {description_value_01}%▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "紧急维修",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【<word_group=10017>掩体体力恢复</word_group> {description_value_01}%】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "最棒的工程师！",
+    "description_localkey": "■随机1名掩体遭到破坏的队友\n<color=#00AEFF>【以掩体体力{description_value_01}%<word_group=10016>复活掩体</word_group>】\n【以施展者为基准的攻击力{description_value_02}%▲】【持续{description_value_03}秒】</color>\n■若无掩体遭到破坏的队友，随机1名队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  }
+}

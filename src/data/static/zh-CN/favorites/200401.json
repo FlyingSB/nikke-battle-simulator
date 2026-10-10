@@ -1,0 +1,41 @@
+{
+  "name_localkey": "《英雄三部曲》蓝光光盘",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【蓄力伤害{description_value_01}%<word_group=10029>倍率</word_group>▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  },
+  "favoriteitem_skill_group_data": {
+    "0": {
+      "info": {
+        "name_localkey": "英雄轰炸机",
+        "description_localkey": "■全蓄力攻击命中时，对目标造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_01}%的额外伤害】</color>\n■命中目标零件时，对目标本体造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_02}%的额外伤害】</color>",
+        "info_description_localkey": "技能2"
+      }
+    },
+    "1": {
+      "info": {
+        "name_localkey": "拉普拉斯炸弹",
+        "description_localkey": "■自身\n<color=#00AEFF>【变更使用武器】：\n初始伤害：造成相当于<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害\n普通伤害：造成相当于<word_group=10025>最终</word_group>攻击力{description_value_02}%的伤害\n持续时间：{description_value_03}秒\n额外效果1：穿透特化\n额外效果2：若自身处于英雄使命最大叠加状态，则普通伤害将无视防御力\n特殊事项：爆裂技能施放过程中无法隐蔽</color>\n■若自身处于英雄使命最大叠加状态，则对同一敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_04}%的无视防御力的伤害】</color>",
+        "info_description_localkey": "爆裂技能"
+      }
+    },
+    "2": {
+      "info": {
+        "name_localkey": "英雄使命",
+        "description_localkey": "■全蓄力攻击时，自身\n<color=#00AEFF>【英雄使命：爆炸范围{description_value_01}% ▲】\n【叠加{description_value_02}次】【持续{description_value_03}秒】</color>",
+        "info_description_localkey": "技能1"
+      }
+    }
+  },
+  "_terms": {
+    "Hero Vision": "英雄使命"
+  }
+}

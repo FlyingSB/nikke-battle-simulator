@@ -1,0 +1,28 @@
+{
+  "name_localkey": "尤尔夏",
+  "skill1_detail": {
+    "name_localkey": "啃咬领导力",
+    "description_localkey": "■被攻击{description_value_01}次时，自身\n<color=#00AEFF>【平常心：暴击率{description_value_02}% ▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "软弱制作者",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【攻击力{description_value_01}% ▲】\n【持续{description_value_02}秒】\n【<word_group=10044>所受伤害平均分摊</word_group>】\n【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "亢奋劳动者",
+    "description_localkey": "■对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的爆裂技能伤害】</color>\n■若自身处于平常心状态，则对同一敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的额外伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Calm": "平常心"
+  }
+}

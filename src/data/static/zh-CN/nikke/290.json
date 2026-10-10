@@ -1,0 +1,29 @@
+{
+  "name_localkey": "玛娜",
+  "skill1_detail": {
+    "name_localkey": "金属γ",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【金属γ：攻击力{description_value_01}%▲】【持续】【战斗中触发1次】</color>\n■造成10次普通攻击时，若自身处于金属γ状态，全体队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_02}%】</color>\n■队友处于无法战斗状态时，若自身处于金属γ状态，自身除外的无法战斗状态中<word_group=10025>最终</word_group>攻击力最高的{description_value_03}名队友\n<color=#00AEFF>【以{description_value_04}%的体力复活】</color>\n■队友处于无法战斗状态时，自身\n<color=#00AEFF>【解除金属γ】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "金属Σ",
+    "description_localkey": "■战斗开始时，对自身施加\n<color=#00AEFF>【金属Σ：<word_group=10014>爆裂进度补充速度</word_group> \n{description_value_01}% ▲】【持续】</color>\n■全爆裂时间开始时，若自身处于金属Σ状态，自身\n<color=#00AEFF>【攻击伤害 {description_value_02}% ▲】【持续{description_value_03}秒】\n【攻击力 {description_value_04}% ▲】【持续{description_value_05}秒】\n【解除金属Σ】</color>\n■全爆裂时间开始时，基本蓄力时间最长的{description_value_06}名队友\n<color=#00AEFF>【蓄力时间{description_value_07}秒 ▼】【持续{description_value_08}秒】</color>\n■全爆裂时间结束时，若此前自身使用过爆裂技能，则对自身施加\n<color=#00AEFF>【金属Σ：<word_group=10014>爆裂进度补充速度</word_group> {description_value_01}% ▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "致命错误！",
+    "description_localkey": "■自身\n<color=#00AEFF>【持续伤害{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■对距离瞄准线最近的{description_value_03}名敌人造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_04}%的持续伤害】\n【间隔1秒】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Metal γ": "金属γ",
+    "Metal σ": "金属Σ"
+  }
+}

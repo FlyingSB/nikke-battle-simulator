@@ -1,0 +1,28 @@
+{
+  "name_localkey": "安克：天真的女仆",
+  "skill1_detail": {
+    "name_localkey": "海星（形状）蛋包饭",
+    "description_localkey": "■全爆裂时间开始时，全体队友\n<color=#00AEFF>【不同使用次数不同效果】【<word_group=10028>低级效果重复生效</word_group>】\n1次：【获得体力恢复量{description_value_01}%▲】【持续{description_value_02}秒】\n2次：【<word_group=10019>分摊伤害</word_group>{description_value_03}%▲】【持续{description_value_04}秒】\n3次：【<word_group=10068>可叠加的减益效果叠加量</word_group>{description_value_05}个▼】</color>\n■全爆裂时间开始时，若有同一部队的队友，全体队友\n<color=#00AEFF>【恢复相当于施展者最大体力的{description_value_06}%】【间隔1秒】【持续{description_value_07}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "海葵（形状）意大利面",
+    "description_localkey": "■全爆裂时间结束时，全体队友\n<color=#00AEFF>【不同使用次数不同效果】【<word_group=10028>低级效果重复生效</word_group>】\n1次：【命中率{description_value_01}% ▲】【持续{description_value_02}秒】\n2次：【以施展者为基准的攻击力{description_value_03}% ▲】【持续{description_value_04}秒】\n3次：【换弹速度{description_value_05}% ▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "海边散步",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【保存：以施展者为基准的最大体力{description_value_01}%为上限，保存溢出的体力恢复量】【持续{description_value_02}秒】\n【恢复相当于施展者最大体力的{description_value_03}%】\n【以施展者为基准的攻击力{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Storage": "保存"
+  }
+}

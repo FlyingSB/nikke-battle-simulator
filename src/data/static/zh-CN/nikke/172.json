@@ -1,0 +1,25 @@
+{
+  "name_localkey": "艾德米",
+  "skill1_detail": {
+    "name_localkey": "助威之手",
+    "description_localkey": "■被攻击{description_value_01}次时，全体队友\n<color=#00AEFF>【蓄力伤害{description_value_02}%<word_group=10029>倍率</word_group>▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "猫之气息",
+    "description_localkey": "■<word_group=10025>最终</word_group>攻击力最高的2名队友\n<color=#00AEFF>【所受伤害{description_value_01}%▼】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "爱之报恩",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【换弹速度{description_value_01}% ▲】【持续{description_value_02}秒】\n【暴击伤害{description_value_03}% ▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name_localkey": "金属项链",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【蓄力伤害{description_value_01}%<word_group=10029>倍率</word_group>▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  },
+  "favoriteitem_skill_group_data": {
+    "0": {
+      "info": {
+        "name_localkey": "现场检查",
+        "description_localkey": "■自身\n<color=#00AEFF>【产生相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_01}%的队友共用<word_group=10023>护盾</word_group>】【持续{description_value_02}秒】</color>\n■全体队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_03}%▲】【叠加{description_value_04}次】【持续{description_value_05}秒】</color>",
+        "info_description_localkey": "技能2"
+      }
+    },
+    "1": {
+      "info": {
+        "name_localkey": "维修工程",
+        "description_localkey": "■全蓄力攻击命中时，自身\n<color=#00AEFF>【技能2的<word_group=10031>冷却时间</word_group>{description_value_01}%▼】</color>\n■技能2发动时，铁甲代码全体队友\n<color=#00AEFF>【<word_group=10009>优越代码攻击伤害</word_group>{description_value_02}%▲】【叠加{description_value_04}次】【持续{description_value_03}秒】</color>\n■战斗开始时，全体队友\n<color=#00AEFF>【物资储备：以施展者为基准的最大体力{description_value_06}%为上限，保存溢出的体力恢复量】【持续{description_value_07}秒】\n【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_08}%】</color>\n■当包括自身在内的某位队友体力在{description_value_09}%以下时，若自身处于物资储备状态，则全体队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_05}%】</color>",
+        "info_description_localkey": "技能1"
+      }
+    },
+    "2": {
+      "info": {
+        "name_localkey": "开始动工",
+        "description_localkey": "■对剩余体力最低的{description_value_01}名敌人造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的伤害】\n【防御力{description_value_03}%▼】【持续{description_value_04}秒】</color>\n■全体队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_05}%】</color>",
+        "info_description_localkey": "爆裂技能"
+      }
+    }
+  },
+  "_terms": {
+    "Stockpile": "物资储备"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name_localkey": "尼恩：蓝色海洋",
+  "skill1_detail": {
+    "name_localkey": "向上波浪",
+    "description_localkey": "■使用爆裂技能时，自身\n<color=#00AEFF>【不同起始次数不同效果】\n【<word_group=10028>低级效果重复生效</word_group>】\n1次：【<word_group=10011>零件伤害</word_group>{description_value_01}% ▲】【持续{description_value_02}秒】\n2次：【<word_group=10011>零件伤害</word_group>{description_value_03}% ▲】【持续{description_value_04}秒】\n3次：【<word_group=10011>零件伤害</word_group>{description_value_05}% ▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "水枪",
+    "description_localkey": "■进入爆裂3阶时，自身\n<color=#00AEFF>【不同起始次数不同效果】\n【<word_group=10028>低级效果重复生效</word_group>】\n1次：【<word_group=10009>优越代码攻击伤害</word_group>{description_value_01}% ▲】\n【持续{description_value_02}秒】 \n2次：【<word_group=10009>优越代码攻击伤害</word_group>{description_value_03}% ▲】\n【持续{description_value_04}秒】 \n3次：【<word_group=10009>优越代码攻击伤害</word_group>{description_value_05}% ▲】\n【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "水力全开一击",
+    "description_localkey": "■自身\n<color=#00AEFF>【变更使用武器】伤害：造成相当于<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害\n持续时间：{description_value_02}秒</color>\n■若目标为燃烧代码，则对目标造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的额外伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

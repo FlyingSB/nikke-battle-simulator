@@ -1,0 +1,38 @@
+{
+  "name_localkey": "反派模型",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【普通攻击伤害{description_value_01}%<word_group=10029>倍率</word_group>▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  },
+  "favoriteitem_skill_group_data": {
+    "0": {
+      "info": {
+        "name_localkey": "超负荷",
+        "description_localkey": "■全爆裂时间开始时，全体队友\n<color=#00AEFF>【命中率{description_value_01}%▲】【持续{description_value_02}秒】\n【攻击力{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■全爆裂时间开始时，持有霰弹枪的全体队友\n<color=#00AEFF>【攻击力{description_value_05}%▲】【持续{description_value_06}秒】\n【最大装弹数{description_value_07}%▲】【持续{description_value_08}秒】</color>",
+        "info_description_localkey": "技能1"
+      }
+    },
+    "1": {
+      "info": {
+        "name_localkey": "霹雳",
+        "description_localkey": "■攻击{description_value_01}次时，对剩余体力最少的{description_value_02}名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的伤害】</color>\n■攻击{description_value_04}次时，对剩余体力最少的{description_value_05}名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_06}%的伤害】</color>",
+        "info_description_localkey": "技能2"
+      }
+    },
+    "2": {
+      "info": {
+        "name_localkey": "德雷克特色",
+        "description_localkey": "■对<word_group=10020>攻击范围内的敌人</word_group>造成\n相当于<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害】</color>\n■自身\n<color=#00AEFF>【最大装弹数{description_value_02}%▲】【持续{description_value_03}秒】\n【攻击伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+        "info_description_localkey": "爆裂技能"
+      }
+    }
+  }
+}

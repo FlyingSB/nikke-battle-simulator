@@ -1,0 +1,30 @@
+{
+  "name_localkey": "尼恩：透视之眼",
+  "skill1_detail": {
+    "name_localkey": "健康的身体",
+    "description_localkey": "■受到攻击时，若自身不处于健康的身体状态，则自身\n<color=#00AEFF>【无敌】【持续{description_value_03}秒】【战斗中触发{description_value_04}次】\n【<word_group=10039>减益效果免疫</word_group>∞个】【持续{description_value_05}秒】【战斗中触发{description_value_06}次】\n【健康的身体：获得体力恢复量{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■全蓄力攻击命中时，若命中对象为<word_group=10105>指定目标</word_group>，则对目标造成\n<color=#00AEFF>【火力爆发】：\n效果：【相当于<word_group=10025>最终</word_group>攻击力{description_value_07}%的额外伤害】\n火力全开状态额外效果：【相当于<word_group=10025>最终</word_group>攻击力{description_value_08}%的额外伤害】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "火力充能",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【火力量条补充{description_value_08}】</color>\n■普通攻击时，若自身处于火力充能状态，则自身\n<color=#00AEFF>【火力量条补充2】</color>\n■火力充能状态结束时，自身\n<color=#00AEFF>【火力量条补充{description_value_09}】</color>\n■全爆裂时间结束时，若自身持有火力量条，则自身\n<color=#00AEFF>【<word_group=10014>爆裂进度补充速度</word_group>{description_value_02}%X火力量条补充量▲】【持续{description_value_03}秒】</color>\n■全爆裂时间开始时，自身\n<color=#00AEFF>【火力展开】：\n效果：【攻击力{description_value_04}%▲】【持续{description_value_05}秒】\n火力全开额外效果：【攻击力{description_value_06}%▲】【持续{description_value_07}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "火力全开",
+    "description_localkey": "■若自身火力量条低于100，则自身\n<color=#00AEFF>【火力充能：可补充火力量条】【持续{description_value_02}秒】【无法解除】\n【火力量条补充1】</color>\n■若自身火力量条状态为100，则自身\n<color=#00AEFF>【火力全开：攻击伤害{description_value_04}%▲】\n【持续{description_value_05}秒】【消耗100火力量条】</color>\n■自身\n<color=#00AEFF>【爆炸范围{description_value_06}%▲】【持续{description_value_07}秒】\n【攻击伤害{description_value_10}%▲】【持续{description_value_11}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Healthy Body": "健康的身体",
+    "Firepower Charge": "火力充能",
+    "Super Firepower": "火力全开"
+  }
+}

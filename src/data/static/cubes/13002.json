@@ -103,21 +103,21 @@
     0
   ],
   "powers": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
+    184,
+    184,
+    276,
+    276,
+    644,
+    644,
+    736,
+    736,
+    828,
+    920,
+    1012,
+    1012,
+    1104,
+    1104,
+    1196
   ],
   "name_localkey": "Healing Cube",
   "description_localkey": "An unidentified cube with all kinds of codes jumbled together.\nIt emits a special wavelength that enhances a Nikke's performance.\nThis wavelength affects the recovery of a Nikke both directly and indirectly.",
@@ -141,7 +141,7 @@
       "level_up_cost_id": 0,
       "icon": "icn_skill_heal_01",
       "name_localkey": "Heal Up HC",
-      "description_localkey": "■ Activates when entering battle.\n<color=#00AEFF>Potency of HP granted ▲ {description_value_01}%.</color>",
+      "description_localkey": "■ Activates at the start of battle.\n<color=#00AEFF>Outgoing Healing ▲ {description_value_01}%.</color>",
       "info_description_localkey": "Burst Skill",
       "description_value_list": [
         {
@@ -178,7 +178,7 @@
       "level_up_cost_id": 0,
       "icon": "icn_skill_atkup_01",
       "name_localkey": "Anti Code HC",
-      "description_localkey": "■ Activates when entering battle.\n<color=#00AEFF><word_group=10009>Elemental Advantage Attack Damage</word_group> ▲ {description_value_01}%.</color>",
+      "description_localkey": "■ Activates at the start of battle.\n<color=#00AEFF><word_group=10009>Elemental Advantage Attack Damage</word_group> ▲ {description_value_01}%.</color>",
       "info_description_localkey": "Burst Skill",
       "description_value_list": [
         {

@@ -1,0 +1,25 @@
+{
+  "name_localkey": "米兰达",
+  "skill1_detail": {
+    "name_localkey": "健身！",
+    "description_localkey": "■普通攻击命中{description_value_01}次后，全体队友\n<color=#00AEFF>【命中率{description_value_02}%▲】【持续{description_value_03}秒】</color>\n■普通攻击命中{description_value_04}次后，持冲锋枪的全体队友\n<color=#00AEFF>【命中率{description_value_05}%▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "唤醒！",
+    "description_localkey": "■全爆裂时间开始时，全体队友\n<color=#00AEFF>【暴击伤害{description_value_01}%▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "能量提升！",
+    "description_localkey": "■除自身以外<word_group=10025>最终</word_group>攻击力最高的{description_value_01}名队友（目标人数不足时包含自身）\n<color=#00AEFF>【攻击力{description_value_02}%▲】【持续{description_value_03}秒】\n【暴击伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name_localkey": "钟鸣",
+  "skill1_detail": {
+    "name_localkey": "首席大臣",
+    "description_localkey": "■战斗开始时，赋予<word_group=10091>我的国王</word_group>\n<color=#00AEFF>【祈愿：以施展者为基准的攻击力{description_value_01}%▲】【持续】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "王的秘书",
+    "description_localkey": "■全爆裂时间开始时，赋予<word_group=10091>我的国王</word_group>\n<color=#00AEFF>【例行报告：普通攻击伤害{description_value_01}%<word_group=10029>倍率</word_group>▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "为了国王",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【<word_group=10002>重新进入爆裂</word_group>2阶】\n【最大装弹数{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■赋予<word_group=10091>我的国王</word_group>\n<color=#00AEFF>【忠心：攻击伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Wish": "祈愿",
+    "Daily Report": "例行报告",
+    "Loyalty": "忠心"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name_localkey": "普丽瓦蒂：不友善的女仆",
+  "skill1_detail": {
+    "name_localkey": "热情满满的女仆",
+    "description_localkey": "■<word_group=10038>弹丸</word_group>命中{description_value_01}次时，\n对距离瞄准线最近的{description_value_03}名敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_02}%的伤害】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "充满爱意的女仆",
+    "description_localkey": "■普通攻击1次命中<word_group=10038>弹丸</word_group>{description_value_01}个以上时，\n自身\n<color=#00AEFF>【换弹速度{description_value_02}%▲】【持续{description_value_03}秒】</color>\n■在全爆裂时间持续过程中命中<word_group=10038>弹丸</word_group>{description_value_04}次时，自身\n<color=#00AEFF>【子弹补充{description_value_05}发】</color>\n<color=#00AEFF>【攻击力{description_value_06}%▲】【叠加{description_value_07}次】\n【持续{description_value_08}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "害羞！你的女仆",
+    "description_localkey": "■自身\n<color=#00AEFF>【攻击伤害{description_value_01}%▲】【持续{description_value_02}秒】</color>\n<color=#00AEFF>【暴击伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_05}%的爆裂技能伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  }
+}

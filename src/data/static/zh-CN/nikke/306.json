@@ -1,0 +1,25 @@
+{
+  "name_localkey": "士兵O.W.",
+  "skill1_detail": {
+    "name_localkey": "猫头鹰乌鸦",
+    "description_localkey": "■普通攻击时，有{description_value_01}%的概率对目标造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力\n{description_value_02}%的额外伤害】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "猫头鹰气流",
+    "description_localkey": "■<word_group=10025>最终</word_group>攻击力最高的{description_value_01}名队友\n<color=#00AEFF>【掩体防御力{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "猫头鹰羽",
+    "description_localkey": "■燃烧代码全体队友的\n<color=#00AEFF>【最大装弹数{description_value_01}% ▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

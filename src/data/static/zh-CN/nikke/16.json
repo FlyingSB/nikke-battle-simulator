@@ -1,0 +1,28 @@
+{
+  "name_localkey": "拉毗：小红帽",
+  "skill1_detail": {
+    "name_localkey": "掌握战况",
+    "description_localkey": "■战斗开始时及全爆裂时间结束时\n<color=#00AEFF>【各编队的效果】【只发动对应效果】</color>\n<word_group=10067>若队友未进入爆裂阶段1</word_group>，则自身\n<color=#00AEFF>【战斗辅助：<word_group=10062>变为爆裂{description_value_01}阶段</word_group>】【持续】【无法解除】</color>\n<word_group=10067>若队友进入爆裂阶段1</word_group>，则自身\n<color=#00AEFF>【<word_group=10101>解除</word_group>战斗辅助】</color>\n■若自身在全爆裂时间开始时，处于战斗辅助状态，则全体队友\n<color=#00AEFF>【爆裂技能<word_group=10031>冷却时间</word_group>{description_value_02}秒▼】\n【攻击伤害{description_value_07}%▲】【持续{description_value_08}秒】</color>\n■若自身在全爆裂时间开始时，未处于战斗辅助状态，则自身\n<color=#00AEFF>【攻击力{description_value_03}%▲】【持续{description_value_04}秒】\n【<word_group=10000>阻止部位攻击伤害</word_group>{description_value_05}%▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "黏着榴弹",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【对电击代码敌人<word_group=10063>套用优越代码伤害</word_group>】【持续】【无法解除】\n【<word_group=10065>发射体附着伤害</word_group>{description_value_05}%▲】【持续】\n【<word_group=10066>发射体爆炸伤害</word_group>{description_value_06}%▲】【持续】</color>\n■进行{description_value_01}次普通攻击时，对自身施加\n<color=#00AEFF>【黏着榴弹】\n功能：发射<word_group=10064>附着型发射体</word_group>并附着在命中位置，在全爆裂时间持续期间爆炸。\n<word_group=10065>发射体附着伤害</word_group>：相当于<word_group=10025>最终</word_group>攻击力{description_value_02}%的伤害\n<word_group=10066>发射体爆炸伤害</word_group>：相当于<word_group=10025>最终</word_group>攻击力{description_value_03}%的伤害\n最大装弹数：{description_value_04}发</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "继承的力量",
+    "description_localkey": "<在阶段1使用：辅助部队行动方针>\n■自身\n<color=#00AEFF>【爆裂技能<word_group=10031>冷却时间</word_group>20秒▼】\n【爆炸范围{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■全体队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_03}%▲】【持续{description_value_04}秒】</color>\n<在阶段3使用：高机动近战型决战武器>\n■对距离瞄准线最近的1名敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_05}%的额外伤害】</color>\n■自身\n<color=#00AEFF>【爆炸范围{description_value_01}%▲】【持续{description_value_02}秒】\n【<word_group=10065>发射体附着伤害</word_group>{description_value_06}%▲】【持续{description_value_07}秒】\n【技能2榴弹发射条件次数{description_value_08}次▼】【持续{description_value_09}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Combat Assist": "战斗辅助"
+  }
+}

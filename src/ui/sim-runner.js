@@ -8,6 +8,8 @@
  *      而无需 await 一个可能长时间不返回的调用。
  */
 
+import { t } from './i18n.js';
+
 const WORKER_URL = new URL('../engine/sim-worker.js', import.meta.url);
 
 // 超时预算：固定开销 + 每次迭代预算（实测单次迭代约 0.3–0.6s，留足余量）。
@@ -80,10 +82,10 @@ export function toPlain(value, seen = new WeakMap()) {
 // ─── 运行 ────────────────────────────────────────────────────────────────────
 
 export class SimCancelledError extends Error {
-  constructor(message = '模拟已取消') { super(message); this.name = 'SimCancelledError'; }
+  constructor(message = t('sim.err.cancelled')) { super(message); this.name = 'SimCancelledError'; }
 }
 export class SimTimeoutError extends Error {
-  constructor(ms) { super(`模拟超时（超过 ${Math.round(ms / 1000)} 秒），已中止`); this.name = 'SimTimeoutError'; }
+  constructor(ms) { super(t('sim.err.timeout', { s: Math.round(ms / 1000) })); this.name = 'SimTimeoutError'; }
 }
 
 let _active = null; // 当前运行：{ cancel }
@@ -110,7 +112,7 @@ export function runSimulation(baseConfig, iterations, { onProgress } = {}) {
     try {
       worker = new Worker(WORKER_URL, { type: 'module' });
     } catch (err) {
-      _setStatus({ state: 'error', error: `无法创建模拟线程：${err.message}`, finishedAt: Date.now(), elapsedMs: Date.now() - startedAt });
+      _setStatus({ state: 'error', error: t('sim.err.createWorker', { msg: err.message }), finishedAt: Date.now(), elapsedMs: Date.now() - startedAt });
       reject(err);
       return;
     }
@@ -148,15 +150,15 @@ export function runSimulation(baseConfig, iterations, { onProgress } = {}) {
     // 模块加载失败、Worker 内未捕获异常
     worker.onerror = (ev) => {
       ev.preventDefault?.();
-      finish('error', new Error(`模拟线程出错：${ev.message || '未知错误（可能是模块加载失败）'}`));
+      finish('error', new Error(t('sim.err.worker', { msg: ev.message || t('sim.err.workerUnknown') })));
     };
     // 回传数据无法反序列化
-    worker.onmessageerror = () => finish('error', new Error('模拟结果无法反序列化'));
+    worker.onmessageerror = () => finish('error', new Error(t('sim.err.deserialize')));
 
     try {
       worker.postMessage({ baseConfig: toPlain(baseConfig), iterations });
     } catch (err) {
-      finish('error', new Error(`模拟配置无法传入线程：${err.message}`));
+      finish('error', new Error(t('sim.err.postConfig', { msg: err.message })));
     }
   });
 }

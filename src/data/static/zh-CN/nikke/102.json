@@ -1,0 +1,25 @@
+{
+  "name_localkey": "麦斯威尔",
+  "skill1_detail": {
+    "name_localkey": "直射",
+    "description_localkey": "■全爆裂时间开始时，<word_group=10025>最终</word_group>攻击力最高的2名队友\n<color=#00AEFF>【蓄力速度{description_value_01}%▲】【持续{description_value_02}秒】\n【攻击力{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "电击",
+    "description_localkey": "■仅限于除了妮姬以外的敌人达{description_value_01}名以上时，自身\n<color=#00AEFF>【暴击率{description_value_02}% ▲】【持续】\n【暴击伤害{description_value_03}% ▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "穿刺",
+    "description_localkey": "■自身\n<color=#00AEFF>【变更使用武器】：\n蓄力时间：2秒\n伤害：相当于<word_group=10025>最终</word_group>攻击力的{description_value_01}%\n全蓄力伤害：300%伤害\n最大装弹数：{description_value_02}发\n额外效果：穿透特化</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  }
+}

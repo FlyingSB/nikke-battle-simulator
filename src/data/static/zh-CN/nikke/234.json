@@ -1,0 +1,25 @@
+{
+  "name_localkey": "桃乐丝：机缘巧遇",
+  "skill1_detail": {
+    "name_localkey": "闪光",
+    "description_localkey": "■<word_group=10038>弹丸</word_group>命中{description_value_01}次时，自身\n<color=#00AEFF>【穿透特化】【持续{description_value_02}发】\n【命中率{description_value_03}%▲】【持续{description_value_02}发】\n【攻击伤害{description_value_04}%▲】【持续{description_value_02}发】\n【<word_group=10038>弹丸</word_group>数量固定为1颗】【持续{description_value_02}发】</color>\n■<word_group=10038>弹丸</word_group>命中{description_value_05}次时，自身\n<color=#00AEFF>【穿透范围扩大{description_value_06}%】【持续{description_value_07}发】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "光翼",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【<word_group=10042>穿透伤害</word_group>{description_value_01}%▲】【持续】</color>\n■仅限在全爆裂时间持续期间内，自身\n<color=#00AEFF>【攻击力{description_value_02}%▲】【持续】\n【命中率{description_value_03}%▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "虚假救赎",
+    "description_localkey": "■自身\n<color=#00AEFF>【攻击速度{description_value_01}%▲】【持续{description_value_02}秒】\n【攻击力{description_value_03}%▲】【持续{description_value_04}秒】\n【<word_group=10038>弹丸</word_group>数量{description_value_05}个▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

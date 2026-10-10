@@ -9,7 +9,8 @@ export default {
   // ── Starfish (Shaped) Omurice
   // ■ Activates when entering Full Burst. Affects all allies.
   // Effect changes according to the number of activation times. Previous effects trigger repeatedly.
-  // Once: Potency of HP ▲ {description_value_01}% for {description_value_02} sec.
+  // Once: Healing ▲ {description_value_01}% for {description_value_02} sec.
+  //   （原文不准确，实为 Incoming Healing：受到的治疗量 ▲，作用于一切受到的治疗）
   // Twice: Distributed Damage ▲ {description_value_03}% for {description_value_04} sec.
   // Three times: Stack count of debuffs ▼ {description_value_05}.
   // ■ Activates when entering Full Burst while an ally from the same squad is on the battlefield. Affects all allies.
@@ -31,7 +32,7 @@ export default {
         },
       },
       // S1 Part 1（Starfish Omurice）："前效重复触发"，每次进入全爆裂：
-      //   第 1 次+：治疗效能 ▲30.96% 5s（全员；作用于各单位作为治疗者施放的治疗）
+      //   第 1 次+：受治疗量（Incoming Healing）▲30.96% 5s（全员；作用于各单位受到的一切治疗）
       //   第 2 次+：Distributed Damage ▲30.40% 10s（全员）
       //   第 3 次+：移除 1 层 Mast Drunken（防 Hangover；仅移除 isDebuff:true 且 stackLimit>1 的堆叠 buff）
       // 同一部队条件（Anchor + Mast 同队）在当前阵容中恒满足，注释保留
@@ -43,9 +44,9 @@ export default {
           caster.skillState.anchorFbCount++;
           const cnt = caster.skillState.anchorFbCount;
           if (cnt >= 1) {
-            const potencyPct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
-            pushBuff(state, { name: 'Starfish (Shaped) Omurice (Heal Potency)', unitId: null,
-              healPotencyPct: potencyPct, endTick: state.tick + TICK_RATE * 5 });
+            const incomingPct = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
+            pushBuff(state, { name: 'Starfish (Shaped) Omurice (Incoming Healing)', unitId: null,
+              incomingHealPct: incomingPct, endTick: state.tick + TICK_RATE * 5 });
           }
           if (cnt >= 2) {
             const distDmgPct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;

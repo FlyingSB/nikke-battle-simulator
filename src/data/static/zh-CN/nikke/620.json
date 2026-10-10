@@ -1,0 +1,30 @@
+{
+  "name_localkey": "白鹤",
+  "skill1_detail": {
+    "name_localkey": "专属誓约",
+    "description_localkey": "■仅限自身不在解除誓约状态时，赋予全体队友\n<color=#00AEFF>【恢复专属誓约：以施展者为基准的最大体力{description_value_01}%▲】【持续】</color>\n■<word_group=10027>恢复效果生效时</word_group>，若不是自身施放的恢复效果，则赋予自身\n<color=#00AEFF>【违反誓约证明：给予的体力恢复量{description_value_02}%▼】【最多{description_value_03}次】【持续】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "誓约效果",
+    "description_localkey": "■全蓄力攻击{description_value_01}次时，处于恢复专属誓约状态的队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_02}%】</color>\n■全爆裂时间开始时，全体队友\n<color=#00AEFF>【产生相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_03}%的<word_group=10023>护盾</word_group>】【持续{description_value_04}秒】</color>\n■若自身的违反誓约证明达到最大值，自身\n<color=#00AEFF>【解除誓约：免疫违反誓约证明】【持续】\n【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_05}%】【间隔1秒】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "特殊誓约效果",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_01}%】</color>\n■自身\n<color=#00AEFF>【穿透特化】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Exclusive Recovery Agreement": "恢复专属誓约",
+    "Proof of Violation": "违反誓约证明",
+    "Terminated Contract": "解除誓约"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name_localkey": "战术巨熊魔方",
+  "harmonycube_skill_group": {
+    "0": {
+      "name_localkey": "换弹提升 HC",
+      "description_localkey": "■射击{description_value_01}发时，\n<color=#00AEFF>【子弹补充{description_value_02}发 ▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "反向代码 HC",
+      "description_localkey": "■战斗开始时，\n<color=#00AEFF>【<word_group=10009>优越代码攻击伤害</word_group> {description_value_01}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  }
+}

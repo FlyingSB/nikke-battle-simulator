@@ -1,0 +1,28 @@
+{
+  "name_localkey": "梅登",
+  "skill1_detail": {
+    "name_localkey": "言灵：技巧之言",
+    "description_localkey": "■被攻击{description_value_01}次时，自身\n<color=#00AEFF>【复仇：攻击力{description_value_02}% ▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "言灵：命中之言",
+    "description_localkey": "■对全体敌人进行\n<color=#00AEFF>【挑衅】【持续{description_value_01}秒】</color>\n■自身\n<color=#00AEFF>【暴击伤害 {description_value_02}% ▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "言灵：力量之言",
+    "description_localkey": "■对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的爆裂技能伤害】</color>\n■若自身处于复仇状态，则对同一敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的额外伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Revenge": "复仇"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name_localkey": "特蕾娜",
+  "skill1_detail": {
+    "name_localkey": "大自然的恩惠",
+    "description_localkey": "■全爆裂时间结束时，全体队友\n<color=#00AEFF>【持续恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_01}%】【间隔1秒】【持续{description_value_02}秒】</color>\n■全蓄力攻击时，剩余的体力比例最低的{description_value_04}名队友在体力{description_value_03}%以下时，目标\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_05}%】</color>\n■全蓄力攻击时，剩余的体力比例最低的{description_value_07}名队友在体力{description_value_06}%以下时，目标\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_08}%】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "宁静之树",
+    "description_localkey": "■战斗开始时，只要自身处于生存状态，全体电击代码步枪队友\n<color=#00AEFF>【仅以施展者为基准的最大体力{description_value_01}%▲】【持续】</color>\n■战斗开始时，部队中最左侧的电击代码步枪队友{description_value_06}名\n<color=#00AEFF>【无敌】【持续{description_value_07}秒】</color>\n■使用爆裂技能时，部队中最左侧的电击代码步枪队友{description_value_06}名\n<color=#00AEFF>【攻击伤害{description_value_02}%▲】【持续{description_value_03}秒】\n【换弹速度{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "母性之森",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【仅以施展者为基准的最大体力{description_value_01}%▲】【持续{description_value_02}秒】\n【攻击伤害{description_value_08}%▲】【持续{description_value_09}秒】</color>\n■除了妮姬以外的敌人达1名时，全体队友\n<color=#00AEFF>【蔓延深根：<word_group=10070>目标说明以「全体敌人」结尾的爆裂技能伤害</word_group> {description_value_03}%▲】【持续{description_value_04}秒】</color>\n■除了妮姬以外的敌人达2名以上时，全体队友\n<color=#00AEFF>【蔓延深根变更为凋零深根】\n【凋零深根：<word_group=10070>目标说明以「全体敌人」结尾的爆裂技能伤害</word_group> {description_value_10}%▲】 【持续{description_value_04}秒】</color>\n■全体电击代码步枪队友\n<color=#00AEFF>【命中率{description_value_05}%▲】【持续{description_value_06}秒】\n【最大装弹数{description_value_07}发▲】【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Spread Roots": "蔓延深根",
+    "Wilted Roots": "凋零深根"
+  }
+}

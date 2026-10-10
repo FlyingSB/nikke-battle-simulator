@@ -1,0 +1,25 @@
+{
+  "name_localkey": "白雪公主：重型武装",
+  "skill1_detail": {
+    "name_localkey": "七个小矮人V+VI",
+    "description_localkey": "■若处于蓄力状态，每{description_value_01}秒从未被锁定的敌人中，选择最接近瞄准线的目标发动\n<color=#00AEFF>【锁定】\n功能：指定为七个小矮人的攻击目标。\n最大【锁定】目标数：{description_value_03}个\n<word_group=10097>解除时机</word_group>：普通攻击或<word_group=10095>隐蔽时</word_group></color>\n■若处于蓄力状态，则每{description_value_01}秒自身\n<color=#00AEFF>【自动射击就绪】\n功能：装填七个小矮人的子弹。\n效果：【防御力{description_value_04}%▲】【持续】\n最大【自动射击就绪】装弹数：{description_value_05}发\n<word_group=10097>解除时机</word_group>：普通攻击时</color>\n■若处于蓄力状态，被锁定的全体敌人每{description_value_01}秒\n<color=#00AEFF>【所受伤害{description_value_02}%▲】【持续{description_value_08}秒】</color>\n■全蓄力攻击时\n<color=#00AEFF>【自动射击】\n功能：以七个小矮人攻击已锁定的目标。\n效果1：对全体敌人造成【<word_group=10025>最终</word_group>攻击力{description_value_06}%的伤害】\n效果2：对锁定目标造成【<word_group=10025>最终</word_group>攻击力{description_value_07}%的伤害】【依自动射击就绪装弹数<word_group=10050>依次攻击</word_group>】</color>\n■全蓄力攻击时，若处于七个小矮人全面出击状态，则自身\n<color=#00AEFF>【七个小矮人全面出击使用次数1次▼】</color>\n■普通攻击时，若未处于全爆裂状态，则自身\n<color=#00AEFF>【解除七个小矮人全面出击】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "另一种白",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【蓄力时间固定为{description_value_01}秒】【持续】</color>\n■全蓄力时，自身\n<color=#00AEFF>【穿透特化】【持续{description_value_02}秒】\n【攻击力{description_value_03}%▲】【持续{description_value_04}秒】\n【<word_group=10011>零件伤害</word_group>{description_value_11}%▲】【持续{description_value_04}秒】</color>\n■进入爆裂阶段3时，自身\n<color=#00AEFF>【攻击力{description_value_05}%▲】【持续{description_value_06}秒】</color>\n■仅限七个小矮人全面出击状态下，全蓄力时，自身\n<color=#00AEFF>【蓄力伤害{description_value_07}%▲】【持续{description_value_08}发】\n【<word_group=10050>依次攻击</word_group>伤害{description_value_09}%▲】【持续{description_value_10}发】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "七个小矮人全面出击",
+    "description_localkey": "■自身\n<color=#00AEFF>【攻击伤害{description_value_03}%▲】【持续{description_value_04}秒】\n【七个小矮人全面出击】\n功能：蓄力时间增加，但最大锁定目标数与最大自动射击就绪装弹数增加\n使用次数：【{description_value_05}次】\n效果1：【蓄力时间固定为{description_value_01}秒】【持续】\n效果2：【最大【锁定】目标数{description_value_02}▲】【持续】\n效果3：【最大自动射击就绪装弹数{description_value_02}▲】【持续】\n<word_group=10097>解除时机</word_group>：使用次数消耗完毕</color>\n■对所有<word_group=10096>可破坏的发射体</word_group>造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_06}%的伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

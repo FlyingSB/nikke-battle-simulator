@@ -1,0 +1,42 @@
+{
+  "name_localkey": "珍贵的面具们",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【核心伤害{description_value_01}%▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  },
+  "favoriteitem_skill_group_data": {
+    "0": {
+      "info": {
+        "name_localkey": "怪盗的预告信",
+        "description_localkey": "■若普通攻击命中不处于预告信状态的莱彻，将对目标造成\n<color=#00AEFF>【预告信：防御力{description_value_01}%▼】【持续{description_value_02}秒】</color>\n■若普通攻击命中不处于预告信状态的莱彻，则自身\n<color=#00AEFF>【怪盗的短剑：命中率{description_value_03}%▲】\n【叠加{description_value_04}次】【持续{description_value_05}秒】</color>\n■普通攻击命中{description_value_06}次时，若命中对象为<word_group=10105>指定目标</word_group>，则自身\n<color=#00AEFF>【怪盗的短剑：命中率{description_value_07}%▲】\n【叠加{description_value_08}次】【持续{description_value_09}秒】</color>\n■普通攻击命中时，若目标处于预告信状态，则自身\n<color=#00AEFF>【攻击伤害{description_value_10}%▲】【持续{description_value_11}发】</color>",
+        "info_description_localkey": "技能1"
+      }
+    },
+    "1": {
+      "info": {
+        "name_localkey": "怪盗的视线",
+        "description_localkey": "■若自身处于怪盗的短剑叠加上限状态，将对处于预告信状态的目标造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_01}%的额外伤害】【效果生效后解除预告信状态】</color>\n■若自身处于怪盗的短剑叠加上限状态，自身\n<color=#00AEFF>【<word_group=10019>分摊伤害</word_group>{description_value_02}%▲】【叠加{description_value_03}次】【使用爆裂技能后解除叠加】【持续】</color>\n■自身处于怪盗的短剑叠加上限状态时，解除叠加后，对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_04}%的<word_group=10019>分摊伤害</word_group>】</color>\n■进行{description_value_05}次普通攻击时，自身\n<color=#00AEFF>【攻击力{description_value_06}%▲】【持续{description_value_07}秒】\n【<word_group=10019>分摊伤害</word_group>{description_value_08}%▲】【持续{description_value_09}秒】</color>",
+        "info_description_localkey": "技能2"
+      }
+    },
+    "2": {
+      "info": {
+        "name_localkey": "神秘怪盗横行",
+        "description_localkey": "■对全体敌人造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的<word_group=10019>分摊伤害</word_group>】</color>\n■若目标为燃烧代码<word_group=10105>指定目标</word_group>，则对同一敌人\n<color=#00AEFF>【所受伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>\n■对自身\n<color=#00AEFF>【最大装弹数{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+        "info_description_localkey": "爆裂技能"
+      }
+    }
+  },
+  "_terms": {
+    "Calling Card": "预告信",
+    "Thief's Dagger": "怪盗的短剑"
+  }
+}

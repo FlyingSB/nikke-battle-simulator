@@ -1,0 +1,25 @@
+{
+  "name_localkey": "芙罗拉",
+  "skill1_detail": {
+    "name_localkey": "矮牵牛",
+    "description_localkey": "■战斗开始时，只要自身处于生存状态，自身及自身<word_group=10055>两侧</word_group>的2名队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_01}%的体力】【间隔1秒】【持续】\n【获得体力恢复量 {description_value_05}%▲】【叠加{description_value_06}次】【持续】</color>\n■发动{description_value_03}次普通攻击时，电击代码的全体队友\n<color=#00AEFF>【<word_group=10001>可叠加的增益效果叠加量</word_group>{description_value_04}次▲】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "鸢尾花",
+    "description_localkey": "■自身<word_group=10055>两侧</word_group>的队友之一处于存活状态，且体力低于{description_value_01}%时，全体队友\n<color=#00AEFF>【产生相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_02}%的<word_group=10023>护盾</word_group>】【持续{description_value_03}秒】</color>\n■自身<word_group=10055>两侧</word_group>的队友之一体力达到上限时，全体队友\n<color=#00AEFF>【无视防御力伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "秘密花园",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【恢复相当于施展者\n<word_group=10025>最终</word_group>最大体力{description_value_01}%的体力】\n【无视防御力伤害{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name_localkey": "饼干",
+  "skill1_detail": {
+    "name_localkey": "快乐帕比",
+    "description_localkey": "■全爆裂时间结束时，火力型全体队友\n<color=#00AEFF>【普通攻击暴击率{description_value_01}% ▲】【持续{description_value_02}秒】\n【持续恢复相当于施展者\n<word_group=10025>最终</word_group>最大体力的{description_value_03}%】\n【间隔1秒】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "拔河游戏",
+    "description_localkey": "■某位防御型队友的体力达到{description_value_01}%以下时，使其\n<color=#00AEFF>【无敌】【持续{description_value_04}秒】【战斗中触发{description_value_05}次】\n【恢复等同于施展者<word_group=10025>最终</word_group>最大体力的{description_value_02}%】\n【战斗中触发{description_value_03}次】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "散步训练",
+    "description_localkey": "■对随机{description_value_01}名掩体遭到破坏的队友\n<color=#00AEFF>【以掩体体力{description_value_02}%的状态<word_group=10016>复活掩体</word_group>】</color>\n■辅助型全体队友\n<color=#00AEFF>【攻击力{description_value_03}% ▲】【持续{description_value_04}秒】\n【恢复相当于攻击伤害的{description_value_05}%】\n【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  }
+}

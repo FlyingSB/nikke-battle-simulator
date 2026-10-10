@@ -1,0 +1,29 @@
+{
+  "name_localkey": "德雷克：终极反派",
+  "skill1_detail": {
+    "name_localkey": "超超速运作",
+    "description_localkey": "■全爆裂时间开始时，自身\n<color=#00AEFF>【变更使用武器：超超速运作】：\n蓄力时间：固定为1.5秒\n伤害：<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害\n<word_group=10038>弹丸</word_group>数量：15发\n全蓄力伤害：300%\n最大装弹数：{description_value_02}发</color>\n■超超速运作状态结束时，自身\n<color=#00AEFF>【子弹减少{description_value_03}%】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "反派，迟到了",
+    "description_localkey": "■全爆裂时间结束时，全体队友\n<color=#00AEFF>【仅以施展者为基准的最大体力{description_value_02}%▲】【叠加{description_value_03}次】【持续】</color>\n■战斗开始时，自身\n<color=#00AEFF>【迟到：相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_01}%的攻击力▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "反派之网特别版",
+    "description_localkey": "■自身\n<color=#00AEFF>【攻击伤害{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■对全体敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的爆裂技能伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Super Duper Overdrive": "超超速运作",
+    "Fashionably Late": "迟到"
+  }
+}

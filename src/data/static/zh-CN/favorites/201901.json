@@ -1,0 +1,41 @@
+{
+  "name_localkey": "共同制作的花盆",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【最大装弹数{description_value_01}%▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  },
+  "favoriteitem_skill_group_data": {
+    "0": {
+      "info": {
+        "name_localkey": "矮牵牛",
+        "description_localkey": "■战斗开始时，仅限自身处于生存状态，自身及自身<word_group=10055>两侧</word_group>的2名队友\n<color=#00AEFF>【心灵平静：恢复相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_01}%的体力】【间隔1秒】【持续】\n【获得体力恢复量{description_value_05}%▲】【叠加{description_value_06}次】【持续】</color>\n■进行{description_value_03}次普通攻击时，电击代码的全体队友\n<color=#00AEFF>【<word_group=10001>可叠加的增益效果叠加量</word_group>{description_value_04}次▲】</color>\n■进入爆裂2阶时，所有处于心灵平静状态的队友\n<color=#00AEFF>【仅以施展者为基准的最大体力{description_value_07}%▲】【持续{description_value_08}秒】</color>",
+        "info_description_localkey": "技能1"
+      }
+    },
+    "1": {
+      "info": {
+        "name_localkey": "鸢尾花",
+        "description_localkey": "■自身<word_group=10055>两侧</word_group>的队友之一处于存活状态，且体力在{description_value_01}%以下时，全体队友\n<color=#00AEFF>【产生相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_02}%的<word_group=10023>护盾</word_group>】【持续{description_value_03}秒】</color>\n■自身<word_group=10055>两侧</word_group>的队友之一体力达到上限时，全体队友\n<color=#00AEFF>【无视防御力伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>\n■<word_group=10032>护盾生效</word_group>时，所有处于心灵平静状态的队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_06}%▲】【持续{description_value_07}秒】</color>",
+        "info_description_localkey": "技能2"
+      }
+    },
+    "2": {
+      "info": {
+        "name_localkey": "秘密花园",
+        "description_localkey": "■全体队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_01}%的体力】\n【无视防御力伤害{description_value_02}%▲】【持续{description_value_03}秒】\n【以施展者为基准的攻击力{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+        "info_description_localkey": "爆裂技能"
+      }
+    }
+  },
+  "_terms": {
+    "Peace of Mind": "心灵平静"
+  }
+}

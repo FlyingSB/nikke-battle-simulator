@@ -1,0 +1,25 @@
+{
+  "name_localkey": "米尔克",
+  "skill1_detail": {
+    "name_localkey": "胜负欲",
+    "description_localkey": "■<word_group=10025>最终</word_group>攻击力最高的2名队友\n<color=#00AEFF>【攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "米尔克禁药",
+    "description_localkey": "■仅限自身体力为80%以上时，全体队友\n<color=#00AEFF>【暴击伤害{description_value_01}% ▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "冲向胜利",
+    "description_localkey": "■对<word_group=10025>最终</word_group>防御力最高的1名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的爆裂技能伤害】</color>\n■全体队友\n<color=#00AEFF>【恢复相当于攻击伤害的{description_value_03}%】【持续{description_value_01}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

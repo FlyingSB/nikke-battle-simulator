@@ -59,6 +59,7 @@ node scripts/tests/test-all.mjs
 | `test-urls.mjs` | URL 生成算法回归 | 无 |
 | `test-data.mjs` | 数据管线（Bond / 装备 / 方块 / 属性管线） | 需先运行 `scripts/tests/test-battle.mjs` 填充 `scripts/cache/` |
 | `test-stats.mjs` | 完整属性管线集成测试 | 缓存为空时自动从 CDN 拉取 |
+| `test-i18n.mjs` | 界面词典 zh/en 一致性、简体文本补丁、日志游戏文本翻译 | 需已生成 `src/data/static/zh-CN/` |
 
 提交引擎或数据相关的改动之前，全部七个套件必须通过（exit 0）。
 
@@ -71,6 +72,15 @@ node scripts/tests/test-all.mjs
 游戏更新时，CDN URL 的哈希值会发生变化。请更新 `src/data/manifest.js`。
 查找新 URL 的方法：在浏览器中打开 blablalink.com/shiftyspad，查看 Network 标签页中
 对 sg-tools-cdn.blablalink.com 的请求。
+
+## 界面语言（简体中文 / English）
+- 界面文案在 `src/ui/locales/zh.js` / `en.js`（键名必须一一对应），模板用 `$t('key')`，JS 用 `t()`。
+- 游戏文本（角色 / 技能 / 魔方 / 珍藏品）：CDN 只有繁中（`zh-tw`），由
+  `node scripts/download-zh-static.mjs` 下载并经 OpenCC 转为简体，只保存相对英文快照的文本补丁到
+  `src/data/static/zh-CN/`（新增角色或游戏更新后重跑；改术语表 `scripts/lib/zh-cn-glossary.mjs` 后用 `--convert` 离线重生成）。
+- 引擎只使用英文数据；日志内部键保持英文，显示时经 `src/ui/game-text.js` 翻译。
+- 自动翻译不到的 Buff 名 / 命中标签在人工译名表 `src/ui/locales/zh-game-terms.js` 中填写（优先于自动翻译）；
+  新建或修改技能文件后运行 `node scripts/list-untranslated-terms.mjs` 增量补充待译词条（已填译名保留）。
 
 ## 不使用 npm / 不使用 TypeScript
 保持纯 JS。主应用不需要 package.json。

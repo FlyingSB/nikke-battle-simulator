@@ -1,0 +1,28 @@
+{
+  "name_localkey": "诺雅",
+  "skill1_detail": {
+    "name_localkey": "似疼似痛？",
+    "description_localkey": "■被攻击时，有{description_value_03}%的概率全体队友\n<color=#00AEFF>【所受伤害{description_value_01}%▼】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "来打我？",
+    "description_localkey": "■全蓄力攻击命中时，目标\n<color=#00AEFF>【挑衅】【持续{description_value_01}秒】\n【攻击力{description_value_02}%▼】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "气不气人啊？",
+    "description_localkey": "■自身\n<color=#00AEFF>【注目：挑衅全体敌人】【持续{description_value_02}秒】</color>\n■全体队友\n<color=#00AEFF>【无敌】【持续{description_value_03}秒】\n【防御力{description_value_04}% ▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Attract": "注目"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name_localkey": "爱德",
+  "skill1_detail": {
+    "name_localkey": "我要开始打扫了，主人。",
+    "description_localkey": "■战斗开始时，全体队友\n<color=#00AEFF>【完美的女仆：<word_group=10039>免疫减益效果</word_group>{description_value_01}个】\n【叠加{description_value_05}次】【持续】</color>\n■自身体力在{description_value_02}%以下时，全体队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_03}%▲】\n【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "现在是休息时间，主人。",
+    "description_localkey": "■普通攻击{description_value_01}次时，全体队友\n<color=#00AEFF>【完美的女仆：<word_group=10039>免疫减益效果</word_group>{description_value_02}个】\n【叠加{description_value_06}次】【持续】</color>\n■普通攻击{description_value_03}次时，全体队友\n<color=#00AEFF>【仅以施展者为基准的最大体力{description_value_04}%▲】\n【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "该用餐了，主人。",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【仅以施展者为基准的最大体力{description_value_01}%▲】\n【持续{description_value_02}秒】\n【以施展者为基准的攻击力{description_value_03}%▲】\n【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Perfect Maid": "完美的女仆"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name_localkey": "麦斯威尔：平凡技师",
+  "skill1_detail": {
+    "name_localkey": "阶段解除限制",
+    "description_localkey": "■全蓄力攻击时，赋予全体队友\n<color=#00AEFF>【以施展者为基准的最大体力{description_value_01}%▲】【叠加{description_value_02}次】【持续】</color>\n■进入爆裂阶段{description_value_03}时，全体队友\n<color=#00AEFF>【攻击伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "输出切换进程",
+    "description_localkey": "■使用爆裂技能时，全体队友\n<color=#00AEFF>【相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_01}%的攻击力▲】【持续{description_value_02}秒】</color>\n■使用爆裂技能时，自身\n<color=#00AEFF>【超载电流：攻击力{description_value_05}%▲】【最多{description_value_06}阶段】【持续】</color>\n■全蓄力攻击时，全体队友\n<color=#00AEFF>【<word_group=10015>爆裂进度补充</word_group>{description_value_07}%】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "墨提斯部队超级破坏砲",
+    "description_localkey": "■自身\n<color=#00AEFF>【变更使用武器：墨提斯部队超级破坏砲】：\n【蓄力时间】\n【超载电流各阶段效果】【仅套用对应阶段效果】\n蓄力时间：{description_value_09}秒\n阶段1以下：固定{description_value_09}秒\n阶段2：固定{description_value_01}秒\n阶段3：固定{description_value_02}秒\n阶段4：固定{description_value_03}秒\n阶段5以上：固定{description_value_04}秒\n伤害：<word_group=10025>最终</word_group>攻击力{description_value_05}%的伤害\n全蓄力伤害：300%\n最大装弹数：{description_value_06}发\n额外效果：【穿透特化】</color>\n■全体队友\n<color=#00AEFF>【攻击伤害{description_value_07}%▲】【持续{description_value_08}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Overcurrent": "超载电流",
+    "Matis UberBuster": "墨提斯部队超级破坏砲"
+  }
+}

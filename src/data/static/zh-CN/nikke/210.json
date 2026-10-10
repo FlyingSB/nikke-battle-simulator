@@ -1,0 +1,28 @@
+{
+  "name_localkey": "艾可希雅",
+  "skill1_detail": {
+    "name_localkey": "入侵",
+    "description_localkey": "■最后的子弹命中时，自身若处于\\n收集黑客攻击代码的状态，则目标\n<color=#00AEFF>【攻击力{description_value_01}% ▼】【持续{description_value_02}秒】\n【防御力{description_value_03}% ▼】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "密码",
+    "description_localkey": "■最后的子弹命中时，自身\n<color=#00AEFF>【收集黑客攻击代码：攻击力{description_value_01}% ▲】\\n【叠加{description_value_02}次】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "单方协议",
+    "description_localkey": "■对<word_group=10025>最终</word_group>防御力最高的{description_value_01}名敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_02}%的伤害】\n【防御力{description_value_03}%▼】【持续{description_value_04}秒】</color>\n■自身若处于收集黑客攻击代码的最大叠加状态，则对同一敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_05}%的额外伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Collect Hacking Code": "收集黑客攻击代码"
+  }
+}

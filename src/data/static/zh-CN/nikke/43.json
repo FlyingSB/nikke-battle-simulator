@@ -1,0 +1,25 @@
+{
+  "name_localkey": "D：杀手妻子",
+  "skill1_detail": {
+    "name_localkey": "精准狙击",
+    "description_localkey": "■全蓄力攻击{description_value_01}次时，自身\n<color=#00AEFF>【穿透特化】【持续1发】</color>\n■全爆裂时间开始时，持有狙击步枪的全体队友\n<color=#00AEFF>【<word_group=10042>穿透伤害</word_group>{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "突击阵型",
+    "description_localkey": "■全蓄力攻击{description_value_01}次时，全体队友\n<color=#00AEFF>【爆裂技能<word_group=10031>冷却时间</word_group>{description_value_02}秒▼】</color>\n■全蓄力攻击{description_value_03}次时，全体队友\n<color=#00AEFF>【攻击伤害{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "解决目标",
+    "description_localkey": "■对距离瞄准线最近的1个目标造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的额外伤害】\n并附加【目标歼灭】状态【持续{description_value_03}秒】</color>\n■队友以普通攻击命中处于目标歼灭状态敌人的特定部位时\n<color=#00AEFF>【命中部位】【命中时生效增益效果】\n命中零件的队友：【核心伤害{description_value_02}%▲】\n【持续{description_value_03}秒】\n命中本体的队友：【以施展者为基准的攻击力{description_value_04}%▲】\n【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

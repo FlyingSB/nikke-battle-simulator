@@ -1,0 +1,30 @@
+{
+  "name_localkey": "小美人鱼",
+  "skill1_detail": {
+    "name_localkey": "泡泡指令",
+    "description_localkey": "■仅限自身处于<word_group=10080>专注</word_group>状态时，全体队友\n<color=#00AEFF>【<word_group=10079>射击集中</word_group>】【持续】</color>\n■全爆裂时间结束时，全体队友\n<color=#00AEFF>【爆裂技能<word_group=10031>冷却时间</word_group>{description_value_01}秒▼】</color>\n■全爆裂时间开始时，全体队友\n<color=#00AEFF>【攻击伤害{description_value_02}%▲】【持续{description_value_03}秒】</color>\n■<word_group=10078>队友消耗的子弹数总和</word_group>每达到{description_value_04}发时，全体队友\n<color=#00AEFF>【<word_group=10015>爆裂进度补充</word_group>{description_value_05}%】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "泡泡浪潮",
+    "description_localkey": "■敌人登场时，目标\n<color=#00AEFF>【泡沫：所受伤害{description_value_01}%▲】【持续】</color>\n■普通攻击命中{description_value_02}次时，若目标处于泡沫状态，则目标\n<color=#00AEFF>【绽裂泡沫：所受伤害{description_value_01}%▲】【持续】\n【昏迷】【持续{description_value_03}秒】\n【泡沫解除】</color>\n■仅限于全爆裂时间时，每{description_value_04}秒对随机敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_05}%的伤害】【<word_group=10050>依次攻击</word_group>{description_value_06}次】</color>\n■<word_group=10078>队友消耗的子弹数总和</word_group>每达到{description_value_07}发时，对随机敌人造成\n<color=#00AEFF>【泡沫乱射：<word_group=10025>最终</word_group>攻击力{description_value_08}%的伤害】【<word_group=10050>依次攻击</word_group>{description_value_09}次】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "赛莲之歌",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【攻击伤害{description_value_01}%▲】【持续{description_value_02}秒】\n【子弹补充{description_value_03}%】</color>\n■自身\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Bubble": "泡沫",
+    "Explosive Bubble": "绽裂泡沫",
+    "Bubble Barrage": "泡沫乱射"
+  }
+}

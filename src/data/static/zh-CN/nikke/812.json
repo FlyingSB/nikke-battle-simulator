@@ -1,0 +1,25 @@
+{
+  "name_localkey": "帕斯卡",
+  "skill1_detail": {
+    "name_localkey": "小心！",
+    "description_localkey": "■射击{description_value_01}次时，<word_group=10025>最终</word_group>防御力最高的{description_value_02}名队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_03}%】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "我会尽全力的。",
+    "description_localkey": "■进入爆裂1阶时，剩余体力数值最低的{description_value_01}名队友\n<color=#00AEFF>【获得体力恢复量{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "要记住，安全第一喔！",
+    "description_localkey": "■剩余体力数值最低的{description_value_01}名队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_02}%】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  }
+}

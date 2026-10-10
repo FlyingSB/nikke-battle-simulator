@@ -1,0 +1,25 @@
+{
+  "name_localkey": "千束",
+  "skill1_detail": {
+    "name_localkey": "超感知",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【超感知充电{description_value_01}%】【最大{description_value_02}%】【持续】【无法解除】</color>\n■若自身处于超感知状态，则赋予自身\n<color=#00AEFF>【超感知状态阶段效果】\n【<word_group=10028>低级效果重复生效</word_group>】\n{description_value_02}%状态时：【射击看破：无敌】\n【持续{description_value_03}秒】\n仅限{description_value_04}%以上时：【攻击力{description_value_05}%▲】\n【持续】【无法解除】\n仅限{description_value_06}%以上时：【无视防御力伤害{description_value_07}%▲】【持续】【无法解除】\n仅限{description_value_08}%以上时：【命中率{description_value_09}%▲】【持续】【无法解除】 </color>\n■每{description_value_10}秒自身\n<color=#00AEFF>【超感知{description_value_11}%▼】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "防御贯穿射击",
+    "description_localkey": "■使用爆裂技能时，自身\n<color=#00AEFF>【普通攻击变更为无视防御力的伤害】【持续{description_value_01}秒】</color>\n■普通攻击命中{description_value_02}次时，对目标造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的无视防御力伤害】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "紧急充电",
+    "description_localkey": "■自身\n<color=#00AEFF>【超感知充电{description_value_01}%】\n【攻击力{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  }
+}

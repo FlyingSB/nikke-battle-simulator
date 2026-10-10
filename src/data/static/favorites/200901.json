@@ -31,9 +31,9 @@
     4
   ],
   "powers": [
-    0,
-    0,
-    0
+    1288,
+    1288,
+    1288
   ],
   "name_localkey": "Lover Mug",
   "description_localkey": "I wish to share a cup of coffee with you every evening, reflecting on the day gone by, and every morning, welcoming a brand new day together. The mug may be simple in design, but its sentiment is far from ordinary.",
@@ -55,7 +55,7 @@
       "level_up_cost_id": 0,
       "icon": "icn_skill_atkup_01",
       "name_localkey": "Gaze of Courage",
-      "description_localkey": "■ Activates at the start of the battle. \n<color=#00AEFF>Charge Damage <word_group=10029>Multiplier</word_group> ▲ {description_value_01}%.</color>\n<color=#00AEFF>DEF ▲ {description_value_02}%.</color>",
+      "description_localkey": "■ Activates at the start of battle. \n<color=#00AEFF>Charge Damage <word_group=10029>Multiplier</word_group> ▲ {description_value_01}%.</color>\n<color=#00AEFF>DEF ▲ {description_value_02}%.</color>",
       "info_description_localkey": "Burst Skill",
       "description_value_list": [
         {
@@ -93,7 +93,7 @@
       "level_up_cost_id": 0,
       "icon": "icn_skill_stathp_01",
       "name_localkey": "Grounding Pillar",
-      "description_localkey": "■ Activates at the start of the battle. \n<color=#00AEFF>Damage Taken ▼ {description_value_01}%.</color>\n<color=#00AEFF><word_group=10033>Max HP of Cover</word_group> ▲ {description_value_02}%.</color>",
+      "description_localkey": "■ Activates at the start of battle. \n<color=#00AEFF>Damage Taken ▼ {description_value_01}%.</color>\n<color=#00AEFF><word_group=10033>Max HP of cover</word_group> ▲ {description_value_02}%.</color>",
       "info_description_localkey": "Burst Skill",
       "description_value_list": [
         {
@@ -134,7 +134,7 @@
         "level_up_cost_id": 20102,
         "icon": "icn_skill_atkup_01",
         "name_localkey": "In It to Win It",
-        "description_localkey": "■ Activates every {description_value_03} sec. Affects {description_value_05} ally unit(s) with the highest <word_group=10025>final</word_group> ATK.\n<color=#00AEFF>ATK ▲ {description_value_01}% for {description_value_02} sec.</color>\n■ Activates at the start of the battle. Affects self.\n<color=#00AEFF><word_group=10031>Cooldown</word_group> of Burst Skill ▼ {description_value_04} sec continuously.</color>",
+        "description_localkey": "■ Activates every {description_value_03} sec. Affects {description_value_05} ally unit(s) with the highest <word_group=10025>final</word_group> ATK.\n<color=#00AEFF>ATK ▲ {description_value_01}% for {description_value_02} sec.</color>\n■ Activates at the start of battle. Affects self.\n<color=#00AEFF><word_group=10031>Cooldown</word_group> of Burst Skill ▼ {description_value_04} sec continuously.</color>",
         "info_description_localkey": "Skill 1",
         "description_value_list": [
           {
@@ -226,7 +226,7 @@
         "level_up_cost_id": 20202,
         "icon": "icn_skill_criticaldamage_01",
         "name_localkey": "Sugar Rush",
-        "description_localkey": "■ Activates when above {description_value_01}% HP. Affects all allies.\n<color=#00AEFF>Critical Damage ▲ {description_value_02}% continuously.</color>\n■ Activates when attacking with Full Charge for {description_value_03} time(s). Affects all allies.\n<color=#00AEFF><word_group=10031>Cooldown</word_group> of Burst Skill ▼ {description_value_04} sec.</color>",
+        "description_localkey": "■ Activates when above {description_value_01}% HP. Affects all allies.\n<color=#00AEFF>Critical Damage ▲ {description_value_02}% continuously.</color>\n■ Activates when performing a Full Charge attack for {description_value_03} time(s). Affects all allies.\n<color=#00AEFF><word_group=10031>Cooldown</word_group> of Burst Skill ▼ {description_value_04} sec.</color>",
         "info_description_localkey": "Skill 2",
         "description_value_list": [
           {
@@ -305,7 +305,7 @@
         "level_up_cost_id": 20302,
         "icon": "icn_skill_c141_ult",
         "name_localkey": "Victory is Mine",
-        "description_localkey": "■ Affects {description_value_01} enemy unit(s) with the highest <word_group=10025>final</word_group> DEF. \n<color=#00AEFF>Deals {description_value_02}% of <word_group=10025>final</word_group> ATK as Burst Skill damage.</color>\n■ Affects all allies. \n<color=#00AEFF>Recovers {description_value_03}% of attack damage as HP over {description_value_04} sec.\nPotency of HP restored ▲ {description_value_05}% for {description_value_06} sec.</color>",
+        "description_localkey": "■ Affects {description_value_01} enemy unit(s) with the highest <word_group=10025>final</word_group> DEF. \n<color=#00AEFF>Deals {description_value_02}% of <word_group=10025>final</word_group> ATK as Burst Skill damage.</color>\n■ Affects all allies. \n<color=#00AEFF>Restores HP equal to {description_value_03}% of attack damage. Lasts for {description_value_04} sec.\nIncoming Healing ▲ {description_value_05}% for {description_value_06} sec.</color>",
         "info_description_localkey": "Burst Skill",
         "description_value_list": [
           {

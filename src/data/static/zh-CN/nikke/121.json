@@ -1,0 +1,25 @@
+{
+  "name_localkey": "安妮：奇迹仙女",
+  "skill1_detail": {
+    "name_localkey": "跳舞的精灵",
+    "description_localkey": "■发动{description_value_01}次普通攻击时，辅助型全体队友\n<color=#00AEFF>【恢复等同于攻击伤害的{description_value_02}%】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "精灵的玩笑",
+    "description_localkey": "■当自身体力在{description_value_01}%以上时，全体队友\n<color=#00AEFF>【获得体力恢复量{description_value_02}% ▲】【持续】</color>\n■最后的子弹命中时，若自身体力为{description_value_03}% 以上，全体敌人\n<color=#00AEFF>【获得体力恢复量{description_value_04}% ▼】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "蓝蝶之梦",
+    "description_localkey": "■火力型全体队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_03}%】\n【攻击力{description_value_04}% ▲】【持续{description_value_05}秒】</color>\n■无法战斗状态的随机{description_value_01}名火力型队友\n<color=#00AEFF>【以{description_value_02}%的体力复活】【战斗中触发1次】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "风压",
+      "element_code_name_localekey": "CODE：A.N.M.I.",
+      "element_desc_localekey": "对内置铁甲代码的敌人植入CODE：A.N.M.I.以造成10%的额外伤害。"
+    }
+  }
+}

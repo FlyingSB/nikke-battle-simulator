@@ -195,6 +195,8 @@ export function computeFinalStats(slot, nikkeLevel, research) {
   let cubeChargeSpeedPct = 0;
   let cubeReloadSpeedPct = 0;
   const cubeBuffPcts     = {};
+  // 魔方永久 buff 按技能拆分，名称取魔方数据原文（如 'Quick Reload HC'），供战斗日志显示与翻译
+  const cubeBuffs        = [];
   if (slot._cubeData && (slot.cube?.level ?? 0) > 0) {
     const cube      = normalizeCube(slot._cubeData);
     const cubeLevel = slot.cube.level;
@@ -213,12 +215,18 @@ export function computeFinalStats(slot, nikkeLevel, research) {
       const vals = skill.description_value_list?.[0]?.description_value ?? [];
       const val  = parseFloat(vals[skillLv - 1] ?? '0') / 100;
       const desc = (skill.description_localkey ?? '').replace(/<[^>]+>/g, '');
+      const skillName = skill.name_localkey ?? 'Cube';
       if (desc.includes('Elemental Advantage'))          cubeElementDmgPct  += val;
       else if (desc.includes('Charge Speed'))            cubeChargeSpeedPct += val;
-      else if (desc.includes('Reload Speed'))            cubeReloadSpeedPct += val;
-      else {
+      else if (desc.includes('Reload Speed')) {
+        cubeReloadSpeedPct += val;
+        cubeBuffs.push({ name: skillName, reloadSpeedPct: val });
+      } else {
         const hit = CUBE_BUFF_PATTERNS.find(([re]) => re.test(desc));
-        if (hit) cubeBuffPcts[hit[1]] = (cubeBuffPcts[hit[1]] ?? 0) + val;
+        if (hit) {
+          cubeBuffPcts[hit[1]] = (cubeBuffPcts[hit[1]] ?? 0) + val;
+          cubeBuffs.push({ name: skillName, [hit[1]]: val });
+        }
       }
       // "Activates when firing … Reload ▲ round(s)" → Bastion 战斗机制，在引擎中处理
       // 其余（命中率、蓄力伤害、弹匣、爆裂充能、防御、减伤、治疗、掩体 HP、濒危 Max HP）不建模
@@ -273,8 +281,10 @@ export function computeFinalStats(slot, nikkeLevel, research) {
     chargeSpeedPct: (opts.chargeSpeedPct ?? 0) + cubeChargeSpeedPct,
     // 换弹速度：仅来自魔方（Resilience Quick Reload HC）
     reloadSpeedPct: cubeReloadSpeedPct,
-    // 魔方开战永久 buff（Max HP / 零件 / 穿透 / 真实 / 分摊伤害），由 initBattle 推入 state.buffs
+    // 魔方开战永久 buff（Max HP / 零件 / 穿透 / 真实 / 分摊伤害）的字段合计（不含换弹速度）
     cubeBuffPcts,
+    // 同上，按魔方技能拆分并含换弹速度：[{ name: 技能原名, [buff 字段]: 值 }]，由 initBattle 推入 state.buffs
+    cubeBuffs,
     hitRatePct:     opts.hitRatePct     ?? 0,
     equipDefPct,
   };

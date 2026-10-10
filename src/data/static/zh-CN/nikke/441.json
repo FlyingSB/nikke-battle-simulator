@@ -1,0 +1,29 @@
+{
+  "name_localkey": "阿维斯塔",
+  "skill1_detail": {
+    "name_localkey": "安可表演",
+    "description_localkey": "■全爆裂时间结束时，赋予<word_group=10103>我的偶像</word_group>\n<color=#00AEFF>【安可表演：以施展者为基准的攻击力{description_value_02}%▲】【进入全爆裂状态时解除】</color>\n■全爆裂时间结束时，自身\n<color=#00AEFF>【恢复施展者<word_group=10025>最终</word_group>最大体力的{description_value_03}%】【间隔1秒】【持续{description_value_04}秒】\n【观星者解除】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "美好回忆",
+    "description_localkey": "■全爆裂时间开始时，若自身体力在{description_value_01}%以上且处于观星者状态时，则自身\n<color=#00AEFF>【目前体力{description_value_02}%▼】</color>\n■全爆裂时间开始时，仅在自身处于观星者状态下，赋予<word_group=10103>我的偶像</word_group>\n<color=#00AEFF>【<word_group=10066>发射体爆炸伤害</word_group>{description_value_03}%▲】【持续】\n【攻击伤害{description_value_04}%▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "观星者",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【<word_group=10002>重新进入爆裂</word_group>1阶】</color>\n■自身\n<color=#00AEFF>【观星者：以施展者为基准的最大体力{description_value_01}%▲】【持续】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Aftershow": "安可表演",
+    "Stargazer": "观星者"
+  }
+}

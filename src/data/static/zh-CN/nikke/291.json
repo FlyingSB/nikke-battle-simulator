@@ -1,0 +1,25 @@
+{
+  "name_localkey": "艾瑟儿",
+  "skill1_detail": {
+    "name_localkey": "腐蚀物质搭载弹",
+    "description_localkey": "■剩余的体力最低的{description_value_01}名队友\n<color=#00AEFF>【所受伤害{description_value_02}% ▼】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "前兆反应实验",
+    "description_localkey": "■对<word_group=10025>最终</word_group>防御力最高的{description_value_01}名敌人造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_02}%的伤害】</color>\n■在全爆裂时间持续期间发动时，同一敌人\n<color=#00AEFF>【防御力{description_value_03}%▼】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "超大单细胞",
+    "description_localkey": "■剩余的体力最低的{description_value_01}名队友\n<color=#00AEFF>【产生相当于施展者<word_group=10025>最终</word_group>最大体力{description_value_02}%的<word_group=10023>护盾</word_group>】\n【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  }
+}

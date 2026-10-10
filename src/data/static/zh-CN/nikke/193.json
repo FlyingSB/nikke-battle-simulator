@@ -1,0 +1,25 @@
+{
+  "name_localkey": "尼夫",
+  "skill1_detail": {
+    "name_localkey": "北极熊之力量",
+    "description_localkey": "■对剩余的体力比例最低的{description_value_01}名敌人\n造成相当于<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力 {description_value_02}%的伤害】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "北极熊之冬眠",
+    "description_localkey": "■全爆裂时间开始时，自身发动\n<color=#00AEFF>【穿透特化】【持续{description_value_01}发】\n【攻击力{description_value_02}% ▲】【持续{description_value_03}发】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "北极熊之咆哮",
+    "description_localkey": "■自身\n<color=#00AEFF>【暴击率{description_value_01}% ▲】【持续{description_value_02}秒】\n【命中率{description_value_03}% ▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name_localkey": "银华：战术升级",
+  "skill1_detail": {
+    "name_localkey": "伪装围巾",
+    "description_localkey": "■使用爆裂技能时，自身\n<color=#00AEFF>【伪装：<word_group=10004>从单体攻击目标中排除，</word_group>直接被攻击时解除】【持续{description_value_01}秒】</color>\n■全蓄力攻击时，若处于全爆裂时间，自身\n<color=#00AEFF>【伪装：<word_group=10004>从单体攻击目标中排除，</word_group>直接被攻击时解除】【持续{description_value_01}秒】</color>\n■处于伪装状态时，自身\n<color=#00AEFF>【普通攻击变为无视防御力伤害】【持续】\n【无视防御力伤害{description_value_02}%▲】【持续】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "阵型AS",
+    "description_localkey": "■自身处于生存状态时，\n<color=#00AEFF>【阵型AS】：\n功能：对目标下达有利于战斗的战术效果。\n效果1：同一部队的全体队友【暴击率{description_value_01}%▲】【持续】\n效果2：全体队友【蓄力伤害{description_value_02}%▲】【持续】\n效果3：自身【攻击力{description_value_05}%▲】【持续】\n\n【对自身发动阵型LT效果时，套用额外效果】\n效果1：全体队友【<word_group=10066>发射体爆炸伤害</word_group>{description_value_03}%▲】【持续】\n效果2：全体队友【无视防御力伤害{description_value_04}%▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "内爆弹",
+    "description_localkey": "■自身\n<color=#00AEFF>【变更使用武器】：\n蓄力时间：0.3秒\n伤害：相当于<word_group=10025>最终</word_group>攻击力{description_value_01}%的无视防御力伤害\n全蓄力伤害：300%伤害\n最大装弹数：{description_value_02}发\n特殊事项：发射爆裂弹，进行大范围攻击。\n额外效果\n目标：命中对象\n效果：【内爆弹：所受伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Camouflage": "伪装"
+  }
+}

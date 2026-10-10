@@ -1,0 +1,30 @@
+{
+  "name_localkey": "露姬",
+  "skill1_detail": {
+    "name_localkey": "投掷卡牌",
+    "description_localkey": "■全蓄力攻击{description_value_01}次时，全体队友\n<color=#00AEFF>【仅以施展者为基准的最大体力{description_value_02}%▲】\n【持续{description_value_03}秒】</color>\n<color=#00AEFF>【爆裂技能<word_group=10031>冷却时间</word_group>{description_value_04}秒▼】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "抛掷硬币",
+    "description_localkey": "■战斗开始时，<word_group=10055>被部署在后排时，自身和两侧</word_group>\n的2名队友\n<color=#00AEFF>【刀剑币：攻击伤害{description_value_01}%▲】\n【持续】</color>\n■当进行{description_value_02}次全蓄力攻击时，如果自身\n正处于刀剑币状态，则自身和两侧的2名队友\n<color=#00AEFF>【盾牌币：所受伤害{description_value_03}%▼】\n【持续】</color>\n■当使用{description_value_04}次爆裂技能时，如果自身\n正处于盾牌币状态，则全体队友\n<color=#00AEFF>【双剑币：以施展者为基准的最大体力{description_value_05}%▲】\n【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "游戏荷官",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_01}%▲】【持续{description_value_02}秒】</color>\n■当自身处于刀剑币状态时，则全体队友\n<color=#00AEFF>【仅以施展者为基准的最大体力{description_value_03}%▲】\n【持续{description_value_04}秒】</color>\n■当自身处于盾牌币状态时，则全体队友\n<color=#00AEFF>【以施展者为基准的最大体力{description_value_05}%▲】\n【持续{description_value_06}秒】</color>\n■当自身处于双剑币状态时，则全体队友\n<color=#00AEFF>【仅以施展者为基准的最大体力{description_value_07}%▲】\n【持续{description_value_08}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Sword Coin": "刀剑币",
+    "Shield Coin": "盾牌币",
+    "Double Sword Coin": "双剑币"
+  }
+}

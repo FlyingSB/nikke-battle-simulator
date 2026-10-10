@@ -1,0 +1,24 @@
+{
+  "skill1_detail": {
+    "name_localkey": "功率提升",
+    "description_localkey": "■使用爆裂技能时，自身\n<color=#00AEFF>【蓄力伤害{description_value_01}% ▲】【持续{description_value_02}秒】\n【爆炸范围{description_value_03}% ▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "缓冲攻击",
+    "description_localkey": "■全蓄力攻击命中时，对目标造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的额外伤害】</color>\n■全蓄力攻击命中时，自身\n<color=#00AEFF>【<word_group=10011>零件伤害</word_group> {description_value_02}% ▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "B模式",
+    "description_localkey": "■自身\n<color=#00AEFF>【B模式】：\n功能：每秒降低自身体力，同时提升攻击力与蓄力速度。若自身体力为{description_value_01}%以下，则解除B模式。\n效果1：【目前体力{description_value_02}%▼】【间隔1秒】\n效果2：【攻击力{description_value_03}%▲】\n效果3：【蓄力速度{description_value_04}%▲】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

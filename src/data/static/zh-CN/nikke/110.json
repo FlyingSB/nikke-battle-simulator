@@ -1,0 +1,25 @@
+{
+  "name_localkey": "克拉乌",
+  "skill1_detail": {
+    "name_localkey": "杀戮时刻",
+    "description_localkey": "■全爆裂时间开始时，全体敌人\n<color=#00AEFF>【攻击力{description_value_01}%▼】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "蛮勇",
+    "description_localkey": "■最后的子弹命中时，对目标造成\n<color=#00AEFF>【相当于<word_group=10025>最终</word_group>攻击力{description_value_01}%的额外伤害】</color>\n■最后的子弹命中时，自身\n<color=#00AEFF>【防御力{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "怒火",
+    "description_localkey": "■对<word_group=10025>最终</word_group>攻击力最高的1名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的爆裂技能伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

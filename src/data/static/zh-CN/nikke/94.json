@@ -1,0 +1,28 @@
+{
+  "name_localkey": "贝斯蒂：战术升级",
+  "skill1_detail": {
+    "name_localkey": "飞弹导引",
+    "description_localkey": "■全蓄力攻击时，若自身未处于飞弹导引状态，则自身\n<color=#00AEFF>【飞弹导引：蓄力速度{description_value_01}%▲】【持续{description_value_02}发】</color>\n<color=#00AEFF>【蓄力伤害{description_value_03}%▲】【持续{description_value_04}发】</color>\n■换弹填满弹匣后，自身\n<color=#00AEFF>【解除飞弹导引】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "怪物舞台",
+    "description_localkey": "■全蓄力攻击命中时，对目标造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的无视防御力伤害】</color>\n■全蓄力攻击命中时，\n若自身处于战场布阵状态，\n则自身<color=#00AEFF>【攻击力{description_value_02}%▲】\n【持续{description_value_03}秒】</color>\n■全蓄力攻击命中时，\n若目标处于内爆弹状态，\n则自身<color=#00AEFF>【<word_group=10066>发射体爆炸伤害</word_group>{description_value_04}%▲】\n【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "飞弹就绪",
+    "description_localkey": "■自身\n<color=#00AEFF>【爆炸范围{description_value_01}%▲】【持续{description_value_02}秒】</color>\n<color=#00AEFF>【无视防御力伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■对全体敌人（包括零件）造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_05}%的\n无视防御力爆裂技能伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Missile Guide": "飞弹导引"
+  }
+}

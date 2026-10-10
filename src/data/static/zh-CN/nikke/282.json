@@ -1,0 +1,28 @@
+{
+  "name_localkey": "樱花",
+  "skill1_detail": {
+    "name_localkey": "樱花茶",
+    "description_localkey": "■进行{description_value_01}次普通攻击后，全体队友\n<color=#00AEFF>【樱花茶：防御力{description_value_02}%】【叠加{description_value_03}次】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "落樱缤纷",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【<word_group=10007>攻击敌人发射体时，对该发射体\n造成的伤害</word_group>{description_value_01}% ▲】【持续】</color>\n■全爆裂时间开始时，对全体队友\n<color=#00AEFF>【爆裂技能<word_group=10031>冷却时间</word_group>{description_value_02}秒▼】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "樱花烂漫",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【<word_group=10008>受风压代码敌人伤害</word_group>{description_value_01}%▼】\n【持续{description_value_02}秒】\n【战斗中触发{description_value_03}次】\n【以施展者为基准的攻击力{description_value_04}%▲】\n【持续{description_value_05}秒】</color>\n■若自身处于樱花茶最大叠加状态，全体队友\n<color=#00AEFF>【<word_group=10000>阻止部位攻击伤害</word_group>{description_value_06}%▲】\n【持续{description_value_07}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Cherry Blossom Tea": "樱花茶"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name_localkey": "露菲",
+  "skill1_detail": {
+    "name_localkey": "奖赏",
+    "description_localkey": "■普通攻击命中{description_value_01}次时，铁甲代码全体队友\n<color=#00AEFF>【<word_group=10001>可叠加的增益效果叠加量</word_group>{description_value_02}个 ▲】\n【暴击率{description_value_03}% ▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "积分",
+    "description_localkey": "■攻击{description_value_01}次时，自身\n<color=#00AEFF>【积分：攻击力{description_value_02}% ▲】\\n【叠加{description_value_03}次】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "一次性支付",
+    "description_localkey": "■对<word_group=10020>攻击范围内的敌人</word_group>造成\n相当于<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力\n{description_value_01}%的伤害】</color>\n■若自身处于积分最大叠加状态，则全体队友\n<color=#00AEFF>【攻击力{description_value_02}% ▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Mileage": "积分"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name_localkey": "尼罗",
+  "skill1_detail": {
+    "name_localkey": "猫的报恩",
+    "description_localkey": "■<word_group=10027>恢复效果生效</word_group> 时，使目标\n<color=#00AEFF>【所受伤害{description_value_01}% ▼】【持续{description_value_02}秒】</color>\n■<word_group=10027>恢复效果生效</word_group> 时，使自身\n<color=#00AEFF>【猫的报恩：所受伤害{description_value_03}% ▼】\n【叠加{description_value_04}次】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "猫爪",
+    "description_localkey": "■被攻击时，有{description_value_01}%的概率使目标\n<color=#00AEFF>【所受伤害{description_value_02}% ▲】【持续{description_value_03}秒】</color>\n■被攻击时，若正处于野蛮大猫状态，\n则有{description_value_04}%的概率\n对目标造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_05}%的伤害】</color>\n■战斗开始时，<color=#00AEFF>自身\n【最大体力{description_value_06}% ▲】【持续】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "野蛮大猫",
+    "description_localkey": "■对剩余体力最高的{description_value_01}名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的爆裂技能伤害】</color>\n■自身\n<color=#00AEFF>【注目：挑衅全体敌人】【持续{description_value_03}秒】</color>\n■若自身处于猫的报恩最大叠加状态，自身\n<color=#00AEFF>【野蛮大猫：获得体力恢复量{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Cat's Repayment": "猫的报恩",
+    "Attract": "注目",
+    "Grumpy Cat": "野蛮大猫"
+  }
+}

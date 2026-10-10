@@ -1,0 +1,25 @@
+{
+  "name_localkey": "贝斯蒂",
+  "skill1_detail": {
+    "name_localkey": "想像成真",
+    "description_localkey": "■全蓄力攻击时，自身\n<color=#00AEFF>【爆炸范围{description_value_01}%▲】【持续{description_value_02}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "生存本能",
+    "description_localkey": "■使用爆裂技能时，自身\n<color=#00AEFF>【不同的使用次数，不同的额外效果】\n【<word_group=10028>低级效果重复生效</word_group>】\n1次：【生存本能 1：攻击力 {description_value_01}% ▲】\n【持续{description_value_02}秒】\n2次：【生存本能 2：暴击伤害 {description_value_03}% ▲】\n【持续{description_value_04}秒】\n3次：【生存本能 3：暴击率 {description_value_05}% ▲】\n【持续{description_value_06}秒】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "正当防卫",
+    "description_localkey": "■自身\n<color=#00AEFF>【调用2台飞弹货柜】：\n功能：对剩余的体力数值最低的敌人造成<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害\n攻击间隔：1秒\n持续时间：18秒</color>\n■全体敌人\n<color=#00AEFF>【按照生存本能阶段触发额外效果】【<word_group=10028>低级效果重复生效</word_group>】：\n生存本能 1：【<word_group=10025>最终</word_group>攻击力\n{description_value_02}%的额外伤害】\n生存本能2：【造成<word_group=10025>最终</word_group>攻击力\n{description_value_03}%的额外伤害】\n生存本能3：【造成<word_group=10025>最终</word_group>攻击力\n{description_value_04}%的额外伤害】</color>\n■全体队友\n<color=#00AEFF>【全爆裂时间持续时间5秒▼】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "水冷",
+      "element_code_name_localekey": "CODE：P.S.I.D.",
+      "element_desc_localekey": "对内置燃烧代码的敌人植入CODE：P.S.I.D.以造成10%的额外伤害。"
+    }
+  }
+}

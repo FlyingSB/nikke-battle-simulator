@@ -90,9 +90,8 @@ export default {
   // p08: [10, ...] (Damage Taken duration, const)
   //
   // Indomitability 为防御效果，不建模。Max HP ▲ 通过 maxHpPct buff 实现。
-  // Damage Taken debuff 通过 buff 的 endTick 机制管理：battle.js 过期循环读取
-  // b.enemyDamageTakenPct 并从 state.enemyDamageTakenPct 中减去，精度至单 tick。
-  // 刷新时（buff 仍活跃）pushBuff 仅延长 endTick，不重复累加 enemyDamageTakenPct。
+  // Damage Taken debuff 通过 buff 的 endTick 机制管理：getEnemyDamageTakenPct 只汇总未过期的
+  // 敌方 buff，精度至单 tick。刷新时（buff 仍活跃）pushBuff 仅延长 endTick，不重复累加。
   burst: {
     groupId: 12703,
     triggers: [

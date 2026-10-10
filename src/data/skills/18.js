@@ -9,7 +9,7 @@ export default {
   // ■ Activates when attacked while not in Healthy Body status. Affects self.
   // Invulnerable for {description_value_03} sec. Activates {description_value_04} time(s) per battle.
   // Gains debuff immunity to ∞ debuffs for {description_value_05} sec. Activates {description_value_06} time(s) per battle.
-  // Healthy Body: Potency of HP restored ▲ {description_value_01}% for {description_value_02} sec.
+  // Healthy Body: Incoming Healing ▲ {description_value_01}% for {description_value_02} sec.
   // ■ Activates when landing a Full Charge attack. Affects the enemy if the enemy is the stage target.
   // Firepower Explosion:
   // Effect: Deals {description_value_07}% of final ATK as additional damage.
@@ -26,7 +26,7 @@ export default {
     groupId: 20181,
     triggers: [
       // [TODO] S1 P1（Healthy Body）：受到攻击且无 Healthy Body → 自身无敌 3s + 免疫 debuff 3s（5次/战）
-      //   + Healthy Body: HP 回复效力 ▲10.26% 20s — 防御性技能，暂不建模
+      //   + Healthy Body: 受治疗量 ▲10.26% 20s — 防御性技能，暂不建模
       {},
       // S1 P2（Firepower Explosion）：全蓄力命中舞台目标 → 额外 437.98% final ATK
       //   Super Firepower 状态中追加 262.79% final ATK

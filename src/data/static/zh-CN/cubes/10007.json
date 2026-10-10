@@ -1,0 +1,15 @@
+{
+  "name_localkey": "遗迹毁灭魔方",
+  "harmonycube_skill_group": {
+    "0": {
+      "name_localkey": "紧急零件启动 HC",
+      "description_localkey": "■战斗开始时，\n<color=#00AEFF>【<word_group=10011>零件伤害</word_group>{description_value_01}% ▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "反向代码 HC",
+      "description_localkey": "■战斗开始时，\n<color=#00AEFF>【<word_group=10009>优越代码攻击伤害</word_group> {description_value_01}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  }
+}

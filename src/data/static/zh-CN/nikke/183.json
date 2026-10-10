@@ -1,0 +1,25 @@
+{
+  "name_localkey": "梅登：冰玫瑰",
+  "skill1_detail": {
+    "name_localkey": "冥想",
+    "description_localkey": "■进入爆裂阶段1时，若自身的MP为0，则自身\n<color=#00AEFF>【MP恢复{description_value_01}点】【MP最高累积至12点】【使用爆裂技能时会消耗所有累积MP】</color>\n■全爆裂时间开始时，若自身有1点以上的MP，则自身\n<color=#00AEFF>【MP补充{description_value_02}点】【MP最高累积至12点】【使用爆裂技能时会消耗所有累积MP】</color>\n■ 全蓄力攻击{description_value_06}次时，自身\n<color=#00AEFF>【仅最大体力{description_value_03}%▲】【叠加{description_value_04}次】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "赐福",
+    "description_localkey": "■补充MP时，除自身以外的所有电击代码队友\n<color=#00AEFF>【<word_group=10009>优越代码攻击伤害</word_group>{description_value_01}%▲】【持续{description_value_02}秒】</color>\n<color=#00AEFF>【以施展者为基准的攻击力{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■消耗MP后，自身\n<color=#00AEFF>【<word_group=10009>优越代码攻击伤害</word_group>{description_value_05}%▲】【持续{description_value_06}秒】</color>\n<color=#00AEFF>【按照施展者<word_group=10025>最终</word_group>最大体力\n{description_value_07}%的攻击力▲】【持续{description_value_08}秒】</color>\n■全蓄力攻击{description_value_11}次时，对距离瞄准线最近的{description_value_09}名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_10}%的伤害】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "钻石尘埃",
+    "description_localkey": "■对最接近瞄准线的{description_value_01}名敌人造成\n<color=#00AEFF>【以施展者<word_group=10025>最终</word_group>最大体力的{description_value_02}%和攻击力相加后，总计{description_value_03}%的伤害】【仅按照当下的MP发动<word_group=10060>连续攻击</word_group>】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "电击",
+      "element_code_name_localekey": "CODE：Z.E.U.S.",
+      "element_desc_localekey": "对内置水冷代码的敌人植入CODE：Z.E.U.S.以造成10%的额外伤害。"
+    }
+  }
+}

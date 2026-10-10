@@ -1,0 +1,25 @@
+{
+  "name_localkey": "埃癸斯",
+  "skill1_detail": {
+    "name_localkey": "人格面具：智能女神像",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【人格面具 - 智能女神像】【持续】【无法解除】：\n功能：透过人格面具强化自身。\n效果1：【塔尔卡加：攻击力{description_value_01}%▲】【持续】【无法解除】\n效果2：【拉库卡加：防御力{description_value_02}%▲】【持续】【无法解除】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "蝴蝶之心",
+    "description_localkey": "■使用爆裂技能时，若自身处于生存状态，\n<color=#00AEFF>【蝴蝶之心】【持续】【无法解除】：\n功能：强化队友。\n效果1：全体队友【玛哈塔尔卡加：以施展者为基准的攻击力{description_value_01}%▲】\n【持续】【无法解除】\n效果2：全体队友【玛哈拉库卡加：以施展者为基准的防御力{description_value_02}%▲】\n【持续】【无法解除】\n<word_group=10097>解除时间</word_group>：全爆裂时间结束时</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "灼热波浪",
+    "description_localkey": "■对全体敌人造成相当于\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_01}%的<word_group=10019>分摊伤害</word_group>】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  }
+}

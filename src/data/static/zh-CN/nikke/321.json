@@ -1,0 +1,28 @@
+{
+  "name_localkey": "玛律恰那",
+  "skill1_detail": {
+    "name_localkey": "无人机支持",
+    "description_localkey": "■最后的子弹命中时，全体队友\n<color=#00AEFF>【恢复相当于攻击伤害{description_value_01}%的体力】【持续{description_value_02}秒】</color>\n■最后的子弹命中时，<word_group=10025>最终</word_group>攻击力最高的{description_value_03}名队友\n<color=#00AEFF>【获得体力恢复量{description_value_04}%▲】【持续{description_value_05}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "校医",
+    "description_localkey": "■使用爆裂技能时，全体队友\n<color=#00AEFF>【恢复相当于施展者<word_group=10025>最终</word_group>最大体力的{description_value_01}%】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "师恩",
+    "description_localkey": "■全体队友\n<color=#00AEFF>【保存：以施展者为基准的最大体力{description_value_01}%为上限，保存溢出的体力恢复量】【持续{description_value_02}秒】\n【相当于施展者防御力{description_value_03}%的防御力 ▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "铁甲",
+      "element_code_name_localekey": "CODE：D.M.T.R.",
+      "element_desc_localekey": "对内置电击代码的敌人植入CODE：D.M.T.R.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Storage": "保存"
+  }
+}

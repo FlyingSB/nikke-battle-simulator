@@ -1,0 +1,28 @@
+{
+  "name_localkey": "帕瓦",
+  "skill1_detail": {
+    "name_localkey": "血之魔印",
+    "description_localkey": "■全蓄力攻击时，自身\n<color=#00AEFF>【血之魔印：攻击力{description_value_01}% ▲】\\n【叠加{description_value_02}次】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "血之爆炸",
+    "description_localkey": "■进行{description_value_01}次普通攻击后，自身若处于血之魔印的最大叠加状态，则自身\n<color=#00AEFF>【爆炸范围{description_value_02}% ▲】【持续{description_value_03}秒】\n【子弹补充{description_value_04}%】【战斗中触发{description_value_05}次】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "血之铁锤",
+    "description_localkey": "■对<word_group=10025>最终</word_group>攻击力最高的{description_value_01}名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的爆裂技能伤害】</color>\n■自身若处于血之魔印最大叠加状态，对同一敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_03}%的额外伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Blood Fiend": "血之魔印"
+  }
+}

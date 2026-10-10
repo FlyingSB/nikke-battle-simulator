@@ -1,0 +1,25 @@
+{
+  "name_localkey": "尼恩",
+  "skill1_detail": {
+    "name_localkey": "尼恩特制弹",
+    "description_localkey": "■消灭敌人时，<word_group=10025>最终</word_group>攻击力最高的{description_value_01}名队友\n<color=#00AEFF>【暴击率{description_value_02}%▲】【持续{description_value_03}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "火力万岁！",
+    "description_localkey": "■全爆裂时间开始时，全体队友\n<color=#00AEFF>【暴击率{description_value_01}%▲】【持续{description_value_02}发】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "火力至上！",
+    "description_localkey": "■对<word_group=10025>最终</word_group>防御力最高的{description_value_01}名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_02}%的爆裂技能伤害】</color>\n■持有霰弹枪的全体队友\n<color=#00AEFF>【最大装弹数{description_value_03}发▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  }
+}

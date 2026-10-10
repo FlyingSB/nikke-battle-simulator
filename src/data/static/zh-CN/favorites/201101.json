@@ -1,0 +1,43 @@
+{
+  "name_localkey": "打火器",
+  "collection_skill_group_data": {
+    "0": {
+      "name_localkey": "给予勇气的视线",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【核心伤害{description_value_01}%▲】</color>\n<color=#00AEFF>【防御力{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    },
+    "1": {
+      "name_localkey": "心灵的支柱",
+      "description_localkey": "■战斗开始时\n<color=#00AEFF>【所受伤害{description_value_01}%▼】</color>\n<color=#00AEFF>【<word_group=10033>掩体最大体力</word_group>{description_value_02}%▲】</color>",
+      "info_description_localkey": "爆裂技能"
+    }
+  },
+  "favoriteitem_skill_group_data": {
+    "0": {
+      "info": {
+        "name_localkey": "赶造子弹",
+        "description_localkey": "■普通攻击{description_value_01}次时，使自身\n<color=#00AEFF>【赶造子弹：子弹补充{description_value_02}%】</color>\n■赶造子弹生效时，全体队友\n<color=#00AEFF>【临时改造：最大装弹数{description_value_03}发▲】【叠加{description_value_04}次】【持续{description_value_05}秒】\n【暴击伤害{description_value_06}%▲】【持续{description_value_07}秒】</color>",
+        "info_description_localkey": "技能1"
+      }
+    },
+    "1": {
+      "info": {
+        "name_localkey": "临时制作的奇迹",
+        "description_localkey": "■全体队友\n<color=#00AEFF>【临时制作的奇迹：以施展者为基准的攻击力{description_value_01}%▲】【临时改造<word_group=10026>叠加拷贝</word_group>】【持续{description_value_02}秒】</color>\n■持有霰弹枪的全体队友\n<color=#00AEFF>【临时制作的奇迹：以施展者为基准的攻击力{description_value_03}%▲】【临时改造<word_group=10026>叠加拷贝</word_group>】【持续{description_value_04}秒】</color>",
+        "info_description_localkey": "爆裂技能"
+      }
+    },
+    "2": {
+      "info": {
+        "name_localkey": "改造成功",
+        "description_localkey": "■仅限自身处于临时改造最大叠加状态，全体队友\n<color=#00AEFF>【暴击率{description_value_01}%▲】【持续】</color>\n■仅限自身处于临时改造最大叠加状态，持有霰弹枪的全体队友\n<color=#00AEFF>【攻击速度{description_value_02}%▲】【持续】</color>",
+        "info_description_localkey": "技能2"
+      }
+    }
+  },
+  "_terms": {
+    "Emergency-Crafted Bullets": "赶造子弹",
+    "Temporary Modification": "临时改造",
+    "Miracle of Makeshifts": "临时制作的奇迹"
+  }
+}
