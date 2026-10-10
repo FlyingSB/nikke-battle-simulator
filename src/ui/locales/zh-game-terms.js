@@ -32,7 +32,7 @@ export default {
   // ── 281 Moran（牡丹）
   'Perseverance': '毅力',
   // ── 330 Crown（皇冠）
-  'One for All': '',
+  'One for All': 'One for All',
   // ── 355 Anchor: Innocent Maid（安克：天真的女仆）
   'Starfish (Shaped) Omurice': '海星（形状）蛋包饭',
   'Sea Anemone (Shaped) Pasta': '海葵（形状）意大利面',
@@ -43,7 +43,7 @@ export default {
   'Noise Bullets': '噪音弹',
   'Enhanced Bullets': '强化弹',
   // ── 431 Volume（沃纶姆）
-  'Drop the Beat': '',
+  'Drop the Beat': 'Drop the Beat',
   // ── 470 Red Hood（小红帽）
   'The Last Howl': '最终的嚎叫',
   // ── 471 Snow White: Heavy Arms（白雪公主：重型武装）
@@ -62,6 +62,7 @@ export default {
   'Assigned Part: Singing': '舞台定位：歌唱',
   'Assigned Part: Dancing': '舞台定位：舞蹈',
   // ── 601 Prika（普莉卡）
+  'Encore': '安可',
   'Performance': '表演',
   // ── 835 Asuka: WILLE（明日香：WILLE）
   'Anti A.T. Field': '反AT力场',

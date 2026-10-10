@@ -838,7 +838,9 @@ export function pushHoT(state, target, amount, durationSecs, logCtxOverride = nu
  *   extraAtkFlatLabel        {string}   extraAtkFlat 在伤害明细中的显示名（缺省为「额外加成」）
  *   preBuffBreakdown         {object[]} 预快照的 buff 明细（见 snapshotBuffBreakdown），替代命中时刻的 buff 列表
  *   projectileExplosion      {boolean}  Projectile Explosion 命中（受 projectileExplosionDamagePct 影响）
- *   affectedByFullBurst      {boolean}  非默认：该命中受全爆裂补正影响（仅 Rapi: Red Hood、Liberellio）
+ *   affectedByFullBurst      {boolean}  B3 爆裂技能描述为 "as additional damage" 时设置：该命中受全爆裂 +50% 与
+ *                                       ENTER_FULL_BURST buff 影响（Rapi: Red Hood、Liberalio、Laplace: Ultimate Hero P3、
+ *                                       Sin: Swift Bunny P3；实测例外 Elegg: Boom and Shock；Cinderella P2 走 pendingFireInBurstHits）
  *   suppressFullBurst        {boolean}  [引擎内部] 由引擎自动标记延迟爆裂技能命中，抑制全爆裂补正
  *   applyDistanceAdv         {boolean}  该技能命中受距离优势影响（默认仅普通攻击；Rapi S2 P1/P2 需显式开启）
  *   isSequentialAttack       {boolean}  依次攻击命中（受 sequentialAttackDamagePct buff 加成）
@@ -936,6 +938,19 @@ export function snapshotBuffBreakdown(state, unitId) {
 }
 
 export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
+  // B3 施放期间的爆裂技能直接伤害：不即时结算，排入延迟命中队列（fireTick 由 executeSkillTriggers
+  // 统一后移到进入全爆裂时刻，§6.2）。默认命中预捕获施放时的 sums 与 buff 明细，不受进入全爆裂后
+  // 才推入的 buff 影响；affectedByFullBurst 命中则在进入全爆裂瞬间统一快照 sums（enterFullBurst）。
+  if (state._deferB3HitsFor != null && state._deferB3HitsFor === unit.id) {
+    const affected = !!opts.affectedByFullBurst;
+    state.pendingSkillHits.push({
+      fireTick: state.tick, caster: unit, mult: hitMult, label,
+      sums: affected ? null : sums,
+      opts: affected ? opts
+        : { ...opts, preBuffBreakdown: opts.preBuffBreakdown ?? snapshotBuffBreakdown(state, unit.id) },
+    });
+    return 0;
+  }
   label = resolveSkillLabel(unit, label);
   const charged          = false;
   // normalAttack* 加成仅适用于普通攻击；普通技能伤害不受此加成，isNormalAttack 命中例外
@@ -958,8 +973,8 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
   const projectileExplosionDamagePct = opts.projectileExplosion ? (sums.projectileExplosionDamagePct ?? 0) : 0;
   const isTrueDamage       = opts.isTrueDamage ?? false;
   const distAdvForHit      = opts.applyDistanceAdv ? unitDistanceAdvantage(unit, state.enemyDistance) : false;
-  // B3 爆裂技能施放时 fullBurstActive 尚未置为 true，直接命中自然不受 +50% 补正。
-  // 延迟命中（pendingSkillHits）由引擎统一标记 suppressFullBurst:true（affectedByFullBurst 的除外）。
+  // B3 爆裂技能伤害一律经延迟命中队列在进入全爆裂后结算（§6.2），
+  // 由引擎统一标记 suppressFullBurst:true（affectedByFullBurst 的除外）。
   const isFullBurst = state.fullBurstActive &&
     (opts.affectedByFullBurst || !opts.suppressFullBurst);
   const { damage, breakdown: bd } = calcDamage({

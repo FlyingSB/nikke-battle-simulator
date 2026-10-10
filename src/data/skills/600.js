@@ -1,5 +1,7 @@
 import { pushBuff, applyHeal, getBuffSums, TICK_RATE, pushHoT, ALL_ALLIES, getFinalMaxHp } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
+// 循环导入（skill-executor ↔ skill-traits ↔ 本模块）：仅在运行时调用，同 persona-shared.js
+import { executeSkillTriggers } from '../../engine/skill-executor.js';
 
 // Character: Mint  (resource_id: 600)
 export default {
@@ -60,7 +62,7 @@ export default {
   // p05 duration (const): [10, ...]
   //
   // 触发时序：Mint 是 B2，BURST_SKILL_USE（B2）先于 ENTER_BURST_III 触发，
-  // 因此 S2 看到的是 burst 已切换后的状态（isSinging 已更新）。
+  // 因此 S2 看到的是 burst 已切换后、且 Prika Encore（SING_ALONG）结算后的状态（isSinging 已更新）。
   // Sing Along（10s buff）在 burst 施放时立即激活，ENTER_BURST_III 检查时必然有效，
   // "not in Sing Along" branch 仅在异常场景（首次爆裂前意外触发）时执行，通常为空操作。
   skill2: {
@@ -138,6 +140,13 @@ export default {
           const critDamagePct = getSkillValue(caster.rawBurst, 4, lv) / 100;
           pushBuff(state, { name: 'Sing Along', unitId: null, attackDamagePct: atkDmgPct, critDamagePct, maxAmmoPct: ammoPct, endTick },
             { ...state._logCtx, partIdx: 1 });
+
+          // 合唱生效 → 派发 SING_ALONG（Prika S2 P2 Encore 在此结算：赋予 Mint Assigned Part: Singing 等），
+          // 早于引擎在 B2 施放后触发的 ENTER_BURST_III，因此本技能 S2 进入阶段 3 时已是 Singing。
+          // executeSkillTriggers 结束时会清空 state._logCtx，派发前后保存 / 恢复外层日志上下文。
+          const outerLogCtx = state._logCtx;
+          executeSkillTriggers(state, 'SING_ALONG', { unit: caster });
+          state._logCtx = outerLogCtx;
         },
       },
     ],

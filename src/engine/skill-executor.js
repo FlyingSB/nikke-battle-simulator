@@ -10,6 +10,7 @@
  *   ENTER_BURST_III     进入爆裂阶段 3（B2 延迟结束，B3 施放前）
  *   BURST_SKILL_USE     使用爆裂技能时（B1/B2/B3 施放时；ctx.unit = 施放单位）
  *   ENTER_FULL_BURST    进入全爆裂阶段（B3 施放完毕后）
+ *   FULL_BURST_SNAPSHOT 进入全爆裂、受全爆裂影响的 B3 伤害完成快照之后（「先计入快照、再移除」的效果）
  *   FULL_BURST_END      全爆裂阶段结束
  *   SHOT_COUNT          普通攻击 X 次（通过 onShotFired 驱动，溢出保留；ctx.unit = 射击单位）
  *   SQUAD_SHOT_COUNT    全队任意单位普通攻击时广播（onShotFired 驱动；ctx.shootingUnit = 实际射击单位）
@@ -41,6 +42,8 @@
  *   SNIPE_MODE_CHANGED  ctx.unit 的 Snipe Mode 生效 / 移除后（非团队；ctx.active = 是否处于 Snipe Mode；
  *                       由 src/data/skills/515.js 派发，Cinderella: Crystal Wave S2 据此切换 Destroy / Pinpoint）
  *   DURING_FULL_CHARGE  全蓄力击发之前（ctx.unit = 射击单位；推入的 buff 作用于本次射击，见 fireDuringFullChargeTriggers）
+ *   SING_ALONG          「合唱」（Sing Along）生效时（团队触发；ctx.unit = 合唱施放者；由 Mint 600 爆裂技能在推入
+ *                       Sing Along 后立即派发，早于 ENTER_BURST_III。Prika 601 S2 P2 Encore 据此结算）
  *
  * 作用范围（target 字段）：
  *   SELF                     自身（caster）
@@ -87,8 +90,8 @@ import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, isPartsHit,
 // 团队触发：ctx.unit 无意义，所有持有该技能的在队单位均触发
 const TEAM_TRIGGERS = new Set([
   'PROGRAM_INIT',
-  'BATTLE_START', 'ENTER_BURST_I', 'ENTER_BURST_II', 'ENTER_BURST_III', 'ENTER_FULL_BURST', 'FULL_BURST_END',
-  'AMMO_MILESTONE', 'HEAL_RECEIVED', 'HP_CHANGED', 'COVER_HEAL', 'BUFF_EXPIRE',
+  'BATTLE_START', 'ENTER_BURST_I', 'ENTER_BURST_II', 'ENTER_BURST_III', 'ENTER_FULL_BURST', 'FULL_BURST_SNAPSHOT', 'FULL_BURST_END',
+  'AMMO_MILESTONE', 'HEAL_RECEIVED', 'HP_CHANGED', 'COVER_HEAL', 'BUFF_EXPIRE', 'SING_ALONG',
 ]);
 
 /**
@@ -365,6 +368,14 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
   for (const { caster, skillKey, tdefIdx, tdef, skill } of pending) {
     const logCtx = buildLogCtx(caster, skillKey, tdefIdx, tdef, skill, trigger);
 
+    // B3 直接伤害从进入全爆裂开始计时（§6.2）：B3 施放者自身爆裂技能的 BURST_SKILL_USE 期间，
+    // fireSkillHit 改为排入延迟命中队列，且本 handler 新增的延迟命中统一后移 state.b3Cast.delayTicks
+    const deferB3 = trigger === 'BURST_SKILL_USE' && skillKey === 'burst'
+      && state.b3Cast?.casterId === caster.id;
+    const prevDefer = state._deferB3HitsFor;
+    const pendLenB3 = state.pendingSkillHits?.length ?? 0;
+    state._deferB3HitsFor = deferB3 ? caster.id : null;
+
     if (tdef.handler) {
       state._logCtx = logCtx;
       ctx.logCtx = logCtx;
@@ -373,6 +384,13 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
     } else {
       const targets = resolveTargets(state, caster, tdef.target, tdef.targetOpts);
       applyEffects(state, caster, targets, tdef.effects ?? [], ctx, logCtx);
+    }
+
+    state._deferB3HitsFor = prevDefer;
+    if (deferB3) {
+      for (let i = pendLenB3; i < state.pendingSkillHits.length; i++) {
+        state.pendingSkillHits[i].fireTick += state.b3Cast.delayTicks;
+      }
     }
   }
 }

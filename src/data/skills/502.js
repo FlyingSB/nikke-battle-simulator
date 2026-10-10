@@ -1,4 +1,4 @@
-﻿import { pushBuff, fireSkillHit, getBuffSums, snapshotBuffBreakdown, TICK_RATE } from '../../engine/battle-utils.js';
+﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Elegg: Boom and Shock  (resource_id: 502)
@@ -133,7 +133,10 @@ export default {
   //   造成 {p00}% 最终ATK的伤害，连续攻击 {p01=6} 次，幽灵数 ▼ {p02=6}（至少保留1个）。
   // ■ 幽灵数量为13时，影响随机敌人单位：
   //   造成 {p03}% 最终ATK的伤害，连续攻击 {p04=13} 次，幽灵数 ▼ {p05=9}。
-  // 首次伤害延迟0.2s，每次伤害间隔0.2s；受全爆裂伤害加成。
+  // 进入全爆裂后 0.2s 首次伤害，每次伤害间隔 0.2s。
+  // 【全爆裂加成】受影响（描述 as damage，但已实测受全爆裂 +50% 及 ENTER_FULL_BURST buff 影响，属 §2.1 措辞规则的例外）。
+  // S2 Part1（Ghostbuster ATK ▲，使用爆裂技能时生效）同样作用于本爆裂伤害（已实测）。
+  // 伤害按进入全爆裂瞬间的快照计算（所有效果已生效），之后按延迟依次打出；不随命中时 buff 变化。
   //
   // group_id: 15023
   // p00 hit% (non-13): [472.72, 509.09, 545.45, 581.81, 618.18, 654.54, 690.9, 727.27, 763.63, 800]
@@ -146,16 +149,16 @@ export default {
     groupId: 15023,
     triggers: [
       // Burst：根据幽灵数量选择模式，调度延迟技能命中，并立即更新幽灵计数
-      //   首击延迟 0.2s（12 tick），后续每击间隔 0.2s；默认结算：sums 预捕获，全爆裂补正由引擎自动抑制
+      //   进入全爆裂后 0.2s（12 tick）首击（B3 施放后 0.6s，引擎统一后移 0.4s），后续每击间隔 0.2s；
+      //   非默认结算（已实测）：affectedByFullBurst →
+      //   引擎在进入全爆裂瞬间（ENTER_FULL_BURST 等效果全部生效后）取一次 sums 快照，所有命中按延迟用该快照出伤；
+      //   快照含全爆裂 +50%（命中时判定）、ENTER_FULL_BURST buff、S2 Part1 Ghostbuster ATK ▲（skill2 先于 burst 执行）
+      //   以及 S1 属性优势 buff（先计入快照，再由下方 FULL_BURST_SNAPSHOT 触发器移除）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
           const lv      = caster.skillLevels[2];
           const ghosts  = caster.skillState.ebs_ghostCount ?? 0;
-          // 在 BURST_SKILL_USE 时捕获（含 S2 Ghostbuster ATK buff）；ENTER_FULL_BURST 效果在此之后才推入，不影响此 sums
-          const preSums = getBuffSums(state, caster.id);
-          // 同步快照 buffBreakdown，确保伤害气泡展示与实际计算一致，不混入 ENTER_FULL_BURST 之后推入的 buff
-          const preBuffBreakdown = snapshotBuffBreakdown(state, caster.id);
           const delay   = Math.round(0.2 * TICK_RATE);
 
           if (ghosts === 13) {
@@ -164,9 +167,9 @@ export default {
             for (let h = 0; h < 13; h++) {
               state.pendingSkillHits.push({
                 fireTick: state.tick + delay * (h + 1),
-                caster, mult: hitPct, sums: preSums,
+                caster, mult: hitPct,
                 isCharged: false, label: 'Burst P2',
-                opts: { preBuffBreakdown, isSequentialAttack: true },
+                opts: { affectedByFullBurst: true, isSequentialAttack: true },
               });
             }
             caster.skillState.ebs_ghostCount = ghosts - 9;  // 13 - 9 = 4
@@ -176,20 +179,29 @@ export default {
             for (let h = 0; h < 6; h++) {
               state.pendingSkillHits.push({
                 fireTick: state.tick + delay * (h + 1),
-                caster, mult: hitPct, sums: preSums,
+                caster, mult: hitPct,
                 isCharged: false, label: 'Burst P1',
-                opts: { preBuffBreakdown, isSequentialAttack: true },
+                opts: { affectedByFullBurst: true, isSequentialAttack: true },
               });
             }
             caster.skillState.ebs_ghostCount = Math.max(1, ghosts - 6);
           }
 
-          // 幽灵减少后，检查 Elem Adv buff 条件（需 ≥4 幽灵）
-          const newGhosts = caster.skillState.ebs_ghostCount;
-          if (newGhosts < 4) {
+          // 幽灵减少后 Elem Adv buff 条件（需 ≥4 幽灵）的检查推迟到全爆裂快照之后（见下方触发器），
+          // 使本次爆裂伤害快照仍计入该 buff
+          caster.skillState.ebs_elemAdvCheckPending = true;
+          // ATK buff（Hello Ghost P2 L1）：非13模式至少保留1幽灵，13模式后剩4幽灵，均 ≥1，故不移除
+        },
+      },
+      // 全爆裂快照完成后：幽灵 <4 则移除 S1 属性优势 buff（先计入爆裂伤害快照，再移除）
+      {
+        on: 'FULL_BURST_SNAPSHOT',
+        handler(state, caster) {
+          if (!caster.skillState.ebs_elemAdvCheckPending) return false;
+          caster.skillState.ebs_elemAdvCheckPending = false;
+          if ((caster.skillState.ebs_ghostCount ?? 0) < 4) {
             state.buffs = state.buffs.filter(b => b.name !== 'Hello Ghost (Elem Adv Damage)');
           }
-          // ATK buff（Hello Ghost P2 L1）：非13模式至少保留1幽灵，13模式后剩4幽灵，均 ≥1，故不移除
         },
       },
     ],

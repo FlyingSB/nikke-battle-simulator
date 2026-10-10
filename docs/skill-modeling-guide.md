@@ -19,6 +19,7 @@
    「Current HP ▼ X%」= 当前 HP × X%。「HP 低于 / 高于 X%」类条件一律用 `HP_CHANGED` 触发器 + `getHpRatio` 判定
    （「跌破」类用 `ctx.newHp < ctx.prevHp` 的下降边沿）；`Max HP ▲` 默认同步回复当前 HP，「without restoring HP」加 `noRestore: true`；
    溢出治疗储存用 `applyOverhealStorage`；「平均分摊治疗」在 buff 上加 `shareHeal: true`。
+   **B3 爆裂直接伤害**：按 2.1 节由描述措辞判定是否受全爆裂系列加成，延迟按「进入全爆裂后」填写。
 6. **段号对齐**：触发器数组序号与 ■ 段不一致时用 `partOverride`，不要"接受偏移"。
 7. **注册**：在 `src/data/skill-traits.js` 注册；在 [data-catalog.md](data-catalog.md) 角色表添加条目。
 8. **测试**：`node scripts/tests/test-all.mjs` 全部通过。
@@ -38,6 +39,36 @@
 | 4 | 其余情况 | 自定义名称，并在回复中列表汇报 | Scarlet: Black Shadow `'S1 Breakthrough I/II/III'` |
 
 > 攻击次数（Three times / Six times）、阶段序号等不是名称；需要区分时自定义并汇报。
+
+### 2.1 B3 爆裂直接伤害：全爆裂加成判定与延迟
+
+**加成判定**（无实测时先按描述措辞判定，见 [dev/game-data.md](../dev/game-data.md)「关于Burst 3伤害类型的猜测」）：
+
+| 描述措辞 | 全爆裂 +50% 与 ENTER_FULL_BURST buff | 建模 |
+|---|---|---|
+| `... as damage.` | 不受影响（默认） | 直接 `fireSkillHit`（引擎自动延迟、预捕获施放时 sums、屏蔽全爆裂补正） |
+| `... as Burst Skill damage.` | 不受影响（默认） | 同上 |
+| `... as additional damage.` | **受影响** | 命中加 `opts: { affectedByFullBurst: true }`、不传 `sums`；或 `pendingFireInBurstHits` 且 `sums: null`。引擎统一在进入全爆裂瞬间（ENTER_FULL_BURST 后）快照 sums，再按延迟出伤 |
+
+判定结果须在技能块注释中写明依据，格式：`【全爆裂加成】受影响（描述 as additional damage）`；
+有实测时追加「已实测」，实测数据记入 dev/game-data.md。**实测结果优先于措辞规则。**
+
+| 角色 | 描述 | 判定 | 依据 |
+|---|---|---|---|
+| Rapi: Red Hood (16) | as additional damage | 受影响 | 已实测，与规则一致 |
+| Liberalio (262) | as additional damage | 受影响 | 已实测，与规则一致 |
+| Cinderella (511) Burst Part2 | as additional damage | 受影响 | 已实测，与规则一致（Part1 as damage 默认） |
+| Elegg: Boom and Shock (502) | as damage | **受影响** | 已实测，**规则例外**；S2 Part1 ATK ▲ 与 S1 属性优势 buff 均先计入快照（后者在 `FULL_BURST_SNAPSHOT` 时移除） |
+| Laplace: Ultimate Hero (103) Burst P3 | as additional damage | 受影响 | 规则判定，未实测 |
+| Sin: Swift Bunny (405) Burst P3 | as additional damage | 受影响 | 规则判定，未实测 |
+
+**延迟计时**：B3 施放后固定 0.4s 才进入全爆裂（`FULL_BURST_ENTRY_DELAY_TICKS`）。
+B3 施放者爆裂技能（`burst` 槽 `BURST_SKILL_USE`）的伤害一律**从进入全爆裂开始计时**：
+
+- 技能文件中写的延迟（`fireTick: state.tick + Math.round(X * TICK_RATE)`）表示「进入全爆裂后 X 秒」，
+  引擎自动再后移 0.4s；即时 `fireSkillHit` 视为「进入全爆裂后 0 秒」，引擎自动转为延迟命中。
+- 受全爆裂影响的命中若在进入全爆裂前到期，引擎兜底推迟到进入全爆裂（ENTER_FULL_BURST 之后）结算。
+- 同一角色作为 B1/B2 施放（如 Combat Assist）不适用本节。
 
 ---
 
@@ -68,7 +99,9 @@
 
 子项**互不处于同一伤害乘区或不直接影响伤害**，且**作用对象与持续时间相同**时合并为一条 buff
 （如 Crit Rate + ATK flat、Elem Adv Damage + Pierce Damage + ATK flat）。
-合并 buff 的「类型」取其**主类型**：按下表自上而下第一个直接影响伤害的字段。
+合并 buff 含**两种及以上类型**时不能用 `(类型)` 后缀命名（只写其中一种会与单一类型 buff 混淆），
+跳过表中优先级 3、4，按优先级 1、2 判断后命名为 **`技能名 Pn`**（不带类型后缀）；同一段内仍有多条需区分时自定义并汇报。
+例：Prika S1 P1（Explosion Damage + Pierce Damage + ATK flat）→ `Let's Get the Show Started P1`。
 
 ### 4.2 类型词表（buff 字段 → 类型名）
 

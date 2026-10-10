@@ -209,11 +209,14 @@ export default {
           const sums = getBuffSums(state, caster.id);
           fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 2, lv) / 100, sums, 'Burst P2');
 
-          // Over Energy 阶段 ≥1 → 追加 p04% × 阶段数伤害。
+          // Over Energy 阶段 ≥1 → 追加 p04% × 阶段数附加伤害（阶段数按施放时刻确定）。
+          // 【全爆裂加成】受影响（描述 as additional damage；未实测，按 skill-modeling-guide §2.1 规则判定）：
+          //   引擎将其推迟到进入全爆裂（ENTER_FULL_BURST 之后）结算，sums 取进入全爆裂瞬间快照
           const stage = caster.skillState.luh_stage ?? 0;
           if (stage >= 1 && state.enemyHp > 0) {
             fireSkillHit(state, caster,
-              getSkillValue(caster.rawBurst, 3, lv) / 100 * stage, sums, 'Burst P3');
+              getSkillValue(caster.rawBurst, 3, lv) / 100 * stage, sums, 'Burst P3',
+              { affectedByFullBurst: true });
           }
         },
       },

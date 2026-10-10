@@ -3,8 +3,8 @@ import { getSkillValue } from '../../data/models.js';
 
 // Character: Prika  (resource_id: 601)
 
-// S1 P2 Performance 期间的自身 buff（治疗效能 + Pierce 合并；主类型取 Pierce → 「技能名 (类型)」）
-const PERFORMANCE_POTENCY = 'Let\'s Get the Show Started (Pierce)';
+// S1 P2 Performance 期间的自身 buff（治疗效能 + Pierce 合并，混合类型不加类型后缀 → 「技能名 Pn」）
+const PERFORMANCE_POTENCY = 'Let\'s Get the Show Started P2';
 
 export default {
 
@@ -37,12 +37,12 @@ export default {
           const endTick = state.tick + TICK_RATE * 3;
 
           // 全队：Projectile Explosion Damage ▲ p00% + Pierce Damage ▲ p02% + ATK ▲（p04% × 施放者 ATK）3s
-          // 三项同目标同时长且不在同一乘区，合并为一条 buff
+          // 三项同目标同时长且不在同一乘区，合并为一条 buff；混合类型不加类型后缀 → 「技能名 Pn」
           const projExpPct = getSkillValue(caster.rawSkill1, 0, lv) / 100;
           const piercePct  = getSkillValue(caster.rawSkill1, 2, lv) / 100;
           const atkPct     = getSkillValue(caster.rawSkill1, 4, lv) / 100;
           const atkFlat    = Math.round(caster.stats.atk * atkPct);
-          pushBuff(state, { name: 'Let\'s Get the Show Started (ATK)', unitId: null,
+          pushBuff(state, { name: 'Let\'s Get the Show Started P1', unitId: null,
             projectileExplosionDamagePct: projExpPct, pierceDamagePct: piercePct, atkFlat, endTick });
         },
       },
@@ -53,10 +53,10 @@ export default {
   // ■ Activates at the beginning of Full Burst. Affects self.
   //   Max HP ▲ {p00}% for {p01=10} sec.
   // ■ Encore — Activates when Sing Along takes effect while Prika is in Performance status.
-  //   Effect 1: Affects the Sing Along initiator. Assigned Part: Singing (continuous; not modeled).
+  //   Effect 1: Affects the Sing Along initiator. Assigned Part: Singing (continuous).
   //   Effect 2: Affects all allies. Performance duration ▲ {p02=21} sec.
   //   Effect 3: Affects all allies. Attack Damage ▲ {p03}% for {p04=10} sec.
-  //   Effect 4: Affects self. Cooldown of Burst Skill ▲ {p05=21} sec (not modeled).
+  //   Effect 4: Affects self. Cooldown of Burst Skill ▲ {p05=21} sec.
   //
   // group_id: 26012
   // p00 Max HP ▲%: [11.8, 12.71, 13.62, 14.53, 15.44, 16.34, 17.25, 18.16, 19.07, 19.98]
@@ -74,30 +74,28 @@ export default {
         handler(state, caster) {
           const lv       = caster.skillLevels[1];
           const maxHpPct = getSkillValue(caster.rawSkill2, 0, lv) / 100;
-          pushBuff(state, { name: 'One More Song! (Max HP)', unitId: caster.id,
+          pushBuff(state, { name: 'One More Song!', unitId: caster.id,
             maxHpPct, endTick: state.tick + TICK_RATE * 10 });
         },
       },
-      // P2（Encore）：Mint（resource_id 600）在队且 Prika 处于 Performance 状态时，
-      // 以 ENTER_BURST_III 代理"Sing Along 生效"（Mint 为 B2，其 burst 在 B3 进入前触发）
+      // P2（Encore）：Sing Along 生效时（SING_ALONG，由 Mint 600 爆裂技能推入 Sing Along 后立即派发），
+      // 若 Prika 处于 Performance 状态则结算。时序早于 ENTER_BURST_III：
+      // Mint 爆裂（切换 Assigned Part → Sing Along）→ Encore → 进入阶段 3（Mint S2 据 Singing 生效）
       {
-        on: 'ENTER_BURST_III',
-        handler(state, caster) {
+        on: 'SING_ALONG',
+        handler(state, caster, ctx) {
           const ss            = caster.skillState;
           const inPerformance = (ss.prika_performanceEndTick ?? 0) > state.tick;
           if (!inPerformance) return false;
 
-          // "Sing Along takes effect" = Mint（600）在本次 burst 序列中刚刚触发了 Sing Along。
-          // Mint 的 BURST_SKILL_USE 先于 ENTER_BURST_III 在同一 tick 内执行，
-          // 其 burst handler 会将 mint_singAlongEndTick 设为 state.tick + TICK_RATE * 10。
-          // 若 Sing Along 是上一轮遗留的，该值会偏小，条件不成立。
-          const mint = state.squad.find(u => u.id === 600);
-          if (!mint) return false;
-          const singAlongJustActivated = (mint.skillState.mint_singAlongEndTick ?? 0) === state.tick + TICK_RATE * 10;
-          if (!singAlongJustActivated) return false;
+          const lv        = caster.skillLevels[1];
+          const endTick   = state.tick + TICK_RATE * 10;
+          const initiator = ctx.unit;
 
-          const lv      = caster.skillLevels[1];
-          const endTick = state.tick + TICK_RATE * 10;
+          // Effect 1：合唱施放者获得 Assigned Part: Singing（持续）；与 Dancing 互斥，覆盖 Mint 爆裂刚赋予的 Dancing
+          state.buffs = state.buffs.filter(b => !(b.unitId === initiator.id &&
+            (b.name === 'Assigned Part: Dancing' || b.name === 'Assigned Part: Singing')));
+          pushBuff(state, { name: 'Assigned Part: Singing', unitId: initiator.id, endTick: Infinity });
 
           // Effect 2：Performance 延长 21s（HoT + Charge Damage buff 同步延长）
           const oldEndTick = ss.prika_performanceEndTick;
@@ -118,8 +116,12 @@ export default {
 
           // Effect 3：全队 Attack Damage ▲ p03% 10s
           const atkDmgPct = getSkillValue(caster.rawSkill2, 3, lv) / 100;
-          pushBuff(state, { name: 'One More Song! (Attack Damage)', unitId: null,
+          pushBuff(state, { name: 'Encore', unitId: null,
             attackDamagePct: atkDmgPct, endTick });
+
+          // Effect 4：自身爆裂冷却 ▲ p05 秒（直接累加到剩余冷却上，冷却已就绪时从 0 起算）
+          const cdIncreaseTicks = Math.round(getSkillValue(caster.rawSkill2, 5, lv) * TICK_RATE);
+          caster.burstCdRemaining += cdIncreaseTicks;
         },
       },
     ],

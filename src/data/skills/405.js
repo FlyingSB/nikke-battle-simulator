@@ -168,7 +168,10 @@ export default {
           if (state.enemyHp <= 0) return;
           const mode = getBunnyMode(caster);
           if (mode === BUNNY_STANCE) {
-            fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 3, lv) / 100, sums, 'Burst P3');
+            // 【全爆裂加成】受影响（描述 as additional damage；未实测，按 skill-modeling-guide §2.1 规则判定）：
+            //   引擎将其推迟到进入全爆裂（ENTER_FULL_BURST 之后）结算，sums 取进入全爆裂瞬间快照。P2 / P4 为默认（不受影响）
+            fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 3, lv) / 100, sums, 'Burst P3',
+              { affectedByFullBurst: true });
           } else if (mode === BUNNY_ENGAGE) {
             fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 4, lv) / 100, sums, 'Burst P4',
               { isTrueDamage: true });

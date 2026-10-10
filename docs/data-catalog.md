@@ -212,7 +212,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Phantom（SSR：Precious Masks） | [`580.json`](../src/data/static/nikke/580.json) | [`580.js`](../src/data/skills/580.js) |
 | ❌ | Arcana: Fortune Mate | [`583.json`](../src/data/static/nikke/583.json) | [`583.js`](../src/data/skills/583.js) |
 | ✔️ | Mint | [`600.json`](../src/data/static/nikke/600.json) | [`600.js`](../src/data/skills/600.js) |
-| ❌ | Prika | [`601.json`](../src/data/static/nikke/601.json) | [`601.js`](../src/data/skills/601.js) |
+| ✔️ | Prika | [`601.json`](../src/data/static/nikke/601.json) | [`601.js`](../src/data/skills/601.js) |
 | ✔️ | Mari | [`832.json`](../src/data/static/nikke/832.json) | [`832.js`](../src/data/skills/832.js) |
 | ✔️ | Rei (Tentative Name) | [`834.json`](../src/data/static/nikke/834.json) | [`834.js`](../src/data/skills/834.js) |
 | ✔️ | Asuka: WILLE | [`835.json`](../src/data/static/nikke/835.json) | [`835.js`](../src/data/skills/835.js) |

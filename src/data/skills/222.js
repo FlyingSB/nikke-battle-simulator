@@ -107,7 +107,7 @@ export default {
             { ...state._logCtx, partIdx: null });
         },
       },
-      // Burst P2：延迟 1.38s 后触发爆裂伤害（sums 在 P1 crit buff 生效后捕获）
+      // Burst P2：进入全爆裂后 1.38s 触发爆裂伤害（B3 施放后 1.78s，引擎统一后移 0.4s；sums 在 P1 crit buff 生效后捕获）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {

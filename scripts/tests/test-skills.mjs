@@ -802,11 +802,18 @@ section('T15: Blanc S2 Part2 — Burst CD ▼40.76s fires only when a same-squad
 // | Cinderella Part1  | 511 | BURST_SKILL_USE 即时      | 无（引擎 firing 抑制）  | 默认          |
 // | Soda              | 314 | Stage2/3 buff 后即时      | 无（引擎 firing 抑制）  | 默认          |
 // | EVE               | 850 | BURST_SKILL_USE 即时      | 无（声明式，引擎处理）  | 默认          |
-// | Elegg: BaS        | 502 | BURST_SKILL_USE 预捕获    | 无（引擎 suppress）     | 默认          |
+// | Elegg: BaS        | 502 | 进入全爆裂瞬间快照        | affectedByFullBurst:true| 非默认【已实测】（描述 as damage，规则例外）|
 // | Asuka: WILLE      | 835 | Annihilation 发动时重算   | 无                     | 非默认【已实测】|
-// | Rapi: Red Hood    |  16 | 延迟命中时重算            | affectedByFullBurst:true| 非默认【已实测】|
-// | Liberalio         | 262 | 延迟命中时重算            | affectedByFullBurst:true| 非默认【已实测】|
-// | Cinderella Part2  | 511 | sums:null，EFBF 后重算    | 无                     | 非默认【已实测】|
+// | Rapi: Red Hood    |  16 | 进入全爆裂瞬间快照        | affectedByFullBurst:true| 非默认【已实测】|
+// | Liberalio         | 262 | 进入全爆裂瞬间快照        | affectedByFullBurst:true| 非默认【已实测】|
+// | Cinderella Part2  | 511 | 进入全爆裂瞬间快照        | 无（pendingFireInBurstHits）| 非默认【已实测】|
+// | Laplace: UH P3    | 103 | 进入全爆裂瞬间快照        | affectedByFullBurst:true| 非默认（规则判定，未实测）|
+// | Sin: SB P3        | 405 | 进入全爆裂瞬间快照        | affectedByFullBurst:true| 非默认（规则判定，未实测）|
+// 受全爆裂影响的 B3 伤害统一在进入全爆裂瞬间（ENTER_FULL_BURST 后）快照 sums，再按延迟出伤（enterFullBurst）。
+//
+// Rapi / Liberalio / Cinderella P2 / Laplace P3 / Sin P3 描述均为 "as additional damage"，与 skill-modeling-guide §2.1
+// 的措辞判定规则一致；Elegg 描述为 "as damage"，但实测受全爆裂系列效果影响，为规则例外。
+// B3 施放者爆裂技能的所有伤害由引擎统一在进入全爆裂（B3 + 0.4s）后结算，表中延迟均从进入全爆裂起算。
 
 section('T16: B3 直接伤害默认/非默认结算配置审计');
 {
@@ -837,7 +844,7 @@ section('T16: B3 直接伤害默认/非默认结算配置审计');
     eq('EVE SKILL_DAMAGE opts.burstSkillDamage 未设置（引擎处理）', trigger?.effects?.[0]?.opts?.burstSkillDamage, undefined);
   }
 
-  // ── Elegg: BaS (502): pendingSkillHits — 无 burstSkillDamage ───────────────
+  // ── Elegg: BaS (502): pendingSkillHits — 【已实测】非默认：affectedByFullBurst，进入全爆裂瞬间快照 ──
   {
     const trigger = SKILL_TRAITS[502]?.burst?.triggers?.find(t => t.on === 'BURST_SKILL_USE');
     const state   = makeState(502);
@@ -846,8 +853,10 @@ section('T16: B3 直接伤害默认/非默认结算配置审计');
     caster.rawBurst   = rawSkill([500, 6, 6, 500]);
     trigger.handler(state, caster, {});
     eq('Elegg burst 非13模式: 6 hits 入队', state.pendingSkillHits.length, 6);
-    eq('Elegg pendingSkillHits[0].opts.burstSkillDamage 未设置（引擎 suppress）', state.pendingSkillHits[0].opts?.burstSkillDamage, undefined);
-    eq('Elegg pendingSkillHits[0].sums 预捕获（非空）', !!state.pendingSkillHits[0].sums, true);
+    eq('Elegg pendingSkillHits[0].opts.burstSkillDamage 未设置', state.pendingSkillHits[0].opts?.burstSkillDamage, undefined);
+    eq('Elegg pendingSkillHits[0].opts.affectedByFullBurst = true', state.pendingSkillHits[0].opts?.affectedByFullBurst, true);
+    eq('Elegg pendingSkillHits[0].sums 施放时未捕获（进入全爆裂瞬间快照）', state.pendingSkillHits[0].sums, undefined);
+    eq('Elegg 属性优势 buff 检查推迟到全爆裂快照后', caster.skillState.ebs_elemAdvCheckPending, true);
   }
 
   // ── Elegg 13幽灵模式 ─────────────────────────────────────────────────────────
@@ -859,7 +868,8 @@ section('T16: B3 直接伤害默认/非默认结算配置审计');
     caster.rawBurst   = rawSkill([500, 6, 6, 500]);
     trigger.handler(state, caster, {});
     eq('Elegg burst 13幽灵模式: 13 hits 入队', state.pendingSkillHits.length, 13);
-    eq('Elegg 13幽灵 pendingSkillHits[0].opts.burstSkillDamage 未设置（引擎 suppress）', state.pendingSkillHits[0].opts?.burstSkillDamage, undefined);
+    eq('Elegg 13幽灵 pendingSkillHits[0].opts.burstSkillDamage 未设置', state.pendingSkillHits[0].opts?.burstSkillDamage, undefined);
+    eq('Elegg 13幽灵 pendingSkillHits[0].opts.affectedByFullBurst = true', state.pendingSkillHits[0].opts?.affectedByFullBurst, true);
   }
 
   // ── Asuka: WILLE (835): 【已实测】非默认 — Annihilation 在 Annihilation State 结束时（≈9s 后）发动 ──
@@ -904,7 +914,7 @@ section('T16: B3 直接伤害默认/非默认结算配置审计');
     const src = SKILL_TRAITS[511]?.burst?.triggers?.find(
       t => t.on === 'BURST_SKILL_USE')?.handler?.toString() ?? '';
     eq('Cinderella Part1 源码不含 burstSkillDamage（默认结算）', src.includes('burstSkillDamage'), false);
-    eq('Cinderella Part2 源码含 sums: null（EFBF 后重算）', src.includes('sums: null'), true);
+    eq('Cinderella Part2 源码含 sums: null（进入全爆裂瞬间快照）', src.includes('sums: null'), true);
   }
 
   // ── Soda (314): 无 burstSkillDamage（源码检查）──────────────────────────────
@@ -1805,7 +1815,7 @@ section('T28f: 治疗效能 buff 来源 — Anchor S1 P1 / Prika S1 P2 / Crown R
     const ally  = mockUnit(9100, { unitHp: 100000 });
     const state = mockState([prika, ally], { pendingHoTs: [] });
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: prika });
-    const pot = state.buffs.find(x => x.name === 'Let\'s Get the Show Started (Pierce)');
+    const pot = state.buffs.find(x => x.name === 'Let\'s Get the Show Started P2');
     near('Prika 自身治疗效能 ▲49.92%', pot?.healPotencyPct, 0.4992);
     eq('S1 P2 同时获得 Pierce', pot?.pierce, true);
     eq('效能 buff 随 Performance 25s 到期', pot?.endTick, 25 * TICK_RATE);
@@ -1815,6 +1825,29 @@ section('T28f: 治疗效能 buff 来源 — Anchor S1 P1 / Prika S1 P2 / Crown R
     eq('HoT 记录治疗者', hot?.casterId, 601);
     applyHeal(state, ally, hot.amount, null, prika);
     eq('HoT 触发时按效能放大：30400 × 1.4992', ally.unitHp, 100000 + Math.round(30400 * 1.4992));
+  }
+  // Prika (601) S2 P2 Encore：Mint (600) 爆裂推入 Sing Along 时立即结算（SING_ALONG，早于 ENTER_BURST_III）
+  {
+    const prika = mockUnit(601, { unitHp: 1000000, burstCdRemaining: 600,
+      rawSkill1: mockRawSkill([20, 3, 13.09, 3, 20, 3, 49.92]),
+      rawSkill2: mockRawSkill([19.98, 10, 21, 25.01, 10, 21]),
+      rawBurst:  mockRawSkill([3.04, 25, 0, 0, 25, 25]) });
+    const mint = mockUnit(600, { weaponType: 'RL', burstStep: 'Step2',
+      rawSkill2: mockRawSkill([19.94, 10, 50, 10, 32.72, 10]),
+      rawBurst:  mockRawSkill([30.02, 10, 40, 10, 45.05, 10]) });
+    const state = mockState([prika, mint], { pendingHoTs: [] });
+    executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: prika });   // 第一轮：Prika 开启 Performance（0 → 25s）
+    state.tick = 15 * TICK_RATE;
+    executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: mint });    // 第二轮：Mint 爆裂 → Sing Along → Encore
+    const mintParts = state.buffs.filter(b => b.unitId === 600 && b.name.startsWith('Assigned Part')).map(b => b.name);
+    eq('Encore 效果 1：Mint 的 Dancing 被 Singing 覆盖', mintParts.join(','), 'Assigned Part: Singing');
+    eq('Encore 效果 2：Performance 延长 21s（25 → 46s）', prika.skillState.prika_performanceEndTick, 46 * TICK_RATE);
+    eq('Encore 效果 2：Performance buff 同步延长', state.buffs.find(b => b.name === 'Performance')?.endTick, 46 * TICK_RATE);
+    near('Encore 效果 3：全队 Attack Damage ▲25.01%', state.buffs.find(b => b.name === 'Encore')?.attackDamagePct, 0.2501);
+    eq('Encore 效果 4：Prika 爆裂冷却 +21s', prika.burstCdRemaining, 600 + 21 * TICK_RATE);
+    executeSkillTriggers(state, 'ENTER_BURST_III');
+    eq('进入阶段 3 时 Mint 为 Singing → S2 P2 Fantastic Performance! 生效',
+      state.buffs.some(b => b.name === 'Fantastic Performance!'), true);
   }
   // Crown (330) Relax 每层受治疗量 ▲4.06%
   {

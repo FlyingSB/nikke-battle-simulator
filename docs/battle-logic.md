@@ -226,10 +226,10 @@ P_core    = clamp( (r_core / R_eff)², 0, 1 )        // 散布圆内均匀落点
 ### 3.9 全爆裂补正规则
 
 - `fullBurstActive` 由 `ENTER_FULL_BURST` 触发后置为 `true`，在全爆裂窗口内持续有效。
-- **直接伤害类 B3 爆裂技能**：结算顺序在 `ENTER_FULL_BURST` 之前，此时 `fullBurstActive` 尚未为 `true`，自然不受 +50% 补正。
+- **直接伤害类 B3 爆裂技能**：一律从进入全爆裂开始计时（见 §6.2），由引擎转为延迟命中并打 `suppressFullBurst=true`，**不受** +50% 补正；即时命中预捕获施放时 sums，不受 ENTER_FULL_BURST buff 影响。
 - **普通攻击命中**（全爆裂激活后）：受 +50% 补正。
 - **延迟命中**（`pendingSkillHits`）：引擎自动打 `suppressFullBurst=true` 标记，**不受**全爆裂补正。
-- 例外：显式标记 `opts.affectedByFullBurst=true` 的技能命中**受**全爆裂补正（如 Rapi: Red Hood）。
+- 例外：显式标记 `opts.affectedByFullBurst=true` 的技能命中**受**全爆裂补正与 ENTER_FULL_BURST buff 影响。建模时按描述措辞判定：B3 描述为 `as additional damage` 时设置（Rapi: Red Hood、Liberalio、Cinderella Part2 已实测；Laplace: Ultimate Hero P3、Sin: Swift Bunny P3 按规则判定），实测例外 Elegg: Boom and Shock（描述 as damage 但受影响），见 [skill-modeling-guide.md §2.1](skill-modeling-guide.md)。若这类命中早于进入全爆裂到期，引擎兜底推迟到 ENTER_FULL_BURST 之后结算。
 
 ---
 
@@ -628,8 +628,12 @@ burstPhase = 0（充能中）
               → 等待 burstStepTicks
                 → burstPhase = 3
                 → B3 施放（BURST_SKILL_USE；按 §6.0 从左到右选第一个 CD 就绪的单位；其余 B3 本轮无法施放）
+                  B3 施放者爆裂技能的伤害全部排入 pendingSkillHits 并后移 0.4s：技能延迟从进入全爆裂起算，
+                  即时命中在进入全爆裂那一 tick（先于 ENTER_FULL_BURST）结算
                 → 固定等待 0.4s（FULL_BURST_ENTRY_DELAY_TICKS；实测无法通过操作缩短，不随 burstStepSecs 变化）
                 → ENTER_FULL_BURST 被动触发 → fullBurstActive = true（默认 10s 窗口，可被技能改变）
+                → 受全爆裂影响的 B3 伤害（affectedByFullBurst 延迟命中、pendingFireInBurstHits）捕获 sums 与 buff 明细快照
+                → FULL_BURST_SNAPSHOT 触发
                 → pendingFireInBurstHits 结算
                   → 全爆裂窗口结束后
                     → FULL_BURST_END 触发
@@ -641,7 +645,7 @@ burstPhase = 0（充能中）
 > - `fullBurstActive`：**状态标志**。由 `ENTER_FULL_BURST` 触发后置为 `true`，生效期完全等于全爆裂窗口（B3 施放完毕后才为 `true`）。用于伤害计算中的 +50% 全爆裂补正（见 3.2）以及 `IN_FULL_BURST` 条件判断。
 > - `ENTER_FULL_BURST`：**触发时机**。在所有 B3 施放完毕后触发**一次**，代表"进入全爆裂"事件，用于激活角色被动（如全爆裂时长延长、额外效果等），同时置 `fullBurstActive = true`。
 >
-> 结果：直接伤害类 B3 爆裂技能结算时 `fullBurstActive` 尚未为 `true`，自然不受 +50% 补正影响，无需额外标记。
+> 结果：直接伤害类 B3 爆裂技能在进入全爆裂后结算，由引擎自动标记 `suppressFullBurst` 屏蔽 +50% 补正；技能文件无需额外标记（`affectedByFullBurst` 例外见 3.2）。
 
 ### 6.3 阶段超时
 
@@ -743,6 +747,7 @@ burstPhase = 0（充能中）
 | `ENTER_BURST_III` | B2 延迟结束后，B3 施放前 | 团队 |
 | `BURST_SKILL_USE` | B1/B2/B3 施放时 | 非团队（ctx.unit = 施放者） |
 | `ENTER_FULL_BURST` | 所有 B3 施放完毕后 | 团队 |
+| `FULL_BURST_SNAPSHOT` | ENTER_FULL_BURST 后、受全爆裂影响的 B3 伤害快照完成之后（「先计入快照、再移除」的效果） | 团队 |
 | `FULL_BURST_END` | Full Burst 10s 窗口结束 | 团队 |
 | `SHOT_COUNT` | 本单位每 N 发普攻 | 非团队（溢出保留） |
 | `SQUAD_SHOT_COUNT` | 任意单位射击时广播 | 全员（ctx.shootingUnit） |
@@ -814,6 +819,13 @@ burstPhase = 0（充能中）
 - 技能通过 `handler` 向 `pendingSkillHits` 推入延迟命中，带 `fireTick`。
 - 每 tick 开头处理到期的命中（在 DoT、HoT 之后，攻击循环之前）。
 - 引擎自动对所有新入队的延迟命中打 `suppressFullBurst=true`（`affectedByFullBurst` 的除外）。
+- B3 施放期间（`state.b3Cast`），施放者 `burst` 槽 `BURST_SKILL_USE` handler 新增的延迟命中统一 `fireTick += FULL_BURST_ENTRY_DELAY_TICKS`；
+  其中的即时 `fireSkillHit` 由引擎转为延迟命中（`fireTick` = 施放 tick + 0.4s，预捕获 sums 与 buff 明细；`affectedByFullBurst` 命中则在进入全爆裂瞬间快照）。
+- 兜底：`affectedByFullBurst` 命中在 B3 施放后、进入全爆裂前到期时，转入 `pendingFireInBurstHits`，在 ENTER_FULL_BURST 之后结算。
+- 全爆裂瞬间快照：受全爆裂影响的 B3 伤害（`affectedByFullBurst` 延迟命中、`pendingFireInBurstHits`）不在命中时重算，
+  而是在进入全爆裂瞬间（ENTER_FULL_BURST 及连带效果全部生效后）统一捕获 sums 与 buff 明细，之后按各自延迟用同一快照出伤；
+  全爆裂 +50% 仍按命中时 `fullBurstActive` 判定。快照后触发 `FULL_BURST_SNAPSHOT`，供「先计入快照、再移除」的效果使用
+  （Elegg: Boom and Shock S1 属性优势 buff，已实测）。
 
 ---
 

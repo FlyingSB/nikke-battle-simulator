@@ -141,7 +141,8 @@ export default {
     groupId: 11833,
     triggers: [
       // Burst P1（敌人）：消耗全部 MP，每点 MP 发动 1 次 (最终 ATK + 最终 MaxHP × param2%) × param3%
-      //   伤害在施放时刻即已确定（之后按 0.73s + 0.1s 间隔出伤），因此在 BURST_SKILL_USE 时预捕获 sums：
+      //   伤害在施放时刻即已确定（进入全爆裂后 0.73s 起按 0.1s 间隔出伤；B3 施放后 1.13s，引擎统一后移 0.4s），
+      //   因此在 BURST_SKILL_USE 时预捕获 sums：
       //   ENTER_FULL_BURST buff 与下方 P2 触发器随后推入的 S2 Part2 均不计入；
       //   全爆裂 +50% 补正由引擎对延迟命中自动标记 suppressFullBurst 屏蔽。
       //   MaxHP 部分通过 extraAtkFlat 加入 ATK 加算项。

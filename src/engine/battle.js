@@ -19,7 +19,7 @@ import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAU
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount } from './battle-utils.js';
 import { executeSkillTriggers, dispatchHpChanged, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -524,17 +524,21 @@ function applyBurstIISkills(state) {
 /**
  * 施放 B3（进入全爆裂的第 1 步；第 2–4 步在 FULL_BURST_ENTRY_DELAY_TICKS 后由 enterFullBurst 执行）。
  *
- * 不变量：B3 的所有即时效果（伤害命中、buff、治疗、护盾）必须完全结算完毕，
+ * 不变量：B3 的所有即时效果（buff、治疗、护盾）必须完全结算完毕，
  * 才能开始结算 Full Burst 效果（fullBurstActive=true、ENTER_FULL_BURST 触发器）。
- * 显式延迟命中（pendingSkillHits）不属于"即时效果"，允许跨越时序边界，
- * 但引擎会自动为其打上 suppressFullBurst=true，防止意外获得 Full Burst 补正。
- * 唯一例外：opts.affectedByFullBurst=true（如 Rapi: Red Hood、Liberellio），
- * 这些是游戏内明确设计为受全爆裂补正的延迟命中。
+ *
+ * B3 直接伤害从进入全爆裂开始计时（§6.2）：B3 施放者爆裂技能的伤害命中一律走延迟命中队列，
+ * fireTick = 施放 tick + FULL_BURST_ENTRY_DELAY_TICKS + 技能自身延迟（技能文件写的延迟均指「进入全爆裂后」）。
+ * 即时 fireSkillHit 由引擎自动转为延迟命中并预捕获施放时 sums。
+ * 延迟命中默认标记 suppressFullBurst=true，不受全爆裂补正；
+ * 例外：opts.affectedByFullBurst=true（技能描述为 "as additional damage"，见 skill-modeling-guide），
+ * 受全爆裂 +50% 与 ENTER_FULL_BURST buff 影响；若早于进入全爆裂到期，由兜底推迟到 enterFullBurst 结算。
  *
  * 执行顺序：
- *   1. BURST_SKILL_USE（B3 即时效果全部在 fullBurstActive=false 下结算）
+ *   1. BURST_SKILL_USE（buff 等即时效果在 fullBurstActive=false 下结算；伤害排入延迟队列并后移）
  *   2. 延迟命中标记 suppressFullBurst
  *   3. flushHealReceived / flushShieldReceived
+ *   （FULL_BURST_ENTRY_DELAY_TICKS 后由 enterFullBurst 执行以下步骤）
  *   4. fullBurstActive = true
  *   5. ENTER_FULL_BURST 触发器
  *   6. pendingFireInBurstHits 结算
@@ -556,7 +560,11 @@ function applyFullBurstSkills(state, events) {
     events.push(bev);
 
     const prePendingLen = state.pendingSkillHits.length;
+    // B3 直接伤害从进入全爆裂开始计时：施放者爆裂技能的即时命中改为延迟命中，
+    // 所有延迟命中统一后移 FULL_BURST_ENTRY_DELAY_TICKS（由 executeSkillTriggers / fireSkillHit 处理）
+    state.b3Cast = { casterId: step3.id, delayTicks: FULL_BURST_ENTRY_DELAY_TICKS };
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: step3 });
+    state.b3Cast = null;
     flushCsChanged(state);
 
     // B3 期间新增的延迟命中将在全爆裂窗口内触发（届时 fullBurstActive=true），需屏蔽补正
@@ -574,7 +582,7 @@ function applyFullBurstSkills(state, events) {
 
 /**
  * 进入全爆裂状态：B3 施放后固定延迟 FULL_BURST_ENTRY_DELAY_TICKS（0.4s）再执行
- * （fullBurstActive=true → ENTER_FULL_BURST → pendingFireInBurstHits）。
+ * （fullBurstActive=true → ENTER_FULL_BURST → 受全爆裂影响的 B3 伤害快照 → FULL_BURST_SNAPSHOT → pendingFireInBurstHits）。
  * @param {object} state
  * @param {object[]} events
  */
@@ -598,6 +606,25 @@ function enterFullBurst(state, events) {
     if (!h.opts) h.opts = {};
     if (!h.opts.affectedByFullBurst) h.opts.suppressFullBurst = true;
   }
+
+  // 3b. 全爆裂开始瞬间快照：受全爆裂影响的 B3 伤害（affectedByFullBurst 延迟命中、pendingFireInBurstHits）
+  //     在此刻（ENTER_FULL_BURST 及其连带效果全部生效后）捕获 sums 与 buff 明细，之后按各自延迟用该快照出伤
+  const snapCache = new Map();
+  const applySnapshot = h => {
+    if (h.sums) return;
+    if (!snapCache.has(h.caster.id)) {
+      snapCache.set(h.caster.id, { sums: getBuffSums(state, h.caster.id),
+        breakdown: snapshotBuffBreakdown(state, h.caster.id) });
+    }
+    const snap = snapCache.get(h.caster.id);
+    h.sums = snap.sums;
+    h.opts = { ...(h.opts ?? {}), preBuffBreakdown: snap.breakdown };
+  };
+  for (const h of state.pendingSkillHits) if (h.opts?.affectedByFullBurst) applySnapshot(h);
+  for (const h of state.pendingFireInBurstHits) applySnapshot(h);
+  // 快照完成后的触发时机：需「先计入快照、再移除」的效果在此处理（如 Elegg S1 属性优势 buff）
+  executeSkillTriggers(state, 'FULL_BURST_SNAPSHOT');
+  flushCsChanged(state);
 
   // 4. 结算 pendingFireInBurstHits（在 ENTER_FULL_BURST 生效后触发，受全爆裂补正）
   for (const h of state.pendingFireInBurstHits) {
@@ -1075,6 +1102,10 @@ export function initBattle(config) {
     // Deferred skill hits: [{ fireTick, caster, mult, sums, isCharged, label, opts }]
     // Processed at the start of each tick before unit loops.
     pendingSkillHits: [],
+    // B3 施放期间 { casterId, delayTicks }，其余时刻 null（见 applyFullBurstSkills）
+    b3Cast:           null,
+    // executeSkillTriggers 内部标记：当前正在执行 B3 施放者爆裂技能 handler 时为其 id
+    _deferB3HitsFor:  null,
     // Queue of units that received heals this tick. Populated by applyHeal (battle-utils).
     // Consumed by flushHealReceived() which dispatches HEAL_RECEIVED triggers.
     pendingHealReceived: [],
@@ -1327,6 +1358,13 @@ export function tick(state) {
     const due = state.pendingSkillHits.filter(h => h.fireTick <= state.tick);
     state.pendingSkillHits = state.pendingSkillHits.filter(h => h.fireTick > state.tick);
     for (const h of due) {
+      // 兜底：受全爆裂补正的命中若在 B3 施放后、进入全爆裂前到期（含「进入全爆裂后 0s」的命中——
+      // 本队列先于本 tick 的 enterFullBurst 处理），改由 enterFullBurst 在 ENTER_FULL_BURST 后结算
+      if (h.opts?.affectedByFullBurst && state.burstPhase === 3 && !state.fullBurstActive) {
+        state.pendingFireInBurstHits.push({ caster: h.caster, mult: h.mult, sums: h.sums ?? null,
+          label: h.label, opts: h.opts });
+        continue;
+      }
       const sums = h.sums ?? getBuffSums(state, h.caster.id);
       fireSkillHit(state, h.caster, h.mult, sums, h.label, h.opts ?? {});
     }

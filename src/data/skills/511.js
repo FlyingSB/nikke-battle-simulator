@@ -128,8 +128,11 @@ export default {
     groupId: 15113,
     triggers: [
       // Burst（Glass Slippers. Full Contact.）：
-      //   S3 Part1：10 × 1365.92% ATK 爆裂技能伤害（默认结算，不受全爆裂+50%补正）
-      //   S3 Part2：每次 Part1 命中后触发 Beautiful层数 × 28.9% 附加伤害（【已实测】非默认：sums:null，ENTER_FULL_BURST 后重算，享受全爆裂补正）
+      //   S3 Part1：10 × 1365.92% ATK 伤害
+      //     【全爆裂加成】不受影响（描述 as damage）：引擎自动延迟到进入全爆裂时命中，预捕获施放时 sums
+      //   S3 Part2：每次 Part1 命中后触发 Beautiful层数 × 28.9% 附加伤害
+      //     【全爆裂加成】受影响（描述 as additional damage；已实测）：pendingFireInBurstHits + sums:null，
+      //     进入全爆裂（ENTER_FULL_BURST 之后）结算，sums 取进入全爆裂瞬间快照
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {

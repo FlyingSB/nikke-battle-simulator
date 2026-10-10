@@ -129,7 +129,8 @@ export default {
     groupId: 12623,
     triggers: [
       // Burst（Submerged World）：自身 Attack Damage ▲[Burst param0]% 10s
-      //   + 延迟 0.97s 后 [Burst param2]% ATK 技能伤害（【已实测】非默认：受全爆裂补正，sums 在命中时重算获取 ENTER_FULL_BURST buff）
+      //   + 进入全爆裂后 0.97s（B3 施放后 1.37s，引擎统一后移 0.4s）[Burst param2]% ATK 附加伤害
+      // 【全爆裂加成】受影响（描述 as additional damage；已实测）：全爆裂 +50% 及 ENTER_FULL_BURST buff，sums 取进入全爆裂瞬间快照
       // Burst P1：自身 Attack Damage ▲ p00% 10s
       {
         on: 'BURST_SKILL_USE',
@@ -141,7 +142,7 @@ export default {
             { ...state._logCtx, partIdx: null });
         },
       },
-      // Burst P2：额外技能伤害（延迟 0.97s，受全爆裂加成）
+      // Burst P2：附加伤害（进入全爆裂后 0.97s，受全爆裂加成）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
