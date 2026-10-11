@@ -126,7 +126,7 @@ export default {
     triggers: [
       // Burst（Aegis Cannon）：SSR 伤害 + 生命偷取 10s + 蓄力伤害 buff for 10 round(s)
       // [TODO 基础技能] 爆裂技能 → 最高ATK敌人 p01% ATK 伤害；全员 HP 回复 p02% 10s；自身蓄力伤害倍率 ▲p04% p05 round(s)（基础技能 group_id 13523 未建模）
-      // Burst P1（敌人）：进入全爆裂后 1.05s 爆裂技能伤害（B3 施放后 1.45s，引擎统一后移 0.4s）
+      // Burst P1（敌人）：进入全爆裂后 1.05s 爆裂技能伤害（B3 施放后 1.15s，引擎统一后移 0.1s）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {

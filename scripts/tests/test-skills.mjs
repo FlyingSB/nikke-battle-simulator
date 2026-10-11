@@ -813,7 +813,7 @@ section('T15: Blanc S2 Part2 — Burst CD ▼40.76s fires only when a same-squad
 //
 // Rapi / Liberalio / Cinderella P2 / Laplace P3 / Sin P3 描述均为 "as additional damage"，与 skill-modeling-guide §2.1
 // 的措辞判定规则一致；Elegg 描述为 "as damage"，但实测受全爆裂系列效果影响，为规则例外。
-// B3 施放者爆裂技能的所有伤害由引擎统一在进入全爆裂（B3 + 0.4s）后结算，表中延迟均从进入全爆裂起算。
+// B3 施放者爆裂技能的所有伤害由引擎统一在进入全爆裂（B3 + 0.1s）后结算，表中延迟均从进入全爆裂起算。
 
 section('T16: B3 直接伤害默认/非默认结算配置审计');
 {

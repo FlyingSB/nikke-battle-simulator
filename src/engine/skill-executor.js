@@ -441,6 +441,7 @@ export function fireShotCountTriggers(state, unit, shotCtx) {
  * @param {object} unit      射击单位
  * @param {object} shotCtx   { sums, isCharged, hitPart, pellets, ammoAfterShot }
  *                            pellets：本次射击命中目标的弹丸数（SG 含弹丸数增减/固定，其余武器 1）
+ *                            isCrit：本次射击是否暴击（引擎按整发判定，弹丸同时暴击；如 K S1 P2 按弹丸计暴击次数）
  * @param {object} [opts]    可选标志
  *   skipShotCount      {boolean}  跳过 SHOT_COUNT 触发（已由 fireShotCountTriggers 处理）
  */

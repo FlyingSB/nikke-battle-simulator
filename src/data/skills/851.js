@@ -95,7 +95,7 @@ export default {
   burst: {
     groupId: 18513,
     triggers: [
-      // Burst P1：全体爆裂技能伤害（进入全爆裂后 1s；B3 施放后 1.4s，引擎统一后移 0.4s）
+      // Burst P1：全体爆裂技能伤害（进入全爆裂后 1s；B3 施放后 1.1s，引擎统一后移 0.1s）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {

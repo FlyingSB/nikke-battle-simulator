@@ -62,11 +62,11 @@
 | Laplace: Ultimate Hero (103) Burst P3 | as additional damage | 受影响 | 规则判定，未实测 |
 | Sin: Swift Bunny (405) Burst P3 | as additional damage | 受影响 | 规则判定，未实测 |
 
-**延迟计时**：B3 施放后固定 0.4s 才进入全爆裂（`FULL_BURST_ENTRY_DELAY_TICKS`）。
+**延迟计时**：B3 施放后固定约 0.1s 才进入全爆裂（`FULL_BURST_ENTRY_DELAY_TICKS`，2026-10-12 实测）。
 B3 施放者爆裂技能（`burst` 槽 `BURST_SKILL_USE`）的伤害一律**从进入全爆裂开始计时**：
 
 - 技能文件中写的延迟（`fireTick: state.tick + Math.round(X * TICK_RATE)`）表示「进入全爆裂后 X 秒」，
-  引擎自动再后移 0.4s；即时 `fireSkillHit` 视为「进入全爆裂后 0 秒」，引擎自动转为延迟命中。
+  引擎自动再后移 0.1s；即时 `fireSkillHit` 视为「进入全爆裂后 0 秒」，引擎自动转为延迟命中。
 - 受全爆裂影响的命中若在进入全爆裂前到期，引擎兜底推迟到进入全爆裂（ENTER_FULL_BURST 之后）结算。
 - 同一角色作为 B1/B2 施放（如 Combat Assist）不适用本节。
 
@@ -140,6 +140,8 @@ B3 施放者爆裂技能（`burst` 槽 `BURST_SKILL_USE`）的伤害一律**从�
 | `mgHeatSpeedPct` | MG Heating up |
 | `enemyDamageTakenPct` | Damage Taken |
 | `enemyDefDownPct` | DEF Down |
+| `allEnemiesBurstDamagePct` | All-Enemies Burst Damage（「目标说明以『全体敌人』结尾的爆裂技能伤害 ▲」，Trina Spread Roots；引擎按命中标签与爆裂描述 ■ 段自动判定，见 `battle-utils.isAllEnemiesBurstHit`） |
+| `skill2CooldownReductionPct` | Skill 2 CD（「Cooldown of Skill 2 ▼ X%」，仅对经 `skills/active-skill-shared.js` 推进冷却的主动 S2 生效） |
 | 爆裂冷却缩减（`buffLog` cd_reduction 条目） | Burst CD |
 
 ---

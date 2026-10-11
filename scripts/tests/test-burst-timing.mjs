@@ -4,7 +4,7 @@
  * 默认规则（描述 as damage / as Burst Skill damage）：爆裂3直接伤害不受全爆裂加成（50%）影响，
  * 也不受任何"进入全爆裂时"生效的 buff 影响。引擎实现：
  *   - B3 施放者爆裂技能的即时 fireSkillHit 自动转为延迟命中，并预捕获施放时 sums 与 buff 明细
- *   - 所有延迟命中统一后移 0.4s（技能延迟从进入全爆裂起算），并标记 suppressFullBurst
+ *   - 所有延迟命中统一后移 0.1s（技能延迟从进入全爆裂起算），并标记 suppressFullBurst
  *
  * 非默认角色（描述 as additional damage，且已实测）：
  *   - Rapi: Red Hood (16)：进入全爆裂后 0.1s，获得 50% 加成和 ENTER_FULL_BURST buff
@@ -350,10 +350,10 @@ section('Maiden: Ice Rose (183) — 首击 0.73s，间隔 0.1s，默认（无标
     state.buffs.find(b => b.name === 'Blessings Upon You P2 (ATK)')?.atkFlat, Math.round(1_700_000 * 0.032));
 }
 
-// ── 端到端：B3 直接伤害从进入全爆裂开始计时（FULL_BURST_ENTRY_DELAY = 0.4s）─────────
-// 技能文件中的延迟均指「进入全爆裂后」：命中 tick = B3 施放 tick + 24 + 技能延迟。
+// ── 端到端：B3 直接伤害从进入全爆裂开始计时（FULL_BURST_ENTRY_DELAY = 0.1s）─────────
+// 技能文件中的延迟均指「进入全爆裂后」：命中 tick = B3 施放 tick + 6 + 技能延迟。
 
-const E2E_DELAY = Math.round(0.4 * TICK_RATE);
+const E2E_DELAY = Math.round(0.1 * TICK_RATE);
 const E2E_STATS = { atk: 100_000, hp: 1_000_000, def: 1_000, critRate: 0, critDmg: 0 };
 const E2E_ENEMY = { maxHp: 1e15, def: 0, element: 'Iron', type: 'Boss', hasCore: false, distance: 'NEAR' };
 const mockSkill = n => ({ description_value_list: Array.from({ length: n },
@@ -384,8 +384,8 @@ section('E2E — Rapi: Red Hood (16)：进入全爆裂后 0.1s 命中，享受�
   const b3Tick = firstTick(r.log, 'burst_iii');
   const fbTick = firstTick(r.log, 'full_burst');
   const hit    = r.hitLog.find(h => h.unitId === 16 && h.label === 'Burst' && h.tick >= b3Tick);
-  eq('进入全爆裂 = B3 + 24t', fbTick - b3Tick, E2E_DELAY);
-  eq('命中 tick = B3 + 24 + 6', hit?.tick, b3Tick + E2E_DELAY + Math.round(0.1 * TICK_RATE));
+  eq('进入全爆裂 = B3 + 6t', fbTick - b3Tick, E2E_DELAY);
+  eq('命中 tick = B3 + 6 + 6', hit?.tick, b3Tick + E2E_DELAY + Math.round(0.1 * TICK_RATE));
   eq('命中享受全爆裂补正（isFullBurst）', hit?.isFullBurst, true);
 }
 
@@ -415,7 +415,7 @@ section('E2E — Noir (271)：默认即时 B3 伤害改在进入全爆裂时命�
   const b3Tick = firstTick(r.log, 'burst_iii');
   const hit    = r.hitLog.find(h => h.unitId === 271 && h.label === 'Burst' && h.tick >= b3Tick);
   eq('施放当 tick 无 Burst 命中', r.hitLog.some(h => h.unitId === 271 && h.label === 'Burst' && h.tick === b3Tick), false);
-  eq('命中 tick = B3 + 24', hit?.tick, b3Tick + E2E_DELAY);
+  eq('命中 tick = B3 + 6', hit?.tick, b3Tick + E2E_DELAY);
   eq('不受全爆裂补正', hit?.isFullBurst, false);
   eq('伤害 > 0', (hit?.damage ?? 0) > 0, true);
 }
@@ -427,7 +427,7 @@ section('E2E — Elegg: Boom and Shock (502)：进入全爆裂后 0.2s 起命中
   const b3Tick = firstTick(r.log, 'burst_iii');
   const hits   = r.hitLog.filter(h => h.unitId === 502 && h.label.startsWith('Burst') && h.tick >= b3Tick
     && h.tick <= b3Tick + E2E_DELAY + 12 * 13);
-  eq('首击 tick = B3 + 24 + 12', hits[0]?.tick, b3Tick + E2E_DELAY + Math.round(0.2 * TICK_RATE));
+  eq('首击 tick = B3 + 6 + 12', hits[0]?.tick, b3Tick + E2E_DELAY + Math.round(0.2 * TICK_RATE));
   eq('所有命中享受全爆裂补正', hits.length > 0 && hits.every(h => h.isFullBurst), true);
   eq('命中 buff 明细含 S2 P1 Ghostbuster', (hits[0]?.buffBreakdown ?? []).some(b => b.name === 'Ghostbuster'), true);
 }

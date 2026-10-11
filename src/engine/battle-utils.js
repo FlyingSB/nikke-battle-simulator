@@ -48,6 +48,9 @@ export const BUFF_NUMERIC_FIELDS = [
   'pelletFlat',
   // 治疗效能（Outgoing Healing ▲，挂在治疗者身上）/ 受治疗量（Incoming Healing ▲，挂在受治疗者身上，作用于一切受到的治疗）
   'healPotencyPct', 'incomingHealPct',
+  // 「目标说明以『全体敌人』结尾的爆裂技能伤害 ▲」（Trina 爆裂 Spread Roots / Wilted Roots）：
+  // 仅作用于施放者爆裂技能中「Affects all enemies」段的伤害命中（判定见 isAllEnemiesBurstHit）
+  'allEnemiesBurstDamagePct',
 ];
 
 // ─── 最大装弹数管理 ─────────────────────────────────────────────────────────
@@ -909,7 +912,10 @@ export function getFinalMaxHp(state, unit) {
  * @param {number} unitId
  * @returns {object[]}
  */
-export function snapshotBuffBreakdown(state, unitId) {
+export function snapshotBuffBreakdown(state, unitId, label = null) {
+  // 「全体敌人」爆裂伤害加成（Spread Roots）只在对应命中的明细中并入攻击伤害（label 缺省时不计）
+  const unit = state.squad?.find(u => u.id === unitId);
+  const allEnemies = !!unit && isAllEnemiesBurstHit(unit, label);
   return state.buffs
     .filter(b => (b.unitId === null || b.unitId === unitId)
       && !(b.roundsLeft !== undefined && b.roundsLeft <= 0)
@@ -920,7 +926,7 @@ export function snapshotBuffBreakdown(state, unitId) {
       return {
         name: b.name,
         atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k,
-        attackDamagePct: (b.attackDamagePct ?? 0) * k,
+        attackDamagePct: ((b.attackDamagePct ?? 0) + (allEnemies ? (b.allEnemiesBurstDamagePct ?? 0) : 0)) * k,
         sequentialAttackDamagePct: (b.sequentialAttackDamagePct ?? 0) * k,
         elementAdvantagePct: (b.elementAdvantagePct ?? 0) * k,
         coreDamagePct: (b.coreDamagePct ?? 0) * k,
@@ -937,6 +943,35 @@ export function snapshotBuffBreakdown(state, unitId) {
     .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct);
 }
 
+// 爆裂技能描述按 ■ 拆段，记录各段是否以「Affects all enemies」为目标（按 rawBurst 对象缓存）
+const _allEnemiesPartsCache = new WeakMap();
+function _allEnemiesBurstParts(rawBurst) {
+  if (!rawBurst) return [];
+  let parts = _allEnemiesPartsCache.get(rawBurst);
+  if (!parts) {
+    const desc = String(rawBurst.description_localkey ?? '');
+    parts = desc.split('■').slice(1).map(p => /^\s*Affects all enemies\b/i.test(p));
+    _allEnemiesPartsCache.set(rawBurst, parts);
+  }
+  return parts;
+}
+
+/**
+ * 本次技能命中是否属于「目标说明以『全体敌人』结尾的爆裂技能伤害」（Trina 爆裂 Spread Roots 的作用范围）。
+ * 依据命中标签（技能文件传入的原始 label）：须为爆裂槽（'Burst…'）；带 P<n> 时检查该 ■ 段的目标说明，
+ * 不带段号时只要爆裂描述中存在「Affects all enemies」段即视为命中该段。
+ * @param {object} unit
+ * @param {string|null} label  原始命中标签（如 'Burst'、'Burst P2'、'Burst P1 Assalto'）
+ * @returns {boolean}
+ */
+export function isAllEnemiesBurstHit(unit, label) {
+  if (typeof label !== 'string' || !label.startsWith('Burst')) return false;
+  const parts = _allEnemiesBurstParts(unit.rawBurst);
+  const m = label.match(/^Burst P(\d+)/);
+  if (m) return parts[Number(m[1]) - 1] === true;
+  return parts.some(Boolean);
+}
+
 export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
   // B3 施放期间的爆裂技能直接伤害：不即时结算，排入延迟命中队列（fireTick 由 executeSkillTriggers
   // 统一后移到进入全爆裂时刻，§6.2）。默认命中预捕获施放时的 sums 与 buff 明细，不受进入全爆裂后
@@ -947,10 +982,12 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       fireTick: state.tick, caster: unit, mult: hitMult, label,
       sums: affected ? null : sums,
       opts: affected ? opts
-        : { ...opts, preBuffBreakdown: opts.preBuffBreakdown ?? snapshotBuffBreakdown(state, unit.id) },
+        : { ...opts, preBuffBreakdown: opts.preBuffBreakdown ?? snapshotBuffBreakdown(state, unit.id, label) },
     });
     return 0;
   }
+  // 「全体敌人」爆裂技能伤害加成（Spread Roots）：在解析显示名之前按原始标签判定
+  const allEnemiesBurstPct = isAllEnemiesBurstHit(unit, label) ? (sums.allEnemiesBurstDamagePct ?? 0) : 0;
   label = resolveSkillLabel(unit, label);
   const charged          = false;
   // normalAttack* 加成仅适用于普通攻击；普通技能伤害不受此加成，isNormalAttack 命中例外
@@ -999,7 +1036,8 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
     chargeDmgMultPct:  sums.chargeDamageMultPct ?? 0,
     isTrueDamage,
-    extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct + normalAtkDmgPct,
+    extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct + normalAtkDmgPct
+                           + allEnemiesBurstPct,
                          sustainedDamagePct: opts.sustainedDamage ? (sums.sustainedDamagePct ?? 0) : 0,
                          trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
                          sequentialAttackDamageMult: opts.isSequentialAttack ? (sums.sequentialAttackDamagePct ?? 0) : 0,
@@ -1027,7 +1065,8 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       // 本次命中独有的额外 ATK 加算项（不在 atkFlat 中，由 UI 单列展示）
       extraAtkFlat, extraAtkFlatLabel: opts.extraAtkFlatLabel ?? null,
       hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
-      attackDamagePct: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct + normalAtkDmgPct,
+      attackDamagePct: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct + normalAtkDmgPct
+        + allEnemiesBurstPct,
       extraAttackDamagePct: extraAtkDmgPct,
       // 攻击属性标记（UI 日志 Buff 列「依次 / 持续 / 真实 / 爆炸 / 分摊」标签）
       isSequentialAttack: opts.isSequentialAttack ?? false,
@@ -1062,7 +1101,8 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
               attackDamagePct: ((b.attackDamagePct ?? 0)
                 + (extraAtkDmgPct > 0 ? (b.projectileAttachmentDamagePct ?? 0) : 0)
                 + (projectileExplosionDamagePct > 0 ? (b.projectileExplosionDamagePct ?? 0) : 0)
-                + (isNormalAttack ? (b.normalAttackDamagePct ?? 0) : 0)) * k,
+                + (isNormalAttack ? (b.normalAttackDamagePct ?? 0) : 0)
+                + (allEnemiesBurstPct !== 0 ? (b.allEnemiesBurstDamagePct ?? 0) : 0)) * k,
               // 技能伤害恒为非蓄力（charged=false），蓄力伤害 / 蓄力伤害倍率不参与计算，明细中不列出
               sequentialAttackDamagePct: (b.sequentialAttackDamagePct ?? 0) * k, elementAdvantagePct: (b.elementAdvantagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k,
               chargeDamagePct: charged ? (b.chargeDamagePct ?? 0) * k : 0,

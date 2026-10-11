@@ -206,6 +206,8 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 - **普通攻击**：核心命中率由几何模型 `accuracy.js:coreHitChance` 计算（见 §3.8.1）。躯体恒命中（实战 BOSS 体型庞大），命中率**仅影响核心命中率**。
 - **技能命中**：由 `opts.isCore` 显式指定（通常为 false，除非技能说明"命中核心"）。
 - **武器切换**（Zwei/Red Hood 等）：缺乏切换武器散布数据，沿用切换武器类型硬编码核心率（SMG 3.3% / SG 20% / 其余 100%）。
+  技能可设 `skillState.weaponSwitchAccuracyScale`（固定散布圈 scale）改走几何模型（如 K 爆裂 SG，目测 250）；
+  `weaponSwitchCoreRate` 优先级最高。
 
 #### 3.8.1 核心命中率几何模型（HitRate 机制）
 
@@ -545,6 +547,7 @@ finalMaxAmmo = Math.max(1, rawMax)
 
 1. `ammoLeft <= 0`（且无限装弹未激活）时进入装填。
 2. 有效换弹速度：`fixedReloadSpeedPct`（若存在）覆盖所有其他加成；否则使用 `sums.reloadSpeedPct`。
+   限时的「Reloading Speed is fixed at X% for N sec」另设 `skillState.fixedReloadSpeedEndTick`，到期后自动失效（Jill 爆裂、Exia SSR S1 P2）。
    **固定换弹时长**：`skillState.fixedReloadTicks` 在 `fixedReloadEndTick >= tick` 期间直接作为折减后装填时长（忽略基础时长与换弹速度；「Reload time is fixed at X sec」，如 Cinderella: Crystal Wave 的 Preparation for Change 3s），末发后摇 `reloadRecoveryTicks` 仍照常追加。
 3. 装填时长：`Math.round(reloadTicks × Math.max(0, 1 − effectiveReloadSpeed)) + reloadRecoveryTicks`。
    - **折减部分**：乘法折减（非除以 `1 + speed`）；换弹速度 ≥100% 时为 0（瞬间装填）。例：基础 2s、换弹速度 +29.69% → `120 × 0.7031 ≈ 84 tick ≈ 1.41s`。
@@ -628,10 +631,12 @@ burstPhase = 0（充能中）
               → 等待 burstStepTicks
                 → burstPhase = 3
                 → B3 施放（BURST_SKILL_USE；按 §6.0 从左到右选第一个 CD 就绪的单位；其余 B3 本轮无法施放）
-                  B3 施放者爆裂技能的伤害全部排入 pendingSkillHits 并后移 0.4s：技能延迟从进入全爆裂起算，
+                  B3 施放者爆裂技能的伤害全部排入 pendingSkillHits 并后移 0.1s：技能延迟从进入全爆裂起算，
                   即时命中在进入全爆裂那一 tick（先于 ENTER_FULL_BURST）结算
-                → 固定等待 0.4s（FULL_BURST_ENTRY_DELAY_TICKS；实测无法通过操作缩短，不随 burstStepSecs 变化）
-                → ENTER_FULL_BURST 被动触发 → fullBurstActive = true（默认 10s 窗口，可被技能改变）
+                → 固定等待约 0.1s（FULL_BURST_ENTRY_DELAY_TICKS = 6 tick；2026-10-12 实测，更正原 0.4s；
+                  无法通过操作缩短，不随 burstStepSecs 变化）
+                → ENTER_FULL_BURST 被动触发 → fullBurstActive = true（默认 10s 窗口；「Full Burst Time ▼ N sec」
+                  由技能写入 state.fullBurstTimeReductionTicks，进入全爆裂时扣减并清零，如 Isabel 爆裂 −5s）
                 → 受全爆裂影响的 B3 伤害（affectedByFullBurst 延迟命中、pendingFireInBurstHits）捕获 sums 与 buff 明细快照
                 → FULL_BURST_SNAPSHOT 触发
                 → pendingFireInBurstHits 结算
@@ -698,6 +703,7 @@ burstPhase = 0（充能中）
 | `pierceDamagePct` | 穿透伤害% |
 | `distributedDamagePct` | 分摊伤害% |
 | `sustainedDamagePct` | 持续伤害%（原名 `sustainedDamageMult`，已重命名） |
+| `allEnemiesBurstDamagePct` | 「全体敌人」爆裂技能伤害%（ExtraMultiplier 加法；仅施放者爆裂描述中「Affects all enemies」段的伤害命中，见 `isAllEnemiesBurstHit`） |
 | `normalAttackTrueDamage` | 布尔标记：普通攻击（含武器切换射击）造成真实伤害——无视防御并计入 `trueDamagePct`（如 Guilty/Sin Bunny Mode: Engage） |
 | `stackLimit` | 叠加上限（默认 1；大于 1 时为可叠加效果，见 7.2） |
 | `isDebuff` | 是否为 debuff（影响免疫与驱散机制，见 7.3） |
@@ -820,7 +826,7 @@ burstPhase = 0（充能中）
 - 每 tick 开头处理到期的命中（在 DoT、HoT 之后，攻击循环之前）。
 - 引擎自动对所有新入队的延迟命中打 `suppressFullBurst=true`（`affectedByFullBurst` 的除外）。
 - B3 施放期间（`state.b3Cast`），施放者 `burst` 槽 `BURST_SKILL_USE` handler 新增的延迟命中统一 `fireTick += FULL_BURST_ENTRY_DELAY_TICKS`；
-  其中的即时 `fireSkillHit` 由引擎转为延迟命中（`fireTick` = 施放 tick + 0.4s，预捕获 sums 与 buff 明细；`affectedByFullBurst` 命中则在进入全爆裂瞬间快照）。
+  其中的即时 `fireSkillHit` 由引擎转为延迟命中（`fireTick` = 施放 tick + 0.1s，预捕获 sums 与 buff 明细；`affectedByFullBurst` 命中则在进入全爆裂瞬间快照）。
 - 兜底：`affectedByFullBurst` 命中在 B3 施放后、进入全爆裂前到期时，转入 `pendingFireInBurstHits`，在 ENTER_FULL_BURST 之后结算。
 - 全爆裂瞬间快照：受全爆裂影响的 B3 伤害（`affectedByFullBurst` 延迟命中、`pendingFireInBurstHits`）不在命中时重算，
   而是在进入全爆裂瞬间（ENTER_FULL_BURST 及连带效果全部生效后）统一捕获 sums 与 buff 明细，之后按各自延迟用同一快照出伤；

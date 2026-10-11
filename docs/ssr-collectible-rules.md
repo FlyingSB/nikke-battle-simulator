@@ -31,6 +31,7 @@ SSR 专属珍藏品（resource_id `200XXX` / `201XXX` / `202XXX`）会替换角�
 | Sugar | 140 | Commemorative Keychain | 202101 |
 | Privaty | 170 | Central Government Special Medal | 201401 |
 | Tove | 192 | Fire Starter | 201101 |
+| Exia | 210 | Gamekid Evolution | 200201 |
 | Rosanna | 280 | Signet Ring | 202001 |
 | Moran | 281 | Peony Hairpin | 201701 |
 | Helm | 352 | Antique Compass | 200701 |

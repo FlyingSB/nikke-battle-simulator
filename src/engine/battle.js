@@ -37,8 +37,9 @@ const MAX_SHOTS_PER_TICK = 1;
 // 手动操作只会更快，故 0.4s 既是默认值也是上限。
 export const BURST_STEP_SECS_MAX = 0.4;
 
-// B3 施放到进入全爆裂状态的固定延迟（2026-10-09 实测 0.4s，无法通过操作缩短，不随 burstStepSecs 变化）。
-const FULL_BURST_ENTRY_DELAY_TICKS = Math.round(TICK_RATE * 0.4);
+// B3 施放到进入全爆裂状态的固定延迟（2026-10-12 实测约 0.1s，更正 2026-10-09 记录的 0.4s；
+// 无法通过操作缩短，不随 burstStepSecs 变化）。
+const FULL_BURST_ENTRY_DELAY_TICKS = Math.round(TICK_RATE * 0.1);
 
 
 // ─── 武器射速（每 tick 的开火概率） ────────────────────
@@ -180,6 +181,8 @@ function nextChargeShotDelayTicks(state, unit, sums) {
  * 换弹时长 = 基础时长 ×(1 − 换弹速度%)，下限 0（≥100% 换弹速度即瞬间装填）。
  * 注意是乘法折减，不是除以 (1 + speed)：+29.69% → 2s ×0.7031 ≈ 1.41s。
  * fixedReloadSpeedPct：固定换弹速度加成，屏蔽其他换弹速度效果（如 Asuka: WILLE S2）。
+ *   可配 fixedReloadSpeedEndTick：「Reloading Speed is fixed at X% for N sec」的到期 tick（如 Jill 爆裂、
+ *   Exia SSR S1 P2），超过后视为未设置；缺省为不限时（由技能自行清除）。
  * fixedReloadTicks + fixedReloadEndTick：固定换弹时长（「Reload time is fixed at X sec」，
  *   如 Cinderella: Crystal Wave 的 Preparation for Change），生效期间忽略基础时长与换弹速度。
  * @param {object} state
@@ -191,7 +194,9 @@ function reloadDurationTicks(state, unit, sums) {
   const st = unit.skillState;
   if (st?.fixedReloadTicks != null && (st.fixedReloadEndTick ?? 0) >= state.tick)
     return st.fixedReloadTicks;
-  const effectiveReloadSpeed = st?.fixedReloadSpeedPct ?? sums.reloadSpeedPct;
+  const fixedActive = st?.fixedReloadSpeedPct != null
+    && (st.fixedReloadSpeedEndTick == null || st.fixedReloadSpeedEndTick > state.tick);
+  const effectiveReloadSpeed = fixedActive ? st.fixedReloadSpeedPct : sums.reloadSpeedPct;
   return Math.round(unit.reloadTicks * Math.max(0, 1 - effectiveReloadSpeed));
 }
 
@@ -581,7 +586,7 @@ function applyFullBurstSkills(state, events) {
 }
 
 /**
- * 进入全爆裂状态：B3 施放后固定延迟 FULL_BURST_ENTRY_DELAY_TICKS（0.4s）再执行
+ * 进入全爆裂状态：B3 施放后固定延迟 FULL_BURST_ENTRY_DELAY_TICKS（0.1s）再执行
  * （fullBurstActive=true → ENTER_FULL_BURST → 受全爆裂影响的 B3 伤害快照 → FULL_BURST_SNAPSHOT → pendingFireInBurstHits）。
  * @param {object} state
  * @param {object[]} events
@@ -1460,7 +1465,7 @@ export function tick(state) {
       state.fullBurstCount++;
       for (const u of state.squad) u.burstCount++;
       applyFullBurstSkills(state, events);
-      // B3 施放后固定 0.4s 再进入全爆裂（实测，无法通过操作缩短）
+      // B3 施放后固定 0.1s 再进入全爆裂（实测，无法通过操作缩短）
       state.burstPhaseTick = state.tick + FULL_BURST_ENTRY_DELAY_TICKS;
     }
   }
@@ -1470,7 +1475,11 @@ export function tick(state) {
       && state.tick >= state.burstPhaseTick) {
     state.burstPhaseTick = Infinity;
     enterFullBurst(state, events);
-    state.fullBurstTick = state.tick + TICK_RATE * 10; // 10s burst window
+    // 10s 全爆裂窗口；「Full Burst Time ▼ N sec」（如 Isabel 爆裂）由技能写入 fullBurstTimeReductionTicks，
+    // 仅作用于本轮全爆裂，进入时消费并清零
+    state.fullBurstTick = state.tick
+      + Math.max(0, TICK_RATE * 10 - (state.fullBurstTimeReductionTicks ?? 0));
+    state.fullBurstTimeReductionTicks = 0;
   }
 
   // 共享槽填满 → 进入阶段 1。B1 不在本 tick 施放：与 B1→B2、B2→B3 相同，槽满到 B1 施放
@@ -1686,9 +1695,19 @@ export function tick(state) {
       //     SR/RL 等精准武器 alwaysCore=1；SG 逐弹丸判定见下方拆分。
       // weaponSwitchCoreRate：技能显式指定切换武器核心率（如 Drake: Great Villain 的蓄力霰弹枪
       // 以 'Charged' 类型获得蓄力倍率，但散布仍为霰弹 → 沿用 SG 核心率）。
+      // weaponSwitchAccuracyScale：技能给出切换武器散布圈（固定 scale，无收束）时改用几何模型（如 K 爆裂，目测 250）。
+      const switchScale = unit.skillState.weaponSwitchAccuracyScale;
       const pCore = weaponSwitchActive
         ? (unit.skillState.weaponSwitchCoreRate
-          ?? (effectiveWeaponType === 'SMG' ? 0.033
+          ?? (switchScale != null
+            ? coreHitChance({
+                alwaysCore:   false,
+                currentScale: switchScale,
+                hitRatePct:   (unit.stats.hitRatePct ?? 0) + (sums.hitRatePct ?? 0),
+                distance:     state.enemyDistance,
+                CORE0: state.accCore0, D0: state.accD0, coef: state.accHitCoef,
+              })
+            : effectiveWeaponType === 'SMG' ? 0.033
             : effectiveWeaponType === 'SG'  ? 0.20 : 1.0))
         : coreHitChance({
             alwaysCore:   unit.accAlwaysCore,
@@ -2055,7 +2074,7 @@ export function tick(state) {
 
       // ── 每发射击后的单位技能触发（声明式执行器） ────────────────
       // 双重命中：SHOT_COUNT 已由 fireShotCountTriggers 处理，跳过。
-      onShotFired(state, unit, { sums, isCharged, hitPart, pellets, ammoAfterShot: unit.ammoLeft },
+      onShotFired(state, unit, { sums, isCharged, hitPart, pellets, isCrit, ammoAfterShot: unit.ammoLeft },
         isDoubleHit ? { skipShotCount: true } : undefined);
       flushCsChanged(state);
       flushHealReceived(state);

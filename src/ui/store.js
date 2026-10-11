@@ -94,6 +94,7 @@ const SSR_FAV_BY_CHAR = {
   140: 202101, // Sugar     → Commemorative Keychain
   170: 201401, // Privaty   → Central Government Special Medal
   192: 201101, // Tove      → Fire Starter
+  210: 200201, // Exia      → Gamekid Evolution
   280: 202001, // Rosanna   → Signet Ring
   281: 201701, // Moran     → Peony Hairpin
   352: 200701, // Helm      → Antique Compass

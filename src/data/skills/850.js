@@ -32,18 +32,14 @@ export default {
         },
       },
       // S1 Part2+3：每次普通攻击检测暴击；累计 44 次暴击 → Unstable Energy（3× 技能伤害）
-      //   通过比较 caster.critCount 与上一次记录值判断本次是否暴击（critCount 在 onShotFired 前已更新）。
+      //   本发是否暴击读取射击上下文 ctx.isCrit（引擎按整发判定，「暴击次数」按发计，不按弹丸计）。
       //   Part3：仅当敌人为电击属性时施加承伤 debuff；敌人非电击则跳过。
       //   Impact-Type Exospine Mk2：Mk2 期间 Unstable Energy 伤害系数 +100%（basePct × 2）。
       {
         on: 'SHOT_COUNT',
         opts: { every: 1, counterKey: 'eve_s1_shotDummy' },
-        handler(state, caster) {
-          // 检测本次是否暴击
-          const currCrits = caster.critCount;
-          const lastCrits = caster.skillState.eve_lastCritCount ?? 0;
-          caster.skillState.eve_lastCritCount = currCrits;
-          if (currCrits <= lastCrits) return;
+        handler(state, caster, ctx) {
+          if (!ctx.isCrit) return;
 
           // 累计暴击计数
           caster.skillState.eve_critHits = (caster.skillState.eve_critHits ?? 0) + 1;
