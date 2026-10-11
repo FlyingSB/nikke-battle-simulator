@@ -795,6 +795,10 @@ export function createStore() {
     // 模拟选项
     iterations:         30,
     burstStepSecs:      0.4,
+    // 锁定等级：0 = 无限制（按同步器等级）；40 / 200 / 400 = 基础属性按该等级重算。
+    // 仅替换等级表基础属性（突破 / 核心照常叠加），好感度、装备、魔方、珍藏品、研究等加成不变。
+    levelLock:          0,
+    LEVEL_LOCK_OPTIONS: [0, 40, 200, 400],
     ebsLastBurstOnly: true,
     mirLastBurstOnly: true,
     // Mast: Romantic Maid 爆裂轮次策略：auto / drunken3 / b3a / b3b（见 mastBurstOptions）
@@ -1110,6 +1114,7 @@ export function createStore() {
         },
         iterations:         this.iterations,
         burstStepSecs:      this.burstStepSecs,
+        levelLock:          this.levelLock,
         ebsLastBurstOnly: this.ebsLastBurstOnly,
         mirLastBurstOnly: this.mirLastBurstOnly,
         mastBurstMode:    this.mastBurstMode,
@@ -1144,6 +1149,7 @@ export function createStore() {
       if (!state) return;
       if (state.synchroLevel    != null) this.synchroLevel    = state.synchroLevel;
       if (state.generalResearch != null) this.generalResearch = state.generalResearch;
+      if (this.LEVEL_LOCK_OPTIONS.includes(state.levelLock)) this.levelLock = state.levelLock;
       if (state.classResearch)  Object.assign(this.classResearch, state.classResearch);
       if (state.corpResearch)   Object.assign(this.corpResearch,  state.corpResearch);
       if (state.enemy) {
@@ -1639,10 +1645,15 @@ export function createStore() {
       try {
         return computeFinalStats(
           { ...slot, _favItemData: slot._favData, equipOptions: aggregateEquipOptions(slot.equipment) },
-          this.synchroLevel,
+          this.effectiveLevel(),
           this._research()
         );
       } catch { return null; }
+    },
+
+    // 计算基础属性用的角色等级：锁定等级优先，否则取同步器等级
+    effectiveLevel() {
+      return this.levelLock > 0 ? this.levelLock : this.synchroLevel;
     },
 
     _research() {
@@ -1696,10 +1707,11 @@ export function createStore() {
 
       try {
         const research    = this._research();
+        const nikkeLevel  = this.effectiveLevel();
         const squadStats  = activeSlots.map(slot =>
           computeFinalStats(
             { ...slot, _favItemData: slot._favData, equipOptions: aggregateEquipOptions(slot.equipment) },
-            this.synchroLevel,
+            nikkeLevel,
             research
           )
         );
@@ -1714,7 +1726,7 @@ export function createStore() {
             element:               slot.element,
             weaponType:            slot.weaponType,
             burstStep:             slot.burstStep ?? 'Step3',
-            level:                 this.synchroLevel,
+            level:                 nikkeLevel,
             _computedStats:        squadStats[idx],
             _nikkeData:            nd ?? null,
             _favItemData:          slot._favData ?? null,

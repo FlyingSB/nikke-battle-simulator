@@ -255,6 +255,16 @@
                 x-model.number="$store.sim.iterations">
             </div>
             <div class="field-group">
+              <label class="field-label" x-text="$t('sim.levelLock')"></label>
+              <select class="input" x-model.number="$store.sim.levelLock">
+                <template x-for="lv in $store.sim.LEVEL_LOCK_OPTIONS" :key="lv">
+                  <option :value="lv" :selected="lv === $store.sim.levelLock"
+                    x-text="lv ? $t('sim.levelLock.lv', { lv }) : $t('sim.levelLock.none')"></option>
+                </template>
+              </select>
+              <p class="hint" x-show="$store.sim.levelLock > 0" x-text="$t('sim.levelLock.hint')"></p>
+            </div>
+            <div class="field-group">
               <label class="field-label">
                 <span x-text="$t('sim.burstDelay')"></span>
                 <span class="field-hint" x-text="' (' + $store.sim.burstStepSecs.toFixed(2) + 's)'"></span>
