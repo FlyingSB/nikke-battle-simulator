@@ -1,5 +1,5 @@
 ﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
+         getBuffSums, rollProjectileCore, isEnemyHittable, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Anis: Star  (resource_id: 17)
@@ -242,7 +242,10 @@ export default {
 
       // Part1 INTERVAL：Shooting Star —— 每 0.25 sec 以当前 buff 状态造成一次伤害
       // 性质：RL 未蓄力的普通攻击（isCharged=false，chargeMult=1）
-      //   · 可命中核心：RL 恒中核心，敌人有核心且未被保护时按核心结算（RL 无穿透）
+      //   · 自动攻击随机目标：不受自动战斗停火影响，敌人进入 HIDDEN 后前 0.9s 仍可命中并继续攻击，
+      //     之后敌人无法被命中（无目标）时跳过该轮（isEnemyHittable，dev/game-data.md）
+      //   · 可命中核心：类 RL 弹道（有飞行时间），敌人有核心且未被保护时按 RL 核心命中率
+      //     （随敌人距离缩放）判定（rollProjectileCore，默认 1 = 恒中；RL 无穿透）
       //   · 享受普攻加成（normalAttackDamagePct / normalAttackCritRatePct）
       //   · 享受 Projectile Explosion Damage 加成（如 S2 P3）
       //   · 享受 Explosion Radius 加成：单目标模型下不影响伤害，无需额外计算
@@ -258,10 +261,12 @@ export default {
           const endTick = caster.skillState.shootingStarsEndTick;
           if (!endTick || state.tick > endTick) return false;
           if (state.enemyHp <= 0) return;
+          // 敌人隐藏且已不可命中（隐藏动画前 0.9s 仍可命中）→ 无目标，本轮跳过（计时照常推进，不顺延）
+          if (!isEnemyHittable(state)) return;
           const lv     = caster.skillLevels[2];
           const pct    = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const sums   = getBuffSums(state, caster.id);
-          const isCore = state.enemyHasCore && !state.enemyCoreProtected;
+          const isCore = rollProjectileCore(state);
           fireSkillHit(state, caster, pct, sums, 'Burst P1 Shooting Stars', {
             hitPart:             isCore ? 'core' : 'body',
             coreDmgIncrement:    caster.coreDmgIncrement ?? 0,

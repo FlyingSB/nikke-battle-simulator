@@ -4,6 +4,8 @@
  */
 
 import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
+import { rng } from './rng.js';
+import { HIT_RATE_REF_DISTANCE, HIDDEN_HITTABLE_SECS } from './constants.js';
 
 export const TICK_RATE       = 60;         // 每秒 tick 数
 
@@ -146,7 +148,7 @@ export function getBuffSums(state, unitId) {
  * 本次射击命中目标的弹丸数。仅 SG 有多弹丸，其余武器恒为 1。
  * 「弹丸数固定为 N」优先于「弹丸数 ▲」；否则 = 基础 shot_count + Σ pelletFlat（下限 1）。
  * 须用射击时（回合扣减前）的 sums 快照计算，回合制 pelletFixed 才能覆盖到其最后一回合。
- * 当前引擎假设每发射击全部弹丸命中目标（无脱靶模型）。
+ * 返回的是发射弹丸数；实际命中数由 rollHitPellets 按 SG 弹丸命中率判定。
  * @param {object} unit
  * @param {string} weaponType  本次射击的实际武器类型（含武器切换）
  * @param {{ pelletFixed: number|null, pelletFlat: number }} sums
@@ -156,6 +158,56 @@ export function shotPelletCount(unit, weaponType, sums) {
   if (weaponType !== 'SG') return 1;
   if (sums.pelletFixed != null) return sums.pelletFixed;
   return Math.max(1, (unit.shotCount ?? 1) + (sums.pelletFlat ?? 0));
+}
+
+/**
+ * 按敌人距离缩放实战命中校正系数：系数为参考距离（HIT_RATE_REF_DISTANCE）时的命中率，
+ * 敌人越近命中率越高，d = 0 时恒为 1；距离未知（null，如不可瞄准）按参考距离处理。
+ * @param {number} rate      参考距离处的命中率（0..1）
+ * @param {number|null} distance  敌人连续距离（0..100）
+ * @returns {number} 当前距离下的命中率（0..1）
+ */
+export function distanceScaledHitRate(rate, distance) {
+  if (rate >= 1) return 1;
+  const d = distance ?? HIT_RATE_REF_DISTANCE;
+  return Math.min(1, Math.max(0, 1 - (1 - rate) * d / HIT_RATE_REF_DISTANCE));
+}
+
+/**
+ * 逐弹丸判定命中躯体（SG 实战弹丸命中率校正）。hitRate ≥ 1 时全部命中，不消耗随机数。
+ * @param {number} fired    发射弹丸数
+ * @param {number} hitRate  每颗弹丸命中概率（0..1）
+ * @returns {number} 命中弹丸数（0..fired）
+ */
+export function rollHitPellets(fired, hitRate) {
+  if (hitRate >= 1) return fired;
+  let hit = 0;
+  for (let i = 0; i < fired; i++) if (rng() < hitRate) hit++;
+  return hit;
+}
+
+/**
+ * 敌人当前是否可被命中（供不受操作控制的自动攻击技能判定是否有目标，如 Anis: Star 的 Shooting Stars）。
+ * HIDDEN 并非瞬间不可命中：隐藏动画前 HIDDEN_HITTABLE_SECS 秒内仍可被命中，之后才无目标。
+ * （自动战斗的普通射击在 HIDDEN 起点即停火，不经过此函数。）
+ * @param {object} state
+ * @returns {boolean}
+ */
+export function isEnemyHittable(state) {
+  if (state.currentPhaseZone !== 'HIDDEN') return true;
+  return state.tick - (state.hiddenStartTick ?? state.tick) < Math.round(HIDDEN_HITTABLE_SECS * TICK_RATE);
+}
+
+/**
+ * 弹道类技能命中（类 RL，如 Anis: Star 的 Shooting Stars）是否命中核心：
+ * 敌人有核心且未被保护时，按 RL 核心命中率（state.accRlCoreRate，随敌人距离缩放）判定。
+ * @param {object} state
+ * @returns {boolean}
+ */
+export function rollProjectileCore(state) {
+  if (!state.enemyHasCore || state.enemyCoreProtected) return false;
+  const rate = distanceScaledHitRate(state.accRlCoreRate ?? 1, state.enemyDistance);
+  return rate >= 1 || rng() < rate;
 }
 
 // 被克制关系反查：value 克制 key（Fire > Wind > Iron > Electric > Water > Fire）

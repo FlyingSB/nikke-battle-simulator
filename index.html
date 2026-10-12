@@ -225,25 +225,6 @@
               x-html="$t('enemy.partsCoreNote')">
             </aside>
 
-            <div class="section-sub mt-1" x-text="$t('enemy.hitCal')"></div>
-            <div class="hit-cal-row" :title="$t('enemy.hitCalTip')">
-              <label>CORE0
-                <input class="input input-sm" type="number" min="0" step="1"
-                  :value="$store.sim.enemy.core0"
-                  @input="$store.sim.enemy.core0 = +$event.target.value; $store.sim.selectedPresetId = null">
-              </label>
-              <label>D0
-                <input class="input input-sm" type="number" min="1" step="1"
-                  :value="$store.sim.enemy.d0"
-                  @input="$store.sim.enemy.d0 = +$event.target.value; $store.sim.selectedPresetId = null">
-              </label>
-              <label><span x-text="$t('enemy.hitCoef')"></span>
-                <input class="input input-sm" type="number" min="0" step="0.1"
-                  :value="$store.sim.enemy.hitCoef"
-                  @input="$store.sim.enemy.hitCoef = +$event.target.value; $store.sim.selectedPresetId = null">
-              </label>
-            </div>
-
             <!-- 敌人配置 JSON 导入 / 导出 -->
             <div class="enemy-io-row">
               <button type="button" class="btn btn-ghost btn-sm"
@@ -285,6 +266,34 @@
                 x-model.number="$store.sim.burstStepSecs">
               <div class="range-labels">
                 <span>0.1s</span><span>0.4s</span>
+              </div>
+            </div>
+            <!-- 命中参数：核心命中率几何模型校准 + 实战命中校正（随敌人距离缩放） -->
+            <div class="field-group">
+              <label class="field-label" x-text="$t('sim.hitCal')"></label>
+              <div class="hit-cal-row" :title="$t('sim.hitCalTip')">
+                <label>CORE0
+                  <input class="input input-sm" type="number" min="0" step="1"
+                    x-model.number="$store.sim.hitCal.core0">
+                </label>
+                <label>D0
+                  <input class="input input-sm" type="number" min="1" step="1"
+                    x-model.number="$store.sim.hitCal.d0">
+                </label>
+                <label><span x-text="$t('sim.hitCoef')"></span>
+                  <input class="input input-sm" type="number" min="0" step="0.1"
+                    x-model.number="$store.sim.hitCal.hitCoef">
+                </label>
+              </div>
+              <div class="hit-cal-row" :title="$t('sim.hitRealTip')">
+                <label><span x-text="$t('sim.rlCoreRate')"></span>
+                  <input class="input input-sm" type="number" min="0" max="1" step="0.01"
+                    x-model.number="$store.sim.hitCal.rlCoreRate">
+                </label>
+                <label><span x-text="$t('sim.sgHitRate')"></span>
+                  <input class="input input-sm" type="number" min="0" max="1" step="0.01"
+                    x-model.number="$store.sim.hitCal.sgHitRate">
+                </label>
               </div>
             </div>
             <!-- 角色专属策略选项 -->

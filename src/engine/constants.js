@@ -130,3 +130,25 @@ export const WEAPON_HIT_MULT = {
 export const CORE0_DEFAULT             = 55;   // d=0 时核心屏幕半径（SMG/SG 交叉验证）
 export const D0_DEFAULT                = 77;   // 核心缩为 0 的距离（线性透视外推）
 export const HITRATE_CORE_COEF_DEFAULT = 4.5;  // HitRate 收圆系数（Drake 三档拟合）
+
+/**
+ * 实战命中校正系数（模拟选项可调）。引擎层默认 1 = 理想命中（与旧行为一致，回归测试依赖）；
+ * 界面默认 0.7（src/ui/store.js HIT_CAL_DEFAULTS），每次模拟显式传入。
+ *   RL_CORE_RATE_DEFAULT：RL（及类 RL 弹道技能，如 Anis: Star 的 Shooting Stars）核心命中率。
+ *     RL 有弹道与飞行时间（CDN shot_detail.spot_projectile_speed），敌人移动 / 远距离时无法保证命中核心。
+ *   SG_PELLET_HIT_RATE_DEFAULT：SG 每颗弹丸命中躯体的概率（散布大，远距离时部分弹丸打空）。
+ */
+export const RL_CORE_RATE_DEFAULT       = 1;
+export const SG_PELLET_HIT_RATE_DEFAULT = 1;
+/**
+ * 上述系数为敌人距离 HIT_RATE_REF_DISTANCE 时的命中率；敌人越近命中率越高，按距离线性缩放：
+ *   P(d) = clamp(1 − (1 − 系数) · d / HIT_RATE_REF_DISTANCE, 0, 1)   （d = 0 时恒为 1）
+ */
+export const HIT_RATE_REF_DISTANCE = 50;
+
+/**
+ * 敌人进入 HIDDEN 后仍可被命中的时长（秒）。BIGARMS 隐藏动画约 2s，前 0.9s 仍可被命中（dev/game-data.md）。
+ * 自动战斗的角色在 HIDDEN 起点即停火装弹；不受操作控制的自动攻击技能（如 Anis: Star 的 Shooting Stars）
+ * 在此窗口内继续命中，之后才因无目标而跳过。
+ */
+export const HIDDEN_HITTABLE_SECS = 0.9;

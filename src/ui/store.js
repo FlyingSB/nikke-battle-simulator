@@ -430,6 +430,42 @@ function migrateEnemyActions(actions) {
   return [...restoredFixed, ...displaced, ...migrated.slice(FIXED_ENEMY_ACTION_COUNT)];
 }
 
+/**
+ * 敌人配置签名（预设去重用）：元素 + 类型 + 行动列表。命中参数属于模拟选项，不参与。
+ * @param {{ element: string, type: string, actions: { startTimeS: number, type: string, value: * }[] }} cfg
+ */
+function enemyConfigSignature(cfg) {
+  const actions = (cfg?.actions ?? [])
+    .map(({ startTimeS, type, value }) => `${startTimeS}|${type}|${value}`)
+    .join(',');
+  return `${cfg?.element}:${cfg?.type}:${actions}`;
+}
+
+/**
+ * 命中参数默认值（模拟选项 hitCal）。
+ * rlCoreRate / sgHitRate = 0.7：敌人距离 50 处的实战命中率（BIGARMS 整局实测标定；
+ * SG 与 Brid 弹丸实测 NEAR 92% / MID 77% / FAR 67% 量级一致，见 dev/game-data.md）。
+ * 引擎层默认仍为 1（理想命中，回归测试不传此参数），界面每次模拟都显式传入。
+ */
+const HIT_CAL_DEFAULTS = { core0: 55, d0: 77, hitCoef: 4.5, rlCoreRate: 0.7, sgHitRate: 0.7 };
+
+/**
+ * 从存档恢复命中参数：新存档读顶层 hitCal；旧存档（命中参数曾存于 enemy 内）自动迁移。
+ * @param {object} state  存档快照
+ * @returns {object} 完整的 hitCal
+ */
+function restoreHitCal(state) {
+  const src = state.hitCal ?? state.enemy ?? {};
+  return Object.fromEntries(Object.entries(HIT_CAL_DEFAULTS)
+    .map(([k, v]) => [k, Number.isFinite(src[k]) ? src[k] : v]));
+}
+
+/** 命中校正系数夹到 [0, 1]；非数值（空输入等）回退为默认值。 */
+function clampRate(v, fallback) {
+  const n = Number(v);
+  return Number.isFinite(n) && v !== '' && v !== null ? Math.min(1, Math.max(0, n)) : fallback;
+}
+
 // 敌人位置事件的显示值：隐藏 / 连续距离 / 旧版 NEAR·MID·FAR 标签
 function _zoneDesc(zone) {
   if (zone === 'HIDDEN') return t('ev.hidden');
@@ -775,10 +811,6 @@ export function createStore() {
     enemy: {
       element:  'Iron',
       type:     'Boss',
-      // 命中率核心命中模型校准常量（实证默认；见 dev/game-data.md）。
-      core0:    55,   // d=0 时核心屏幕半径
-      d0:       77,   // 核心缩为 0 的距离
-      hitCoef:  4.5,  // HitRate 收圆系数
       // 行动阶段：前3条固定（时间=0，类型固定），后续可增删
       // 默认值参考联盟射击场 BIGARMS。position 值为连续距离（0-100，与 bonusrange 同刻度）；隐藏阶段用独立的 hidden 类型行动表示。
       actions: [
@@ -801,6 +833,10 @@ export function createStore() {
 
     // 模拟选项
     iterations:         30,
+    // 命中参数（模拟选项）：
+    //   core0 / d0 / hitCoef：核心命中率几何模型校准常量（实证默认；见 dev/game-data.md）
+    //   rlCoreRate / sgHitRate：实战命中校正（0..1，1 = 理想命中，默认 0.7），为敌人距离 50 处的命中率，越近越高
+    hitCal: { ...HIT_CAL_DEFAULTS },
     burstStepSecs:      0.4,
     // 锁定等级：0 = 无限制（按同步器等级）；40 / 200 / 400 = 基础属性按该等级重算。
     // 仅替换等级表基础属性（突破 / 核心照常叠加），好感度、装备、魔方、珍藏品、研究等加成不变。
@@ -1113,13 +1149,11 @@ export function createStore() {
         enemy: {
           element:  this.enemy.element,
           type:     this.enemy.type,
-          core0:    this.enemy.core0,
-          d0:       this.enemy.d0,
-          hitCoef:  this.enemy.hitCoef,
           actions:  this.enemy.actions.map(a => ({ ...a })),
           _nextId:  this.enemy._nextId,
         },
         iterations:         this.iterations,
+        hitCal:             { ...this.hitCal },
         burstStepSecs:      this.burstStepSecs,
         levelLock:          this.levelLock,
         ebsLastBurstOnly: this.ebsLastBurstOnly,
@@ -1161,10 +1195,6 @@ export function createStore() {
       if (state.corpResearch)   Object.assign(this.corpResearch,  state.corpResearch);
       if (state.enemy) {
         const e = state.enemy;
-        // 命中率校准常量（旧存档缺失 → 实证默认）。
-        this.enemy.core0   = e.core0   ?? this.enemy.core0;
-        this.enemy.d0      = e.d0      ?? this.enemy.d0;
-        this.enemy.hitCoef = e.hitCoef ?? this.enemy.hitCoef;
         if (Array.isArray(e.actions)) {
           // 新格式（旧距离标签 / 旧「距离=HIDDEN」在 migrateEnemyActions 内迁移）
           this.enemy.element  = e.element  ?? this.enemy.element;
@@ -1189,6 +1219,7 @@ export function createStore() {
         }
       }
       if (state.iterations          != null) this.iterations          = state.iterations;
+      this.hitCal = restoreHitCal(state);
       // 旧版本保存的 0.6s 等超出上限的值统一压到 0.4s（自动战斗实测上限）
       if (state.burstStepSecs       != null) this.burstStepSecs       = Math.min(0.4, state.burstStepSecs);
       if (state.ebsLastBurstOnly  != null) this.ebsLastBurstOnly  = state.ebsLastBurstOnly;
@@ -1399,7 +1430,9 @@ export function createStore() {
     _loadEnemyPresetsFromStorage() {
       try {
         const raw = localStorage.getItem(ENEMY_PRESETS_KEY);
-        this.enemyPresets = raw ? JSON.parse(raw) : [];
+        // 签名按当前规则重算（旧预设签名含已移至模拟选项的命中参数，不重算会导致重复自动保存）
+        this.enemyPresets = (raw ? JSON.parse(raw) : [])
+          .map(p => ({ ...p, _sig: enemyConfigSignature(p.config) }));
       } catch {
         this.enemyPresets = [];
       }
@@ -1410,10 +1443,7 @@ export function createStore() {
     },
 
     _getEnemyConfigSignature() {
-      const actions = this.enemy.actions
-        .map(({ startTimeS, type, value }) => `${startTimeS}|${type}|${value}`)
-        .join(',');
-      return `${this.enemy.element}:${this.enemy.type}:${this.enemy.core0}/${this.enemy.d0}/${this.enemy.hitCoef}:${actions}`;
+      return enemyConfigSignature(this.enemy);
     },
 
     saveEnemyPresetIfNew() {
@@ -1431,9 +1461,6 @@ export function createStore() {
         config: {
           element: this.enemy.element,
           type:    this.enemy.type,
-          core0:   this.enemy.core0,
-          d0:      this.enemy.d0,
-          hitCoef: this.enemy.hitCoef,
           actions: this.enemy.actions.map(({ startTimeS, type, value }) => ({ startTimeS, type, value })),
         },
       });
@@ -1446,9 +1473,6 @@ export function createStore() {
       if (!preset) return;
       this.enemy.element = preset.config.element;
       this.enemy.type    = preset.config.type;
-      this.enemy.core0   = preset.config.core0   ?? this.enemy.core0;
-      this.enemy.d0      = preset.config.d0      ?? this.enemy.d0;
-      this.enemy.hitCoef = preset.config.hitCoef ?? this.enemy.hitCoef;
       this.enemy.actions = migrateEnemyActions(preset.config.actions).map((a, i) => ({ ...a, id: i + 1 }));
       this.enemy._nextId = this.enemy.actions.length + 1;
       this.selectedPresetId = id;
@@ -1570,9 +1594,6 @@ export function createStore() {
     _applyEnemyConfig(c) {
       this.enemy.element = c.element;
       this.enemy.type    = c.type;
-      this.enemy.core0   = c.core0;
-      this.enemy.d0      = c.d0;
-      this.enemy.hitCoef = c.hitCoef;
       this.enemy.actions = c.actions.map((a, i) => ({ ...a, id: i + 1 }));
       this.enemy._nextId = this.enemy.actions.length + 1;
       this.sortEnemyActions();
@@ -1956,10 +1977,13 @@ export function createStore() {
             element:        this.enemy.element,
             type:           this.enemy.type,
             phases:         positionPhases,
-            // 命中率核心命中模型校准常量（UI 可调）。
-            core0:          Number(this.enemy.core0)  || 55,
-            d0:             Number(this.enemy.d0)     || 77,
-            hitCoef:        Number(this.enemy.hitCoef) || 4.5,
+            // 命中参数（模拟选项 hitCal）：核心命中率模型校准常量
+            core0:          Number(this.hitCal.core0)  || 55,
+            d0:             Number(this.hitCal.d0)     || 77,
+            hitCoef:        Number(this.hitCal.hitCoef) || 4.5,
+            // 实战命中校正（0 合法：表示从不命中核心 / 弹丸全部打空）
+            rlCoreRate:     clampRate(this.hitCal.rlCoreRate, HIT_CAL_DEFAULTS.rlCoreRate),
+            sgHitRate:      clampRate(this.hitCal.sgHitRate,  HIT_CAL_DEFAULTS.sgHitRate),
             ...(defActions.length  ? { defActions  } : {}),
             ...(coreActions.length ? { coreActions } : {}),
           },

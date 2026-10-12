@@ -15,11 +15,12 @@
 import { calcDamage, rollCrit } from './damage.js';
 import { rng, setRng } from './rng.js';
 import { computeFinalStats } from './stats.js';
-import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAULT, HITRATE_CORE_COEF_DEFAULT } from './constants.js';
+import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAULT, HITRATE_CORE_COEF_DEFAULT,
+         RL_CORE_RATE_DEFAULT, SG_PELLET_HIT_RATE_DEFAULT } from './constants.js';
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, distanceScaledHitRate } from './battle-utils.js';
 import { executeSkillTriggers, dispatchHpChanged, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -1059,6 +1060,9 @@ export function initBattle(config) {
     accCore0:           config.enemy.core0   ?? CORE0_DEFAULT,
     accD0:              config.enemy.d0      ?? D0_DEFAULT,
     accHitCoef:         config.enemy.hitCoef ?? HITRATE_CORE_COEF_DEFAULT,
+    // 实战命中校正：RL（含类 RL 弹道技能）核心命中率、SG 弹丸命中率（默认 1 = 理想命中）。
+    accRlCoreRate:      config.enemy.rlCoreRate ?? RL_CORE_RATE_DEFAULT,
+    accSgHitRate:       config.enemy.sgHitRate  ?? SG_PELLET_HIT_RATE_DEFAULT,
     // 防御力/核心状态的定时行动（startTick 升序，不含初始值）
     enemyDefActions:    config.enemy.defActions  ?? [],
     enemyCoreActions:   config.enemy.coreActions ?? [],
@@ -1205,6 +1209,8 @@ export function tick(state) {
     if (newZone !== state.currentPhaseZone) {
       state.currentPhaseZone = newZone;
       if (newZone === 'HIDDEN') {
+        // 记录隐藏起点：隐藏动画前段敌人仍可被命中（见 isEnemyHittable）
+        state.hiddenStartTick = state.tick;
         // 进入 HIDDEN：所有单位停止攻击（已触发的技能、DoT 仍正常造成伤害，
         // 见 tick() 上方的 DoT/延迟命中处理，不受此分支影响）。各单位按弹匣状态分流：
         //   · 弹匣已满，或正处于武器切换（特殊武器）中 → 待命，不装填、保留弹药。
@@ -1683,7 +1689,12 @@ export function tick(state) {
       const sums = getBuffSums(state, unit.id);
       // 本次射击命中弹丸数（SG 受「弹丸数 ▲ / 固定为 N」影响）：用回合扣减前的 sums，
       // 供爆裂充能与按弹丸计数的技能（shotCtx.pellets）共用
-      const pellets = shotPelletCount(unit, effectiveWeaponType, sums);
+      // SG 实战弹丸命中：每颗弹丸按 sgHitRate（随敌人距离缩放）独立判定是否命中躯体，
+      // 伤害倍率按命中弹丸比例缩放（hitMult 为整发全部弹丸的合计倍率），充能与弹丸计数按命中弹丸数。
+      const firedPellets = shotPelletCount(unit, effectiveWeaponType, sums);
+      const pellets      = rollHitPellets(firedPellets, effectiveWeaponType === 'SG'
+        ? distanceScaledHitRate(state.accSgHitRate, state.enemyDistance) : 1);
+      const shotHitMult  = hitMult * pellets / firedPellets;
       // normalAttackCritRatePct 适用于所有普通攻击（含蓄力），不区分蓄力与否
       const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRatePct
         + (sums.normalAttackCritRatePct ?? 0));
@@ -1702,8 +1713,11 @@ export function tick(state) {
       // weaponSwitchCoreRate：技能显式指定切换武器核心率（如 Drake: Great Villain 的蓄力霰弹枪
       // 以 'Charged' 类型获得蓄力倍率，但散布仍为霰弹 → 沿用 SG 核心率）。
       // weaponSwitchAccuracyScale：技能给出切换武器散布圈（固定 scale，无收束）时改用几何模型（如 K 爆裂，目测 250）。
+      // RL：有弹道与飞行时间，实战核心命中率按 rlCoreRate 校正并随敌人距离缩放（技能显式指定切换武器核心率时除外）。
       const switchScale = unit.skillState.weaponSwitchAccuracyScale;
-      const pCore = weaponSwitchActive
+      const rlCoreOverride = effectiveWeaponType === 'RL'
+        && !(weaponSwitchActive && unit.skillState.weaponSwitchCoreRate != null);
+      const pCore = rlCoreOverride ? distanceScaledHitRate(state.accRlCoreRate, state.enemyDistance) : weaponSwitchActive
         ? (unit.skillState.weaponSwitchCoreRate
           ?? (switchScale != null
             ? coreHitChance({
@@ -1742,7 +1756,7 @@ export function tick(state) {
         atkMultiplier:     1 + sums.atkPct,
         otherAtkIncrement: sums.atkFlat,
         enemyDef:          getEffectiveEnemyDef(state),
-        hitMultiplier:     hitMult,
+        hitMultiplier:     shotHitMult,
         weaponType:        effectiveWeaponType,
         isCrit,
         critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
@@ -1779,7 +1793,7 @@ export function tick(state) {
           atkMultiplier:     1 + sums.atkPct,
           otherAtkIncrement: sums.atkFlat,
           enemyDef:          getEffectiveEnemyDef(state),
-          hitMultiplier:     hitMult,
+          hitMultiplier:     shotHitMult,
           weaponType:        effectiveWeaponType,
           isCrit:            isCritPartsCoreBody,
           critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
@@ -1860,7 +1874,7 @@ export function tick(state) {
           atkMultiplier:     1 + sums2.atkPct,
           otherAtkIncrement: sums2.atkFlat,
           enemyDef:          getEffectiveEnemyDef(state),
-          hitMultiplier:     hitMult,
+          hitMultiplier:     shotHitMult,
           weaponType:        effectiveWeaponType,
           isCrit:            isCrit2,
           critDmgIncrement:  (unit.stats.critDmg ?? 0.50) - 0.50 + sums2.critDamagePct,
@@ -1928,9 +1942,9 @@ export function tick(state) {
       // 本次射击充能 = targetBurstEnergyPerShot × 弹丸数 + burstGaugeFlat。
       // 蓄力武器（SR/RL）：仅【Focus 受控角色】额外乘以全蓄力系数 (fullChargeBurstEnergy/10000)；
       //   非Focus 蓄力角色与非蓄力武器均无倍率（实测：非Focus 蓄力充能 = target，见 battle-logic §6.1）。
-      // SG 弹丸数（pellets）：target_burst_energy_pershot 是【每发弹丸】命中的充能，一次射击发射
-      //   pellets 发弹丸全部命中（100% 命中假设）→ 本次充能 = ×pellets。其余武器 pellets=1。
-      //   pellets = shot_count + 弹丸数 ▲（或被「固定为 N」覆盖），见 shotPelletCount。
+      // SG 弹丸数（pellets）：target_burst_energy_pershot 是【每发弹丸】命中的充能 → 本次充能 = ×命中弹丸数。
+      //   发射弹丸数 = shot_count + 弹丸数 ▲（或被「固定为 N」覆盖），见 shotPelletCount；
+      //   命中弹丸数按 sgHitRate 逐弹丸判定（默认 1 = 全部命中）。其余武器 pellets=1。
       // burstGaugeFlat：来自 buff 的 flat 加成（如 Neon: Vision Eye S2 Part4），按【每次射击】计（非每弹丸），
       //   与弹丸充能合并后整体（Focus 时）乘以全蓄力系数（flat 加法，不得改为百分比乘法）。
       // ⚠ 必须在 hitLog 记录之前累积，使本发命中行记录的 gaugeAfter 已包含本发充能，
@@ -1953,7 +1967,7 @@ export function tick(state) {
           tick: state.tick, unitId: unit.id, label: shotLabel,
           gaugeAfter: state.burstGauge,
           atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
-          hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
+          hitMult: shotHitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
           favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
           attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct + projExpOf(sums), isFullBurst: state.fullBurstActive,
           damageTakenPct: getEnemyDamageTakenPct(state),

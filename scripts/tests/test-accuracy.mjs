@@ -5,6 +5,7 @@
  *   parseAccuracyProfile  — auto/手动回退、SR/RL→alwaysCore、数据缺失→alwaysCore
  *   ramp                  — MG 暖机收束 / 停火恢复；AR/SMG/SG 恒定
  *   coreHitChance         — 边界、单调性、实测数据回归（dev/game-data.md）
+ *   rollHitPellets / rollProjectileCore — 实战命中校正（SG 弹丸命中率 / RL 核心命中率）
  *
  * Run: node scripts/tests/test-accuracy.mjs
  */
@@ -17,6 +18,8 @@ import {
   coreHitChance,
 } from '../../src/engine/accuracy.js';
 import { CORE0_DEFAULT, D0_DEFAULT, HITRATE_CORE_COEF_DEFAULT } from '../../src/engine/constants.js';
+import { rollHitPellets, rollProjectileCore, distanceScaledHitRate, isEnemyHittable } from '../../src/engine/battle-utils.js';
+import { setRng } from '../../src/engine/rng.js';
 import { eq, near, section, summary } from '../lib/test-harness.mjs';
 
 const CAL = { CORE0: CORE0_DEFAULT, D0: D0_DEFAULT, coef: HITRATE_CORE_COEF_DEFAULT };
@@ -107,6 +110,55 @@ section('T4b: 实测回归 Drake SG(R=250) 三档 HitRate');
   near('SG d=20 HR11% ≈ 6%',   p20_base, 0.06, 0.05);
   near('SG d=20 HR48% ≈ 27–32%', p20_drk, 0.29, 0.06);
   near('SG d=20 HR74% ≈ 50–58%', p20_noir, 0.54, 0.08);
+}
+
+// ── T5: 实战命中校正（SG 弹丸命中率 / RL 核心命中率）────────────────────────
+section('T5: rollHitPellets / rollProjectileCore');
+{
+  eq('hitRate=1 → 全部命中', rollHitPellets(10, 1), 10);
+  setRng(() => 0.5);
+  eq('hitRate=0.6, rng=0.5 → 全部命中', rollHitPellets(10, 0.6), 10);
+  eq('hitRate=0.4, rng=0.5 → 全部打空', rollHitPellets(10, 0.4), 0);
+  let i = 0;
+  setRng(() => (i++ % 2 ? 0.9 : 0.1));
+  eq('rng 交替 0.1/0.9，hitRate=0.5 → 命中一半', rollHitPellets(10, 0.5), 5);
+
+  const exposed = { enemyHasCore: true, enemyCoreProtected: false };
+  setRng(() => 0.5);
+  eq('RL 核心率缺省（1）→ 恒中', rollProjectileCore(exposed), true);
+  eq('rate=0.6, rng=0.5 → 命中核心', rollProjectileCore({ ...exposed, accRlCoreRate: 0.6 }), true);
+  eq('rate=0.4, rng=0.5 → 未命中核心', rollProjectileCore({ ...exposed, accRlCoreRate: 0.4 }), false);
+  eq('核心被保护 → 不命中', rollProjectileCore({ enemyHasCore: true, enemyCoreProtected: true }), false);
+  eq('无核心 → 不命中', rollProjectileCore({ enemyHasCore: false, enemyCoreProtected: false }), false);
+  setRng(null);
+}
+
+section('T6: distanceScaledHitRate（敌人越近命中率越高）');
+{
+  eq('系数 1 → 任意距离恒为 1', distanceScaledHitRate(1, 80), 1);
+  eq('d=0 → 1', distanceScaledHitRate(0.6, 0), 1);
+  near('d=50（参考距离）→ 系数本身', distanceScaledHitRate(0.6, 50), 0.6);
+  near('d=25 → 0.8', distanceScaledHitRate(0.6, 25), 0.8);
+  near('d=75 → 0.4（继续线性下降）', distanceScaledHitRate(0.6, 75), 0.4);
+  eq('远距离夹到 0', distanceScaledHitRate(0.2, 100), 0);
+  near('距离未知（null）→ 按参考距离', distanceScaledHitRate(0.7, null), 0.7);
+
+  // RL 核心判定随距离：系数 0.6、rng=0.7 → 近（d=20，P=0.84）命中、远（d=50，P=0.6）未命中
+  setRng(() => 0.7);
+  const core = { enemyHasCore: true, enemyCoreProtected: false, accRlCoreRate: 0.6 };
+  eq('RL d=20 命中核心', rollProjectileCore({ ...core, enemyDistance: 20 }), true);
+  eq('RL d=50 未命中核心', rollProjectileCore({ ...core, enemyDistance: 50 }), false);
+  setRng(null);
+}
+
+section('T7: isEnemyHittable（HIDDEN 前 0.9s 仍可命中）');
+{
+  const hidden = (elapsedTicks) => ({ currentPhaseZone: 'HIDDEN', hiddenStartTick: 1000, tick: 1000 + elapsedTicks });
+  eq('非 HIDDEN → 可命中', isEnemyHittable({ currentPhaseZone: 'NEAR', tick: 5 }), true);
+  eq('HIDDEN 起点 → 可命中', isEnemyHittable(hidden(0)), true);
+  eq('HIDDEN 0.88s（53t）→ 可命中', isEnemyHittable(hidden(53)), true);
+  eq('HIDDEN 0.9s（54t）→ 不可命中', isEnemyHittable(hidden(54)), false);
+  eq('HIDDEN 1.5s → 不可命中', isEnemyHittable(hidden(90)), false);
 }
 
 summary('Accuracy (HitRate core-hit model) tests');

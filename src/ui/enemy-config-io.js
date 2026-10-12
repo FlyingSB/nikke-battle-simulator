@@ -8,7 +8,6 @@
 //   "enemy": {
 //     "element": "Iron",                 // Fire / Water / Wind / Electric / Iron
 //     "type":    "Boss",
-//     "core0":   55, "d0": 77, "hitCoef": 4.5,
 //     "actions": [                        // 前 3 条固定：def / core / position，时间为 0
 //       { "startTimeS": 0, "type": "def",      "value": 100 },
 //       { "startTimeS": 0, "type": "core",     "value": "EXPOSED" },
@@ -17,6 +16,8 @@
 //     ]
 //   }
 // }
+// 命中参数（core0 / d0 / hitCoef / rlCoreRate / sgHitRate）属于模拟选项，不随敌人配置导出；
+// 旧文件中若带有这些字段，导入时忽略。
 
 export const ENEMY_CONFIG_FORMAT  = 'nikke-enemy-config';
 export const ENEMY_CONFIG_VERSION = 1;
@@ -30,7 +31,7 @@ const MAX_DISTANCE    = 100;
 
 /**
  * 由当前敌人状态构建导出对象（不含内部 id / _nextId）。
- * @param {{ element: string, type: string, core0: number, d0: number, hitCoef: number,
+ * @param {{ element: string, type: string,
  *           actions: { startTimeS: number, type: string, value: * }[] }} enemy
  */
 export function buildEnemyConfigExport(enemy) {
@@ -40,9 +41,6 @@ export function buildEnemyConfigExport(enemy) {
     enemy: {
       element: enemy.element,
       type:    enemy.type,
-      core0:   enemy.core0,
-      d0:      enemy.d0,
-      hitCoef: enemy.hitCoef,
       actions: enemy.actions.map(({ startTimeS, type, value }) => ({ startTimeS, type, value })),
     },
   };
@@ -111,9 +109,6 @@ export function parseEnemyConfig(text) {
   if (!e || typeof e !== 'object') return fail('enemyIo.err.format');
   if (!ELEMENTS.includes(e.element)) return fail('enemyIo.err.element');
   if (typeof e.type !== 'string' || e.type === '') return fail('enemyIo.err.enemyType');
-  if (!isFiniteNum(e.core0) || e.core0 < 0) return fail('enemyIo.err.number', { field: 'core0' });
-  if (!isFiniteNum(e.d0) || e.d0 <= 0)      return fail('enemyIo.err.number', { field: 'd0' });
-  if (!isFiniteNum(e.hitCoef) || e.hitCoef < 0) return fail('enemyIo.err.number', { field: 'hitCoef' });
 
   const actionsErr = validateActions(e.actions);
   if (actionsErr) return actionsErr;
@@ -123,9 +118,6 @@ export function parseEnemyConfig(text) {
     config: {
       element: e.element,
       type:    e.type,
-      core0:   e.core0,
-      d0:      e.d0,
-      hitCoef: e.hitCoef,
       actions: e.actions.map(({ startTimeS, type, value }) => ({ startTimeS, type, value })),
     },
   };
