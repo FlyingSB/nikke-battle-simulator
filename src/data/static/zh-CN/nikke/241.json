@@ -2,7 +2,7 @@
   "name_localkey": "艾菲涅尔",
   "skill1_detail": {
     "name_localkey": "超级新人",
-    "description_localkey": "■消灭敌人时，自身\n<color=#00AEFF>【超级新人：攻击力{description_value_01}% ▲】\\n【叠加{description_value_02}次】【持续{description_value_03}秒】</color>",
+    "description_localkey": "■消灭敌人时，自身\n<color=#00AEFF>【超级新人：攻击力{description_value_01}% ▲】\n【叠加{description_value_02}次】【持续{description_value_03}秒】</color>",
     "info_description_localkey": "技能1"
   },
   "skill2_detail": {

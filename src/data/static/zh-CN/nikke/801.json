@@ -2,7 +2,7 @@
   "name_localkey": "帕瓦",
   "skill1_detail": {
     "name_localkey": "血之魔印",
-    "description_localkey": "■全蓄力攻击时，自身\n<color=#00AEFF>【血之魔印：攻击力{description_value_01}% ▲】\\n【叠加{description_value_02}次】【持续{description_value_03}秒】</color>",
+    "description_localkey": "■全蓄力攻击时，自身\n<color=#00AEFF>【血之魔印：攻击力{description_value_01}% ▲】\n【叠加{description_value_02}次】【持续{description_value_03}秒】</color>",
     "info_description_localkey": "技能1"
   },
   "skill2_detail": {

@@ -7,7 +7,7 @@
   },
   "skill2_detail": {
     "name_localkey": "渐强",
-    "description_localkey": "■最后的子弹命中时，自身\n<color=#00AEFF>【渐强：暴击伤害{description_value_01}% ▲】\\n【叠加{description_value_02}次】【持续{description_value_03}秒】</color>",
+    "description_localkey": "■最后的子弹命中时，自身\n<color=#00AEFF>【渐强：暴击伤害{description_value_01}% ▲】\n【叠加{description_value_02}次】【持续{description_value_03}秒】</color>",
     "info_description_localkey": "技能2"
   },
   "ulti_skill_detail": {

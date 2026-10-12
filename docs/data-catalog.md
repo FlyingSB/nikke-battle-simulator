@@ -179,9 +179,10 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ❌ | Ludmilla: Winter Owner | [`194.json`](../src/data/static/nikke/194.json) | [`194.js`](../src/data/skills/194.js) |
 | ❌ | Exia（SSR：Gamekid Evolution） | [`210.json`](../src/data/static/nikke/210.json) | [`210.js`](../src/data/skills/210.js) |
 | ✔️ | Snow White | [`220.json`](../src/data/static/nikke/220.json) | [`220.js`](../src/data/skills/220.js) |
-| ❌ | Scarlet | [`222.json`](../src/data/static/nikke/222.json) | [`222.js`](../src/data/skills/222.js) |
+| ✔️ | Scarlet | [`222.json`](../src/data/static/nikke/222.json) | [`222.js`](../src/data/skills/222.js) |
 | ✔️ | Nayuta | [`223.json`](../src/data/static/nikke/223.json) | [`223.js`](../src/data/skills/223.js) |
 | ✔️ | Scarlet: Black Shadow | [`225.json`](../src/data/static/nikke/225.json) | [`225.js`](../src/data/skills/225.js) |
+| ✔️ | Harran | [`230.json`](../src/data/static/nikke/230.json) | [`230.js`](../src/data/skills/230.js) |
 | ❌ | Isabel | [`231.json`](../src/data/static/nikke/231.json) | [`231.js`](../src/data/skills/231.js) |
 | ✔️ | Dorothy: Serendipity | [`234.json`](../src/data/static/nikke/234.json) | [`234.js`](../src/data/skills/234.js) |
 | ✔️ | Liberalio | [`262.json`](../src/data/static/nikke/262.json) | [`262.js`](../src/data/skills/262.js) |
@@ -205,7 +206,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ❌ | Guilty: Mighty Bunny | [`404.json`](../src/data/static/nikke/404.json) | [`404.js`](../src/data/skills/404.js) |
 | ❌ | Sin: Swift Bunny | [`405.json`](../src/data/static/nikke/405.json) | [`405.js`](../src/data/skills/405.js) |
 | ✔️ | Flora（SSR：Planter We Made Together） | [`411.json`](../src/data/static/nikke/411.json) | [`411.js`](../src/data/skills/411.js) |
-| ❌ | Trina | [`412.json`](../src/data/static/nikke/412.json) | [`412.js`](../src/data/skills/412.js) |
+| ✔️ | Trina | [`412.json`](../src/data/static/nikke/412.json) | [`412.js`](../src/data/skills/412.js) |
 | ✔️ | Volume | [`431.json`](../src/data/static/nikke/431.json) | [`431.js`](../src/data/skills/431.js) |
 | ✔️ | Naga | [`450.json`](../src/data/static/nikke/450.json) | [`450.js`](../src/data/skills/450.js) |
 | ❌ | Tia | [`451.json`](../src/data/static/nikke/451.json) | [`451.js`](../src/data/skills/451.js) |

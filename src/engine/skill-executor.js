@@ -87,7 +87,7 @@
 
 import { SKILL_TRAITS } from '../data/skill-traits.js';
 import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, isPartsHit,
-         getBuffSums, getFinalMaxHp, isWeaponSwitchAmmoFixed,
+         getBuffSums, getFinalMaxHp, isWeaponSwitchAmmoFixed, snapshotBuffBreakdown,
          TICK_RATE, BURST_GAUGE_MAX, ALL_ALLIES } from './battle-utils.js';
 
 // 团队触发：ctx.unit 无意义，所有持有该技能的在队单位均触发
@@ -400,6 +400,15 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
     }
 
     state._deferB3HitsFor = prevDefer;
+    // handler 新增的延迟命中：若已预捕获 sums 但未带 buff 明细，在此同 tick 快照明细，
+    // 避免到期时按当时的 buff 重建明细，与预捕获 sums 不一致（tooltip 装备残量算错）
+    for (let i = pendLenB3; i < (state.pendingSkillHits?.length ?? 0); i++) {
+      const h = state.pendingSkillHits[i];
+      if (h.sums && !h.opts?.preBuffBreakdown) {
+        h.opts = { ...(h.opts ?? {}),
+          preBuffBreakdown: snapshotBuffBreakdown(state, h.caster.id, h.label, h.opts ?? {}) };
+      }
+    }
     if (deferB3) {
       for (let i = pendLenB3; i < state.pendingSkillHits.length; i++) {
         state.pendingSkillHits[i].fireTick += state.b3Cast.delayTicks;

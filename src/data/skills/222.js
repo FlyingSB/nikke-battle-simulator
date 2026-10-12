@@ -39,11 +39,9 @@ export default {
           const atkPct  = getSkillValue(caster.rawSkill1, 1, lv) / 100;
           const endTick = state.tick + TICK_RATE * 5;
 
-          // ATK ▲ 独立叠层（最多 5 层，5s/层）— 使用 0~4 轮转槽位
-          const slot = (caster.skillState.scS1AtkSlot ?? 0) % 5;
-          caster.skillState.scS1AtkSlot = slot + 1;
+          // ATK ▲ 叠层（最多 p03 层），每次触发新增一层并刷新整体持续时间
           pushBuff(state, { name: 'Blood for Blood', unitId: caster.id,
-            atkPct, endTick });
+            atkPct, stackLimit: getSkillValue(caster.rawSkill1, 3, lv), endTick });
 
           // 「Current HP ▼ p04%」：按当前 HP 的 p04% 扣减（HP 不低于 1；不单独写日志，与 ATK 叠层同段）
           // S2 P2 的阈值检测由 HP_CHANGED 事件驱动

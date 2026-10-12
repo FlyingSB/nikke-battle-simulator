@@ -7,7 +7,7 @@
   },
   "skill2_detail": {
     "name_localkey": "草莓糖之力",
-    "description_localkey": "■普通攻击命中{description_value_01}次时，自身\n<color=#00AEFF>【草莓糖：最大装弹数 {description_value_02}% ▲】\\n【叠加{description_value_04}次】【持续{description_value_03}秒】</color>\n■若自身处于草莓糖最大叠加状态，则解除叠加后，全体队友\n<color=#00AEFF>【子弹补充{description_value_05}%】</color>",
+    "description_localkey": "■普通攻击命中{description_value_01}次时，自身\n<color=#00AEFF>【草莓糖：最大装弹数 {description_value_02}% ▲】\n【叠加{description_value_04}次】【持续{description_value_03}秒】</color>\n■若自身处于草莓糖最大叠加状态，则解除叠加后，全体队友\n<color=#00AEFF>【子弹补充{description_value_05}%】</color>",
     "info_description_localkey": "技能2"
   },
   "ulti_skill_detail": {

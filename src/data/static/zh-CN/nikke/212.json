@@ -7,7 +7,7 @@
   },
   "skill2_detail": {
     "name_localkey": "侦探工具！",
-    "description_localkey": "■普通攻击命中{description_value_01}次时，自身\n<color=#00AEFF>【证物收集：防御力{description_value_02}% ▲】\\n【叠加{description_value_03}次】【持续{description_value_04}秒】</color>",
+    "description_localkey": "■普通攻击命中{description_value_01}次时，自身\n<color=#00AEFF>【证物收集：防御力{description_value_02}% ▲】\n【叠加{description_value_03}次】【持续{description_value_04}秒】</color>",
     "info_description_localkey": "技能2"
   },
   "ulti_skill_detail": {

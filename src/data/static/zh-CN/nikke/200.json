@@ -7,7 +7,7 @@
   },
   "skill2_detail": {
     "name_localkey": "积分",
-    "description_localkey": "■攻击{description_value_01}次时，自身\n<color=#00AEFF>【积分：攻击力{description_value_02}% ▲】\\n【叠加{description_value_03}次】【持续{description_value_04}秒】</color>",
+    "description_localkey": "■攻击{description_value_01}次时，自身\n<color=#00AEFF>【积分：攻击力{description_value_02}% ▲】\n【叠加{description_value_03}次】【持续{description_value_04}秒】</color>",
     "info_description_localkey": "技能2"
   },
   "ulti_skill_detail": {

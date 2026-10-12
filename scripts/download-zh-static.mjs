@@ -91,9 +91,12 @@ async function fetchRaw(cacheName, url, label) {
 
 // ─── 转换 ───────────────────────────────────────────────────────────────────
 
-/** 递归把对象中的所有字符串转为简体并套用术语表（返回新对象） */
+/**
+ * 递归把对象中的所有字符串转为简体并套用术语表（返回新对象）。
+ * 繁中原文个别描述含字面量「\n」（反斜杠 + n，而非换行符），先还原为真正的换行。
+ */
 function convertDeep(v) {
-  if (typeof v === 'string') return applyGlossary(toSimplified(v));
+  if (typeof v === 'string') return applyGlossary(toSimplified(v.replace(/\\n/g, '\n')));
   if (Array.isArray(v)) return v.map(convertDeep);
   if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, convertDeep(x)]));
   return v;
