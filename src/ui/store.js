@@ -11,7 +11,7 @@ import {
   getAccountSize,
   getRosterEntry,
 } from '../data/account-loader.js';
-import { getAllCharacters, getCharacterByResourceId, normalizeCube, getSsrFavSkills } from '../data/models.js';
+import { getAllCharacters, getCharacterByResourceId, normalizeCube, getSsrFavSkills, EQUIP_TIERS, equipTierHasOptions } from '../data/models.js';
 import { computeFinalStats } from '../engine/stats.js';
 import { runSimulation, cancelSimulation, SimCancelledError } from './sim-runner.js';
 import { CUBE_NAMES, CUBE_URLS } from '../data/manifest.js';
@@ -177,6 +177,8 @@ function aggregateEquipOptions(equipment) {
   for (const key of EQUIP_SLOTS) {
     const equip = equipment?.[key];
     if (!equip) continue;
+    // T9 / T9企业装备没有词条：保留已填词条数据，但不计入（切回 T10 时恢复）
+    if (!equipTierHasOptions(equip.tier)) continue;
     for (const opt of equip.opts) {
       if (!opt.type) continue;
       const v = Number(opt.value) || 0;
@@ -885,6 +887,8 @@ export function createStore() {
     // 常量（模板使用）
     EQUIP_SLOTS,
     EQUIP_OPTION_TYPES,
+    EQUIP_TIERS,
+    equipHasOptions: equipTierHasOptions,
     cubeOptions: [],
 
     // ── 多语言 ──

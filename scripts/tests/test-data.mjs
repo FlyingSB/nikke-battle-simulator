@@ -25,6 +25,8 @@ import {
   getBondBonus,
   getAllEquipment,
   getT10Equipment,
+  getEquipmentByTier,
+  equipTierHasOptions,
   normalizeCube,
   getAllResearchRows,
   computeResearchBonus,
@@ -33,7 +35,7 @@ import {
   parseNikkeDetail,
   normalizeElement,
 } from '../../src/data/models.js';
-import { computeFinalStats }                        from '../../src/engine/stats.js';
+import { computeFinalStats, equipStatValue }        from '../../src/engine/stats.js';
 import { eq, near, pct, section, summary }          from '../lib/test-harness.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -174,6 +176,51 @@ section('T2: Equipment — T10 stats');
   const e    = getT10Equipment('Attacker', 'Module_A');
   const base = e.atk; // 6014
   near('T10 lv5 atk = round(6014 × 1.5)', Math.round(base * 1.5), 9_021, 0);
+}
+
+section('T2b: Equipment — T9 / T9 企业');
+{
+  // T9 Attacker Module_A（α-Alloy Visor）：atk=3233, hp=26442；T9 无词条槽
+  const e = getEquipmentByTier('T9', 'Attacker', 'Module_A');
+  eq('T9 Att Module_A atk', e.atk, 3_233);
+  eq('T9 Att Module_A hp',  e.hp,  26_442);
+  eq('T9 Att Module_A hasOptions', e.hasOptions, false);
+  // 'All' 职业 T9 只有测试装备，不得回退命中
+  eq('T9 无 All 回退', getEquipmentByTier('T9', 'Unknown', 'Module_A'), null);
+  eq('equipTierHasOptions T10', equipTierHasOptions('T10'), true);
+  eq('equipTierHasOptions T9', equipTierHasOptions('T9'), false);
+  eq('equipTierHasOptions T9Corp', equipTierHasOptions('T9Corp'), false);
+}
+{
+  // computeFinalStats：仅头部装备，其余为 0（无 NIKKE 数据 / 好感 / 研究）
+  const statsWith = (tier, level) => computeFinalStats({
+    classType: 'Attacker', corporation: 'ELYSION', bondLevel: 0,
+    cube: { level: 0 }, favoriteItem: { level: 0 }, equipOptions: {},
+    equipment: { head: { classReq: 'Attacker', tier, level } },
+  }, 200, {
+    general: 0, attacker: 0, defender: 0, supporter: 0,
+    ELYSION: 0, MISSILIS: 0, TETRA: 0, PILGRIM: 0, ABNORMAL: 0,
+  });
+  const baseline = statsWith('T1', 0);   // 未建模档位 → 装备不计属性，作为基线
+  const t9   = statsWith('T9', 0);
+  const t9c  = statsWith('T9Corp', 0);
+  const t9c5 = statsWith('T9Corp', 5);
+  eq('T9 lv0 hp',      t9.hp  - baseline.hp,  26_442);
+  // 企业 ×1.3：26442 → 34375、3233 → 4203（与游戏内数值一致）
+  eq('T9企业 lv0 hp',  t9c.hp  - baseline.hp,  34_375);
+  eq('T9企业 lv0 atk', t9c.atk - baseline.atk, 4_203);
+  // lv5：× (1 + 0.3 + 0.5) = × 1.8（游戏内实测 T9企业 5 级头：HP 47596、ATK 5819）
+  eq('T9企业 lv5 hp',  t9c5.hp  - baseline.hp,  47_596);
+  eq('T9企业 lv5 atk', t9c5.atk - baseline.atk, 5_819);
+}
+{
+  // 游戏内实测（T9 Attacker）：各段分别银行家舍入（.5 取偶）
+  // 企业 lv5 胸 α-Alloy Vest（588 ATK / 85937 HP）：HP 85937 + 25781 + 42968(42968.5) = 154686
+  eq('T9企业 lv5 胸 hp',  equipStatValue(85_937, 0.3, 5), 154_686);
+  eq('T9企业 lv5 胸 atk', equipStatValue(588,    0.3, 5), 1_058);
+  // 普通 lv5 鞋 α-Alloy Boots（527 DEF / 19832 HP）：DEF 527 + 264(263.5) = 791
+  eq('T9 lv5 鞋 hp',  equipStatValue(19_832, 0, 5), 29_748);
+  eq('T9 lv5 鞋 def', equipStatValue(527,    0, 5), 791);
 }
 
 // ── T3: Recycle Room (Research) ───────────────────────────────────────────────

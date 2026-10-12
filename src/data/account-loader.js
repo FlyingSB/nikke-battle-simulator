@@ -186,7 +186,7 @@ export function lookupByName(name) {
 /**
  * @typedef {Object} EquipEntry
  * @property {string}   classReq   'Attacker'|'Defender'|'Supporter'|'All'
- * @property {string}   tier       'T1'–'T10'
+ * @property {string}   tier       'T1'–'T10'，或 'T9Corp'（T9 企业装备）
  * @property {boolean[]} options   长度为 3，对应三个词条槽位
  */
 
@@ -254,6 +254,8 @@ function _parseEquip(slotKey, raw) {
   const tid  = raw[`${k}_equip_tid`]  ?? 0;
   const tier = raw[`${k}_equip_tier`] ?? 1;
   const lv   = raw[`${k}_equip_lv`]   ?? 0;
+  // corporation_type：0 = 无企业；1 Elysion / 2 Missilis / 3 Tetra / 4 Pilgrim / 7 Abnormal（恒与穿戴者企业一致）
+  const corp = raw[`${k}_equip_corporation_type`] ?? 0;
   const o1   = raw[`${k}_equip_option1_id`] ?? 0;
   const o2   = raw[`${k}_equip_option2_id`] ?? 0;
   const o3   = raw[`${k}_equip_option3_id`] ?? 0;
@@ -264,7 +266,7 @@ function _parseEquip(slotKey, raw) {
 
   return {
     classReq,
-    tier:  `T${tier}`,
+    tier:  (tier === 9 && corp) ? 'T9Corp' : `T${tier}`,
     level: lv,
     opts:  [
       { ...(_OPTION_MAP.get(o1) ?? { type: '', value: 0 }) },

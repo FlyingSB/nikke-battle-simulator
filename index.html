@@ -559,6 +559,14 @@
                       <div class="equip-header">
                         <span class="equip-slot-label" x-text="$t('equip.slot.' + key)"></span>
                         <div class="row-inline">
+                          <span class="field-hint" x-text="$t('equip.tier')"></span>
+                          <select class="input input-sm"
+                            :value="$store.sim.activeSlotData.equipment[key].tier"
+                            @change="$store.sim.activeSlotData.equipment[key].tier = $event.target.value">
+                            <template x-for="tier in $store.sim.EQUIP_TIERS" :key="tier">
+                              <option :value="tier" :selected="tier === $store.sim.activeSlotData.equipment[key].tier" x-text="$t('equip.tierName.' + tier)"></option>
+                            </template>
+                          </select>
                           <span class="field-hint" x-text="$t('equip.level')"></span>
                           <select class="input input-sm"
                             :value="$store.sim.activeSlotData.equipment[key].level"
@@ -569,7 +577,8 @@
                           </select>
                         </div>
                       </div>
-                      <div class="equip-opts">
+                      <!-- 仅 T10 装备有词条；T9 / T9企业时屏蔽 -->
+                      <div class="equip-opts" x-show="$store.sim.equipHasOptions($store.sim.activeSlotData.equipment[key].tier)">
                         <template x-for="(opt, oi) in $store.sim.activeSlotData.equipment[key].opts" :key="oi">
                           <div class="opt-row">
                             <!-- 选项文案随界面语言变化：x-effect 重建 option 后恢复当前选中值 -->

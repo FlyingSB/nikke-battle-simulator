@@ -15,7 +15,8 @@
 import {
   getBaseStats,
   getBondBonus,
-  getT10Equipment,
+  getEquipmentByTier,
+  CORP_EQUIP_STAT_BONUS,
   normalizeCube,
   computeResearchBonus,
 } from '../data/models.js';
@@ -43,7 +44,7 @@ import {
 /**
  * @typedef {Object} EquipSlotCfg
  * @property {string} classReq           // Attacker | Defender | Supporter | All
- * @property {string} tier               // T1–T10
+ * @property {string} tier               // 'T10' | 'T9Corp'（T9 企业）| 'T9'；其余档位不计属性
  * @property {number} [level]            // 强化等级 0–5（默认 0）
  * @property {boolean[]} options         // [effect1, effect2, effect3] 是否已获取
  */
@@ -149,6 +150,27 @@ export function applyGradeCore(base, grade, core, classType) {
   throw new RangeError(`applyGradeCore: illegal grade=${grade} core=${core} (grade 0-3, core 0-7 at grade 3 only)`);
 }
 
+/** 银行家舍入：.5 取最近偶数（同 C# Math.Round 默认的 MidpointRounding.ToEven） */
+function roundHalfEven(x) {
+  const r = Math.round(x);
+  return (Math.abs(x % 1) === 0.5 && r % 2 !== 0) ? r - 1 : r;
+}
+
+/**
+ * 单项装备属性：基础 + 企业加成 + 强化加成，后两段分别银行家舍入。
+ * 用整数十分比计算（base × k / 10），避免 0.1 浮点误差把 .5 变成 .50000001。
+ * @param {number} base       物品基础属性（整数）
+ * @param {number} corpBonus  企业加成（0 或 0.3）
+ * @param {number} level      强化等级 0–5（每级 +10%）
+ * @returns {number}
+ */
+export function equipStatValue(base, corpBonus, level) {
+  const corpTenths = Math.round(corpBonus * 10);
+  return base
+    + roundHalfEven(base * corpTenths / 10)
+    + roundHalfEven(base * level / 10);
+}
+
 /**
  * 为某个 NIKKE 槽位计算完全叠加后的属性。
  * @param {SlotConfig} slot
@@ -175,19 +197,27 @@ export function computeFinalStats(slot, nikkeLevel, research) {
   hp  += bond.hp;
   def += bond.def;
 
-  // 3. 装备加成（T10，每级 × 强化倍率）：
-  //    ATK、HP、DEF 全部为固定值叠加（物品基础属性 × 强化倍率）。
+  // 3. 装备加成（T10 / T9企业 / T9，每级 × 强化倍率）：
+  //    ATK、HP、DEF 全部为固定值叠加：基础 + 企业加成(+30%) + 强化加成(+10%/级)，三段分别取整后相加。
+  //    取整为银行家舍入（.5 取偶，同 C# Math.Round 默认），游戏内实测（T9 Attacker）：
+  //      企业 lv5 头 HP 26442 + 7933 + 13221 = 47596，ATK 3233 + 970 + 1616(1616.5) = 5819
+  //      企业 lv5 胸 HP 85937 + 25781 + 42968(42968.5) = 154686，ATK 588 + 176 + 294 = 1058
+  //      普通 lv5 鞋 HP 19832 + 9916 = 29748，DEF 527 + 264(263.5) = 791
+  //    T9企业装备只能由同企业 NIKKE 穿戴（账号数据 corporation_type 恒与穿戴者一致），故恒计企业加成。
   let equipAtkPct = 0;
   for (const [slotKey, modId] of Object.entries(SLOT_MAP)) {
     const cfg = slot.equipment?.[slotKey];
     if (!cfg) continue;
-    if (cfg.tier !== 'T10') continue;
-    const equip = getT10Equipment(cfg.classReq, modId);
+    const isCorp = cfg.tier === 'T9Corp';
+    const dataTier = isCorp ? 'T9' : cfg.tier;
+    if (dataTier !== 'T10' && dataTier !== 'T9') continue;
+    const equip = getEquipmentByTier(dataTier, cfg.classReq, modId);
     if (!equip) continue;
-    const mult = 1 + 0.1 * (cfg.level ?? 0);
-    atk += Math.round(equip.atk * mult);
-    hp  += Math.round(equip.hp  * mult);
-    def += Math.round(equip.def * mult);
+    const corpBonus = isCorp ? CORP_EQUIP_STAT_BONUS : 0;
+    const level     = cfg.level ?? 0;
+    atk += equipStatValue(equip.atk, corpBonus, level);
+    hp  += equipStatValue(equip.hp,  corpBonus, level);
+    def += equipStatValue(equip.def, corpBonus, level);
   }
 
   // 4. 和谐魔方的固定加成 + 被动技能加成

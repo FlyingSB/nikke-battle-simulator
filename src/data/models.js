@@ -110,19 +110,45 @@ export function getAllEquipment() {
 }
 
 /**
- * 查找匹配职业和槽位的 T10 装备。
+ * 查找匹配职业和槽位的 T10 装备（getEquipmentByTier 的 T10 简写）。
  * 若无职业专属 T10，回退到 'All' 职业的装备。
  * @param {'Attacker'|'Defender'|'Supporter'} classReq
  * @param {'Module_A'|'Module_B'|'Module_C'|'Module_D'} slot
  * @returns {Equipment|null}
  */
 export function getT10Equipment(classReq, slot) {
+  return getEquipmentByTier('T10', classReq, slot);
+}
+
+/**
+ * 查找指定档位、职业、槽位的装备；无职业专属时回退到 'All'。
+ * 'All' 职业的 T9 只有测试装备（属性 999999），故 T9 不回退。
+ * @param {'T9'|'T10'} tier
+ * @param {'Attacker'|'Defender'|'Supporter'} classReq
+ * @param {'Module_A'|'Module_B'|'Module_C'|'Module_D'} slot
+ * @returns {Equipment|null}
+ */
+export function getEquipmentByTier(tier, classReq, slot) {
   const all = getAllEquipment();
   return (
-    all.find(e => e.tier === 'T10' && e.slot === slot && e.classReq === classReq) ??
-    all.find(e => e.tier === 'T10' && e.slot === slot && e.classReq === 'All') ??
+    all.find(e => e.tier === tier && e.slot === slot && e.classReq === classReq) ??
+    (tier === 'T10' ? all.find(e => e.tier === tier && e.slot === slot && e.classReq === 'All') : null) ??
     null
   );
+}
+
+// ─── 装备档位 ────────────────────────────────────────────────────────────
+// 'T9Corp' = T9 企业装备（穿戴者同企业时基础属性 +30%，与强化 +10%/级加法叠加），数据上复用 T9 物品
+
+/** 可选装备档位（UI 下拉顺序） */
+export const EQUIP_TIERS = ['T10', 'T9Corp', 'T9'];
+
+/** 企业装备对同企业 NIKKE 的属性加成（加法项；lv0 Attacker 头 26442 HP → 34375，lv5 → 47596） */
+export const CORP_EQUIP_STAT_BONUS = 0.3;
+
+/** 该档位是否带词条（仅 T10 / Overload 装备有词条） */
+export function equipTierHasOptions(tier) {
+  return tier === 'T10';
 }
 
 // ─── 和谐魔方 ────────────────────────────────────────────────────────────

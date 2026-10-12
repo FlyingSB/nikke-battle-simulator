@@ -159,7 +159,11 @@ export default {
   // ── 技能 / 装备 / 魔方 / 珍藏品 ──
   'skills.title':       'Skills',
   'skills.fallback':    'Skill {n}',
-  'equip.title':        'Gear (T10)',
+  'equip.title':        'Gear',
+  'equip.tier':         'Tier',
+  'equip.tierName.T10':    'T10',
+  'equip.tierName.T9Corp': 'T9 Manufacturer',
+  'equip.tierName.T9':     'T9',
   'equip.slot.head':    'Head',
   'equip.slot.torso':   'Body',
   'equip.slot.arms':    'Arm',
