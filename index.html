@@ -243,6 +243,18 @@
                   @input="$store.sim.enemy.hitCoef = +$event.target.value; $store.sim.selectedPresetId = null">
               </label>
             </div>
+
+            <!-- 敌人配置 JSON 导入 / 导出 -->
+            <div class="enemy-io-row">
+              <button type="button" class="btn btn-ghost btn-sm"
+                :title="$t('enemyIo.exportTitle')"
+                @click="$store.sim.exportEnemyConfig()"
+                x-text="$t('enemyIo.export')"></button>
+              <button type="button" class="btn btn-ghost btn-sm"
+                :title="$t('enemyIo.importTitle')"
+                @click="$store.sim.importEnemyConfig()"
+                x-text="$t('enemyIo.import')"></button>
+            </div>
           </section>
 
           <!-- 模拟选项 -->
@@ -992,6 +1004,84 @@
       </div>
     </div>
   </div>
+
+  <!-- ── 敌人配置导入 / 导出弹窗（两种模式共用，仅按钮与拖入文件不同） ── -->
+  <div class="modal-overlay"
+       x-data
+       x-show="$store.sim.enemyIo.mode"
+       x-transition.opacity
+       @click.self="$store.sim.closeEnemyIo()"
+       @keydown.escape.window="$store.sim.enemyIo.mode && $store.sim.closeEnemyIo()"
+       @dragover.prevent
+       @drop.prevent
+       x-effect="if ($store.sim.enemyIo.mode) $nextTick(() => {
+         $refs.ioText.focus();
+         if ($store.sim.enemyIo.mode === 'export') { $refs.ioText.select(); $refs.ioText.scrollTop = 0; }
+       })"
+       style="display:none">
+    <div class="modal-box modal-box--io" role="dialog" aria-modal="true" aria-labelledby="enemy-io-title" @click.stop>
+      <div class="modal-header">
+        <h2 class="modal-title" id="enemy-io-title"
+          x-text="$t($store.sim.enemyIo.mode === 'export' ? 'enemyIo.modal.exportTitle' : 'enemyIo.modal.importTitle')"></h2>
+        <button type="button" class="btn btn-ghost btn-sm" :title="$t('enemyIo.btn.close')"
+          @click="$store.sim.closeEnemyIo()">✕</button>
+      </div>
+
+      <div class="io-body">
+        <p class="io-msg" role="alert"
+          x-show="$store.sim.enemyIo.message"
+          :class="'io-msg--' + ($store.sim.enemyIo.message?.kind ?? 'warn')"
+          x-text="$store.sim.enemyIo.message?.text"></p>
+
+        <!-- 文本框容器：导入模式下同时作为拖放区 -->
+        <div class="io-drop"
+          :class="{ 'io-drop--active': $store.sim.enemyIo.dragging }"
+          @dragenter.prevent="$store.sim.enemyIo.mode === 'import' && ($store.sim.enemyIo.dragging = true)"
+          @dragover.prevent="$store.sim.enemyIo.mode === 'import' && ($store.sim.enemyIo.dragging = true)"
+          @dragleave="if (!$el.contains($event.relatedTarget)) $store.sim.enemyIo.dragging = false"
+          @drop.prevent="$store.sim.enemyIo.mode === 'import' && $store.sim.loadEnemyIoFile($event.dataTransfer.files[0])">
+          <textarea class="io-text" x-ref="ioText" spellcheck="false"
+            :readonly="$store.sim.enemyIo.mode === 'export'"
+            :placeholder="$t('enemyIo.placeholder')"
+            :aria-label="$t($store.sim.enemyIo.mode === 'export' ? 'enemyIo.modal.exportTitle' : 'enemyIo.modal.importTitle')"
+            x-model="$store.sim.enemyIo.text"
+            @keydown.ctrl.enter="$store.sim.enemyIo.mode === 'import' && $store.sim.submitEnemyIoImport()"></textarea>
+          <div class="io-drop-hint" aria-hidden="true" x-text="$t('enemyIo.dropHint')"></div>
+        </div>
+      </div>
+
+      <div class="io-footer">
+        <span class="io-hint"
+          x-text="$t($store.sim.enemyIo.mode === 'export' ? 'enemyIo.hint.export' : 'enemyIo.hint.import')"></span>
+        <template x-if="$store.sim.enemyIo.mode === 'export'">
+          <div class="io-actions">
+            <button type="button" class="btn btn-ghost" @click="$store.sim.saveEnemyIoFile()"
+              x-text="$t('enemyIo.btn.saveFile')"></button>
+            <button type="button" class="btn btn-primary" @click="$store.sim.copyEnemyIoText()"
+              x-text="$t('enemyIo.btn.copy')"></button>
+          </div>
+        </template>
+        <template x-if="$store.sim.enemyIo.mode === 'import'">
+          <div class="io-actions">
+            <button type="button" class="btn btn-ghost" @click="$refs.ioFile.click()"
+              x-text="$t('enemyIo.btn.chooseFile')"></button>
+            <button type="button" class="btn btn-primary" @click="$store.sim.submitEnemyIoImport()"
+              x-text="$t('enemyIo.btn.import')"></button>
+          </div>
+        </template>
+        <input type="file" accept=".json,application/json" class="visually-hidden" x-ref="ioFile" tabindex="-1"
+          @change="$store.sim.loadEnemyIoFile($event.target.files[0]); $event.target.value = ''">
+      </div>
+    </div>
+  </div>
+
+  <!-- 轻提示 -->
+  <div class="toast" role="status" aria-live="polite"
+       x-data
+       x-show="$store.sim.toast"
+       x-transition.opacity.duration.200ms
+       x-text="$store.sim.toast?.text"
+       style="display:none"></div>
 
   <div id="dmg-tooltip"   class="dmg-tooltip"   style="display:none"></div>
   <div id="skill-tooltip" class="skill-tooltip" style="display:none"></div>

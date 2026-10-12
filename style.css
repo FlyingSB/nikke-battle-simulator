@@ -100,7 +100,8 @@ body {
 .layout {
   display: grid;
   /* 中栏 406px = 5 × 74px 槽位卡片 + 4 × 5px 间距 + 2 × 8px 槽位条内边距，刚好无横向滚动 */
-  grid-template-columns: 300px 406px 1fr;
+  /* 左栏 330px：保证英文界面下敌人配置的「导出 / 导入」两个按钮同处一行 */
+  grid-template-columns: 330px 406px 1fr;
   height: calc(100vh - 48px);
   overflow: hidden;
 }
@@ -952,6 +953,66 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .enemy-inline-label    { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
 .enemy-preset-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .enemy-preset-select   { max-width: 90px; }
+
+/* 敌人配置 JSON 导入 / 导出 */
+.enemy-io-row          { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
+
+/* 导入 / 导出弹窗（两种模式共用） */
+.modal-box--io { width: min(600px, 94vw); max-height: 86vh; }
+.io-body {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 14px; min-height: 0; flex: 1;
+}
+.io-msg {
+  font-size: 0.74rem; line-height: 1.55; padding: 7px 10px;
+  border-radius: var(--r-sm); border-left: 3px solid;
+}
+.io-msg--warn  { color: var(--accent3); background: rgba(240, 165, 0, 0.08);  border-color: var(--accent3); }
+.io-msg--error { color: #f08a80;        background: rgba(224, 92, 79, 0.10);  border-color: var(--accent2); }
+
+.io-drop { position: relative; display: flex; flex: 1; min-height: 0; }
+.io-text {
+  flex: 1; width: 100%; min-height: 300px; max-height: 60vh; resize: vertical;
+  padding: 10px 12px; tab-size: 2;
+  font-family: var(--font-mono); font-size: 0.74rem; line-height: 1.6;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--border2); border-radius: var(--r-sm);
+  outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+}
+.io-text::placeholder { color: var(--text-muted); font-family: var(--font-ui); }
+.io-text:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79, 163, 224, 0.18); }
+.io-text[readonly] { color: var(--text-dim); }
+.io-text::selection { background: var(--accent-dim); color: #fff; }
+
+/* 拖入文件时覆盖在文本框上方的提示层 */
+.io-drop-hint {
+  position: absolute; inset: 0; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; font-weight: 600; color: var(--accent);
+  background: rgba(11, 13, 18, 0.96);
+  border: 2px dashed var(--accent); border-radius: var(--r-sm);
+  opacity: 0; transition: opacity 0.12s;
+}
+.io-drop--active .io-drop-hint { opacity: 1; }
+
+.io-footer {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 14px; border-top: 1px solid var(--border); background: var(--surface2);
+}
+.io-hint    { font-size: 0.68rem; color: var(--text-dim); }
+.io-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* 轻提示：底部居中 */
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  z-index: 600; max-width: min(480px, 90vw);
+  padding: 8px 14px; border-radius: var(--r);
+  font-size: 0.78rem; color: var(--text);
+  background: var(--surface3); border: 1px solid var(--border2);
+  border-left: 3px solid var(--green);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
 
 /* 命中校准（CORE0 / D0 / HitRate 系数 c） */
 .hit-cal-row           { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }

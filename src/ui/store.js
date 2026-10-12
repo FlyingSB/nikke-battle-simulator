@@ -21,6 +21,7 @@ import { loadZhNames, loadZhPatch, localizeData } from '../data/locale-loader.js
 import { LANGS, loadSavedLang, setCurrentLang, t, translate } from './i18n.js';
 import { createNameMap, displayGameText } from './game-text.js';
 import { buildDmgTooltipHTML } from './dmg-tooltip.js';
+import { buildEnemyConfigExport, parseEnemyConfig } from './enemy-config-io.js';
 import ZH_GAME_TERMS from './locales/zh-game-terms.js';
 
 // ─── 开发模式 trace 上报 ────────────────────────────────────────────────────
@@ -792,6 +793,12 @@ export function createStore() {
     enemyPresets:     [],
     selectedPresetId: null,
 
+    // 敌人配置导入 / 导出弹窗：mode = null（关闭）/ 'export' / 'import'
+    // message = { kind: 'warn' | 'error', text } 弹窗顶部提示；dragging = 正在拖入文件
+    enemyIo: { mode: null, text: '', message: null, dragging: false },
+    // 轻提示：{ id, text }，数秒后自动消失
+    toast: null,
+
     // 模拟选项
     iterations:         30,
     burstStepSecs:      0.4,
@@ -1460,6 +1467,116 @@ export function createStore() {
       if (name === null || name.trim() === '') return;
       preset.name = name.trim();
       this._saveEnemyPresetsToStorage();
+    },
+
+    // ── 敌人配置导入 / 导出（剪贴板优先，失败时弹窗）────────────────────────────
+
+    showToast(text) {
+      const id = Date.now();
+      this.toast = { id, text };
+      setTimeout(() => { if (this.toast?.id === id) this.toast = null; }, 2600);
+    },
+
+    _openEnemyIo(mode, text, message) {
+      this.enemyIo = { mode, text, message, dragging: false };
+    },
+
+    closeEnemyIo() {
+      this.enemyIo = { mode: null, text: '', message: null, dragging: false };
+    },
+
+    /** 导出：写入剪贴板；失败（无权限 / 非安全上下文）则弹窗显示 JSON 供手动复制或保存。 */
+    async exportEnemyConfig() {
+      const json = JSON.stringify(buildEnemyConfigExport(this.enemy), null, 2);
+      try {
+        await navigator.clipboard.writeText(json);
+        this.showToast(this.t('enemyIo.toast.copied'));
+      } catch {
+        this._openEnemyIo('export', json, { kind: 'warn', text: this.t('enemyIo.notice.copyFailed') });
+      }
+    },
+
+    /** 弹窗内「复制」：再次尝试写剪贴板，成功即关闭弹窗。 */
+    async copyEnemyIoText() {
+      try {
+        await navigator.clipboard.writeText(this.enemyIo.text);
+        this.closeEnemyIo();
+        this.showToast(this.t('enemyIo.toast.copied'));
+      } catch {
+        this.enemyIo.message = { kind: 'error', text: this.t('enemyIo.notice.copyFailed') };
+      }
+    },
+
+    saveEnemyIoFile() {
+      const url = URL.createObjectURL(new Blob([this.enemyIo.text], { type: 'application/json' }));
+      const a   = document.createElement('a');
+      a.href     = url;
+      a.download = `nikke-enemy-${this.enemy.element}-${Date.now()}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    },
+
+    /** 导入：读剪贴板并校验；读取失败或内容无法导入则弹窗等待粘贴 / 拖入 / 选择文件。 */
+    async importEnemyConfig() {
+      let text;
+      try {
+        text = await navigator.clipboard.readText();
+      } catch {
+        this._openEnemyIo('import', '', { kind: 'warn', text: this.t('enemyIo.notice.clipboardUnreadable') });
+        return;
+      }
+      const result = parseEnemyConfig(text);
+      if (result.ok) {
+        this._applyEnemyConfig(result.config);
+        this.showToast(this.t('enemyIo.toast.importedClipboard'));
+        return;
+      }
+      // 剪贴板内容是本格式但数值有误时保留原文便于修改；完全无关的内容不回显
+      const isOurFormat = !['enemyIo.err.json', 'enemyIo.err.format'].includes(result.error.key);
+      this._openEnemyIo('import', isOurFormat ? text : '', {
+        kind: 'warn',
+        text: this.t('enemyIo.notice.clipboardInvalid', { msg: this.t(result.error.key, result.error.params) }),
+      });
+    },
+
+    /** 弹窗内「导入」：校验文本框内容，失败则提示原因且不改动当前配置。 */
+    submitEnemyIoImport() {
+      const result = parseEnemyConfig(this.enemyIo.text);
+      if (!result.ok) {
+        this.enemyIo.message = {
+          kind: 'error',
+          text: this.t('enemyIo.error.invalid', { msg: this.t(result.error.key, result.error.params) }),
+        };
+        return;
+      }
+      this._applyEnemyConfig(result.config);
+      this.closeEnemyIo();
+      this.showToast(this.t('enemyIo.toast.imported'));
+    },
+
+    /** 拖入或选择的文件：读入文本框后立即尝试导入。 */
+    async loadEnemyIoFile(file) {
+      this.enemyIo.dragging = false;
+      if (!file) return;
+      try {
+        this.enemyIo.text = await file.text();
+      } catch (err) {
+        this.enemyIo.message = { kind: 'error', text: this.t('enemyIo.error.fileRead', { msg: err.message }) };
+        return;
+      }
+      this.submitEnemyIoImport();
+    },
+
+    _applyEnemyConfig(c) {
+      this.enemy.element = c.element;
+      this.enemy.type    = c.type;
+      this.enemy.core0   = c.core0;
+      this.enemy.d0      = c.d0;
+      this.enemy.hitCoef = c.hitCoef;
+      this.enemy.actions = c.actions.map((a, i) => ({ ...a, id: i + 1 }));
+      this.enemy._nextId = this.enemy.actions.length + 1;
+      this.sortEnemyActions();
+      this.selectedPresetId = null;
     },
 
     // ── 魔方 ──────────────────────────────────────────────────────────────────
