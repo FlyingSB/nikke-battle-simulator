@@ -69,7 +69,7 @@ export default {
   //
   // group_id: 25832
   // p00 reload rounds (const): [6]
-  // p01 pellets▲ per stack (const): [1]  → buff 字段 pelletFlat（不改 shotDamageMult，影响爆裂充能与按弹丸计数的技能）
+  // p01 pellets▲ per stack (const): [1]  → buff 字段 pelletFlat（不改 shotDamageMult 与整发充能，影响按弹丸计数的技能）
   // p02 Happy Memories max stacks (const): [3]
   // p03 ATK▲% per stack: [1.47, 1.59, 1.70, 1.81, 1.93, 2.04, 2.15, 2.27, 2.38, 2.49]
   // p04 Precious Moments max stacks (const): [3]
@@ -112,11 +112,11 @@ export default {
               const soStacks = (caster.skillState.fortune_snapshotsOfYouthStacks ?? 0);
               if (soStacks < 3) {
                 caster.skillState.fortune_snapshotsOfYouthStacks = soStacks + 1;
-                // TODO(实测) "Normal Attack Damage Multiplier" 暂按 normalAttackDamagePct（ExtraMultiplier 加法）建模；
-                //   参考 Charge Damage Multiplier 与珍藏品同乘区的实测结论，可能应与珍藏品普攻倍率同乘区，待游戏内数据验证
+                // "Normal Attack Damage Multiplier"：与珍藏品普攻倍率同一乘区（normalAttackDamageMultPct）
                 // 属 S1 P2，日志显式归属到 S1
                 pushBuff(state, { name: 'Snapshots of Youth', unitId: caster.id,
-                  normalAttackDamagePct: 0.1, endTick: Infinity },
+                  normalAttackDamageMultPct: getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100,
+                  stackLimit: getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]), endTick: Infinity },
                   { ...state._logCtx, skillLabel: caster.rawSkill1?.name_localkey ?? 'S1', slot: 'S1', partIdx: 1, lineIdx: null });
               }
             }

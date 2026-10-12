@@ -11,9 +11,9 @@ const ACID_DOT_NAME  = 'jill_acid_ammo';
 // S1 P1：Magnum Ammo — 普通攻击伤害倍率 ▲ p00%，持续 p01 发
 function applyMagnumAmmo(state, caster) {
   const lv = caster.skillLevels[0];
-  // TODO(实测) "Normal Attack Damage Multiplier" 按项目惯例建模为 normalAttackDamagePct（同 405.js）
+  // "Normal Attack Damage Multiplier"：与珍藏品普攻倍率同一乘区（normalAttackDamageMultPct）
   pushBuff(state, { name: 'Magnum Ammo', unitId: caster.id,
-    normalAttackDamagePct: getSkillValue(caster.rawSkill1, 0, lv) / 100,
+    normalAttackDamageMultPct: getSkillValue(caster.rawSkill1, 0, lv) / 100,
     endRounds: getSkillValue(caster.rawSkill1, 1, lv) });
 }
 

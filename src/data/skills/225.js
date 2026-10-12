@@ -1,5 +1,5 @@
 ﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
+         getBuffSums, reloadMagazinePct, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Scarlet: Black Shadow  (resource_id: 225)
@@ -71,20 +71,18 @@ export default {
   skill2: {
     groupId: 22252,
     triggers: [
-      // S2（Fleetly Fading: Asura）：进入全爆裂 → 弹匣 ×(1+[S2 param0]%) 10s + 立即补满
+      // S2（Fleetly Fading: Asura）：进入全爆裂 → 弹匣 ×(1+p01%) 10s，再按扩容后上限补 round(p03% × 弹匣)
+      //   （p03 Lv7+ 为 100% 即补满；先扩容再补弹的时机同 Tove S1 实测，见 reloadMagazinePct）
       {
         on: 'ENTER_FULL_BURST',
         handler(state, caster) {
-          const mult       = 1 + getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
-          const seconds    = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]);
-          const ammoBefore = caster.ammoLeft;
+          const mult      = 1 + getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
+          const seconds   = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]);
+          const reloadPct = getSkillValue(caster.rawSkill2, 2, caster.skillLevels[1]) / 100;
           // maxAmmoPct = mult - 1（扩充）；pushBuff 触发 recalcMaxAmmo（§5.1.3 仅截断，不强制装填）
           pushBuff(state, { name: 'Fleetly Fading: Asura', unitId: caster.id,
             maxAmmoPct: mult - 1, endTick: state.tick + TICK_RATE * seconds });
-          if (state.ammoLog)
-            state.ammoLog.push({ tick: state.tick, unitId: caster.id, unitName: caster.name,
-              delta: caster.ammoLeft - ammoBefore, ammoAfter: caster.ammoLeft, maxAmmo: caster.maxAmmo,
-              source: 'sbs_s2_maxAmmo' });
+          reloadMagazinePct(state, caster, reloadPct, 'sbs_s2_reload');
         },
       },
     ],

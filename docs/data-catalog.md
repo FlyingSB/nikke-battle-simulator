@@ -191,7 +191,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Rouge | [`272.json`](../src/data/static/nikke/272.json) | [`272.js`](../src/data/skills/272.js) |
 | ❌ | Rosanna（SSR：Signet Ring） | [`280.json`](../src/data/static/nikke/280.json) | [`280.js`](../src/data/skills/280.js) |
 | ✔️ | Moran | [`281.json`](../src/data/static/nikke/281.json) | [`281.js`](../src/data/skills/281.js) |
-| ❌ | Privaty: Unkind Maid | [`313.json`](../src/data/static/nikke/313.json) | [`313.js`](../src/data/skills/313.js) |
+| ✔️ | Privaty: Unkind Maid | [`313.json`](../src/data/static/nikke/313.json) | [`313.js`](../src/data/skills/313.js) |
 | ❌ | Soda: Twinkling Bunny | [`314.json`](../src/data/static/nikke/314.json) | [`314.js`](../src/data/skills/314.js) |
 | ✔️ | Ade: Agent Bunny | [`315.json`](../src/data/static/nikke/315.json) | [`315.js`](../src/data/skills/315.js) |
 | ✔️ | Velvet | [`316.json`](../src/data/static/nikke/316.json) | [`316.js`](../src/data/skills/316.js) |
@@ -219,7 +219,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Cinderella: Crystal Wave | [`515.json`](../src/data/static/nikke/515.json) | [`515.js`](../src/data/skills/515.js) |
 | ✔️ | Phantom（SSR：Precious Masks） | [`580.json`](../src/data/static/nikke/580.json) | [`580.js`](../src/data/skills/580.js) |
 | ✔️ | Arcana | [`581.json`](../src/data/static/nikke/581.json) | [`581.js`](../src/data/skills/581.js) |
-| ❌ | Arcana: Fortune Mate | [`583.json`](../src/data/static/nikke/583.json) | [`583.js`](../src/data/skills/583.js) |
+| ✔️ | Arcana: Fortune Mate | [`583.json`](../src/data/static/nikke/583.json) | [`583.js`](../src/data/skills/583.js) |
 | ✔️ | Mint | [`600.json`](../src/data/static/nikke/600.json) | [`600.js`](../src/data/skills/600.js) |
 | ✔️ | Prika | [`601.json`](../src/data/static/nikke/601.json) | [`601.js`](../src/data/skills/601.js) |
 | ✔️ | Mari | [`832.json`](../src/data/static/nikke/832.json) | [`832.js`](../src/data/skills/832.js) |

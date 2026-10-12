@@ -1,4 +1,4 @@
-import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, reloadMagazinePct, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Tove  (resource_id: 192)
@@ -53,16 +53,7 @@ export default {
           if (ss.tv_s1_shots < thr) return;
           ss.tv_s1_shots -= thr;
 
-          // P1：自身补弹 p01% maxAmmo（若补满则取消装填计时）
-          const reloadPct  = getSkillValue(favS1, 1, lv) / 100;
-          const ammoBefore = caster.ammoLeft;
-          caster.ammoLeft  = Math.min(caster.maxAmmo, caster.ammoLeft + Math.floor(caster.maxAmmo * reloadPct));
-          if (caster.ammoLeft >= caster.maxAmmo && caster.reloadTick > 0) caster.reloadTick = 0;
-          if (state.ammoLog && caster.ammoLeft !== ammoBefore)
-            state.ammoLog.push({ tick: state.tick, unitId: caster.id, unitName: caster.name,
-              delta: caster.ammoLeft - ammoBefore, ammoAfter: caster.ammoLeft,
-              maxAmmo: caster.maxAmmo, source: 'tv_s1_reload' });
-
+          const reloadPct     = getSkillValue(favS1, 1, lv) / 100;
           const ammoPerStack  = getSkillValue(favS1, 2, lv);   // 每层弹容量 +1 / +2
           const maxStacks     = getSkillValue(favS1, 3, lv);   // 3
           const tempModDur    = getSkillValue(favS1, 4, lv);   // 5 sec
@@ -73,6 +64,11 @@ export default {
           pushBuff(state, { name: TEMP_MOD_BUFF, unitId: null, maxAmmoFlat: ammoPerStack,
             stackLimit: maxStacks, endTick: state.tick + TICK_RATE * tempModDur },
             { ...state._logCtx, partIdx: 1, lineIdx: 1 });
+
+          // P1：自身补弹 round(p01% × maxAmmo)，按本次 Temporary Modification 扩容后的上限计算（补满则取消装填）。
+          // 实测（Lv10 5.31%，基础弹匣 60）：第 10/20/30 发分别补 3/3/4 发 = round(62/64/66 × 5.31%)；
+          // 按扩容前上限（60/62/64）只能得到 3/3/3。
+          reloadMagazinePct(state, caster, reloadPct, 'tv_s1_reload');
 
           // P2 L3：全队 Crit Damage ▲
           pushBuff(state, { name: 'Emergency-Crafted Bullets', unitId: null, critDamagePct,

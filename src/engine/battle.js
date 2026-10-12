@@ -20,7 +20,7 @@ import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAU
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, distanceScaledHitRate } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, distanceScaledHitRate, sgPelletHitRate, isBuffActiveFor, sumBuffField } from './battle-utils.js';
 import { executeSkillTriggers, dispatchHpChanged, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -311,10 +311,9 @@ function shotsPerTick(state, unit) {
     && state.tick <= unit.skillState.weaponSwitchEndTick
     ? (unit.skillState.weaponSwitchRateOfFire ?? 0) : 0;
   const baseRof = switchRof > 0 ? switchRof : (unit.mgCurrentRof ?? unit.rateOfFire);
-  // Attack speed ▲：从 buff 系统汇总，支持多来源叠加（Dorothy burst、TV S1 等）
-  const atkSpeedPct = state.buffs
-    .filter(b => (b.unitId === null || b.unitId === unit.id) && b.endTick > state.tick && (b.roundsLeft ?? 1) > 0)
-    .reduce((a, b) => a + (b.atkSpeedPct ?? 0), 0);
+  // Attack speed ▲：从 buff 系统汇总，支持多来源叠加（Dorothy burst、Tove S2 等）；
+  // 口径同 getBuffSums（含 weaponFilter 与叠层：Tove S2「仅 SG 友军」攻速不作用于 AR 的 Tove 自身）
+  const atkSpeedPct = sumBuffField(state, unit, 'atkSpeedPct');
   return Math.min(MAX_SHOTS_PER_TICK, baseRof * (1 + atkSpeedPct) / 60 / TICK_RATE);
 }
 
@@ -787,9 +786,13 @@ export function initBattle(config) {
       backswingTicks,
       // 非蓄力武器换弹后摇（spot_last_delay）；蓄力武器为 0。仅用于换弹时长。
       reloadRecoveryTicks,
-      // 非蓄力武器换弹后对准期 ticks（spot_first_delay）；aimReadyTick = 换弹完成 + reloadAimTicks，之前不射击。
+      // 非蓄力武器对准期 ticks（spot_first_delay）；aimReadyTick 之前不射击（射击累加器照常累积，封顶 1）。
+      //   · 开局：初次对准目标，首发 @reloadAimTicks（同蓄力武器首发含前摇）。
+      //     实测（2026-10-12，Tove spot_first_delay 33cs = 20t）：第 2/3 发 @22/28 帧（720 RPM 5t 发间），
+      //     首发约 @16–17 帧，与 20t 对准差 3 帧左右（Anis: Star 首发实测 70 帧 vs 前摇 12 + 蓄力 60 = 72，同向偏差）。
+      //   · 换弹完成后：aimReadyTick = 换弹完成 + reloadAimTicks（见装填路径）。
       reloadAimTicks,
-      aimReadyTick:     0,
+      aimReadyTick:     reloadAimTicks,
       isDownCharge,
       // Initial chargeTick: foreswing + charge only (no backswing before first shot).
       // DOWN_Charge 型第 1 发仍含前摇（初次对准目标）。
@@ -1681,6 +1684,10 @@ export function tick(state) {
       // RL 普攻即 Projectile Explosion：受 projectileExplosionDamagePct 加成（伤害计算与日志明细共用此口径）
       const isExplosive = effectiveWeaponType === 'RL';
       const projExpOf = b => (isExplosive ? (b.projectileExplosionDamagePct ?? 0) : 0);
+      // 普攻伤害倍率：珍藏品 "Normal Attack Damage Multiplier"（武器切换期间不生效）与技能同名效果
+      // （buff 字段 normalAttackDamageMultPct）同一乘区，相加后乘在 BaseDamage 上（同 Charge Damage Multiplier）
+      const favNormalBase = weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1);
+      const normalMultOf  = (s, favBase = favNormalBase) => favBase + (s.normalAttackDamageMultPct ?? 0);
 
       // DURING_FULL_CHARGE：全蓄力击发前触发，推入的 buff 立即被 getBuffSums 读取
       if (isCharged) fireDuringFullChargeTriggers(state, unit);
@@ -1688,12 +1695,18 @@ export function tick(state) {
       // 计算 buff 汇总（round-based buff 由 getBuffSums 自动根据 roundsLeft 过滤）
       const sums = getBuffSums(state, unit.id);
       // 本次射击命中弹丸数（SG 受「弹丸数 ▲ / 固定为 N」影响）：用回合扣减前的 sums，
-      // 供爆裂充能与按弹丸计数的技能（shotCtx.pellets）共用
-      // SG 实战弹丸命中：每颗弹丸按 sgHitRate（随敌人距离缩放）独立判定是否命中躯体，
+      // 供爆裂充能（按命中比例折算整发充能）与按弹丸计数的技能（shotCtx.pellets）共用
+      // SG 实战弹丸命中：每颗弹丸按 sgHitRate（随敌人距离缩放，并按有效散布缩放打空率）独立判定是否命中躯体，
       // 伤害倍率按命中弹丸比例缩放（hitMult 为整发全部弹丸的合计倍率），充能与弹丸计数按命中弹丸数。
+      // 有效散布：武器切换取技能给出的切换散布（缺失按标定散布），否则取当前散布（含收束 ramp）；
+      // 命中率 ▲ 收圆（如 Dorothy: Serendipity 的 Flash 单弹丸）→ 几乎不再打空。
+      const hitRateNow   = (unit.stats.hitRatePct ?? 0) + (sums.hitRatePct ?? 0);
       const firedPellets = shotPelletCount(unit, effectiveWeaponType, sums);
       const pellets      = rollHitPellets(firedPellets, effectiveWeaponType === 'SG'
-        ? distanceScaledHitRate(state.accSgHitRate, state.enemyDistance) : 1);
+        ? sgPelletHitRate(state.accSgHitRate, state.enemyDistance,
+            weaponSwitchActive ? (unit.skillState.weaponSwitchAccuracyScale ?? 0) : unit.accCurrentScale,
+            hitRateNow, state.accHitCoef)
+        : 1);
       const shotHitMult  = hitMult * pellets / firedPellets;
       // normalAttackCritRatePct 适用于所有普通攻击（含蓄力），不区分蓄力与否
       const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRatePct
@@ -1723,7 +1736,7 @@ export function tick(state) {
             ? coreHitChance({
                 alwaysCore:   false,
                 currentScale: switchScale,
-                hitRatePct:   (unit.stats.hitRatePct ?? 0) + (sums.hitRatePct ?? 0),
+                hitRatePct:   hitRateNow,
                 distance:     state.enemyDistance,
                 CORE0: state.accCore0, D0: state.accD0, coef: state.accHitCoef,
               })
@@ -1732,7 +1745,7 @@ export function tick(state) {
         : coreHitChance({
             alwaysCore:   unit.accAlwaysCore,
             currentScale: unit.accCurrentScale,
-            hitRatePct:   (unit.stats.hitRatePct ?? 0) + (sums.hitRatePct ?? 0),
+            hitRatePct:   hitRateNow,
             distance:     state.enemyDistance,
             CORE0: state.accCore0, D0: state.accD0, coef: state.accHitCoef,
           });
@@ -1775,7 +1788,8 @@ export function tick(state) {
         favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
         chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
         chargeDmgMultPct:  sums.chargeDamageMultPct ?? 0,
-        favNormalAttackDamageMult: unit.favNormalAttackDamageMult ?? 1,
+        // TODO(TODOS.md) 此处珍藏品倍率未按武器切换置 1（已知问题，与日志口径不一致），暂保持原行为
+        favNormalAttackDamageMult: normalMultOf(sums, unit.favNormalAttackDamageMult ?? 1),
         isTrueDamage,
         extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct + projExpOf(sums),
                              damageToPartsMult: sums.damageToPartsPct ?? 0,
@@ -1811,7 +1825,7 @@ export function tick(state) {
           favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
           chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
           chargeDmgMultPct:  sums.chargeDamageMultPct ?? 0,
-          favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
+          favNormalAttackDamageMult: normalMultOf(sums),
           isTrueDamage,
           extra:             { attackDamageMult: sums.attackDamagePct + sums.normalAttackDamagePct + projExpOf(sums),
                                damageToPartsMult: sums.damageToPartsPct ?? 0,
@@ -1833,9 +1847,9 @@ export function tick(state) {
       // 回合制 buff 在实弹命中时（ammoLeft-- 处）扣减并在归零时 splice，早于 hitLog 写入；
       // 若写 hitLog 时再读 state.buffs，本发消耗的最后一回合 buff 会从伤害明细中漏掉（伤害已计入）。
       // 解决：在扣减前快照 buffBreakdown（双重命中另在第二次命中前再快照），只保留 roundsLeft>0 的活跃 buff。
+      // 口径同 getBuffSums（isBuffActiveFor：目标 / 回合 / 到期 / weaponFilter）
       const _snapActiveBufs = () => state.buffs
-        .filter(b => (b.unitId === null || b.unitId === unit.id)
-                   && (b.roundsLeft === undefined || b.roundsLeft > 0))
+        .filter(b => isBuffActiveFor(state, b, unit))
         .map(b => {
           // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
           const k = b.stacks ?? 1;
@@ -1845,13 +1859,14 @@ export function tick(state) {
                    pierceDamagePct: isPierce ? (b.pierceDamagePct ?? 0) * k : 0, coreDamagePct: (b.coreDamagePct ?? 0) * k,
                    chargeDamagePct: (b.chargeDamagePct ?? 0) * k, critDamagePct: (b.critDamagePct ?? 0) * k,
                    chargeDamageMultPct: (b.chargeDamageMultPct ?? 0) * k,
+                   normalAttackDamageMultPct: (b.normalAttackDamageMultPct ?? 0) * k,
                    // 优越代码伤害仅在本次命中具备克制时生效（与 calcDamage 的 elemMult 口径一致）
                    elementAdvantagePct: bd.elemMult > 1 ? (b.elementAdvantagePct ?? 0) * k : 0,
                    stacks: k, multiplier: b.multiplier ?? null,
                    sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null,
                    sourcePartIdx: b._sourcePartIdx ?? null };
         })
-        .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.critDamagePct || b.elementAdvantagePct);
+        .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.normalAttackDamageMultPct || b.critDamagePct || b.elementAdvantagePct);
       let _hit1BreakdownBufs = null, _hit2BreakdownBufs = null;
       if (state.hitLog) _hit1BreakdownBufs = _snapActiveBufs();
 
@@ -1893,7 +1908,7 @@ export function tick(state) {
           favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
           chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums2.chargeDamagePct,
           chargeDmgMultPct:  sums2.chargeDamageMultPct ?? 0,
-          favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
+          favNormalAttackDamageMult: normalMultOf(sums2),
           isTrueDamage:      sums2.normalAttackTrueDamage,
           extra:             { attackDamageMult: sums2.attackDamagePct + sums2.normalAttackDamagePct + projExpOf(sums2),
                                damageToPartsMult: sums2.damageToPartsPct ?? 0,
@@ -1939,17 +1954,18 @@ export function tick(state) {
       unit.skillDamage[shotLabel]      = (unit.skillDamage[shotLabel]      ?? 0) + damage + damage2 + damagePartsCoreBody;
       unit.skillDamageCount[shotLabel] = (unit.skillDamageCount[shotLabel] ?? 0) + (isDoubleHit ? 2 : 1) + (isPartsCoreBody ? 1 : 0);
 
-      // 本次射击充能 = targetBurstEnergyPerShot × 弹丸数 + burstGaugeFlat。
+      // 本次射击充能 = 整发充能 × 命中弹丸数 / 发射弹丸数 + burstGaugeFlat。
       // 蓄力武器（SR/RL）：仅【Focus 受控角色】额外乘以全蓄力系数 (fullChargeBurstEnergy/10000)；
       //   非Focus 蓄力角色与非蓄力武器均无倍率（实测：非Focus 蓄力充能 = target，见 battle-logic §6.1）。
-      // SG 弹丸数（pellets）：target_burst_energy_pershot 是【每发弹丸】命中的充能 → 本次充能 = ×命中弹丸数。
-      //   发射弹丸数 = shot_count + 弹丸数 ▲（或被「固定为 N」覆盖），见 shotPelletCount；
-      //   命中弹丸数按 sgHitRate 逐弹丸判定（默认 1 = 全部命中）。其余武器 pellets=1。
+      // SG：整发充能 = target_burst_energy_pershot × 基础 shot_count，为【全部弹丸命中】时的充能，
+      //   与弹丸数 ▲ / 「固定为 N」无关（同伤害系数口径）；每颗弹丸充能 = 整发充能 / 发射弹丸数，动态计算。
+      //   命中弹丸数按 sgHitRate 逐弹丸判定（默认 1 = 全部命中）。其余武器 pellets = firedPellets = 1。
       // burstGaugeFlat：来自 buff 的 flat 加成（如 Neon: Vision Eye S2 Part4），按【每次射击】计（非每弹丸），
       //   与弹丸充能合并后整体（Focus 时）乘以全蓄力系数（flat 加法，不得改为百分比乘法）。
       // ⚠ 必须在 hitLog 记录之前累积，使本发命中行记录的 gaugeAfter 已包含本发充能，
       //   战斗日志「充能列」据此按行计算增量；否则会把本发充能误记到下一行。
-      const baseEnergy  = unit.targetBurstEnergyPerShot * pellets + (sums.burstGaugeFlat ?? 0);
+      const fullShotEnergy = unit.targetBurstEnergyPerShot * (effectiveWeaponType === 'SG' ? (unit.shotCount ?? 1) : 1);
+      const baseEnergy  = Math.round(fullShotEnergy * pellets / firedPellets) + (sums.burstGaugeFlat ?? 0);
       const focusCharged = unit.isFocus && isCharged && unit.fullChargeBurstEnergy > 10000;
       const burstEnergy = focusCharged
         ? Math.round(baseEnergy * unit.fullChargeBurstEnergy / 10000)
@@ -1968,7 +1984,7 @@ export function tick(state) {
           gaugeAfter: state.burstGauge,
           atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
           hitMult: shotHitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
-          favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
+          favNormalAttackDamageMult: normalMultOf(sums),
           attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct + projExpOf(sums), isFullBurst: state.fullBurstActive,
           damageTakenPct: getEnemyDamageTakenPct(state),
           enemyDef: isTrueDamage ? 0 : getEffectiveEnemyDef(state),
@@ -2002,7 +2018,7 @@ export function tick(state) {
             gaugeAfter: state.burstGauge,
             atk: unit.stats.atk, atkPct: sums.atkPct, atkFlat: sums.atkFlat,
             hitMult, isCrit: isCritPartsCoreBody, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
-            favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
+            favNormalAttackDamageMult: normalMultOf(sums),
             attackDamagePct: sums.attackDamagePct + sums.normalAttackDamagePct + projExpOf(sums), isFullBurst: state.fullBurstActive,
             damageTakenPct: getEnemyDamageTakenPct(state),
             enemyDef: isTrueDamage ? 0 : getEffectiveEnemyDef(state),
@@ -2035,7 +2051,7 @@ export function tick(state) {
             gaugeAfter: state.burstGauge,
             atk: unit.stats.atk, atkPct: sums2log.atkPct, atkFlat: sums2log.atkFlat,
             hitMult, isCrit: isCrit2, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums2log.critDamagePct,
-            favNormalAttackDamageMult: weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1),
+            favNormalAttackDamageMult: normalMultOf(sums2log),
             attackDamagePct: sums2log.attackDamagePct + sums2log.normalAttackDamagePct + projExpOf(sums2log),
             isFullBurst: state.fullBurstActive,
             damageTakenPct: getEnemyDamageTakenPct(state),
@@ -2112,9 +2128,7 @@ export function tick(state) {
 
       // MG ramp：ROF per-shot ramp up（内联保留，非声明式）
       if (unit.mgCurrentRof != null) {
-        const mgHeatMult = 1 + state.buffs
-          .filter(b => (b.unitId === null || b.unitId === unit.id) && b.endTick > state.tick)
-          .reduce((a, b) => a + (b.mgHeatSpeedPct ?? 0), 0);
+        const mgHeatMult = 1 + sumBuffField(state, unit, 'mgHeatSpeedPct');
         unit.mgCurrentRof = Math.min(
           unit.mgMaxRof,
           unit.mgCurrentRof + unit.mgRofChangePerShot * mgHeatMult

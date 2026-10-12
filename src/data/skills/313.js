@@ -7,7 +7,7 @@ export default {
   // ── Passionate Maid（S1）
   // ■ 命中目标时每 {p00=30} 发弹丸触发，影响准心附近最近的2个敌人。
   //   造成最终 ATK × {p01}% 的伤害。（单 Boss 场景等效为 1 次命中）
-  //   溢出保留：单次射击弹丸数可变（unit.shotCount），用累积计数器严格按弹丸数触发。
+  //   溢出保留：按本次射击【命中】弹丸数（ctx.pellets，含弹丸数增减与 SG 弹丸命中判定）累计，严格按弹丸数触发。
   //
   // group_id: 23131
   // p00 触发弹丸数 (const): [30]
@@ -19,8 +19,8 @@ export default {
       {
         on: 'SHOT_COUNT',
         opts: { every: 1, counterKey: 'pum_s1_pelletDummy' },
-        handler(state, caster) {
-          caster.skillState.pum_s1_pellets = (caster.skillState.pum_s1_pellets ?? 0) + (caster.shotCount ?? 1);
+        handler(state, caster, ctx) {
+          caster.skillState.pum_s1_pellets = (caster.skillState.pum_s1_pellets ?? 0) + (ctx.pellets ?? 1);
           while (caster.skillState.pum_s1_pellets >= 30) {
             caster.skillState.pum_s1_pellets -= 30;
             if (state.enemyHp <= 0) return;
@@ -37,7 +37,7 @@ export default {
   // ── Loving Maid（S2）
   // ■ 单次普通攻击命中超过 {p00=5} 发弹丸时触发，影响自身。
   //   装弹速度 ▲ {p01}%，持续 {p02=2} 秒。
-  //   （unit.shotCount 为当前弹丸数，可被其他技能修改；>5 时必然触发）
+  //   （按本次射击命中弹丸数 ctx.pellets 判定；弹丸打空过多时可能不触发）
   // ■ 全爆裂期间累计命中 {p03=30} 发弹丸时触发，影响自身。
   //   装填 {p04=1} 发子弹。
   //   ATK ▲ {p05}%，最多叠加 {p06=5} 层，每层独立持续 {p07=2} 秒。
@@ -59,8 +59,8 @@ export default {
       {
         on: 'SHOT_COUNT',
         opts: { every: 1, counterKey: 'pum_s2_part1Dummy' },
-        handler(state, caster) {
-          if ((caster.shotCount ?? 1) <= 5) return;
+        handler(state, caster, ctx) {
+          if ((ctx.pellets ?? 1) <= 5) return;
           const lv           = caster.skillLevels[1];
           const reloadSpdPct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const end2         = state.tick + TICK_RATE * 2;
@@ -73,9 +73,9 @@ export default {
       {
         on: 'SHOT_COUNT',
         opts: { every: 1, counterKey: 'pum_s2_part2Dummy' },
-        handler(state, caster) {
+        handler(state, caster, ctx) {
           if (!state.fullBurstActive) return;
-          caster.skillState.pum_s2_burstPellets = (caster.skillState.pum_s2_burstPellets ?? 0) + (caster.shotCount ?? 1);
+          caster.skillState.pum_s2_burstPellets = (caster.skillState.pum_s2_burstPellets ?? 0) + (ctx.pellets ?? 1);
           const lv = caster.skillLevels[1];
           while (caster.skillState.pum_s2_burstPellets >= 30) {
             caster.skillState.pum_s2_burstPellets -= 30;

@@ -123,8 +123,9 @@ const ELEMENT_CHART = {
  *   与 favChargeDmgPct 相加后乘 full_charge_damage
  * @property {number}        [chargeDmgStat=1]       装备 / 技能 / 魔方带来的蓄力伤害加成（不含珍藏品）。
  *   以 (1 + stats.chargeDmgPct + sums.chargeDamagePct) 形式传入。
- * @property {number}        [favNormalAttackDamageMult=1]  珍藏品 "Normal Attack Damage Multiplier ▲"
- *   适用于 SMG/SG — 独立倍率，直接乘在 baseDamage 上（与 ExtraMultiplier 不是加法关系）。
+ * @property {number}        [favNormalAttackDamageMult=1]  普攻伤害倍率 = 1 + 珍藏品 "Normal Attack Damage Multiplier ▲"
+ *   （SMG/SG 物品）+ Σ 技能同名效果（buff 字段 normalAttackDamageMultPct）— 二者同一乘区相加，
+ *   独立倍率，直接乘在 baseDamage 上（与 ExtraMultiplier 不是加法关系）。
  * @property {ExtraFlags}    [extra]
  * @property {number}        [damageTakenMult=0]   来自敌方 debuff
  * @property {number}        [distributedDamageMult=0]

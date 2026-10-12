@@ -126,7 +126,7 @@ B3 施放者爆裂技能（`burst` 槽 `BURST_SKILL_USE`）的伤害一律**从�
 | `projectileExplosionDamagePct` | Explosion Damage |
 | `projectileAttachmentDamagePct` | Attachment Damage |
 | `sequentialAttackDamagePct` | Sequential Damage |
-| `normalAttackDamagePct` | Normal Attack Damage |
+| `normalAttackDamagePct` / `normalAttackDamageMultPct` | Normal Attack Damage（描述为 "Normal Attack Damage **Multiplier**" 时必须用 `normalAttackDamageMultPct`：与珍藏品普攻倍率同乘区） |
 | `critRatePct` / `normalAttackCritRatePct` | Crit Rate |
 | `chargeSpeedPct` / `chargeTimeReductionTicks` | Charge Speed |
 | `reloadSpeedPct` | Reload Speed |

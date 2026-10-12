@@ -1,5 +1,5 @@
 ﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
+         getBuffSums, reloadMagazinePct, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Little Mermaid  (resource_id: 513)
@@ -144,7 +144,7 @@ export default {
     triggers: [
       // Burst（Siren's Song）：
       //   全员 Attack Damage ▲10.13% 10s
-      //   全员补弹 33.26% maxAmmo（补满时取消装填）
+      //   全员补弹 round(33.26% × maxAmmo)（补满时取消装填）
       //   自身 ATK flat ▲17.28% LM.atk 10s
       // Burst P1：全员 Attack Damage ▲ + 补弹
       {
@@ -154,14 +154,8 @@ export default {
           const attackDmgPct  = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const ammoReloadPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           pushBuff(state, { name: 'Siren\'s Song (Attack Damage)', unitId: null, attackDamagePct: attackDmgPct, endTick: end10 });
-          for (const u of state.squad) {
-            const ammoBefore = u.ammoLeft;
-            u.ammoLeft = Math.min(u.maxAmmo, u.ammoLeft + Math.floor(u.maxAmmo * ammoReloadPct));
-            if (u.ammoLeft >= u.maxAmmo && u.reloadTick > 0) u.reloadTick = 0;
-            if (state.ammoLog && u.ammoLeft !== ammoBefore)
-              state.ammoLog.push({ tick: state.tick, unitId: u.id, unitName: u.name,
-                delta: u.ammoLeft - ammoBefore, ammoAfter: u.ammoLeft, maxAmmo: u.maxAmmo, source: 'lm_burst_reload' });
-          }
+          // 补 round(maxAmmo × p03%)：实测为弹匣 913 的 Rapi: Red Hood 补 304 发（33.26% → 303.66）
+          for (const u of state.squad) reloadMagazinePct(state, u, ammoReloadPct, 'lm_burst_reload');
         },
       },
       // Burst P2：自身 ATK flat ▲

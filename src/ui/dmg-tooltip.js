@@ -101,7 +101,15 @@ export function buildDmgTooltipHTML(h, nameFn = n => n, { cubeElemName = null } 
   {
     const s = addSect(t('dmg.hitMult'));
     addItem(s, '', `×${_pct(hitMult)}`, 'pct');
-    if (favMult !== 1) addItem(s, t('dmg.favNormalMult'), `×${_pct(favMult)}`, 'pct');
+    // 普攻伤害倍率 = 1 + 珍藏品 + Σ 技能 "Normal Attack Damage Multiplier"（同一乘区），逐来源拆分展示
+    const normMultBufs = bd.filter(b => Math.abs(b.normalAttackDamageMultPct ?? 0) > 0.0001);
+    const favNormalPct = favMult - 1 - normMultBufs.reduce((acc, b) => acc + b.normalAttackDamageMultPct, 0);
+    // 仅珍藏品时显示合计倍率（×109.46%）；有技能来源时同蓄力系数，各来源均显示原始增量值（乘算色）
+    if (Math.abs(favNormalPct) > 0.0001) {
+      if (normMultBufs.length === 0) addItem(s, t('dmg.favNormalMult'), `×${_pct(1 + favNormalPct)}`, 'pct');
+      else addItem(s, t('dmg.favNormalMult'), `×${_pct(favNormalPct)}`, 'mult');
+    }
+    normMultBufs.forEach(b => addItem(s, _bdName(b), `×${_pct(b.normalAttackDamageMultPct)}`, 'mult'));
   }
 
   // ── 通用系数（暴击 / 核心 / 距离 / Full Burst）──

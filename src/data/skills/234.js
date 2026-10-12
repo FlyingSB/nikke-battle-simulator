@@ -25,8 +25,8 @@ export default {
   // 实现说明：
   //   - 触发条件按【命中目标的弹丸数】累计，而非射击次数：每发射击累加 ctx.pellets
   //     （引擎按射击时 buff 计算：基础 10 发；Burst 期间 +3/+5；本技能 3 轮内固定为 1）。
-  //     弹丸只在实际命中后计数（onShotFired 于命中结算之后调用；引擎假设射出即全部命中目标）。
-  //   - "Pellet count fixed at 1" → buff 字段 pelletFixed: 1（影响后续计数与爆裂充能，不影响单发伤害系数）。
+  //     弹丸只在实际命中后计数（ctx.pellets 为 SG 弹丸命中判定后的命中数；Hit Rate ▲ 收圆时打空更少）。
+  //   - "Pellet count fixed at 1" → buff 字段 pelletFixed: 1（影响后续弹丸计数；整发伤害系数与整发充能不变，单弹丸命中/打空即整发命中/打空）。
   //   - "Expands Pierce range" 不影响伤害计算，Part2 略。
   skill1: {
     groupId: 22341,
@@ -106,7 +106,7 @@ export default {
   // p05: [15, ...] (持续时间, const)
   //
   // Attack speed ▲：通过 buff 系统传入，battle.js ROF 累加器读取。
-  // 弹丸数 ▲ → buff 字段 pelletFlat：不改单发伤害系数，但影响 S1 弹丸计数与爆裂充能。
+  // 弹丸数 ▲ → buff 字段 pelletFlat：不改整发伤害系数与整发充能，但影响 S1 弹丸计数。
   burst: {
     groupId: 12343,
     triggers: [

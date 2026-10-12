@@ -891,13 +891,32 @@ section('T16: B3 直接伤害默认/非默认结算配置审计');
     eq('Asuka BURST_SKILL_USE 不设置 asuka_burstSumsSnapshot（非默认不需快照）',
       caster.skillState.asuka_burstSumsSnapshot, undefined);
     // ATK▲（原 P1 L6）与 Attack Damage▲（原 P1 L7）已合并进单个 Annihilation State 哨兵 buff，
-    // 与 normalAttackDamagePct 一同携带，随该 buff 同时失效（endTick = asEnd，已在上方校验）
+    // 与 normalAttackDamageMultPct 一同携带，随该 buff 同时失效（endTick = asEnd，已在上方校验）
     const bLv          = caster.skillLevels[2];
     const expAtkPct    = getSkillValue(caster.rawBurst, 1, bLv) / 100;
     const expAtkDmgPct = getSkillValue(caster.rawBurst, 3, bLv) / 100;
     eq('Annihilation State buff 携带 atkPct（合并自原 P1 L6）', annBuff?.atkPct, expAtkPct);
     eq('Annihilation State buff 携带 attackDamagePct（合并自原 P1 L7）', annBuff?.attackDamagePct, expAtkDmgPct);
-    eq('Annihilation State buff 携带 normalAttackDamagePct -0.40', annBuff?.normalAttackDamagePct, -0.40);
+    eq('Annihilation State buff 携带 normalAttackDamageMultPct -0.40（与珍藏品普攻倍率同乘区）',
+      annBuff?.normalAttackDamageMultPct, -0.40);
+    eq('Annihilation State buff 不再携带 normalAttackDamagePct（ExtraMultiplier）', annBuff?.normalAttackDamagePct, undefined);
+  }
+  // ── Arcana: Fortune Mate (583) S1 P2：Snapshots of Youth = 普攻伤害倍率（与珍藏品同乘区）──
+  {
+    const shotTrigger = SKILL_TRAITS[583]?.skill2?.triggers?.find(t => t.on === 'SHOT_COUNT');
+    const state  = makeState(583);
+    const caster = state.squad[0];
+    caster.ammoLeft = 0; caster.maxAmmo = 100;
+    caster.rawSkill1 = rawSkill([13, 15, 10, 3]);
+    caster.rawSkill2 = rawSkill([6, 1, 3, 2.49, 3, 55, 10]);
+    caster.skillState = { fortune_makingMemoriesActive: true };
+    // 每 6 发一循环，第 4 发触发 Happy Memories → Snapshots of Youth +1 层；跑 4 个循环验证 3 层上限
+    for (let i = 0; i < 24; i++) shotTrigger.handler(state, caster, {});
+    const soy = state.buffs.filter(b => b.name === 'Snapshots of Youth' && b.unitId === caster.id);
+    eq('Snapshots of Youth 使用 normalAttackDamageMultPct = p02/100', soy[0]?.normalAttackDamageMultPct, 0.1);
+    eq('Snapshots of Youth 不使用 normalAttackDamagePct（ExtraMultiplier）', soy[0]?.normalAttackDamagePct, undefined);
+    near('Snapshots of Youth 3 层封顶：sums.normalAttackDamageMultPct = 0.30',
+      getBuffSums(state, caster.id).normalAttackDamageMultPct, 0.30, 1e-9);
   }
   {
     // BUFF_EXPIRE handler 在 Annihilation State 到期时发动 Annihilation；BURST_SKILL_USE 无快照（源码检查）

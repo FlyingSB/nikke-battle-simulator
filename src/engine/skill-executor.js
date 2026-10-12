@@ -63,7 +63,7 @@
  *   BUFF_GLOBAL         同一条 buff 以 unitId=null 作用于全员（区别于逐人推 BUFF）
  *   SKILL_DAMAGE        技能伤害（count 次，mult 倍率）
  *   HEAL                治疗目标（pct = 占 caster.stats.hp 比例，或 flat 固定量；caster 作为治疗者计入治疗效能）
- *   RELOAD_AMMO         补充弹药（pct = 占 maxAmmo 比例）
+ *   RELOAD_AMMO         补充弹药（pct = 占 maxAmmo 比例，四舍五入；补满即取消换弹）
  *   REDUCE_BURST_CD     减少爆裂技能冷却时间（seconds）
  *   GRANT_BURST_GAUGE   增加共享爆裂槽（pct = 占上限比例）
  *   AMMO_EXPAND         临时扩充最大弹匣（mult, seconds）+ 立即补满弹药
@@ -87,7 +87,7 @@
 
 import { SKILL_TRAITS } from '../data/skill-traits.js';
 import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, isPartsHit,
-         getBuffSums, getFinalMaxHp, isWeaponSwitchAmmoFixed, snapshotBuffBreakdown,
+         getBuffSums, getFinalMaxHp, isWeaponSwitchAmmoFixed, reloadMagazinePct, snapshotBuffBreakdown,
          TICK_RATE, BURST_GAUGE_MAX, ALL_ALLIES } from './battle-utils.js';
 
 // 团队触发：ctx.unit 无意义，所有持有该技能的在队单位均触发
@@ -269,18 +269,11 @@ function applyEffects(state, caster, targets, effects, ctx, logCtx = null) {
       }
 
       case 'RELOAD_AMMO':
+        // 补 round(maxAmmo × pct)，补满即取消换弹；固定弹匣的切换武器不接受补弹（见 reloadMagazinePct）
         for (const t of targets) {
           if (t === '__enemy__') continue;
-          // 固定弹匣的切换武器不接受补弹
-          if (isWeaponSwitchAmmoFixed(state, t)) continue;
-          const pct        = typeof eff.pct === 'function' ? eff.pct(caster, t, state) : eff.pct;
-          const ammoBefore = t.ammoLeft;
-          t.ammoLeft = Math.min(t.maxAmmo, t.ammoLeft + Math.floor(t.maxAmmo * pct));
-          if (eff.cancelReloadIfFull && t.ammoLeft >= t.maxAmmo && t.reloadTick > 0) t.reloadTick = 0;
-          if (state.ammoLog && t.ammoLeft !== ammoBefore)
-            state.ammoLog.push({ tick: state.tick, unitId: t.id, unitName: t.name,
-              delta: t.ammoLeft - ammoBefore, ammoAfter: t.ammoLeft, maxAmmo: t.maxAmmo,
-              source: eff.label ?? 'skill_reload' });
+          const pct = typeof eff.pct === 'function' ? eff.pct(caster, t, state) : eff.pct;
+          reloadMagazinePct(state, t, pct, eff.label ?? 'skill_reload');
         }
         break;
 

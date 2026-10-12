@@ -103,6 +103,9 @@ BaseDamage   = max(0, effectiveAtk) × hitMultiplier × favNormalAttackDamageMul
 - `atkFlat` 汇总：equipAtkFlat + 所有生效 buff 的 atkFlat。
 - `hitMultiplier`：普通攻击为 `shot_detail.damage / 10000`；技能伤害为技能描述中的百分比。
 - `favNormalAttackDamageMult`：珍藏品 "Normal Attack Damage ▲"（SMG/SG 珍藏品），直接乘在 BaseDamage 上，是**独立乘法**，与 ExtraMultiplier 不相加；**仅加成于该珍藏品对应武器类型的普通攻击**（SMG 珍藏品仅加成 SMG 普攻，SG 珍藏品仅加成 SG 普攻）；**武器切换（`WEAPON_SWITCH`）期间不生效**（视为 1.0）。
+  技能 "Normal Attack Damage Multiplier ▲/▼"（buff 字段 `normalAttackDamageMultPct`）与珍藏品**同一乘区**：
+  `favNormalAttackDamageMult = 1 + 珍藏品 + Σ normalAttackDamageMultPct`（与 Charge Damage Multiplier 的处理一致）；
+  技能 buff 不受武器类型 / 武器切换限制，对技能产生的普攻命中（`isNormalAttack`）也生效（基数 1，不含珍藏品）。
 - **True Damage**：effectiveDef = 0（完全忽略防御）。
 
 ### 3.2 CommonMultiplier
@@ -144,7 +147,7 @@ ExtraMult = 1 + Σ(以下各项，生效时才加）
 | 加成来源 | 字段 | 适用场景 |
 |----------|------|----------|
 | 攻击伤害% | `attackDamagePct` | 普通攻击和技能均受益 |
-| 普通攻击伤害% | `normalAttackDamagePct` | 仅普通攻击（倍率，待验证） |
+| 普通攻击伤害% | `normalAttackDamagePct` | 仅普通攻击（注意：技能 "Normal Attack Damage **Multiplier**" 不走此处，用 `normalAttackDamageMultPct`，见 BaseDamage） |
 | 发射体爆炸伤害% | `projectileExplosionDamagePct` | 仅 RL 普攻或标记了 projectileExplosion 的技能命中 |
 | 穿透伤害% | `pierceDamagePct` | 仅穿透命中 |
 | 依次攻击伤害% | `sequentialAttackDamageMult` | 仅 CDN `skill_type: InstantSequentialAttack` 的技能命中（见下注） |
@@ -450,9 +453,13 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 
 > **实测校准（2026-10-09）**：Rapi: Red Hood（弹匣 913，Resilience 魔方）3 分钟普攻 9101 次（按弹药计数器逐弹匣统计）。换弹几乎瞬时（Crown 爆裂换弹速度）的连续弹匣仍需 ≈16s 打空（≈57–60 发/s），隐藏后首个弹匣 ≈17–18s（含 1s 首发等待 + 起速）；封顶前引擎按 70 发/s 分别跑出 13.0s / 14.6s，全场 10807 次，偏多 18.7%；封顶后 15.2s / 16.7s，全场 9394 次，偏多 3.2%（剩余偏差与实测弹匣耗时一致地约 5%，推测为设备实际帧率略低于 60，未建模）。逐弹匣实测明细见 dev/game-data.md「Rapi: Red Hood（MG，帧率封顶）」。
 
-**起手立即击发**：`shotAccumulator` 初值为 **1**（而非 0），使开局第一发立即击发，不必空等一个完整射击间隔。物理含义：战斗开始时枪已对准目标。
+**开局对准后立即击发**：`shotAccumulator` 初值为 **1**（而非 0），首发不必空等一个完整射击间隔；但非蓄力武器开局须先经 `spot_first_delay` 对准期（`aimReadyTick` 初值 = `reloadAimTicks`，与换弹后对准期同一值，同蓄力武器首发含前摇），首发 @`reloadAimTicks`。无 CDN 数据时 `reloadAimTicks = 0`，仍在 tick 1 立即击发。
 
-> **历史偏差（已修复）**：此前累加器从 0 起，每个弹匣首发都要多等一个完整间隔（如 Brid: Silent Track 90 RPM ＝ 0.667s），开局与每次换弹后各损失约一个间隔，导致整体射击数偏低、战斗偏慢。实测帧数据校准（Brid 首弹匣第 9 发 @322t、换弹完成 @396t）后，修正模型误差 ≤3 tick。
+> **实测（2026-10-12，Tove AR 720 RPM，`spot_first_delay` 33 cs = 20 t）**：计时器启动起第 2/3 发 @22/28 帧；模型第 2/3 发 @24/29（开局立即击发模型为 @5/10）。第一次开始装填实测 8.1s，模型末发 7.73s + 后摇 0.2s = 7.93s。详见 dev/game-data.md「非蓄力武器开局对准期」。
+> **实测（2026-10-12，Privaty: Unkind Maid / Brid: Silent Track，SG 90 RPM，对准 12 t，弹匣 9，两人动作完全一致）**：首发约第 10 帧（模型 @12），打完第 9 发约 5.5s = 330 帧（模型 @331）。下方 Brid 旧标定「第 9 发 @322t」系开局立即击发模型下的拟合，已被本实测取代。
+> 各例实测首发均比模型早约 2 帧（Tove 2–3、Privaty 2、Anis: Star 2），疑为计时器启动略晚于战斗逻辑，未建模。
+
+> **历史偏差（已修复）**：此前累加器从 0 起，每个弹匣首发都要多等一个完整间隔（如 Brid: Silent Track 90 RPM ＝ 0.667s），开局与每次换弹后各损失约一个间隔，导致整体射击数偏低、战斗偏慢。实测帧数据校准（Brid 首弹匣第 9 发 @322t、换弹完成 @396t）后，修正模型误差 ≤3 tick。（该标定未含开局对准期，2026-10-12 已由 Privaty / Brid 实测「第 9 发 ≈330 帧」取代，见上。）
 
 **换弹与射击间隔并行消化**：换弹期间累加器按当前 RPM **继续累积，封顶 1 发**；换弹完成后保留累积值、不强制补射。由此：
 
@@ -476,9 +483,13 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
 
 - `shotCount`：每次射击的弹丸数（来自 `shot_detail.shot_count`）。
 - `shot_detail.damage` 为所有弹丸合计伤害（`hitMultiplier` 已含合计）。
-- 弹丸数变化**不影响**躯体伤害合计（躯体恒命中）；核心命中率按几何模型 §3.8.1 逐发判定。
-- 弹丸数**影响爆裂充能**：`target_burst_energy_pershot` 按【每发弹丸】计，详见 §6.1。躯体恒命中 → 按满弹丸数充能。
-- **躯体命中**：实战 BOSS 体型庞大，躯体视为恒 100% 命中，命中率**仅影响核心命中率**（§3.8.1）。训练场小体型/有空洞敌人的躯体漏弹（如 Brid 对 BIGARMS NEAR 92.4%/MID 76.9%/FAR 67.3%，见 dev/game-data.md）**未建模**。
+- 弹丸数变化**不影响**整发伤害系数（全部命中时合计不变）；核心命中率按几何模型 §3.8.1 逐发判定。
+- 弹丸数**不影响整发爆裂充能**：整发充能 = `target_burst_energy_pershot × 基础 shot_count`（全部弹丸命中时），每颗弹丸充能 = 整发充能 / 发射弹丸数，按命中比例折算，详见 §6.1。
+- **躯体命中（实战命中校正，模拟选项「SG弹丸命中率」`sgHitRate`）**：每颗弹丸独立判定是否命中躯体，伤害按命中弹丸比例缩放（`hitMult × 命中数 / 发射数`），充能与技能弹丸计数（`ctx.pellets`）按命中数。命中概率（`battle-utils.js:sgPelletHitRate`）：
+  - `sgHitRate` 为敌人距离 50、散布 250、HitRate 0 时的标定值；先按距离线性缩放（`distanceScaledHitRate`，d=0 恒为 1）。
+  - 打空率再乘 `min(1, R_eff / 250)`，`R_eff = currentScale / (1 + 4.5 · HitRate)`（与 §3.8.1 同一收圆式）：散布收束（如 Privaty: Unkind Maid 250→75）或命中率 ▲（如 Dorothy: Serendipity Flash +98%）时弹丸更集中、打空更少。武器切换取 `weaponSwitchAccuracyScale`，缺失按标定散布。
+  - 引擎默认 `sgHitRate = 1`（恒命中，回归测试依赖），界面默认 0.7。
+  - 修正前「弹丸数固定为 1」的 Flash 射击按 0.7 整发打空（18% 的 Flash 伤害为 0），Dorothy: Serendipity 低于实测约 10%。
 - **【TODO 可选】SG 逐弹丸核心拆分**：当前 SG 每次射击按单次 `P_core` 判定整发核心与否（期望 DPS 与逐弹丸 k/N 拆分**数学等价**，蒙特卡洛均值一致）；逐弹丸拆分仅降低方差、细化日志 isCore 标记，为低优先级细化项。
 
 ### 4.7 武器切换（WEAPON_SWITCH 效果）
@@ -608,7 +619,7 @@ HIDDEN 期间全队停止攻击，按弹匣状态分流（机制详述见 §11.2
   - 实测验证（G=1,000,000，Privaty 每发 4000）：非Focus Yulha(target 55000)单刷 19 发=⌈1M/55000⌉、Centi(69000)15 发、Trina(72000)14 发、Alice/D:KW(56000)18 发，均 = target；Focus Alice = 56000×3.5 = 196000。
   - **⚠ 影响很大：** Focus 角色蓄力充能可达非Focus 的 2.5–3.5 倍，直接改变整局爆裂循环数。同一队伍实测：Focus Alice 11 次循环、Focus Diesel: Winter Sweets 10 次循环（数据见 dev/game-data.md）。因此 `focusSlot` 的选择必须与实机打法一致，否则循环数与伤害都会偏差。
 - **技能附加伤害命中也充能**，每次 = `targetBurstEnergyPerShot`（如 Privaty S2P1、Neon: Vision Eye S1P2、A2 S2P1、Maiden: Ice Rose S2P3、Scarlet: Black Shadow S1 多段）。属独立于「武器普通攻击」的充能源。【TODO 逐角色建模】
-- **SG 武器（每发弹丸独立充能）：** `targetBurstEnergyPerShot` 是【每发弹丸】命中敌人的充能值。一次射击发射 `shotCount` 发弹丸，全部命中时本次射击充能 = `shotCount × targetBurstEnergyPerShot`（如 Brid: Silent Track 4000 × 10 弹丸 = 每次射击 40000）。模拟器假设 100% 命中，故按满弹丸数计。
+- **SG 武器（整发充能固定，按命中弹丸比例折算）：** 整发充能 = `targetBurstEnergyPerShot × 基础 shotCount`，为【全部弹丸命中】时的充能（如 Brid: Silent Track 4000 × 10 = 每次射击 40000）。弹丸数 ▲ / 「弹丸数固定为 N」**不改变**整发充能（同伤害系数口径），每颗弹丸充能 = 整发充能 / 发射弹丸数，动态计算；本次射击充能 = 整发充能 × 命中弹丸数 / 发射弹丸数（四舍五入）。命中弹丸数见 §4.6 SG 弹丸命中判定（引擎默认全部命中）。
 - buff 的 `burstGaugeFlat` 加成：叠加到 `baseEnergy`（按每次射击计、不乘弹丸数），Focus 蓄力时整体再乘以全蓄力系数。
 - **仅 `burstPhase === 0` 时累积**；B1–Full Burst 期间停止充能。
 - Full Burst 结束后重置为 0。
@@ -686,7 +697,8 @@ burstPhase = 0（充能中）
 | `atkPct` | ATK% 加成（加法叠加到 atkMultiplier） |
 | `atkFlat` | ATK 固定加成 |
 | `attackDamagePct` | 攻击伤害%（ExtraMultiplier 加法） |
-| `normalAttackDamagePct` | 普通攻击伤害% |
+| `normalAttackDamagePct` | 普通攻击伤害%（ExtraMultiplier 加法） |
+| `normalAttackDamageMultPct` | 技能 "Normal Attack Damage Multiplier ▲/▼"：与珍藏品普攻倍率相加后乘在 BaseDamage 上（favNormalAttackDamageMult = 1 + 珍藏品 + Σ本字段）；技能产生的普攻命中（`isNormalAttack`）同样适用（基数 1，不含珍藏品） |
 | `critRatePct` | 暴击率加成 |
 | `normalAttackCritRatePct` | 普通攻击暴击率加成（不区分蓄力） |
 | `critDamagePct` | 暴击伤害加成（增量） |
@@ -798,7 +810,7 @@ burstPhase = 0（充能中）
 | `BUFF_GLOBAL` | 推入全队 buff（unitId = null） |
 | `SKILL_DAMAGE` | 技能伤害（count 次，mult 倍率） |
 | `HEAL` | 治疗目标（pct×maxHP 或 flat） |
-| `RELOAD_AMMO` | 补充弹药（`floor(maxAmmo × pct)`） |
+| `RELOAD_AMMO` | 补充弹药（`round(maxAmmo × pct)`，补满即取消换弹；技能文件直接调用 `battle-utils.js:reloadMagazinePct`。同一技能先扩容再补弹时按扩容后上限计算。实测：Little Mermaid 33.26% 为弹匣 913 补 304 发；Tove S1 5.31% 第 10/20/30 发按扩容后上限 62/64/66 补 3/3/4 发） |
 | `REDUCE_BURST_CD` | 减少爆裂技能冷却（秒） |
 | `GRANT_BURST_GAUGE` | 增加共享槽（pct × 上限） |
 | `AMMO_EXPAND` | 临时扩充弹匣（mult，seconds）+ 立即补满 |

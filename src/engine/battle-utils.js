@@ -5,7 +5,7 @@
 
 import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
 import { rng } from './rng.js';
-import { HIT_RATE_REF_DISTANCE, HIDDEN_HITTABLE_SECS } from './constants.js';
+import { HIT_RATE_REF_DISTANCE, HIDDEN_HITTABLE_SECS, SG_PELLET_REF_SCALE } from './constants.js';
 
 export const TICK_RATE       = 60;         // 每秒 tick 数
 
@@ -36,6 +36,8 @@ export const ALL_ALLIES      = '__all_allies__'; // 全体队友目标哨兵（a
 export const BUFF_NUMERIC_FIELDS = [
   'atkPct', 'atkFlat', 'defPct', 'defFlat',
   'attackDamagePct', 'normalAttackDamagePct',
+  // 技能 "Normal Attack Damage Multiplier ▲"：与珍藏品普攻倍率同一乘区（相加后乘在 BaseDamage 上）
+  'normalAttackDamageMultPct',
   'critRatePct', 'normalAttackCritRatePct', 'critDamagePct',
   'chargeDamagePct', 'chargeDamageMultPct', 'chargeSpeedPct', 'reloadSpeedPct',
   'lifeStealPct', 'distributedDamagePct',
@@ -96,6 +98,31 @@ export function recalcMaxAmmo(state, unit) {
 }
 
 /**
+ * 「Reload n% of the magazine」补弹：补充 round(当前弹匣上限 × pct) 发，封顶上限；补满时取消进行中的换弹。
+ * 取整与时机（实测 2026-10-12）：
+ *   · 四舍五入：Little Mermaid 爆裂 33.26% 为弹匣 913 的 Rapi: Red Hood 补 304 发（303.66，floor 为 303）。
+ *   · 同一技能先扩容再补弹时，按扩容后的上限计算：Tove S1 5.31% 第 30 发 64→66 上限补 4 发
+ *     （round(66 × 5.31%) = round(3.50)；按扩容前 64 为 3）。调用方须先推入扩容 buff 再调用本函数。
+ * 固定弹匣的切换武器（isWeaponSwitchAmmoFixed）不接受补弹。
+ * @param {object} state
+ * @param {object} unit
+ * @param {number} pct     补弹比例（0..1，100% 即补满）
+ * @param {string} source  弹药日志来源标签
+ * @returns {number} 实际补充发数
+ */
+export function reloadMagazinePct(state, unit, pct, source) {
+  if (isWeaponSwitchAmmoFixed(state, unit)) return 0;
+  const ammoBefore = unit.ammoLeft;
+  unit.ammoLeft = Math.min(unit.maxAmmo, Math.max(0, unit.ammoLeft) + Math.round(unit.maxAmmo * pct));
+  if (unit.ammoLeft >= unit.maxAmmo && unit.reloadTick > 0) unit.reloadTick = 0;
+  const delta = unit.ammoLeft - ammoBefore;
+  if (state.ammoLog && delta !== 0)
+    state.ammoLog.push({ tick: state.tick, unitId: unit.id, unitName: unit.name,
+      delta, ammoAfter: unit.ammoLeft, maxAmmo: unit.maxAmmo, source });
+  return delta;
+}
+
+/**
  * 当前是否处于「固定弹匣」的武器切换期间（skillState.weaponSwitchFixedAmmo = true）。
  * 此期间 ammoLeft 属于切换武器（上限 = weaponSwitchMaxAmmo），
  * 任何装弹数增减 / 补弹效果（maxAmmo buff、RELOAD_AMMO、AMMO_EXPAND、Bastion 方块）均不作用于它。
@@ -108,6 +135,39 @@ export function isWeaponSwitchAmmoFixed(state, unit) {
 }
 
 // ─── Buff 汇总 ──────────────────────────────────────────────────────────────
+
+/**
+ * buff 当前是否作用于 unit：目标（unitId 或全队 null）、回合未耗尽、未到期、武器过滤（weaponFilter）。
+ * getBuffSums 与所有逐字段汇总 / 明细快照共用此口径，避免各处内联过滤遗漏条件
+ * （曾遗漏 weaponFilter：Tove S2「仅 SG 友军」攻速 ▲ 被 AR 的 Tove 自身吃到）。
+ * @param {object} state
+ * @param {object} b     buff
+ * @param {object} unit
+ * @returns {boolean}
+ */
+export function isBuffActiveFor(state, b, unit) {
+  if (b.unitId !== null && b.unitId !== unit.id) return false;
+  if (b.roundsLeft !== undefined && b.roundsLeft <= 0) return false;
+  if (b.endTick !== undefined && b.endTick !== Infinity && b.endTick <= state.tick) return false;
+  if (b.weaponFilter && unit.weaponType !== b.weaponFilter) return false;
+  return true;
+}
+
+/**
+ * 单字段 buff 汇总（含叠层），口径同 getBuffSums；供每 tick 调用的热路径（射速、MG 预热）使用。
+ * @param {object} state
+ * @param {object} unit
+ * @param {string} field  buff 数值字段名（如 'atkSpeedPct'）
+ * @returns {number}
+ */
+export function sumBuffField(state, unit, field) {
+  let sum = 0;
+  for (const b of state.buffs) {
+    if (b[field] == null || !isBuffActiveFor(state, b, unit)) continue;
+    sum += b[field] * (b.stacks ?? 1);
+  }
+  return sum;
+}
 
 export function getBuffSums(state, unitId) {
   const unit = state.squad.find(u => u.id === unitId);
@@ -128,10 +188,7 @@ export function getBuffSums(state, unitId) {
   // 「弹丸数固定为 N」（buff 字段 pelletFixed，如 Dorothy: Serendipity S1）：非累加，多个同时生效取最小值
   let pelletFixed = null;
   for (const b of state.buffs) {
-    if (b.unitId !== null && b.unitId !== unitId) continue;
-    if (b.roundsLeft !== undefined && b.roundsLeft <= 0) continue;
-    if (b.endTick !== undefined && b.endTick !== Infinity && b.endTick <= state.tick) continue;
-    if (b.weaponFilter && unit.weaponType !== b.weaponFilter) continue;
+    if (!isBuffActiveFor(state, b, unit)) continue;
     // 可叠加 buff（stacks > 1）：各字段按层数等比累加
     const k = b.stacks ?? 1;
     for (const f of BUFF_NUMERIC_FIELDS) sums[f] += (b[f] ?? 0) * k;
@@ -171,6 +228,27 @@ export function distanceScaledHitRate(rate, distance) {
   if (rate >= 1) return 1;
   const d = distance ?? HIT_RATE_REF_DISTANCE;
   return Math.min(1, Math.max(0, 1 - (1 - rate) * d / HIT_RATE_REF_DISTANCE));
+}
+
+/**
+ * SG 每颗弹丸命中躯体的概率：在距离缩放的标定命中率基础上，按有效散布缩放打空率。
+ *   打空率 = (1 − 距离缩放命中率) × min(1, R_eff / SG_PELLET_REF_SCALE)
+ *   R_eff  = currentScale / (1 + coef · HitRate)
+ * 标定条件（散布 250、HitRate 0）下即为 distanceScaledHitRate 本身；
+ * 散布收束（如 Privaty: Unkind Maid 250→75）或命中率 ▲（如 Dorothy: Serendipity 的 Flash）时打空更少。
+ * @param {number} rate          参考距离、标定散布处的弹丸命中率（0..1）
+ * @param {number|null} distance 敌人连续距离
+ * @param {number} currentScale  当前散布 scale（无数据 ≤0 时按标定散布）
+ * @param {number} hitRatePct    命中率属性（0..1）
+ * @param {number} coef          HitRate 收圆系数
+ * @returns {number} 每颗弹丸命中概率（0..1）
+ */
+export function sgPelletHitRate(rate, distance, currentScale, hitRatePct, coef) {
+  const base = distanceScaledHitRate(rate, distance);
+  if (base >= 1) return 1;
+  const scale  = currentScale > 0 ? currentScale : SG_PELLET_REF_SCALE;
+  const spread = Math.min(1, scale / (1 + coef * Math.max(0, hitRatePct ?? 0)) / SG_PELLET_REF_SCALE);
+  return 1 - (1 - base) * spread;
 }
 
 /**
@@ -992,10 +1070,12 @@ export function getFinalMaxHp(state, unit) {
  */
 function buildBuffBreakdown(state, unitId, f) {
   const on = (cond, v) => (cond ? (v ?? 0) : 0);
+  const unit = state.squad.find(u => u.id === unitId);
   return state.buffs
-    .filter(b => (b.unitId === null || b.unitId === unitId)
-      && !(b.roundsLeft !== undefined && b.roundsLeft <= 0)
-      && !(b.endTick !== undefined && b.endTick !== Infinity && b.endTick <= state.tick))
+    .filter(b => unit ? isBuffActiveFor(state, b, unit)
+      : ((b.unitId === null || b.unitId === unitId)
+        && !(b.roundsLeft !== undefined && b.roundsLeft <= 0)
+        && !(b.endTick !== undefined && b.endTick !== Infinity && b.endTick <= state.tick)))
     .map(b => {
       // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
       const k = b.stacks ?? 1;
@@ -1012,6 +1092,7 @@ function buildBuffBreakdown(state, unitId, f) {
         coreDamagePct: on(f.isCore, b.coreDamagePct) * k,
         chargeDamagePct: on(f.charged, b.chargeDamagePct) * k,
         chargeDamageMultPct: on(f.charged, b.chargeDamageMultPct) * k,
+        normalAttackDamageMultPct: on(f.isNormalAttack, b.normalAttackDamageMultPct) * k,
         critDamagePct: (b.critDamagePct ?? 0) * k,
         sustainedDamagePct: on(f.sustained, b.sustainedDamagePct) * k,
         trueDamagePct: on(f.isTrueDamage, b.trueDamagePct) * k,
@@ -1026,7 +1107,8 @@ function buildBuffBreakdown(state, unitId, f) {
       };
     })
     .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct
-      || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.critDamagePct || b.sustainedDamagePct
+      || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.normalAttackDamageMultPct
+      || b.critDamagePct || b.sustainedDamagePct
       || b.trueDamagePct || b.damageToPartsPct || b.distributedDamagePct);
 }
 
@@ -1114,6 +1196,8 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
   // normalAttack* 加成仅适用于普通攻击；普通技能伤害不受此加成，isNormalAttack 命中例外
   const isNormalAttack   = opts.isNormalAttack ?? false;
   const normalAtkDmgPct  = isNormalAttack ? (sums.normalAttackDamagePct ?? 0) : 0;
+  // 技能产生的普通攻击不吃珍藏品普攻倍率（基数 1），但吃技能 "Normal Attack Damage Multiplier"
+  const normalAtkDmgMult = 1 + (isNormalAttack ? (sums.normalAttackDamageMultPct ?? 0) : 0);
   const effectiveCritRate = Math.min(1, (unit.stats.critRate ?? 0.15) + sums.critRatePct
     + (isNormalAttack ? (sums.normalAttackCritRatePct ?? 0) : 0));
   const isCrit           = rollCrit(effectiveCritRate);
@@ -1156,6 +1240,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     fullChargeDamage:  unit.fullChargeDamage,
     chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + sums.chargeDamagePct,
     chargeDmgMultPct:  sums.chargeDamageMultPct ?? 0,
+    favNormalAttackDamageMult: normalAtkDmgMult,
     isTrueDamage,
     extra:             { attackDamageMult: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct + normalAtkDmgPct
                            + allEnemiesBurstPct,
@@ -1186,6 +1271,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       // 本次命中独有的额外 ATK 加算项（不在 atkFlat 中，由 UI 单列展示）
       extraAtkFlat, extraAtkFlatLabel: opts.extraAtkFlatLabel ?? null,
       hitMult, isCrit, critDmgInc: (unit.stats.critDmg ?? 0.50) - 0.50 + sums.critDamagePct,
+      favNormalAttackDamageMult: normalAtkDmgMult,
       attackDamagePct: sums.attackDamagePct + extraAtkDmgPct + projectileExplosionDamagePct + normalAtkDmgPct
         + allEnemiesBurstPct,
       extraAttackDamagePct: extraAtkDmgPct,

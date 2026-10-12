@@ -19,6 +19,7 @@
  */
 
 import { simulate, initBattle, tick } from '../../src/engine/battle.js';
+import { initUnitMaxAmmo, reloadMagazinePct } from '../../src/engine/battle-utils.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
@@ -347,6 +348,76 @@ section('C12 — MG 换弹后对准期：Rapi: Red Hood 114% → 24t、84% → 4
   };
   eq('114%：末发到换弹后首发 = 1 + 0 + 12 + 12 = 25t（实测 23）', gap(mk(1.14)), 25);
   eq('84%：末发到换弹后首发 = 1 + 23 + 12 + 12 = 48t（实测 48）', gap(mk(0.8439)), 48);
+}
+
+// ─── C11：「Reload n% of the magazine」补弹取整与时机（实测 2026-10-12） ───────────────
+// 补 round(当前上限 × pct)；同一技能先扩容再补弹时按扩容后上限计算。
+
+section('C11 — 按百分比补弹：四舍五入，按扩容后上限计算');
+{
+  const mkUnit = (max, ammo) => {
+    const u = { id: 1, name: 'Reload-Test', reloadTick: 0, skillState: {} };
+    initUnitMaxAmmo(u, max);
+    u.ammoLeft = ammo;
+    return u;
+  };
+  const st = { tick: 0, ammoLog: null };
+  // Little Mermaid 爆裂 33.26% → 弹匣 913 的 Rapi: Red Hood 补 304 发（floor 为 303）
+  {
+    const u = mkUnit(913, 0);
+    eq('913 × 33.26% = 303.66 → 补 304', reloadMagazinePct(st, u, 0.3326, 't'), 304);
+  }
+  // Tove S1 5.31%：扩容后上限 62 / 64 / 66 → 补 3 / 3 / 4（实测第 10/20/30 发）
+  for (const [max, before, after] of [[62, 50, 53], [64, 43, 46], [66, 36, 40]]) {
+    const u = mkUnit(max, before);
+    reloadMagazinePct(st, u, 0.0531, 't');
+    eq(`上限 ${max}：${before} → ${after}`, u.ammoLeft, after);
+  }
+  // 封顶上限，补满即取消进行中的换弹
+  {
+    const u = mkUnit(60, 58);
+    u.reloadTick = 999;
+    eq('补弹封顶：58 + 3 → 60（实际补 2）', reloadMagazinePct(st, u, 0.0531, 't'), 2);
+    eq('补满取消换弹', u.reloadTick, 0);
+  }
+}
+
+// ─── C12：攻速 buff 遵守 weaponFilter 与叠层（口径同 getBuffSums） ─────────────────────
+// Tove S2「仅 SG 友军」攻速 ▲42.24% 曾被 AR 的 Tove 自身吃到（720 RPM 5t → 3/4t 交替），开场提前约 1s 打空。
+
+section('C12 — 攻速 buff：weaponFilter 不匹配不生效，叠层按层数累加');
+{
+  const shotsIn = (weaponType, buff, upto = 120) => {
+    const state = initBattle({ squad: [rofUnit({ weaponType, rateOfFire: 720, baseAmmo: 999, reloadTicks: 60 })],
+      enemy: ENEMY, hitLog: true });
+    state.buffs.push({ name: 'AtkSpd Test', unitId: null, endTick: Infinity, ...buff });
+    for (let t = 0; t < upto; t++) tick(state);
+    return state.hitLog.filter(h => h.label === 'normal_shot').length;
+  };
+  const base = shotsIn('AR', { atkSpeedPct: 0 });
+  // 首发 @tick 1 立即击发，其后 720 RPM = 5t 一发 → 120t 内 1 + 24 发
+  eq('AR 720 RPM 基准：2s 内 25 发', base, 25);
+  eq('仅 SG 的攻速 ▲100% 不作用于 AR', shotsIn('AR', { atkSpeedPct: 1, weaponFilter: 'SG' }), base);
+  eq('无过滤攻速 ▲50% × 2 层 = ▲100% → 2s 内 1 + 48 发', shotsIn('AR', { atkSpeedPct: 0.5, stacks: 2 }), 49);
+}
+
+// ─── C13：开局对准期（非蓄力武器首发等待 spot_first_delay，同蓄力武器首发含前摇） ─────────
+// 实测（2026-10-12，Tove AR 720 RPM，spot_first_delay 33cs = 20t）：第 2/3 发 @22/28 帧。
+
+section('C13 — 开局对准期：首发 @reloadAimTicks，其后按 RPM 发间');
+{
+  const shots = runSolo(rofUnit({ weaponType: 'AR', rateOfFire: 720, baseAmmo: 60, reloadTicks: 60,
+    reloadAimTicks: 20 }), 40).shots;
+  // 首发后第 1 个发间为 4t：对准期内累加器封顶 1，对准结束 tick 再累积一次留下 0.2 发残量（换弹后对准同此，既有行为）
+  eq('首发 @20（对准期 20t）', shots[0], 20);
+  eq('其后稳定 5t 发间（720 RPM）', shots[3] - shots[2], 5);
+  // 实测（2026-10-12）：Privaty: Unkind Maid / Brid: Silent Track（SG 90 RPM，对准 12t，弹匣 9）
+  // 首发约第 10 帧，打完第 9 发约 5.5s（330 帧）。模型首发 @12、第 9 发 @331。
+  const sg = runSolo(rofUnit({ rateOfFire: 90, baseAmmo: 9, reloadTicks: 120, reloadAimTicks: 12 }), 400).shots;
+  eq('SG 90 RPM 首发 @12（实测约第 10 帧）', sg[0], 12);
+  eq('SG 90 RPM 第 9 发 @331（实测约 5.5s = 330 帧）', sg[8], 331);
+  const noAim = runSolo(rofUnit({ weaponType: 'AR', rateOfFire: 720, baseAmmo: 60, reloadTicks: 60 }), 20).shots;
+  eq('无对准期数据 → 首发 @1（立即击发）', noAim[0], 1);
 }
 
 summary('换弹节奏回归（换弹与射击间隔并行消化）');

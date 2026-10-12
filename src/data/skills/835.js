@@ -1,4 +1,4 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE, ENEMY_UNIT_ID, getFinalMaxHp } from '../../engine/battle-utils.js';
+import { pushBuff, fireSkillHit, getBuffSums, reloadMagazinePct, TICK_RATE, ENEMY_UNIT_ID, getFinalMaxHp } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Asuka: WILLE  (resource_id: 835)
@@ -116,20 +116,18 @@ export default {
           caster.skillState.annihilationFired = false;
 
           // Effect 1: Normal Attack Damage Multiplier ▼40%（9s，负 buff）
-          // TODO(实测) "Normal Attack Damage Multiplier" 暂按 normalAttackDamagePct（ExtraMultiplier 加法）建模；
-          //   参考 Charge Damage Multiplier 与珍藏品同乘区的实测结论，可能应与珍藏品普攻倍率同乘区，待游戏内数据验证
+          //   "Normal Attack Damage Multiplier"：与珍藏品普攻倍率同一乘区（normalAttackDamageMultPct）
           // Effect 3: ATK ▲p02%（9s）
           const atkPct = getSkillValue(caster.rawBurst, 1, bLv) / 100;
           // Effect 4: Attack Damage ▲p04%（9s）
           const atkDmgPct = getSkillValue(caster.rawBurst, 3, bLv) / 100;
           // Annihilation State 哨兵 buff（S1 P2 / S2 P1 / Rei S1 P3 凭此判断是否有效）
           pushBuff(state, { name: 'Annihilation State', unitId: caster.id,
-            normalAttackDamagePct: -0.40, atkPct: atkPct, attackDamagePct: atkDmgPct, endTick: end9 });
+            normalAttackDamageMultPct: -0.40, atkPct: atkPct, attackDamagePct: atkDmgPct, endTick: end9 });
 
-          // Effect 2: 装填 p01% 弹匣
+          // Effect 2: 装填 round(p01% × 弹匣)（补满即取消换弹）
           const reloadPct = getSkillValue(caster.rawBurst, 0, bLv) / 100;
-          caster.ammoLeft = Math.min(caster.maxAmmo,
-            caster.ammoLeft + Math.floor(caster.maxAmmo * reloadPct));
+          reloadMagazinePct(state, caster, reloadPct, 'burst_reload');
         },
       },
 

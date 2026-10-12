@@ -18,7 +18,7 @@ import {
   coreHitChance,
 } from '../../src/engine/accuracy.js';
 import { CORE0_DEFAULT, D0_DEFAULT, HITRATE_CORE_COEF_DEFAULT } from '../../src/engine/constants.js';
-import { rollHitPellets, rollProjectileCore, distanceScaledHitRate, isEnemyHittable } from '../../src/engine/battle-utils.js';
+import { rollHitPellets, rollProjectileCore, distanceScaledHitRate, sgPelletHitRate, isEnemyHittable } from '../../src/engine/battle-utils.js';
 import { setRng } from '../../src/engine/rng.js';
 import { eq, near, section, summary } from '../lib/test-harness.mjs';
 
@@ -149,6 +149,20 @@ section('T6: distanceScaledHitRate（敌人越近命中率越高）');
   eq('RL d=20 命中核心', rollProjectileCore({ ...core, enemyDistance: 20 }), true);
   eq('RL d=50 未命中核心', rollProjectileCore({ ...core, enemyDistance: 50 }), false);
   setRng(null);
+}
+
+section('T6b: sgPelletHitRate（散布收束 / 命中率 ▲ 减少弹丸打空）');
+{
+  const c = HITRATE_CORE_COEF_DEFAULT;
+  eq('系数 1 → 恒为 1', sgPelletHitRate(1, 50, 250, 0, c), 1);
+  near('标定条件（250、HR 0）→ 等于距离缩放命中率', sgPelletHitRate(0.7, 50, 250, 0, c), 0.7);
+  near('无散布数据（scale 0）→ 按标定散布', sgPelletHitRate(0.7, 50, 0, 0, c), 0.7);
+  // Privaty: Unkind Maid 收束到 75：打空率 0.3 × 75/250 = 0.09
+  near('散布 75 → 0.91', sgPelletHitRate(0.7, 50, 75, 0, c), 0.91);
+  // Dorothy: Serendipity Flash HR 98.18%：打空率 0.3 / (1 + 4.5×0.9818) ≈ 0.0553
+  near('HR 98.18% → ≈0.945', sgPelletHitRate(0.7, 50, 250, 0.9818, c), 1 - 0.3 / (1 + c * 0.9818));
+  near('距离与散布叠加：d=25、散布 125 → 1 − 0.15×0.5', sgPelletHitRate(0.7, 25, 125, 0, c), 0.925);
+  eq('散布大于标定 → 不放大打空率', sgPelletHitRate(0.7, 50, 400, 0, c), 0.7);
 }
 
 section('T7: isEnemyHittable（HIDDEN 前 0.9s 仍可命中）');

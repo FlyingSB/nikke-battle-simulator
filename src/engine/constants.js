@@ -145,6 +145,12 @@ export const SG_PELLET_HIT_RATE_DEFAULT = 1;
  *   P(d) = clamp(1 − (1 − 系数) · d / HIT_RATE_REF_DISTANCE, 0, 1)   （d = 0 时恒为 1）
  */
 export const HIT_RATE_REF_DISTANCE = 50;
+/**
+ * SG 弹丸命中率的标定散布：sgHitRate 视为散布 scale = 250、HitRate = 0 时的命中率。
+ * 实际打空率按有效散布 R_eff = currentScale / (1 + HITRATE_CORE_COEF · HitRate) 与标定散布之比缩放
+ * （散布收束 / 命中率 ▲ → 弹丸更集中 → 打空更少），与核心命中模型共用同一收圆式。
+ */
+export const SG_PELLET_REF_SCALE = 250;
 
 /**
  * 敌人进入 HIDDEN 后仍可被命中的时长（秒）。BIGARMS 隐藏动画约 2s，前 0.9s 仍可被命中（dev/game-data.md）。

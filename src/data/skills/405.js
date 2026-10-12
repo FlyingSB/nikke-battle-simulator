@@ -30,7 +30,7 @@ export default {
   //   In Bunny Mode: Stance → Bunny Mode: Engage / Otherwise → Bunny Mode: Stance
   // ■ Activates when this unit enters the Bunny Mode: Engage / Stance state …（形态带动，同 Guilty）
   // p01: [9.07 … 15.35]    （ATK ▲%）
-  // p02: [59.09 … 100]     （普通攻击伤害倍率 ▲% — 按项目惯例建模为 normalAttackDamagePct）
+  // p02: [59.09 … 100]     （普通攻击伤害倍率 ▲% — normalAttackDamageMultPct，与珍藏品普攻倍率同乘区）
   // p03: [1,...]           （回合）
   // p04: [30.8 … 52.12]    （蓄力伤害 ▲%）
   // p05: [1,...]           （回合）
@@ -55,10 +55,9 @@ export default {
           if (swiftPiercingActive(state, caster)) return;
           const lv = caster.skillLevels[0];
           // L1 为 ■ 触发条件行，效果行从 L2 起
-          // TODO(实测) "Normal Attack Damage Multiplier" 暂按 normalAttackDamagePct（ExtraMultiplier 加法）建模；
-          //   参考 Charge Damage Multiplier 与珍藏品同乘区的实测结论，可能应与珍藏品普攻倍率同乘区，待游戏内数据验证
+          // "Normal Attack Damage Multiplier"：与珍藏品普攻倍率同一乘区（normalAttackDamageMultPct）
           pushBuff(state, { name: 'Bunny Shift (Normal Attack Damage)', unitId: caster.id,
-            normalAttackDamagePct: getSkillValue(caster.rawSkill1, 1, lv) / 100,
+            normalAttackDamageMultPct: getSkillValue(caster.rawSkill1, 1, lv) / 100,
             endRounds: getSkillValue(caster.rawSkill1, 2, lv) });
           pushBuff(state, { name: 'Bunny Shift (Charge Damage)', unitId: caster.id,
             chargeDamagePct: getSkillValue(caster.rawSkill1, 3, lv) / 100,
