@@ -183,7 +183,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Nayuta | [`223.json`](../src/data/static/nikke/223.json) | [`223.js`](../src/data/skills/223.js) |
 | ✔️ | Scarlet: Black Shadow | [`225.json`](../src/data/static/nikke/225.json) | [`225.js`](../src/data/skills/225.js) |
 | ✔️ | Harran | [`230.json`](../src/data/static/nikke/230.json) | [`230.js`](../src/data/skills/230.js) |
-| ❌ | Isabel | [`231.json`](../src/data/static/nikke/231.json) | [`231.js`](../src/data/skills/231.js) |
+| ✔️ | Isabel | [`231.json`](../src/data/static/nikke/231.json) | [`231.js`](../src/data/skills/231.js) |
 | ✔️ | Dorothy: Serendipity | [`234.json`](../src/data/static/nikke/234.json) | [`234.js`](../src/data/skills/234.js) |
 | ✔️ | Liberalio | [`262.json`](../src/data/static/nikke/262.json) | [`262.js`](../src/data/skills/262.js) |
 | ✔️ | Blanc | [`270.json`](../src/data/static/nikke/270.json) | [`270.js`](../src/data/skills/270.js) |
@@ -218,7 +218,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Grave | [`514.json`](../src/data/static/nikke/514.json) | [`514.js`](../src/data/skills/514.js) |
 | ✔️ | Cinderella: Crystal Wave | [`515.json`](../src/data/static/nikke/515.json) | [`515.js`](../src/data/skills/515.js) |
 | ✔️ | Phantom（SSR：Precious Masks） | [`580.json`](../src/data/static/nikke/580.json) | [`580.js`](../src/data/skills/580.js) |
-| ❌ | Arcana | [`581.json`](../src/data/static/nikke/581.json) | [`581.js`](../src/data/skills/581.js) |
+| ✔️ | Arcana | [`581.json`](../src/data/static/nikke/581.json) | [`581.js`](../src/data/skills/581.js) |
 | ❌ | Arcana: Fortune Mate | [`583.json`](../src/data/static/nikke/583.json) | [`583.js`](../src/data/skills/583.js) |
 | ✔️ | Mint | [`600.json`](../src/data/static/nikke/600.json) | [`600.js`](../src/data/skills/600.js) |
 | ✔️ | Prika | [`601.json`](../src/data/static/nikke/601.json) | [`601.js`](../src/data/skills/601.js) |
