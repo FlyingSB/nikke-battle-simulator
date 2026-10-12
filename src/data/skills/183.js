@@ -70,7 +70,7 @@ export default {
           if (caster.skillState.iceroseChargeCount < 6) return false;
           caster.skillState.iceroseChargeCount = 0;
           const maxHpPctPerStack = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
-          // 「without restoring HP」→ noRestore：只提升上限，不回复当前 HP
+          // Max HP ▲ 只提升上限，不回复当前 HP（引擎统一处理）
           const existing = state.buffs.find(b => b.name === 'Meditation' && b.unitId === caster.id);
           const stacks   = Math.min(10, (existing?.stackCount ?? 0) + 1);
           const end15    = state.tick + TICK_RATE * 15;
@@ -79,7 +79,7 @@ export default {
             setMaxHpBuffValue(state, existing, { maxHpPct: stacks * maxHpPctPerStack });
             existing.endTick    = end15;
           } else {
-            state.buffs.push({ name: 'Meditation', unitId: caster.id, noRestore: true,
+            state.buffs.push({ name: 'Meditation', unitId: caster.id,
               maxHpPct: maxHpPctPerStack, endTick: end15, stackCount: 1 });
           }
         },
@@ -141,7 +141,7 @@ export default {
     groupId: 11833,
     triggers: [
       // Burst P1（敌人）：消耗全部 MP，每点 MP 发动 1 次 (最终 ATK + 最终 MaxHP × param2%) × param3%
-      //   伤害在施放时刻即已确定（进入全爆裂后 0.73s 起按 0.1s 间隔出伤；B3 施放后 0.83s，引擎统一后移 0.1s），
+      //   伤害在施放时刻即已确定（进入全爆裂后 0.73s 起按 0.1s 间隔出伤；B3 施放后 0.78s，引擎统一后移 0.05s），
       //   因此在 BURST_SKILL_USE 时预捕获 sums：
       //   ENTER_FULL_BURST buff 与下方 P2 触发器随后推入的 S2 Part2 均不计入；
       //   全爆裂 +50% 补正由引擎对延迟命中自动标记 suppressFullBurst 屏蔽。
@@ -151,7 +151,7 @@ export default {
         handler(state, caster) {
           const preSums     = getBuffSums(state, caster.id);
           // 同步快照 buff 明细，使伤害明细与预捕获 sums 一致（不混入 S2 Part2 / ENTER_FULL_BURST buff）
-          const preBuffBreakdown = snapshotBuffBreakdown(state, caster.id);
+          const preBuffBreakdown = snapshotBuffBreakdown(state, caster.id, 'Burst', { isSequentialAttack: true });
           const buffedMaxHp = Math.round(caster.stats.hp * (1 + preSums.maxHpPct) + (preSums.maxHpFlat ?? 0));
           const hpPct       = getSkillValue(caster.rawBurst, 1, caster.skillLevels[2]) / 100;
           const burstMult   = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;

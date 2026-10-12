@@ -219,7 +219,7 @@ export default {
       },
       // ■ P3（Stage 3 / 非 CA）：[Burst param4]% ATK 附加伤害（lv10=2808%）
       // 【全爆裂加成】受影响（描述 as additional damage；已实测）：全爆裂 +50% 及 ENTER_FULL_BURST buff，sums 取进入全爆裂瞬间快照
-      // 进入全爆裂后 0.1s 命中（B3 施放后 0.2s，引擎统一后移 0.1s）；rapiShotCount ≥60 时消耗计数代替 projectile
+      // 进入全爆裂后 0.1s 命中（B3 施放后 0.15s，引擎统一后移 0.05s）；rapiShotCount ≥60 时消耗计数代替 projectile
       {
         on: 'BURST_SKILL_USE',
         conditions: [{ type: 'NOT_COMBAT_ASSIST' }],

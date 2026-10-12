@@ -19,7 +19,7 @@ import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAU
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount } from './battle-utils.js';
 import { executeSkillTriggers, dispatchHpChanged, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -37,9 +37,9 @@ const MAX_SHOTS_PER_TICK = 1;
 // 手动操作只会更快，故 0.4s 既是默认值也是上限。
 export const BURST_STEP_SECS_MAX = 0.4;
 
-// B3 施放到进入全爆裂状态的固定延迟（2026-10-12 实测约 0.1s，更正 2026-10-09 记录的 0.4s；
+// B3 施放到进入全爆裂状态的固定延迟（2026-10-12 实测 0.05s，更正此前记录的 0.4s / 0.1s；
 // 无法通过操作缩短，不随 burstStepSecs 变化）。
-const FULL_BURST_ENTRY_DELAY_TICKS = Math.round(TICK_RATE * 0.1);
+const FULL_BURST_ENTRY_DELAY_TICKS = Math.round(TICK_RATE * 0.05);
 
 
 // ─── 武器射速（每 tick 的开火概率） ────────────────────
@@ -586,7 +586,7 @@ function applyFullBurstSkills(state, events) {
 }
 
 /**
- * 进入全爆裂状态：B3 施放后固定延迟 FULL_BURST_ENTRY_DELAY_TICKS（0.1s）再执行
+ * 进入全爆裂状态：B3 施放后固定延迟 FULL_BURST_ENTRY_DELAY_TICKS（0.05s）再执行
  * （fullBurstActive=true → ENTER_FULL_BURST → 受全爆裂影响的 B3 伤害快照 → FULL_BURST_SNAPSHOT → pendingFireInBurstHits）。
  * @param {object} state
  * @param {object[]} events
@@ -614,16 +614,14 @@ function enterFullBurst(state, events) {
 
   // 3b. 全爆裂开始瞬间快照：受全爆裂影响的 B3 伤害（affectedByFullBurst 延迟命中、pendingFireInBurstHits）
   //     在此刻（ENTER_FULL_BURST 及其连带效果全部生效后）捕获 sums 与 buff 明细，之后按各自延迟用该快照出伤
-  const snapCache = new Map();
+  // sums 按施放者缓存；buff 明细按命中属性（真实 / 依次等）逐条快照，只列对该命中生效的加成
+  const sumsCache = new Map();
   const applySnapshot = h => {
     if (h.sums) return;
-    if (!snapCache.has(h.caster.id)) {
-      snapCache.set(h.caster.id, { sums: getBuffSums(state, h.caster.id),
-        breakdown: snapshotBuffBreakdown(state, h.caster.id) });
-    }
-    const snap = snapCache.get(h.caster.id);
-    h.sums = snap.sums;
-    h.opts = { ...(h.opts ?? {}), preBuffBreakdown: snap.breakdown };
+    if (!sumsCache.has(h.caster.id)) sumsCache.set(h.caster.id, getBuffSums(state, h.caster.id));
+    h.sums = sumsCache.get(h.caster.id);
+    h.opts = { ...(h.opts ?? {}),
+      preBuffBreakdown: snapshotBuffBreakdown(state, h.caster.id, h.label, h.opts ?? {}) };
   };
   for (const h of state.pendingSkillHits) if (h.opts?.affectedByFullBurst) applySnapshot(h);
   for (const h of state.pendingFireInBurstHits) applySnapshot(h);
@@ -674,7 +672,7 @@ function validateUnitConfig(cfg) {
  * @returns {BattleState}
  */
 export function initBattle(config) {
-  const squad = config.squad.map(cfg => {
+  const squad = config.squad.map((cfg, idx) => {
     validateUnitConfig(cfg);
     const stats   = cfg._computedStats ?? (() => {
       if (cfg.level == null) {
@@ -885,6 +883,9 @@ export function initBattle(config) {
       // 受控（Focus）角色标记。实机同时仅 1 个，可随时切换；模拟器中由用户在 UI 指定 1 个。
       // 仅影响蓄力武器的充能倍率（见上）。
       isFocus: cfg.isFocus ?? false,
+      // 队伍站位（0–4，含空位）。空位不进入 squad，但占据位置：相邻 / 前后排等位置判定一律用 position
+      // （实测：Trina 与 Flora 之间隔一个空位时互不相邻）。未提供时按 squad 顺序。
+      position: cfg.position ?? idx,
       // Fav item "Normal Attack Damage Multiplier ▲" (SMG/SG items) — independent multiplier on baseDamage.
       favNormalAttackDamageMult: 1 + (collFx?.attackDmgPct ?? 0),
       // Fav item "Charge Damage Multiplier ▲" (SR/RL items) — multiplies shot_detail.damage specifically.
@@ -1174,6 +1175,7 @@ export function initBattle(config) {
   executeSkillTriggers(state, 'BATTLE_START');
   flushCsChanged(state);
   flushHpEvents(state);
+  flushShieldReceived(state);   // HP_CHANGED 触发的护盾（如 Flora S2 P1）→ APPLY_SHIELD（Flora S2 P3）
 
   // Note: fav item collection skill effects are applied at unit creation (favNormalAttackDamageMult,
   // favChargeDmgPct, maxAmmo via ammoPct). coreDmgPct is not modeled. DEF▲ etc. are ignored.
@@ -1296,13 +1298,12 @@ export function tick(state) {
           for (const u of state.squad) _ammoRecalcIds.add(u.id);
         }
       }
-      // Max HP buff 到期 → 当前 HP 截断到新的最终 MaxHP
+      // Max HP buff 到期 → 记录到期前的 HP / MaxHP（HP 比例变化派发 HP_CHANGED），
+      // 再把当前 HP 截断到新的最终 MaxHP
       if (b.maxHpPct != null || b.maxHpFlat != null) {
-        if (b.unitId != null) {
-          _hpClampIds.add(b.unitId);
-        } else {
-          for (const u of state.squad) _hpClampIds.add(u.id);
-        }
+        const affected = b.unitId != null ? state.squad.filter(u => u.id === b.unitId) : state.squad;
+        markMaxHpChange(state, affected, { beforeTick: state.tick - 1 });
+        for (const u of affected) _hpClampIds.add(u.id);
       }
       if (b.chargeSpeedPct) {
         if (b.unitId != null) {
@@ -1465,7 +1466,7 @@ export function tick(state) {
       state.fullBurstCount++;
       for (const u of state.squad) u.burstCount++;
       applyFullBurstSkills(state, events);
-      // B3 施放后固定 0.1s 再进入全爆裂（实测，无法通过操作缩短）
+      // B3 施放后固定 0.05s 再进入全爆裂（实测，无法通过操作缩短）
       state.burstPhaseTick = state.tick + FULL_BURST_ENTRY_DELAY_TICKS;
     }
   }
@@ -1503,6 +1504,11 @@ export function tick(state) {
     onIntervalInBurst(state);
     flushHealReceived(state);
   }
+
+  // 兜底：本 tick 至此推入的 Max HP buff（如 ENTER_BURST_II 的 Flora S1 P3）、INTERVAL 治疗等
+  // 引起的 HP / HP 比例变化，以及由此产生的护盾，在攻击前统一派发
+  flushHpEvents(state);
+  flushShieldReceived(state);
 
   // ── 每个单位进行攻击 ─────────────────────────────────────────────────────
   // HIDDEN 阶段：装填仍然处理（自愿 HIDDEN 装填可以完成），
@@ -2132,6 +2138,10 @@ export function tick(state) {
       }
     } // 内层射击循环结束
   } // 单位循环结束
+
+  // 兜底：射击循环中未随射击 flush 的触发（如 AMMO_MILESTONE）引起的 HP / HP 比例变化
+  flushHpEvents(state);
+  flushShieldReceived(state);
 
   return { over: false, events };
 }

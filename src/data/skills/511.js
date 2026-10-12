@@ -106,7 +106,6 @@ export default {
           caster.skillState.cinderellaBeautyStacks = (caster.skillState.cinderellaBeautyStacks ?? 0) + 1;
           const stacks       = caster.skillState.cinderellaBeautyStacks;
           const maxHpPerStack = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
-          // 每层 Max HP ▲ 同步回复当前 HP（描述未写 without restoring HP）
           const beautyBuff   = state.buffs.find(b => b.name === 'Beautiful' && b.unitId === caster.id);
           if (beautyBuff) setMaxHpBuffValue(state, beautyBuff, { maxHpPct: stacks * maxHpPerStack });
           else pushBuff(state, { name: 'Beautiful', unitId: caster.id,

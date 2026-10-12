@@ -1,5 +1,5 @@
 ﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, getFinalMaxHp, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
+         getBuffSums, getFinalMaxHp, clampHpToMax, markMaxHpChange, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Moran  (resource_id: 281)
@@ -80,7 +80,8 @@ export default {
       // [TODO] S2 P1：末弹 → 最高 ATK 3 名敌人嘲讽 4s（无敌人选择/嘲讽模型）
       {},
       // S2 P2（Perseverance）：HP 低于 p09=20% 时按触发次数分阶段 Max HP ▲（每阶段一次/战，阶段间不叠加）
-      //   由自身 HP_CHANGED 驱动，「跌破阈值」为边沿触发（变化前 ≥ 阈值、变化后 < 阈值）。
+      //   由自身 HP_CHANGED 驱动，「跌破阈值」按 HP 比例边沿触发（变化前 ≥ 阈值、变化后 < 阈值；
+      //   Max HP ▲ 使比例跌破也算）。
       //   模拟器中友军不受敌方伤害，实际仅自损类效果可能触发。
       {
         on: 'HP_CHANGED',
@@ -90,8 +91,8 @@ export default {
           const lv = s2?._activeSkillLevel ?? 0;
           if (!s2 || lv <= 0) return false;
           const st        = caster.skillState;
-          const threshold = getFinalMaxHp(state, caster) * getSkillValue(s2, 8, lv) / 100;
-          if (!(ctx.prevHp >= threshold && ctx.newHp < threshold)) return false;
+          const threshold = getSkillValue(s2, 8, lv) / 100;
+          if (!(ctx.prevRatio >= threshold && ctx.newRatio < threshold)) return false;
           const stage = (st.moranPersevStage ?? 0) + 1;
           if (stage > 3) return false;
           st.moranPersevStage = stage;
@@ -100,8 +101,11 @@ export default {
           const maxHpPct = getSkillValue(s2, idx, lv) / 100;
           const endTick  = state.tick + TICK_RATE * getSkillValue(s2, idx + 1, lv);
           // 「Effect of each phase does not stack」：新阶段替换旧阶段
+          markMaxHpChange(state, [caster]);   // 移除旧阶段前记录 HP / MaxHP（HP 比例变化）
           state.buffs = state.buffs.filter(b => !(b.name === 'Perseverance' && b.unitId === caster.id));
           pushBuff(state, { name: 'Perseverance', unitId: caster.id, maxHpPct, endTick });
+          // 新阶段数值可能低于旧阶段 → 当前 HP 截断到新的上限（Max HP ▲ 本身不回复 HP）
+          clampHpToMax(state, caster);
         },
       },
       //

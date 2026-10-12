@@ -17,7 +17,10 @@
    **HP 相关效果**：治疗用 `applyHeal(state, target, amount, logCtx, caster)` / `pushHoT(..., caster)`，
    `amount` 为描述基础量，治疗者 `caster` 必须传入（治疗效能据此计算）；「Current HP ▼」用 `applyHpLoss`；
    「Current HP ▼ X%」= 当前 HP × X%。「HP 低于 / 高于 X%」类条件一律用 `HP_CHANGED` 触发器 + `getHpRatio` 判定
-   （「跌破」类用 `ctx.newHp < ctx.prevHp` 的下降边沿）；`Max HP ▲` 默认同步回复当前 HP，「without restoring HP」加 `noRestore: true`；
+   （「跌破 / 降至 X% 以下」按比例：`ctx.newRatio < ctx.prevRatio`，Max HP ▲ 使比例下降也算；
+   只关心当前 HP 实际变化的用 `ctx.newHp !== ctx.prevHp`）；「相邻 / 两侧友军」用 `getAdjacentAllies`
+   （按站位，空位占位置），位置判定用 `getUnitPosition`，不要用 `state.squad` 下标；`Max HP ▲` 只提升上限、不回复当前 HP（游戏基础机制，无需额外字段），
+   技能主动删除 / 减层带 Max HP 的 buff 后调用 `clampHpToMax`；
    溢出治疗储存用 `applyOverhealStorage`；「平均分摊治疗」在 buff 上加 `shareHeal: true`。
    **B3 爆裂直接伤害**：按 2.1 节由描述措辞判定是否受全爆裂系列加成，延迟按「进入全爆裂后」填写。
 6. **段号对齐**：触发器数组序号与 ■ 段不一致时用 `partOverride`，不要"接受偏移"。
@@ -59,14 +62,15 @@
 | Liberalio (262) | as additional damage | 受影响 | 已实测，与规则一致 |
 | Cinderella (511) Burst Part2 | as additional damage | 受影响 | 已实测，与规则一致（Part1 as damage 默认） |
 | Elegg: Boom and Shock (502) | as damage | **受影响** | 已实测，**规则例外**；S2 Part1 ATK ▲ 与 S1 属性优势 buff 均先计入快照（后者在 `FULL_BURST_SNAPSHOT` 时移除） |
+| Ein (391) Burst P2 | as true damage | **受影响** | 已实测，**规则例外** |
 | Laplace: Ultimate Hero (103) Burst P3 | as additional damage | 受影响 | 规则判定，未实测 |
 | Sin: Swift Bunny (405) Burst P3 | as additional damage | 受影响 | 规则判定，未实测 |
 
-**延迟计时**：B3 施放后固定约 0.1s 才进入全爆裂（`FULL_BURST_ENTRY_DELAY_TICKS`，2026-10-12 实测）。
+**延迟计时**：B3 施放后固定 0.05s 才进入全爆裂（`FULL_BURST_ENTRY_DELAY_TICKS`，2026-10-12 实测）。
 B3 施放者爆裂技能（`burst` 槽 `BURST_SKILL_USE`）的伤害一律**从进入全爆裂开始计时**：
 
 - 技能文件中写的延迟（`fireTick: state.tick + Math.round(X * TICK_RATE)`）表示「进入全爆裂后 X 秒」，
-  引擎自动再后移 0.1s；即时 `fireSkillHit` 视为「进入全爆裂后 0 秒」，引擎自动转为延迟命中。
+  引擎自动再后移 0.05s；即时 `fireSkillHit` 视为「进入全爆裂后 0 秒」，引擎自动转为延迟命中。
 - 受全爆裂影响的命中若在进入全爆裂前到期，引擎兜底推迟到进入全爆裂（ENTER_FULL_BURST 之后）结算。
 - 同一角色作为 B1/B2 施放（如 Combat Assist）不适用本节。
 
@@ -127,7 +131,7 @@ B3 施放者爆裂技能（`burst` 槽 `BURST_SKILL_USE`）的伤害一律**从�
 | `chargeSpeedPct` / `chargeTimeReductionTicks` | Charge Speed |
 | `reloadSpeedPct` | Reload Speed |
 | `maxAmmoPct` / `maxAmmoFlat` | Max Ammo |
-| `maxHpPct` / `maxHpFlat` | Max HP（描述写「without restoring HP」时加 `noRestore: true`；就地改写数值须用 `setMaxHpBuffValue`） |
+| `maxHpPct` / `maxHpFlat` | Max HP（只改上限、不回复当前 HP；就地改写数值须用 `setMaxHpBuffValue`） |
 | `atkSpeedPct` | Attack Speed |
 | `hitRatePct` | Hit Rate |
 | `defPct` / `defFlat` | DEF |

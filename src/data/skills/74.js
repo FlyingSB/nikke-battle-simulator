@@ -1,4 +1,4 @@
-import { pushBuff, applyHeal, getBuffSums, getHpRatio, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, getBuffSums, getHpRatio, clampHpToMax, markMaxHpChange, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Soline: Frost Ticket  (resource_id: 74)
@@ -20,10 +20,14 @@ function findTicket(state, unitId) {
   return state.buffs.find(b => b.name === TICKET && b.unitId === unitId && (b.stacks ?? 1) > 0);
 }
 
-// 消耗目标 1 张票；归零时移除 buff，下次发票时重新以 1 层推入
+// 消耗目标 1 张票；归零时移除 buff，下次发票时重新以 1 层推入。
+// 层数减少 → 最大体力降低 → 当前 HP 截断到新的上限
 function consumeTicket(state, ticket) {
+  const holder = state.squad.find(u => u.id === ticket.unitId);
+  if (holder) markMaxHpChange(state, [holder]);   // 减层前记录 HP / MaxHP（HP 比例变化）
   ticket.stacks = (ticket.stacks ?? 1) - 1;
   if (ticket.stacks <= 0) state.buffs = state.buffs.filter(b => b !== ticket);
+  if (holder) clampHpToMax(state, holder);
 }
 
 function isFirstTrainActive(state) {
@@ -100,15 +104,15 @@ export default {
     groupId: 20742,
     triggers: [
       // Part1：任意队员 HP 变化（下降）后低于 p00=15% 且持票 → 对其治疗
-      //   由 HP_CHANGED 驱动：只响应 HP 下降（治疗后仍低于阈值不会连锁再触发）
+      //   由 HP_CHANGED 驱动：只响应 HP 比例下降（自损或 Max HP ▲；治疗后仍低于阈值不会连锁再触发）
       {
         on: 'HP_CHANGED',
         handler(state, caster, ctx) {
           const target = ctx.unit;
-          if (!target || !(ctx.newHp < ctx.prevHp)) return false;
+          if (!target || !(ctx.newRatio < ctx.prevRatio)) return false;
           const lv        = caster.skillLevels[1];
           const threshold = getSkillValue(caster.rawSkill2, 0, lv) / 100;
-          if (getHpRatio(state, target) >= threshold || !findTicket(state, target.id)) return false;
+          if (ctx.newRatio >= threshold || !findTicket(state, target.id)) return false;
 
           const healPct = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const sums    = getBuffSums(state, caster.id);

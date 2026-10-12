@@ -22,7 +22,7 @@ import {
 import {
   pushBuff, getBuffSums, decrementRoundBuffs, parseSkillDuration, TICK_RATE,
   getFinalAtk, getFinalMaxHp,
-  applyHeal, applyHpLoss, applyLifeSteal, clampHpToMax, getHpRatio, setMaxHpBuffValue, pushHoT,
+  applyHeal, applyHpLoss, applyLifeSteal, clampHpToMax, getHpRatio, setMaxHpBuffValue, markMaxHpChange, pushHoT,
   applyOverhealStorage, expireOverheal,
 } from '../../src/engine/battle-utils.js';
 import { getSkillValue } from '../../src/data/models.js';
@@ -803,6 +803,7 @@ section('T15: Blanc S2 Part2 — Burst CD ▼40.76s fires only when a same-squad
 // | Soda              | 314 | Stage2/3 buff 后即时      | 无（引擎 firing 抑制）  | 默认          |
 // | EVE               | 850 | BURST_SKILL_USE 即时      | 无（声明式，引擎处理）  | 默认          |
 // | Elegg: BaS        | 502 | 进入全爆裂瞬间快照        | affectedByFullBurst:true| 非默认【已实测】（描述 as damage，规则例外）|
+// | Ein P2            | 391 | 进入全爆裂瞬间快照        | affectedByFullBurst:true| 非默认【已实测】（描述 as true damage，规则例外）|
 // | Asuka: WILLE      | 835 | Annihilation 发动时重算   | 无                     | 非默认【已实测】|
 // | Rapi: Red Hood    |  16 | 进入全爆裂瞬间快照        | affectedByFullBurst:true| 非默认【已实测】|
 // | Liberalio         | 262 | 进入全爆裂瞬间快照        | affectedByFullBurst:true| 非默认【已实测】|
@@ -812,8 +813,8 @@ section('T15: Blanc S2 Part2 — Burst CD ▼40.76s fires only when a same-squad
 // 受全爆裂影响的 B3 伤害统一在进入全爆裂瞬间（ENTER_FULL_BURST 后）快照 sums，再按延迟出伤（enterFullBurst）。
 //
 // Rapi / Liberalio / Cinderella P2 / Laplace P3 / Sin P3 描述均为 "as additional damage"，与 skill-modeling-guide §2.1
-// 的措辞判定规则一致；Elegg 描述为 "as damage"，但实测受全爆裂系列效果影响，为规则例外。
-// B3 施放者爆裂技能的所有伤害由引擎统一在进入全爆裂（B3 + 0.1s）后结算，表中延迟均从进入全爆裂起算。
+// 的措辞判定规则一致；Elegg 描述为 "as damage"、Ein P2 描述为 "as true damage"，但实测受全爆裂系列效果影响，为规则例外。
+// B3 施放者爆裂技能的所有伤害由引擎统一在进入全爆裂（B3 + 0.05s）后结算，表中延迟均从进入全爆裂起算。
 
 section('T16: B3 直接伤害默认/非默认结算配置审计');
 {
@@ -1608,9 +1609,9 @@ section('T27: Ade: Agent Bunny — Minimum Effective Range 连续下界与 Spy L
 
 // ── T28: HP / MaxHP 机制 ──────────────────────────────────────────────────────
 // 引擎：治疗效能（healPotencyPct）× 受治疗量（incomingHealPct）、上限为最终 MaxHP、
-//       Max HP ▲ 同步回复当前 HP（noRestore 除外）、到期截断、HP 扣减、生命偷取派发 HEAL_RECEIVED。
+//       Max HP ▲ 不回复当前 HP、到期 / 降低截断、HP 扣减、生命偷取派发 HEAL_RECEIVED。
 
-section('T28a: 引擎 HP 机制 — 治疗效能 / 受治疗量 / 最终 MaxHP 上限 / Max HP 同步回复 / 扣减 / 生命偷取');
+section('T28a: 引擎 HP 机制 — 治疗效能 / 受治疗量 / 最终 MaxHP 上限 / Max HP 不回复 / 扣减 / 生命偷取');
 {
   const healer = mockUnit(1, { unitHp: 1000000 });
   const target = mockUnit(2, { unitHp: 500000 });
@@ -1626,7 +1627,8 @@ section('T28a: 引擎 HP 机制 — 治疗效能 / 受治疗量 / 最终 MaxHP �
   eq('无治疗者时只计受治疗量加成', target.unitHp, 500000 + 1650 + 1100);
 
   // 上限 = 最终 MaxHP（含 maxHpPct buff）
-  pushBuff(state, { name: 'MaxHP20', unitId: 2, maxHpPct: 0.2, noRestore: true, endTick: 600 });
+  pushBuff(state, { name: 'MaxHP20', unitId: 2, maxHpPct: 0.2, endTick: 600 });
+  eq('Max HP ▲ 不回复当前 HP', target.unitHp, 500000 + 1650 + 1100);
   applyHeal(state, target, 10_000_000);
   eq('治疗上限为最终 MaxHP = 1.2M', target.unitHp, 1200000);
   near('getHpRatio 按最终 MaxHP 计算', getHpRatio(state, target), 1);
@@ -1636,27 +1638,30 @@ section('T28a: 引擎 HP 机制 — 治疗效能 / 受治疗量 / 最终 MaxHP �
   clampHpToMax(state, target);
   eq('Max HP buff 移除后当前 HP 截断到 1M', target.unitHp, 1000000);
 
-  // Max HP ▲ 同步回复（无 noRestore）：当前 HP 提升同量
-  target.unitHp = 800000;
-  pushBuff(state, { name: 'Restore10', unitId: 2, maxHpPct: 0.1, endTick: Infinity });
-  eq('Max HP ▲10% → 当前 HP +100000', target.unitHp, 900000);
-  pushBuff(state, { name: 'NoRestore', unitId: 2, maxHpFlat: 50000, noRestore: true, endTick: Infinity });
-  eq('without restoring HP → 当前 HP 不变', target.unitHp, 900000);
-  // 叠层 buff 每新增一层回复一层的量
+  // 满 HP 时获得 Max HP ▲ → 变为不满 HP（当前 HP 不变）
+  eq('满 HP 起点', getHpRatio(state, target), 1);
+  pushBuff(state, { name: 'MaxHP10', unitId: 2, maxHpPct: 0.1, endTick: Infinity });
+  eq('Max HP ▲10% → 当前 HP 仍为 1M', target.unitHp, 1000000);
+  near('满 HP 获得提升后不再满 HP', getHpRatio(state, target), 1 / 1.1);
+  pushBuff(state, { name: 'Flat50k', unitId: 2, maxHpFlat: 50000, endTick: Infinity });
+  eq('Max HP ▲ flat → 当前 HP 不变', target.unitHp, 1000000);
+  // 叠层 buff 新增层数同样不回复
   pushBuff(state, { name: 'Stack', unitId: null, maxHpFlat: 10000, stackLimit: 3, endTick: Infinity });
-  eq('全队叠层 buff 第 1 层 → +10000', target.unitHp, 910000);
   pushBuff(state, { name: 'Stack', unitId: null, maxHpFlat: 10000, stackLimit: 3, endTick: Infinity });
-  eq('第 2 层 → 再 +10000', target.unitHp, 920000);
-  // 就地改写数值
+  eq('全队叠层 buff 2 层 → 当前 HP 不变', target.unitHp, 1000000);
+  // 就地改写数值：提升不回复
   const stackBuff = state.buffs.find(b => b.name === 'Stack');
   setMaxHpBuffValue(state, stackBuff, { maxHpFlat: 15000 });
-  eq('setMaxHpBuffValue 增量 (5000 × 2 层) 同步回复', target.unitHp, 930000);
+  eq('setMaxHpBuffValue 提升 → 当前 HP 不变', target.unitHp, 1000000);
+  // 补满后降低数值：截断到新上限
+  applyHeal(state, target, 10_000_000);
+  eq('补满：上限 1M×1.1 + 50000 + 15000×2 = 1.18M', target.unitHp, 1180000);
   setMaxHpBuffValue(state, stackBuff, { maxHpFlat: 0 });
-  eq('数值降低后截断：上限 1M×1.1+50000 = 1.15M，当前 930000 不变', target.unitHp, 930000);
+  eq('数值降低后截断到 1.15M', target.unitHp, 1150000);
 
   // HP 扣减（不低于 1）
   eq('applyHpLoss 返回实际扣减量', applyHpLoss(state, target, 30000), 30000);
-  eq('扣减后 HP', target.unitHp, 900000);
+  eq('扣减后 HP', target.unitHp, 1120000);
   applyHpLoss(state, target, 5_000_000);
   eq('自损不致死：HP 下限 1', target.unitHp, 1);
 
@@ -1774,17 +1779,22 @@ section('T28e: Moran (281) — Perseverance：HP < 20% 边沿触发，三阶段�
   setHp(150000);
   eq('跌破 20%：Once Max HP ▲91%', persev()?.maxHpPct, 0.91);
   eq('持续 3s', persev()?.endTick, TICK_RATE + 3 * TICK_RATE);
-  eq('Max HP ▲ 同步回复：150000 + 910000', moran.unitHp, 150000 + 910000);
-  // 再次从阈值以上跌破（Max HP 同步回复后 HP 已回到阈值以上）
+  eq('Max HP ▲ 不回复当前 HP', moran.unitHp, 150000);
+  setHp(120000);
+  eq('仍在阈值下方继续下降：非边沿，不触发 Twice', moran.skillState.moranPersevStage, 1);
+  // 回复到阈值以上后再次跌破（阈值 = 1.91M × 20% = 382000）
+  setHp(500000);
   setHp(100000);
   eq('Twice：Max HP ▲69.84% 替换 Once', persev()?.maxHpPct, 0.6984);
   eq('阶段间不叠加（仅一条 Perseverance）',
     state.buffs.filter(b => b.name === 'Perseverance').length, 1);
+  setHp(500000);
   setHp(50000);
   eq('Three Times：Max HP ▲51.09%', persev()?.maxHpPct, 0.5109);
   eq('阶段计数 = 3', moran.skillState.moranPersevStage, 3);
   const before = persev()?.endTick;
   state.tick = 2 * TICK_RATE;
+  setHp(500000);
   setHp(10000);
   eq('第 4 次跌破不再触发（阶段上限 3，buff 不刷新）', persev()?.endTick, before);
 }
@@ -1977,7 +1987,8 @@ section('T28g: 溢出治疗储存 / 平均分摊治疗 / Noir Lucky Charm / Cent
     applyHpLoss(state, ally, 10000); dispatchHpChanged(state);
     eq('Stockpile 到期后 P4 不触发', ally.unitHp, 990000);
   }
-  // Flora (411) S2 P1：相邻友军 HP 下降至 ≤90% → 全员护盾；S2 P2：相邻友军受治疗且满血 → 真实伤害 ▲
+  // Flora (411) S2 P1：相邻友军 HP 下降至 ≤90% → 全员护盾；
+  // S2 P2：相邻友军满 HP → 真实伤害 ▲（进入战斗时检查一次，此后仅相邻友军 HP 变化时检查）
   {
     const fav = vals => ({ ...mockRawSkill(vals), _activeSkillLevel: 1 });
     const flora = mockUnit(411, { unitHp: 1000000, element: 'Electric', ssrFavSkills: {
@@ -1988,17 +1999,27 @@ section('T28g: 溢出治疗储存 / 平均分摊治疗 / Noir Lucky Charm / Cent
     const far = mockUnit(9501, { unitHp: 1000000, shieldHp: 0, shieldEndTick: 0 });
     flora.shieldHp = 0; flora.shieldEndTick = 0;
     const state = mockState([flora, adj, far], { pendingShieldReceived: [] });
+    const iris = () => state.buffs.find(b => b.name === 'Iris (True Damage)');
     executeSkillTriggers(state, 'BATTLE_START'); state.pendingHpChanged.clear();
+    eq('进入战斗：相邻友军满 HP → P2 触发一次', iris()?.trueDamagePct, 0.3097);
+    eq('P2 持续 10s', iris()?.endTick, 10 * TICK_RATE);
+    state.buffs = state.buffs.filter(b => b.name !== 'Iris (True Damage)');
+    // 相邻友军始终满 HP：受治疗不改变 HP → 无 HP_CHANGED → 不触发
+    applyHeal(state, adj, 100000, null, flora); while (dispatchHpChanged(state));
+    eq('满 HP 友军受治疗不触发 P2', iris(), undefined);
     applyHpLoss(state, far, 200000); dispatchHpChanged(state);
     eq('非相邻友军 HP 下降不触发 P1', far.shieldHp, 0);
     applyHpLoss(state, adj, 50000); dispatchHpChanged(state);
     eq('相邻友军 HP 95% 不触发 P1', adj.shieldHp, 0);
     applyHpLoss(state, adj, 50000); dispatchHpChanged(state);
     eq('相邻友军 HP 90% → 全员护盾 10.22% Flora 最终 MaxHP', far.shieldHp, 102200);
-    eq('P2 未触发（相邻友军未满血）', state.buffs.some(b => b.name === 'Iris (True Damage)'), false);
-    applyHeal(state, adj, 100000, null, flora); executeSkillTriggers(state, 'HEAL_RECEIVED', { unit: adj });
-    eq('相邻友军受治疗回到满血 → P2 全员真实伤害 ▲30.97%',
-      state.buffs.find(b => b.name === 'Iris (True Damage)')?.trueDamagePct, 0.3097);
+    eq('P2 未触发（相邻友军未满血）', iris(), undefined);
+    applyHeal(state, adj, 50000, null, flora); while (dispatchHpChanged(state));
+    eq('HP 变化但未回满 → 不触发 P2', iris(), undefined);
+    applyHeal(state, far, 200000, null, flora); while (dispatchHpChanged(state));
+    eq('非相邻友军回满不触发 P2', iris(), undefined);
+    applyHeal(state, adj, 100000, null, flora); while (dispatchHpChanged(state));
+    eq('相邻友军 HP 变化后达到满 HP → P2 全员真实伤害 ▲30.97%', iris()?.trueDamagePct, 0.3097);
   }
   // Crown (330) Relax 满层：先治疗（享受 20 层受治疗量加成），再移除 Relax
   {
@@ -2011,6 +2032,62 @@ section('T28g: 溢出治疗储存 / 平均分摊治疗 / Noir Lucky Charm / Cent
       onShotFired(state, crown, { sums: getBuffSums(state, 330), isCharged: false, hitPart: 'body', ammoAfterShot: 5 });
     eq('满层后 Relax 已移除', state.buffs.some(b => b.name === 'Relax'), false);
     eq('治疗 = 5.23% × 1M × (1 + 20 × 4.06%)', crown.unitHp, 100000 + Math.round(52300 * 1.812));
+  }
+}
+
+// ── T28h: 站位顺序 / 空位 / Max HP ▲ 引起的 HP 比例下降 ─────────────────────────
+// 实测 6 场景（Flora 411 + Scarlet 222 + Trina 412，三人均为电击代码；仅 Scarlet 为 AR）：
+//   Trina S2 P1 开战给电击步枪（Scarlet）Max HP ▲（不回复 HP）→ Scarlet HP 比例 < 90%
+//   → 相邻的 Flora S2 P1 护盾 → Flora 获盾 → S2 P3。
+//   Flora S2 P2 开战满 HP 检查：开战效果按站位从左到右结算，空位占位置（隔空位不相邻）。
+
+section('T28h: 开战效果按站位结算 / 空位占位 / Max HP ▲ 触发 HP 比例下降（Flora + Scarlet + Trina 实测 6 场景）');
+{
+  const fav = vals => ({ ...mockRawSkill(vals), _activeSkillLevel: 1 });
+  const shieldFields = { shieldHp: 0, shieldEndTick: 0 };
+  const make = {
+    F: () => mockUnit(411, { unitHp: 1000000, element: 'Electric', weaponType: 'MG', ...shieldFields, ssrFavSkills: {
+      skill1: fav([1, 1, 100, 1, 4, 5, 15.01, 2]),
+      skill2: fav([90, 10.22, 10, 30.97, 10, 45.12, 10]),
+      burst:  fav([10.45, 42.39, 10, 85.86, 10]) } }),
+    S: () => mockUnit(222, { unitHp: 1000000, element: 'Electric', weaponType: 'AR', ...shieldFields,
+      rawSkill1: mockRawSkill([10, 23.15, 5, 5, 4.01]), rawSkill2: mockRawSkill([30, 138.24, 60, 6.61]) }),
+    T: () => mockUnit(412, { unitHp: 1000000, element: 'Electric', weaponType: 'RL', ...shieldFields,
+      rawSkill2: mockRawSkill([44.98, 94.15, 10, 50.82, 10, 1, 2]) }),
+  };
+  // layout：槽位 0–4，null 为空位（空位不进入 squad，但保留 position）
+  const run = layout => {
+    const squad = [];
+    layout.forEach((k, pos) => { if (k) squad.push({ ...make[k](), position: pos }); });
+    const state = mockState(squad, { pendingShieldReceived: [] });
+    executeSkillTriggers(state, 'PROGRAM_INIT');
+    executeSkillTriggers(state, 'BATTLE_START');
+    while (dispatchHpChanged(state));
+    for (const u of new Set(state.pendingShieldReceived.splice(0)))
+      executeSkillTriggers(state, 'APPLY_SHIELD', { unit: u });
+    const has = name => state.buffs.some(b => b.name === name);
+    const flora = squad.find(u => u.id === 411);
+    return [has('Iris (True Damage)'), flora.shieldHp > 0, has('Iris (ATK)')].map(v => (v ? '✔' : '✘')).join(' ');
+  };
+  // 结果格式：「P2 P1 P3」
+  eq('场景 1  Flora, Scarlet, Trina：Flora 先检查 → P2；Max HP ▲ → P1、P3',  run(['F', 'S', 'T']),       '✔ ✔ ✔');
+  eq('场景 2  Scarlet, Flora, Trina：邻居 Trina 始终满 HP → P2',             run(['S', 'F', 'T']),       '✔ ✔ ✔');
+  eq('场景 3  Scarlet, Flora, 空, Trina：Flora 在 Trina 左 → P2',            run(['S', 'F', null, 'T']), '✔ ✔ ✔');
+  eq('场景 4  Trina, Flora, Scarlet：邻居 Trina 始终满 HP → P2',             run(['T', 'F', 'S']),       '✔ ✔ ✔');
+  eq('场景 5  Trina, 空, Flora, Scarlet：隔空位不相邻且 Trina 先结算 → 无 P2', run(['T', null, 'F', 'S']), '✘ ✔ ✔');
+  eq('场景 6  Trina, Scarlet, Flora：Trina 先结算 → 无 P2',                  run(['T', 'S', 'F']),       '✘ ✔ ✔');
+
+  // HP 比例记录：Max HP ▲ 推入前记录变化前 HP / MaxHP；到期时按上一 tick 计算变化前 MaxHP
+  {
+    const u = mockUnit(1, { unitHp: 1000000 });
+    const state = mockState([u]);
+    pushBuff(state, { name: 'MaxHP+', unitId: 1, maxHpFlat: 250000, endTick: 600 });
+    const before = state.pendingHpChanged.get(1);
+    eq('Max HP ▲ 前记录 prevHp / prevMaxHp', `${before?.prevHp}/${before?.prevMaxHp}`, '1000000/1000000');
+    state.pendingHpChanged.clear();
+    state.tick = 600;
+    markMaxHpChange(state, [u], { beforeTick: 599 });
+    eq('到期时按上一 tick 记录变化前 MaxHP', state.pendingHpChanged.get(1)?.prevMaxHp, 1250000);
   }
 }
 

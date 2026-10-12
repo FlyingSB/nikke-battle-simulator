@@ -328,9 +328,8 @@ function _pushBuffCore(state, buffObj, logCtx = null) {
     // 可叠加效果（stackLimit > 1）：层数未达上限时新增一层
     const limit = buffObj.stackLimit ?? 1;
     if (limit > 1 && (existing.stacks ?? 1) < limit) {
+      if (_hasMaxHpEffect(existing)) markMaxHpChange(state, _buffTargets(state, existing));
       existing.stacks = (existing.stacks ?? 1) + 1;
-      // 新增一层 Max HP ▲ → 当前 HP 同步提升一层的量（除非「without restoring HP」）
-      _restoreOnMaxHpGain(state, existing, existing.maxHpPct ?? 0, existing.maxHpFlat ?? 0);
     }
     // 仅纯永久 buff（无回合制）刷新时视为无实质变化，不记录日志
     const isInfiniteRefresh = existing.endTick === Infinity && buffObj.endTick === Infinity
@@ -343,9 +342,8 @@ function _pushBuffCore(state, buffObj, logCtx = null) {
   const buff = { ...buffObj, ..._sourceFieldsFrom(logCtx), stacks: buffObj.stacks ?? 1 };
   if (buff.endRounds !== undefined && buff.roundsLeft === undefined)
     buff.roundsLeft = buff.endRounds;
+  if (_hasMaxHpEffect(buff)) markMaxHpChange(state, _buffTargets(state, buff));
   state.buffs.push(buff);
-  // Max HP ▲ 首次生效 → 当前 HP 同步提升相同量（除非「without restoring HP」）
-  _restoreOnMaxHpGain(state, buff, (buff.maxHpPct ?? 0) * buff.stacks, (buff.maxHpFlat ?? 0) * buff.stacks);
   if (logCtx) _emitBuffEvent(state, buff, logCtx);
   if (state.buffLog) {
     state.buffLog.push({
@@ -359,10 +357,10 @@ function _pushBuffCore(state, buffObj, logCtx = null) {
 
 // ─── Max HP 变化与当前 HP ────────────────────────────────────────────────────
 //
-// 游戏内「Max HP ▲ X%」在提升上限的同时把当前 HP 提高相同的量（HP% 不变）；
-// 描述写明「without restoring HP」的效果只提升上限（buff 字段 noRestore: true）。
-// Max HP 效果到期时当前 HP 若高于新的上限则截断（见 clampHpToMax，由 battle.js 过期清理调用）。
-// 此处的「回复」不是治疗：不经 applyHeal、不派发 HEAL_RECEIVED、不受治疗效能影响。
+// 游戏基础机制：Max HP 变化只改变上限，不按比例保持当前 HP（无论描述是否写「without restoring HP」）。
+//   · Max HP ▲：当前 HP 不变（满 HP 时获得提升 → 变为不满 HP）。
+//   · Max HP 效果到期 / 数值降低：当前 HP 若高于新的上限则截断（clampHpToMax，由 battle.js 过期清理调用），
+//     否则不变。
 
 // buff 所作用的单位列表（unitId null → 全队）
 function _buffTargets(state, buff) {
@@ -373,48 +371,61 @@ function _buffTargets(state, buff) {
   return u ? [u] : [];
 }
 
-// ─── 当前 HP 写入（单一入口）────────────────────────────────────────────────
+// ─── 当前 HP / HP 比例变化记录 ──────────────────────────────────────────────
 //
-// 所有改变 unit.unitHp 的路径（治疗、生命偷取、Max HP 变化、自损、将来的受伤）都经 _setUnitHp，
-// 它把「首次变化前的 HP」记入 state.pendingHpChanged（unitId → { unit, prevHp }），
-// 由 skill-executor.dispatchHpChanged 派发 HP_CHANGED 团队触发（ctx.unit / prevHp / newHp）。
-function _setUnitHp(state, unit, newHp) {
-  const prev = unit.unitHp;
-  if (newHp === prev) return;
-  unit.unitHp = newHp;
-  if (state.pendingHpChanged instanceof Map && !state.pendingHpChanged.has(unit.id))
-    state.pendingHpChanged.set(unit.id, { unit, prevHp: prev });
+// 所有改变 unit.unitHp 的路径（治疗、生命偷取、截断、自损、将来的受伤）都经 _setUnitHp；
+// 所有改变最终 MaxHP 的路径（Max HP buff 推入 / 叠层 / 改值 / 到期 / 技能主动移除）在变化**之前**
+// 调用 _markHpState / markMaxHpChange。二者把「首次变化前的 HP 与 MaxHP」记入
+// state.pendingHpChanged（unitId → { unit, prevHp, prevMaxHp }），
+// 由 skill-executor.dispatchHpChanged 派发 HP_CHANGED（ctx.prevHp / newHp / prevRatio / newRatio）。
+function _markHpState(state, unit) {
+  if (!(state.pendingHpChanged instanceof Map) || state.pendingHpChanged.has(unit.id)) return;
+  if (unit.unitHp === undefined) return;   // 未初始化 HP 的单位（测试 mock）
+  state.pendingHpChanged.set(unit.id,
+    { unit, prevHp: unit.unitHp, prevMaxHp: getFinalMaxHp(state, unit) });
 }
 
-// buff 的 Max HP 增量（deltaPct / deltaFlat）生效 → 各目标当前 HP 提升对应的量
-function _restoreOnMaxHpGain(state, buff, deltaPct, deltaFlat) {
-  if (buff.noRestore) return;
-  if (!deltaPct && !deltaFlat) return;
-  for (const u of _buffTargets(state, buff)) {
-    if (u.unitHp === undefined) continue;   // 未初始化 HP 的单位（测试 mock）不处理
-    const gain = Math.round(u.stats.hp * deltaPct + deltaFlat);
-    if (gain > 0) _setUnitHp(state, u, Math.min(getFinalMaxHp(state, u), u.unitHp + gain));
+function _setUnitHp(state, unit, newHp) {
+  if (newHp === unit.unitHp) return;
+  _markHpState(state, unit);
+  unit.unitHp = newHp;
+}
+
+function _hasMaxHpEffect(buff) {
+  return (buff.maxHpPct ?? 0) !== 0 || (buff.maxHpFlat ?? 0) !== 0;
+}
+
+/**
+ * 最终 MaxHP 即将变化前调用：记录各单位变化前的 HP 与 MaxHP，供 HP_CHANGED 计算比例变化。
+ * 技能文件直接移除 / 减层带 Max HP 的 buff 时须在修改**之前**调用（pushBuff / setMaxHpBuffValue 已内置）。
+ * @param {object}   state
+ * @param {object[]} units
+ * @param {{ beforeTick?: number }} [opts]  buff 到期清理时传上一 tick：到期那一 tick getBuffSums 已排除
+ *                                          该 buff，需按上一 tick 计算变化前的 MaxHP
+ */
+export function markMaxHpChange(state, units, { beforeTick } = {}) {
+  const savedTick = state.tick;
+  if (beforeTick !== undefined) state.tick = beforeTick;
+  try {
+    for (const u of units) _markHpState(state, u);
+  } finally {
+    state.tick = savedTick;
   }
 }
 
 /**
  * 就地改写已存在 buff 的 Max HP 数值（如 Laplace: Ultimate Hero Over Energy 阶段推进、
  * Maxwell: Ordinary Mechanic 叠层写入「层数 × 每层」）。
- * 增量部分按「Max HP ▲ 同步回复当前 HP」处理（buff.noRestore 时不回复）；数值降低时截断当前 HP。
+ * 数值提升时当前 HP 不变；数值降低时截断当前 HP 到新的上限。
  * 技能文件修改 maxHpPct / maxHpFlat 字段时必须经此函数，不要直接赋值。
  * @param {object} state
  * @param {object} buff   state.buffs 中的 buff 对象
  * @param {{ maxHpPct?: number, maxHpFlat?: number }} next  新的数值（缺省字段保持不变）
  */
 export function setMaxHpBuffValue(state, buff, next) {
-  const oldPct  = buff.maxHpPct  ?? 0;
-  const oldFlat = buff.maxHpFlat ?? 0;
-  const newPct  = next.maxHpPct  ?? oldPct;
-  const newFlat = next.maxHpFlat ?? oldFlat;
-  if (next.maxHpPct  !== undefined) buff.maxHpPct  = newPct;
-  if (next.maxHpFlat !== undefined) buff.maxHpFlat = newFlat;
-  const k = buff.stacks ?? 1;
-  _restoreOnMaxHpGain(state, buff, (newPct - oldPct) * k, (newFlat - oldFlat) * k);
+  markMaxHpChange(state, _buffTargets(state, buff));
+  if (next.maxHpPct  !== undefined) buff.maxHpPct  = next.maxHpPct;
+  if (next.maxHpFlat !== undefined) buff.maxHpFlat = next.maxHpFlat;
   for (const u of _buffTargets(state, buff)) clampHpToMax(state, u);
 }
 
@@ -586,6 +597,20 @@ function _emitSkillEvent(state, target, override = null) {
 }
 
 // ─── HP 回复 ────────────────────────────────────────────────────────────────
+
+/**
+ * 两侧相邻友军（按队伍站位 unit.position 判定，空位占位置：隔着空位的单位不相邻）。
+ * 返回顺序：左侧在前。技能中「adjacent allies / both sides」一律用此函数，不要用 state.squad 下标。
+ */
+export function getAdjacentAllies(state, unit) {
+  const pos = getUnitPosition(state, unit);
+  return state.squad.filter(u => Math.abs(getUnitPosition(state, u) - pos) === 1);
+}
+
+/** 单位站位（0–4，含空位）；未设置 position 的单位（测试 mock）按 state.squad 下标。 */
+export function getUnitPosition(state, unit) {
+  return unit.position ?? state.squad.indexOf(unit);
+}
 
 /**
  * 单位当前 HP 占最终 MaxHP 的比例（「HP 低于 X%」类条件统一用此函数判定）。
@@ -904,18 +929,17 @@ export function getFinalMaxHp(state, unit) {
 }
 
 /**
- * 快照单位当前生效 buff 的伤害明细（hitLog.buffBreakdown 条目格式）。
- * 用于延迟命中：在伤害确定时刻（如 BURST_SKILL_USE）快照，经 opts.preBuffBreakdown 传入 fireSkillHit，
- * 使伤害明细与预捕获的 sums 一致，不混入之后才推入的 buff（如 ENTER_FULL_BURST 效果）。
- * 仅适用于非蓄力、非普通攻击的技能命中（与 fireSkillHit 默认口径一致）。
+ * 按命中属性构造 buff 伤害明细（hitLog.buffBreakdown 条目格式）。
+ * 只列出对本次命中实际生效的加成：技能伤害恒为非蓄力，蓄力伤害不列；依次 / 持续 / 真实 / 零件 / 分摊 /
+ * 核心等加成仅在命中具备对应属性时列出（与 fireSkillHit 的伤害计算口径一致）。
  * @param {object} state
  * @param {number} unitId
+ * @param {object} f  命中属性：charged, isNormalAttack, isCore, isSequentialAttack, sustained, isTrueDamage,
+ *                    partsBonus, isDistributed, extraAtkDmg, projectileExplosion, allEnemies（均为 boolean）
  * @returns {object[]}
  */
-export function snapshotBuffBreakdown(state, unitId, label = null) {
-  // 「全体敌人」爆裂伤害加成（Spread Roots）只在对应命中的明细中并入攻击伤害（label 缺省时不计）
-  const unit = state.squad?.find(u => u.id === unitId);
-  const allEnemies = !!unit && isAllEnemiesBurstHit(unit, label);
+function buildBuffBreakdown(state, unitId, f) {
+  const on = (cond, v) => (cond ? (v ?? 0) : 0);
   return state.buffs
     .filter(b => (b.unitId === null || b.unitId === unitId)
       && !(b.roundsLeft !== undefined && b.roundsLeft <= 0)
@@ -926,12 +950,21 @@ export function snapshotBuffBreakdown(state, unitId, label = null) {
       return {
         name: b.name,
         atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k,
-        attackDamagePct: ((b.attackDamagePct ?? 0) + (allEnemies ? (b.allEnemiesBurstDamagePct ?? 0) : 0)) * k,
-        sequentialAttackDamagePct: (b.sequentialAttackDamagePct ?? 0) * k,
+        attackDamagePct: ((b.attackDamagePct ?? 0)
+          + on(f.extraAtkDmg, b.projectileAttachmentDamagePct)
+          + on(f.projectileExplosion, b.projectileExplosionDamagePct)
+          + on(f.isNormalAttack, b.normalAttackDamagePct)
+          + on(f.allEnemies, b.allEnemiesBurstDamagePct)) * k,
+        sequentialAttackDamagePct: on(f.isSequentialAttack, b.sequentialAttackDamagePct) * k,
         elementAdvantagePct: (b.elementAdvantagePct ?? 0) * k,
-        coreDamagePct: (b.coreDamagePct ?? 0) * k,
-        chargeDamagePct: (b.chargeDamagePct ?? 0) * k,
+        coreDamagePct: on(f.isCore, b.coreDamagePct) * k,
+        chargeDamagePct: on(f.charged, b.chargeDamagePct) * k,
+        chargeDamageMultPct: on(f.charged, b.chargeDamageMultPct) * k,
         critDamagePct: (b.critDamagePct ?? 0) * k,
+        sustainedDamagePct: on(f.sustained, b.sustainedDamagePct) * k,
+        trueDamagePct: on(f.isTrueDamage, b.trueDamagePct) * k,
+        damageToPartsPct: on(f.partsBonus, b.damageToPartsPct) * k,
+        distributedDamagePct: on(f.isDistributed, b.distributedDamagePct) * k,
         stacks: k,
         multiplier: b.multiplier ?? null,
         sourceCaster: b._sourceCaster ?? null,
@@ -940,7 +973,43 @@ export function snapshotBuffBreakdown(state, unitId, label = null) {
         sourceLineIdx: b._sourceLineIdx ?? null,
       };
     })
-    .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.critDamagePct);
+    .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct
+      || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.critDamagePct || b.sustainedDamagePct
+      || b.trueDamagePct || b.damageToPartsPct || b.distributedDamagePct);
+}
+
+// 由 fireSkillHit 的 opts 推出技能命中属性（技能命中恒为非蓄力）
+function skillHitFlags(state, unit, label, opts) {
+  const hitPart = opts.hitPart ?? (opts.isCore ? 'core' : 'body');
+  return {
+    charged: false,
+    isNormalAttack: opts.isNormalAttack ?? false,
+    isCore: hitPart === 'core',
+    isSequentialAttack: opts.isSequentialAttack ?? false,
+    sustained: opts.sustainedDamage ?? false,
+    isTrueDamage: opts.isTrueDamage ?? false,
+    partsBonus: isPartsHit(state, hitPart),
+    isDistributed: opts.isDistributed ?? false,
+    extraAtkDmg: (opts.extraAttackDamagePct ?? 0) > 0,
+    projectileExplosion: !!opts.projectileExplosion,
+    allEnemies: !!unit && isAllEnemiesBurstHit(unit, label),
+  };
+}
+
+/**
+ * 快照单位当前生效 buff 的伤害明细（hitLog.buffBreakdown 条目格式）。
+ * 用于延迟命中：在伤害确定时刻（如 BURST_SKILL_USE）快照，经 opts.preBuffBreakdown 传入 fireSkillHit，
+ * 使伤害明细与预捕获的 sums 一致，不混入之后才推入的 buff（如 ENTER_FULL_BURST 效果）。
+ * 按该命中的 label / opts 判定生效的加成（与 fireSkillHit 口径一致，如真实伤害列出真实伤害 ▲、不列蓄力伤害）。
+ * @param {object} state
+ * @param {number} unitId
+ * @param {string|null} [label]  原始命中标签（用于判定「全体敌人」爆裂伤害加成）
+ * @param {object} [opts]        该命中的 fireSkillHit opts
+ * @returns {object[]}
+ */
+export function snapshotBuffBreakdown(state, unitId, label = null, opts = {}) {
+  const unit = state.squad?.find(u => u.id === unitId);
+  return buildBuffBreakdown(state, unitId, skillHitFlags(state, unit, label, opts));
 }
 
 // 爆裂技能描述按 ■ 拆段，记录各段是否以「Affects all enemies」为目标（按 rawBurst 对象缓存）
@@ -982,7 +1051,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       fireTick: state.tick, caster: unit, mult: hitMult, label,
       sums: affected ? null : sums,
       opts: affected ? opts
-        : { ...opts, preBuffBreakdown: opts.preBuffBreakdown ?? snapshotBuffBreakdown(state, unit.id, label) },
+        : { ...opts, preBuffBreakdown: opts.preBuffBreakdown ?? snapshotBuffBreakdown(state, unit.id, label, opts) },
     });
     return 0;
   }
@@ -1090,32 +1159,15 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       chargeMult: bd.chargeMult,
       distanceAdv: distAdvForHit,
       buffBreakdown: [
-        ...(opts.preBuffBreakdown ?? state.buffs
-          .filter(b => (b.unitId === null || b.unitId === unit.id)
-            && !(b.roundsLeft !== undefined && b.roundsLeft <= 0)
-            && !(b.endTick !== undefined && b.endTick !== Infinity && b.endTick <= state.tick))
-          .map(b => {
-            // 叠层 buff：分解条目记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
-            const k = b.stacks ?? 1;
-            return { name: b.name, atkFlat: (b.atkFlat ?? 0) * k, atkPct: (b.atkPct ?? 0) * k,
-              attackDamagePct: ((b.attackDamagePct ?? 0)
-                + (extraAtkDmgPct > 0 ? (b.projectileAttachmentDamagePct ?? 0) : 0)
-                + (projectileExplosionDamagePct > 0 ? (b.projectileExplosionDamagePct ?? 0) : 0)
-                + (isNormalAttack ? (b.normalAttackDamagePct ?? 0) : 0)
-                + (allEnemiesBurstPct !== 0 ? (b.allEnemiesBurstDamagePct ?? 0) : 0)) * k,
-              // 技能伤害恒为非蓄力（charged=false），蓄力伤害 / 蓄力伤害倍率不参与计算，明细中不列出
-              sequentialAttackDamagePct: (b.sequentialAttackDamagePct ?? 0) * k, elementAdvantagePct: (b.elementAdvantagePct ?? 0) * k, coreDamagePct: (b.coreDamagePct ?? 0) * k,
-              chargeDamagePct: charged ? (b.chargeDamagePct ?? 0) * k : 0,
-              chargeDamageMultPct: charged ? (b.chargeDamageMultPct ?? 0) * k : 0,
-              critDamagePct: (b.critDamagePct ?? 0) * k,
-              sustainedDamagePct: opts.sustainedDamage ? ((b.sustainedDamagePct ?? 0) * k) : 0,
-              trueDamagePct: isTrueDamage ? (b.trueDamagePct ?? 0) * k : 0,
-              damageToPartsPct: partsBonusApplies ? (b.damageToPartsPct ?? 0) * k : 0,
-              distributedDamagePct: isDistributed ? (b.distributedDamagePct ?? 0) * k : 0,
-              stacks: k, multiplier: b.multiplier ?? null,
-              sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null, sourcePartIdx: b._sourcePartIdx ?? null, sourceLineIdx: b._sourceLineIdx ?? null };
-          })
-          .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.sequentialAttackDamagePct || b.elementAdvantagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.critDamagePct || b.sustainedDamagePct || b.trueDamagePct || b.damageToPartsPct || b.distributedDamagePct)),
+        // 技能伤害恒为非蓄力（charged=false），蓄力伤害 / 蓄力伤害倍率不参与计算，明细中不列出
+        ...(opts.preBuffBreakdown ?? buildBuffBreakdown(state, unit.id, {
+          charged, isNormalAttack, isCore,
+          isSequentialAttack: opts.isSequentialAttack ?? false,
+          sustained: opts.sustainedDamage ?? false,
+          isTrueDamage, partsBonus: partsBonusApplies, isDistributed,
+          extraAtkDmg: extraAtkDmgPct > 0, projectileExplosion: projectileExplosionDamagePct > 0,
+          allEnemies: allEnemiesBurstPct !== 0,
+        })),
         ...getEnemyDebuffBreakdown(state),
       ],
     });

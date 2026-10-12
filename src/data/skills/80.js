@@ -127,15 +127,15 @@ export default {
         },
       },
       // P4：Stockpile 期间任意友军（含自身）HP 下降至 p08=100% 以下 → 全员回复 p04% 施法者最终最大 HP
-      //     由 HP_CHANGED 驱动，只响应 HP 下降（回复本身不会连锁触发）
+      //     由 HP_CHANGED 驱动，只响应 HP 比例下降（自损或 Max HP ▲；回复本身不会连锁触发）
       {
         on: 'HP_CHANGED',
         handler(state, caster, ctx) {
-          if (!ctx.unit || !(ctx.newHp < ctx.prevHp)) return false;
+          if (!ctx.unit || !(ctx.newRatio < ctx.prevRatio)) return false;
           if (!state.buffs.some(b => b.name === STOCKPILE && b.endTick > state.tick)) return false;
           const s1 = caster.ssrFavSkills.skill1;
           const lv = s1._activeSkillLevel;
-          if (ctx.newHp > getFinalMaxHp(state, ctx.unit) * getSkillValue(s1, 8, lv) / 100) return false;
+          if (ctx.newRatio > getSkillValue(s1, 8, lv) / 100) return false;
           applyHeal(state, ALL_ALLIES,
             Math.round(getFinalMaxHp(state, caster) * getSkillValue(s1, 4, lv) / 100), null, caster);
         },

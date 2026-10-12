@@ -1,4 +1,4 @@
-import { pushBuff, applyHeal, applyShield, getBuffSums, getFinalMaxHp, recalcMaxAmmo, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
+import { pushBuff, applyHeal, applyShield, getBuffSums, getFinalMaxHp, getAdjacentAllies, markMaxHpChange, recalcMaxAmmo, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Flora  (resource_id: 411)
@@ -16,9 +16,9 @@ function casterFinalMaxHp(state, caster) {
   return caster.stats.hp * (1 + sums.maxHpPct) + (sums.maxHpFlat ?? 0);
 }
 
+// 按站位判定（空位占位置，隔着空位不相邻）
 function adjacentAllies(state, caster) {
-  const idx = state.squad.indexOf(caster);
-  return [state.squad[idx - 1], state.squad[idx + 1]].filter(Boolean);
+  return getAdjacentAllies(state, caster);
 }
 
 function peaceOfMindUnits(state) {
@@ -29,6 +29,8 @@ function peaceOfMindUnits(state) {
 // 仅作用于指定给该单位的 buff（unitId === unit.id）；全队共享的 buff（unitId=null）若加层会同时
 // 惠及非目标单位，故不处理。
 function increaseStackableBuffs(state, unit, count) {
+  // 加层可能提升 Max HP（如 Ticket）→ 先记录 HP / MaxHP，供 HP_CHANGED 计算比例变化（无变化则不派发）
+  markMaxHpChange(state, [unit]);
   let changed = false;
   for (const b of state.buffs) {
     if (b.unitId !== unit.id || b.isDebuff) continue;
@@ -41,6 +43,19 @@ function increaseStackableBuffs(state, unit, count) {
   }
   if (changed) recalcMaxAmmo(state, unit);
   return changed;
+}
+
+function isAtMaxHp(state, unit) {
+  return unit.unitHp !== undefined && unit.unitHp >= getFinalMaxHp(state, unit);
+}
+
+// Iris P2：全员真实伤害 ▲ p03%，p04 秒
+function pushIrisTrueDamage(state, caster) {
+  const s2 = caster.ssrFavSkills.skill2;
+  const lv = s2._activeSkillLevel;
+  pushBuff(state, { name: 'Iris (True Damage)', unitId: null,
+    trueDamagePct: getSkillValue(s2, 3, lv) / 100,
+    endTick: state.tick + TICK_RATE * getSkillValue(s2, 4, lv) });
 }
 
 export default {
@@ -123,7 +138,7 @@ export default {
           const maxHpFlat = Math.round(caster.stats.hp * getSkillValue(s1, 6, lv) / 100);
           const endTick   = state.tick + TICK_RATE * getSkillValue(s1, 7, lv);
           pushBuff(state, { name: 'Petunia (Max HP)', unitIds: peaceOfMindUnits(state).map(u => u.id),
-            maxHpFlat, noRestore: true, endTick });
+            maxHpFlat, endTick });
         },
       },
     ],
@@ -147,39 +162,52 @@ export default {
   skill2: {
     groupId: 124112,
     triggers: [
-      // P1：相邻友军 HP 下降至 ≤ p00=90% → 全员护盾 p01% Flora 最终 MaxHP，p02 秒
-      //     由 HP_CHANGED 驱动，只响应 HP 下降（模拟器中仅自损类效果可触发）
+      // P1：相邻友军 HP 比例下降至 ≤ p00=90% → 全员护盾 p01% Flora 最终 MaxHP，p02 秒
+      //     由 HP_CHANGED 驱动，只响应 HP 比例下降：自损类效果，或 Max HP ▲ 使比例下降
+      //     （实测：Trina S2 P1 给相邻的 Scarlet 加 Max HP 后触发；游戏内约有 ≤0.1s 检测延迟，未建模）
       {
         on: 'HP_CHANGED',
         handler(state, caster, ctx) {
-          if (!ctx.unit || !(ctx.newHp < ctx.prevHp)) return false;
+          if (!ctx.unit || !(ctx.newRatio < ctx.prevRatio)) return false;
           if (!adjacentAllies(state, caster).includes(ctx.unit)) return false;
           const s2 = caster.ssrFavSkills.skill2;
           const lv = s2._activeSkillLevel;
-          if (ctx.newHp > getFinalMaxHp(state, ctx.unit) * getSkillValue(s2, 0, lv) / 100) return false;
+          if (ctx.newRatio > getSkillValue(s2, 0, lv) / 100) return false;
           applyShield(state, ALL_ALLIES,
             Math.round(casterFinalMaxHp(state, caster) * getSkillValue(s2, 1, lv) / 100),
             state.tick + TICK_RATE * getSkillValue(s2, 2, lv));
         },
       },
-      // P2：相邻友军受到治疗且处于最大 HP → 全员真实伤害 ▲ p03% 10s
-      //     「达到最大 HP」以治疗落地（HEAL_RECEIVED，含 Peace of Mind 每秒治疗）为触发契机
+      // P2：相邻友军达到最大 HP → 全员真实伤害 ▲ p03% 10s
+      //     满 HP 检查只在两个时机进行：
+      //       ① 进入战斗时检查一次（BATTLE_START）；
+      //       ② 此后仅在相邻友军的当前 HP 发生变化时检查（HP_CHANGED 且 newHp !== prevHp；
+      //          只有 Max HP 变化、当前 HP 未变不算）。
+      //     相邻友军始终满 HP 时，治疗不改变 HP → 不触发。
+      //     开战检查按站位顺序结算：站在 Flora 左侧的单位的开战效果先生效（实测 Trina 在左时，
+      //     Scarlet 先被加 Max HP 变为不满，P2 不触发）。
       {
-        on: 'HEAL_RECEIVED',
+        on: 'BATTLE_START',
+        handler(state, caster) {
+          if (!adjacentAllies(state, caster).some(u => isAtMaxHp(state, u))) return false;
+          pushIrisTrueDamage(state, caster);
+        },
+      },
+      {
+        on: 'HP_CHANGED',
+        partOverride: 1,
         handler(state, caster, ctx) {
           const u = ctx.unit;
-          if (!u || !adjacentAllies(state, caster).includes(u)) return false;
-          if (u.unitHp < getFinalMaxHp(state, u)) return false;
-          const s2 = caster.ssrFavSkills.skill2;
-          const lv = s2._activeSkillLevel;
-          pushBuff(state, { name: 'Iris (True Damage)', unitId: null,
-            trueDamagePct: getSkillValue(s2, 3, lv) / 100,
-            endTick: state.tick + TICK_RATE * getSkillValue(s2, 4, lv) });
+          if (!u || ctx.newHp === ctx.prevHp) return false;
+          if (!adjacentAllies(state, caster).includes(u)) return false;
+          if (!isAtMaxHp(state, u)) return false;
+          pushIrisTrueDamage(state, caster);
         },
       },
       // P3：Flora 获得护盾 → Peace of Mind 友军 ATK ▲ p05% Flora ATK 10s
       {
         on: 'APPLY_SHIELD',
+        partOverride: 2,
         handler(state, caster) {
           const s2 = caster.ssrFavSkills.skill2;
           const lv = s2._activeSkillLevel;

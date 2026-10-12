@@ -631,9 +631,9 @@ burstPhase = 0（充能中）
               → 等待 burstStepTicks
                 → burstPhase = 3
                 → B3 施放（BURST_SKILL_USE；按 §6.0 从左到右选第一个 CD 就绪的单位；其余 B3 本轮无法施放）
-                  B3 施放者爆裂技能的伤害全部排入 pendingSkillHits 并后移 0.1s：技能延迟从进入全爆裂起算，
+                  B3 施放者爆裂技能的伤害全部排入 pendingSkillHits 并后移 0.05s：技能延迟从进入全爆裂起算，
                   即时命中在进入全爆裂那一 tick（先于 ENTER_FULL_BURST）结算
-                → 固定等待约 0.1s（FULL_BURST_ENTRY_DELAY_TICKS = 6 tick；2026-10-12 实测，更正原 0.4s；
+                → 固定等待 0.05s（FULL_BURST_ENTRY_DELAY_TICKS = 3 tick；2026-10-12 实测，更正原 0.4s / 0.1s；
                   无法通过操作缩短，不随 burstStepSecs 变化）
                 → ENTER_FULL_BURST 被动触发 → fullBurstActive = true（默认 10s 窗口；「Full Burst Time ▼ N sec」
                   由技能写入 state.fullBurstTimeReductionTicks，进入全爆裂时扣减并清零，如 Isabel 爆裂 −5s）
@@ -826,7 +826,7 @@ burstPhase = 0（充能中）
 - 每 tick 开头处理到期的命中（在 DoT、HoT 之后，攻击循环之前）。
 - 引擎自动对所有新入队的延迟命中打 `suppressFullBurst=true`（`affectedByFullBurst` 的除外）。
 - B3 施放期间（`state.b3Cast`），施放者 `burst` 槽 `BURST_SKILL_USE` handler 新增的延迟命中统一 `fireTick += FULL_BURST_ENTRY_DELAY_TICKS`；
-  其中的即时 `fireSkillHit` 由引擎转为延迟命中（`fireTick` = 施放 tick + 0.1s，预捕获 sums 与 buff 明细；`affectedByFullBurst` 命中则在进入全爆裂瞬间快照）。
+  其中的即时 `fireSkillHit` 由引擎转为延迟命中（`fireTick` = 施放 tick + 0.05s，预捕获 sums 与 buff 明细；`affectedByFullBurst` 命中则在进入全爆裂瞬间快照）。
 - 兜底：`affectedByFullBurst` 命中在 B3 施放后、进入全爆裂前到期时，转入 `pendingFireInBurstHits`，在 ENTER_FULL_BURST 之后结算。
 - 全爆裂瞬间快照：受全爆裂影响的 B3 伤害（`affectedByFullBurst` 延迟命中、`pendingFireInBurstHits`）不在命中时重算，
   而是在进入全爆裂瞬间（ENTER_FULL_BURST 及连带效果全部生效后）统一捕获 sums 与 buff 明细，之后按各自延迟用同一快照出伤；
@@ -849,26 +849,41 @@ burstPhase = 0（充能中）
 - **HP 扣减** `applyHpLoss(state, unit, amount)`：「Current HP ▼ X%」类自损（Scarlet S1、Grave 爆裂），
   按最终 MaxHP 换算，HP 下限 1。
 - **HP 比例** `getHpRatio(state, unit)` = `unitHp / 最终 MaxHP`（不含溢出储存池），「HP 低于 / 高于 X%」类条件统一用它判定。
-- **HP_CHANGED 事件**：所有写 HP 的路径（治疗、生命偷取、Max HP 同步回复 / 截断、`applyHpLoss`、将来的受伤）
-  都记入 `state.pendingHpChanged`，由 `flushHpEvents` → `dispatchHpChanged` 派发团队触发 `HP_CHANGED`
-  （ctx.unit / prevHp / newHp；同一 flush 周期合并，prevHp 为首次变化前的值；handler 内再改 HP 则进入下一轮，最多 8 轮）。
-  HP 条件类技能一律响应此事件：Scarlet S2 P2、Alice S2、Moran S2 P2、Noir S1（自身 HP）；
-  Soline S2、Centi S1 P4、Flora S2 P1（任意 / 相邻友军 HP **下降**跨过阈值，`newHp < prevHp`，治疗不会连锁触发）。
+- **HP_CHANGED 事件**：当前 HP 或最终 MaxHP 任一变化即派发。所有写 HP 的路径（治疗、生命偷取、截断、`applyHpLoss`、
+  将来的受伤）与所有改变最终 MaxHP 的路径（Max HP buff 推入 / 叠层 / `setMaxHpBuffValue` / 到期 / 技能主动移除）
+  都在变化**之前**把 `{ prevHp, prevMaxHp }` 记入 `state.pendingHpChanged`，由 `flushHpEvents` → `dispatchHpChanged`
+  派发团队触发 `HP_CHANGED`（ctx.unit / prevHp / newHp / prevRatio / newRatio；同一 flush 周期合并，取首次变化前的值；
+  handler 内再改 HP 则进入下一轮，最多 8 轮）。技能文件直接删除 / 减层带 Max HP 的 buff 时须先调用 `markMaxHpChange`；
+  buff 到期时 `getBuffSums` 已排除该 buff，battle.js 以 `beforeTick: tick − 1` 计算变化前 MaxHP。
+  HP 条件类技能一律响应此事件：Scarlet S2 P2、Alice S2、Moran S2 P2、Noir S1（自身 HP 比例）；
+  Soline S2、Centi S1 P4、Flora S2 P1（任意 / 相邻友军 HP **比例下降**跨过阈值，`newRatio < prevRatio`：
+  自损或 Max HP ▲ 均可触发，治疗不会连锁触发。实测 Trina S2 P1 给相邻 Scarlet 加 Max HP 会触发 Flora S2 P1；
+  游戏内该检测约有 ≤0.1s 延迟，未建模）；
+  Flora S2 P2（相邻友军满 HP：进入战斗时检查一次，此后仅在相邻友军**当前 HP** 变化时检查（`newHp !== prevHp`）——
+  始终满 HP 时受治疗 HP 不变，不触发）。
+- 攻击循环前后各兜底 `flushHpEvents` + `flushShieldReceived` 一次（开战后同样），确保 ENTER_BURST_II 等未随即 flush 的
+  Max HP 变化及其连带护盾（APPLY_SHIELD）在同一 tick 内派发。
 - **溢出治疗储存** `applyOverhealStorage(state, target, cap, endTick)`（Centi S1 P3 Stockpile / Anchor 爆裂 Storage）：
   生效期内超出最终 MaxHP 的治疗存入 `unit.overheal.hp`（上限 cap），`applyHpLoss` 先扣储存池再扣 HP，
   到期 `expireOverheal` 移除储存部分；储存池不计入 HP 比例。
 - **平均分摊治疗**（buff 字段 `shareHeal: true`，Nayuta S1 P2 Hypocrisy）：目标受到的实际回复量均分给全队，
   只有原目标视为「受到治疗」（HEAL_RECEIVED），其余队员仅发生 HP 变化（HP_CHANGED）。
 - **「n 名最低 XX 的队友」** 的筛选用稳定排序：判定值相同时按站位从左到右（如 Liter S2 掩体 HP 不建模 → 恒取最左 n 名）。
+- **同一时机多名角色的技能结算顺序 = 站位从左到右**（`executeSkillTriggers` 按 `state.squad` 遍历施放者，
+  `priority` 稳定排序在其上）。实测：Flora / Trina 开战效果谁先结算只取决于左右位置，与角色编号无关。
+- **站位与空位**：单位带 `position`（0–4，队伍槽位序号，含空位）；空位不进入 `state.squad`，但占据位置。
+  「相邻 / 两侧」一律用 `getAdjacentAllies`（隔着空位不相邻，实测 Trina, 空, Flora 时二者不相邻），
+  前后排等位置判定用 `getUnitPosition`，不要用 `state.squad` 下标。
 
 ### 9.1.1 Max HP 变化与当前 HP
 
 - 开战时 `unitHp = 最终 MaxHP`（含 Vigor 方块等永久 buff）。
-- `pushBuff` 推入含 `maxHpPct` / `maxHpFlat` 的 buff（或叠层 +1）时，受影响单位当前 HP 提升相同的量
-  （游戏内「Max HP ▲」保持 HP% 不变）；描述写「without restoring HP」的效果须带 `noRestore: true`，只提升上限。
-  该提升不是治疗：不派发 `HEAL_RECEIVED`，不受治疗效能影响。
-- 就地改写已有 buff 的 Max HP 数值须用 `setMaxHpBuffValue(state, buff, { maxHpPct, maxHpFlat })`。
-- Max HP buff 到期时 `clampHpToMax` 把当前 HP 截断到新的最终 MaxHP。
+- **游戏基础机制：Max HP 变化只改变上限，不按比例保持当前 HP**（与描述是否写「without restoring HP」无关）。
+  - Max HP ▲（`pushBuff` 推入含 `maxHpPct` / `maxHpFlat` 的 buff、叠层 +1、数值提升）：当前 HP 不变，
+    满 HP 时获得提升会变为不满 HP。
+  - Max HP ▼（buff 到期、层数减少、数值降低、技能主动移除）：当前 HP 高于新上限时由 `clampHpToMax` 截断，否则不变。
+    buff 自然到期由 battle.js 过期清理统一截断；技能文件主动删除 / 减层带 Max HP 的 buff 后须自行调用 `clampHpToMax`。
+- 就地改写已有 buff 的 Max HP 数值须用 `setMaxHpBuffValue(state, buff, { maxHpPct, maxHpFlat })`（内含截断）。
 
 ### 9.2 HoT（持续治疗）
 

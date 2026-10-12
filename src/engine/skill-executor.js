@@ -20,8 +20,11 @@
  *   INTERVAL            全程每 X 秒触发，不限于爆裂期间（通过 onInterval 驱动；首次于 t+Xs 触发）
  *   INTERVAL_IN_BURST   全爆裂期间每 X 秒生效 1 次（通过 onIntervalInBurst 驱动）
  *   HEAL_RECEIVED       任意友军受到治疗时（ctx.unit = 受治疗单位）
- *   HP_CHANGED          任意友军当前 HP 发生变化后（团队触发；ctx.unit = 变化单位，ctx.prevHp / ctx.newHp）
- *                       来源：治疗、生命偷取、Max HP 变化的同步回复 / 截断、applyHpLoss、（将来的）受伤。
+ *   HP_CHANGED          任意友军当前 HP 或最终 MaxHP 发生变化后（团队触发；ctx.unit = 变化单位，
+ *                       ctx.prevHp / ctx.newHp = 当前 HP，ctx.prevRatio / ctx.newRatio = HP 比例）
+ *                       来源：治疗、生命偷取、Max HP 增减（含到期截断）、applyHpLoss、（将来的）受伤。
+ *                       「HP 降至 X% 以下」按比例判定（Max HP ▲ 使比例下降也算）；
+ *                       只关心当前 HP 实际变化的技能须检查 ctx.newHp !== ctx.prevHp。
  *                       同一 flush 周期内多次变化合并为一次（prevHp 取首次变化前的值）。
  *                       「HP 低于 / 高于 X%」类条件统一响应此事件（配合 getHpRatio）
  *   APPLY_SHIELD        任意友军获盾时（ctx.unit = 获盾单位；非团队触发，仅 caster === ctx.unit 的单位响应）
@@ -84,7 +87,7 @@
 
 import { SKILL_TRAITS } from '../data/skill-traits.js';
 import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, isPartsHit,
-         getBuffSums, isWeaponSwitchAmmoFixed,
+         getBuffSums, getFinalMaxHp, isWeaponSwitchAmmoFixed,
          TICK_RATE, BURST_GAUGE_MAX, ALL_ALLIES } from './battle-utils.js';
 
 // 团队触发：ctx.unit 无意义，所有持有该技能的在队单位均触发
@@ -95,7 +98,10 @@ const TEAM_TRIGGERS = new Set([
 ]);
 
 /**
- * 分派 HP_CHANGED 触发：消费 state.pendingHpChanged（unitId → { unit, prevHp }，由 battle-utils 写入 HP 时填充）。
+ * 分派 HP_CHANGED 触发：消费 state.pendingHpChanged（unitId → { unit, prevHp, prevMaxHp }，
+ * 由 battle-utils 在写入 HP 或 Max HP 变化前填充）。
+ * 当前 HP 或最终 MaxHP 任一发生变化即派发（Max HP 变化只改变 HP 比例），ctx 提供
+ * prevHp / newHp（当前 HP）与 prevRatio / newRatio（HP 比例）。
  * 先取出并清空集合再逐单位派发，handler 内引起的新变化进入下一轮（由 battle.js flushHpEvents 循环处理）。
  * @returns {boolean} 本次是否派发了任何事件
  */
@@ -104,10 +110,15 @@ export function dispatchHpChanged(state) {
   const entries = [...state.pendingHpChanged.values()];
   state.pendingHpChanged.clear();
   let any = false;
-  for (const { unit, prevHp } of entries) {
-    if (unit.unitHp === prevHp) continue;
+  for (const { unit, prevHp, prevMaxHp } of entries) {
+    const newMaxHp = getFinalMaxHp(state, unit);
+    const oldMaxHp = prevMaxHp ?? newMaxHp;
+    if (unit.unitHp === prevHp && newMaxHp === oldMaxHp) continue;
     any = true;
-    executeSkillTriggers(state, 'HP_CHANGED', { unit, prevHp, newHp: unit.unitHp });
+    executeSkillTriggers(state, 'HP_CHANGED', {
+      unit, prevHp, newHp: unit.unitHp,
+      prevRatio: prevHp / oldMaxHp, newRatio: unit.unitHp / newMaxHp,
+    });
   }
   return any;
 }
@@ -341,12 +352,14 @@ export function executeSkillTriggers(state, trigger, ctx = {}) {
   const isTeamTrigger = TEAM_TRIGGERS.has(trigger);
   const scopedUnit    = ctx.unit ?? null;
 
-  // 先收集所有匹配的触发器，按 priority 升序排序后再执行（默认 priority=0）
+  // 先收集所有匹配的触发器，按 priority 升序排序后再执行（默认 priority=0）。
+  // 同一时机的多名施放者按站位从左到右结算（state.squad 即站位顺序；实测 Flora / Trina 开战效果
+  // 的先后只取决于左右位置）。priority 排序为稳定排序，同 priority 内保持站位顺序。
   const pending = [];
 
-  for (const [ridStr, charSkills] of Object.entries(SKILL_TRAITS)) {
-    const caster = state.squad.find(u => u.id === Number(ridStr));
-    if (!caster) continue;
+  for (const caster of state.squad) {
+    const charSkills = SKILL_TRAITS[caster.id];
+    if (!charSkills) continue;
 
     for (const skillKey of ['skill1', 'skill2', 'burst']) {
       const skill = charSkills[skillKey];

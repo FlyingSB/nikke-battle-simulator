@@ -100,7 +100,7 @@ export default {
         handler(state, caster) {
           const unitIds = state.squad.filter(isElectricRifle).map(u => u.id);
           if (unitIds.length === 0) return false;
-          pushBuff(state, { name: 'Peaceful Tree (Max HP)', unitIds, noRestore: true,
+          pushBuff(state, { name: 'Peaceful Tree (Max HP)', unitIds,
             maxHpFlat: Math.round(caster.stats.hp * getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100),
             endTick: Infinity });
         },
@@ -158,7 +158,7 @@ export default {
           const lv  = caster.skillLevels[2];
           const raw = caster.rawBurst;
           // P1：Max HP ▲（不回复 HP）+ 攻击伤害 ▲（同为全体 10s，合并为一条）
-          pushBuff(state, { name: 'Mother Forest P1', unitId: null, noRestore: true,
+          pushBuff(state, { name: 'Mother Forest P1', unitId: null,
             maxHpFlat: Math.round(caster.stats.hp * getSkillValue(raw, 0, lv) / 100),
             attackDamagePct: getSkillValue(raw, 7, lv) / 100,
             endTick: state.tick + TICK_RATE * getSkillValue(raw, 1, lv) },

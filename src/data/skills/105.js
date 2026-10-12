@@ -45,7 +45,6 @@ export default {
           for (const t of state.squad) {
             const existing = state.buffs.find(b =>
               b.name === 'Sequential Limit Release (Max HP)' && b.unitId === t.id);
-            // 新增一层的 Max HP 同步回复当前 HP（描述未写 without restoring HP）
             if (existing) setMaxHpBuffValue(state, existing, { maxHpFlat: flat });
             else missing.push(t.id);
           }

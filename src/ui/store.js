@@ -1858,6 +1858,8 @@ export function createStore() {
             fullChargeBurstEnergy: nd?.shot_detail?.full_charge_burst_energy ?? 0,
             // 受控（Focus）角色：按队伍槽位引用匹配（activeSlots 元素是 this.team 的引用）。
             isFocus:               this.focusSlot != null && slot === this.team[this.focusSlot],
+            // 队伍站位（含空位的槽位序号）：相邻 / 前后排判定用，空位不会被压缩掉
+            position:              this.team.indexOf(slot),
             chargeTimeTicks:       isChargeWeapon ? Math.round((nd?.shot_detail?.charge_time ?? 0) / 100 * 60) : 0,
             // DOWN_Charge 型（持续按住自动连发）：发间无前后摇，只计蓄力时长。
             // 当前库中仅 Liberalio（SR）及少数 RL（Cinderella 等）为此类型。

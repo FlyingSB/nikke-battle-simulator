@@ -157,7 +157,7 @@ export default {
           // 阶段 N 的 Max HP ▲ = p02..p0(N+1) 累加
           let hpPct = 0;
           for (let i = 1; i <= st.luh_stage; i++) hpPct += getSkillValue(caster.rawSkill2, i, lv);
-          // 阶段推进增加的 Max HP 同步回复当前 HP（描述未写 without restoring HP）
+          // 阶段推进只提升 Max HP 上限，不回复当前 HP（引擎统一处理）
           const buff = state.buffs.find(b => b.name === 'Over Energy (Max HP)' && b.unitId === caster.id);
           if (buff) setMaxHpBuffValue(state, buff, { maxHpPct: hpPct / 100 });
           else pushBuff(state, { name: 'Over Energy (Max HP)', unitId: caster.id,

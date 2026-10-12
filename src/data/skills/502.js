@@ -149,7 +149,7 @@ export default {
     groupId: 15023,
     triggers: [
       // Burst：根据幽灵数量选择模式，调度延迟技能命中，并立即更新幽灵计数
-      //   进入全爆裂后 0.2s（12 tick）首击（B3 施放后 0.3s，引擎统一后移 0.1s），后续每击间隔 0.2s；
+      //   进入全爆裂后 0.2s（12 tick）首击（B3 施放后 0.25s，引擎统一后移 0.05s），后续每击间隔 0.2s；
       //   非默认结算（已实测）：affectedByFullBurst →
       //   引擎在进入全爆裂瞬间（ENTER_FULL_BURST 等效果全部生效后）取一次 sums 快照，所有命中按延迟用该快照出伤；
       //   快照含全爆裂 +50%（命中时判定）、ENTER_FULL_BURST buff、S2 Part1 Ghostbuster ATK ▲（skill2 先于 burst 执行）

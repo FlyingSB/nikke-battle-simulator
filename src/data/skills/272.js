@@ -1,4 +1,4 @@
-import { pushBuff, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, getAdjacentAllies, getUnitPosition, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Rouge  (resource_id: 272)
@@ -8,13 +8,9 @@ function casterMaxHp(caster) {
 }
 
 // 返回 Rouge 在阵容中两侧相邻友军（含自身）的 id 列表
-// back row = 位置 2 或 4（索引 1 或 3）；左右各取一名
+// back row = 位置 2 或 4（position 1 或 3，含空位）；左右各取一名（隔着空位不算相邻）
 function adjacentTargetIds(state, caster) {
-  const idx = state.squad.indexOf(caster);
-  const ids = [caster.id];
-  if (state.squad[idx - 1]) ids.push(state.squad[idx - 1].id);
-  if (state.squad[idx + 1]) ids.push(state.squad[idx + 1].id);
-  return ids;
+  return [caster, ...getAdjacentAllies(state, caster)].map(u => u.id);
 }
 
 export default {
@@ -46,7 +42,7 @@ export default {
           const cdTicks   = Math.round(getSkillValue(caster.rawSkill1, 3, lv) * TICK_RATE);
           const endTick   = state.tick + TICK_RATE * 5;
 
-          pushBuff(state, { name: 'Card Throw', unitId: null, maxHpFlat, noRestore: true, endTick });
+          pushBuff(state, { name: 'Card Throw', unitId: null, maxHpFlat, endTick });
           for (const u of state.squad)
             u.burstCdRemaining = Math.max(0, u.burstCdRemaining - cdTicks);
         },
@@ -78,8 +74,8 @@ export default {
       {
         on: 'BATTLE_START',
         handler(state, caster) {
-          const idx = state.squad.indexOf(caster);
-          if (idx !== 1 && idx !== 3) return;  // 非 back row 不触发
+          const pos = getUnitPosition(state, caster);
+          if (pos !== 1 && pos !== 3) return;  // 非 back row 不触发
 
           caster.skillState.rougeCoinLevel = 1;
           const attackDmgPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
@@ -107,7 +103,7 @@ export default {
       },
 
       // Part3：累计施放 5 次爆裂技能且处于 Shield Coin（level=2）→ 叠加 Double Sword Coin（level→3）
-      // 全员永久 Max HP ▲（原文未写 without restoring HP → 当前 HP 同步提升，由 pushBuff 处理）
+      // 全员永久 Max HP ▲（只提升上限，不回复当前 HP）
       // 游戏内先结算 S3 各部分，之后才计入"使用了爆裂技能"次数：
       // 第 5 次爆裂时本部分生效，但 S3 P4 要到第 6 次爆裂才生效
       {
@@ -166,7 +162,7 @@ export default {
         },
       },
 
-      // Part2：有 Sword Coin（level≥1）→ 全员 Max HP ▲（without restoring HP → noRestore，10 sec）
+      // Part2：有 Sword Coin（level≥1）→ 全员 Max HP ▲（10 sec）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster, ctx) {
@@ -176,11 +172,11 @@ export default {
           const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawBurst, 2, lv) / 100);
           pushBuff(state, { name: 'Game Master P2 (Max HP)', unitId: null,
-            maxHpFlat, noRestore: true, endTick: state.tick + TICK_RATE * 10 });
+            maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },
 
-      // Part3：有 Shield Coin（level≥2）→ 全员 Max HP ▲（10 sec；原文无"不恢复 HP"说明 → 当前 HP 同步提升）
+      // Part3：有 Shield Coin（level≥2）→ 全员 Max HP ▲（10 sec）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster, ctx) {
@@ -194,7 +190,7 @@ export default {
         },
       },
 
-      // Part4：有 Double Sword Coin（level≥3）→ 全员 Max HP ▲（without restoring HP → noRestore，10 sec）
+      // Part4：有 Double Sword Coin（level≥3）→ 全员 Max HP ▲（10 sec）
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster, ctx) {
@@ -204,7 +200,7 @@ export default {
           const maxHpFlat = Math.round(casterMaxHp(caster)
                               * getSkillValue(caster.rawBurst, 6, lv) / 100);
           pushBuff(state, { name: 'Game Master P4 (Max HP)', unitId: null,
-            maxHpFlat, noRestore: true, endTick: state.tick + TICK_RATE * 10 });
+            maxHpFlat, endTick: state.tick + TICK_RATE * 10 });
         },
       },
     ],

@@ -131,10 +131,10 @@ export default {
         handler(state, caster) {
           const lv = caster.skillLevels[1];
           // S2 唯一未具名效果段（P2 为 Fashionably Late）→ 日志标签省略 P 后缀
-          // 「without restoring HP」→ noRestore：只提升上限，不回复当前 HP
+          // Max HP ▲ 只提升上限，不回复当前 HP（引擎统一处理）
           pushBuff(state, { name: 'Fashionably Late Villain', unitId: null,
             maxHpFlat:  Math.round(caster.stats.hp * getSkillValue(caster.rawSkill2, 1, lv) / 100),
-            stackLimit: getSkillValue(caster.rawSkill2, 2, lv), noRestore: true,
+            stackLimit: getSkillValue(caster.rawSkill2, 2, lv),
             endTick:    Infinity }, { ...state._logCtx, partIdx: null });
           recalcFashionablyLate(state, caster);
         },
