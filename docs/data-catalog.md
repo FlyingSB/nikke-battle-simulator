@@ -178,7 +178,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Maiden: Ice Rose | [`183.json`](../src/data/static/nikke/183.json) | [`183.js`](../src/data/skills/183.js) |
 | ✔️ | Alice | [`191.json`](../src/data/static/nikke/191.json) | [`191.js`](../src/data/skills/191.js) |
 | ✔️ | Tove（SSR：Fire Starter） | [`192.json`](../src/data/static/nikke/192.json) | [`192.js`](../src/data/skills/192.js) |
-| ❌ | Ludmilla: Winter Owner | [`194.json`](../src/data/static/nikke/194.json) | [`194.js`](../src/data/skills/194.js) |
+| ✔️ | Ludmilla: Winter Owner | [`194.json`](../src/data/static/nikke/194.json) | [`194.js`](../src/data/skills/194.js) |
 | ✔️ | Exia（SSR：Gamekid Evolution） | [`210.json`](../src/data/static/nikke/210.json) | [`210.js`](../src/data/skills/210.js) |
 | ✔️ | Snow White | [`220.json`](../src/data/static/nikke/220.json) | [`220.js`](../src/data/skills/220.js) |
 | ✔️ | Scarlet | [`222.json`](../src/data/static/nikke/222.json) | [`222.js`](../src/data/skills/222.js) |

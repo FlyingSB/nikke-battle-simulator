@@ -337,11 +337,17 @@ function isStunned(state, u) {
   return state.tick < (u.skillState.stunnedUntilTick ?? 0);
 }
 
-/** lastBurstOnly 策略：当前是否为战斗最后一个爆裂循环（剩余时间不足以再充满一次爆裂槽）。 */
+/**
+ * lastBurstOnly 策略：当前是否为战斗最后一个爆裂循环。
+ * 以上一轮充能耗时估算下一轮：本轮全爆裂结束 → 槽充满 → 槽满→B1、B1→B2、B2→B3 三段阶段延迟，
+ * 若下一轮 B3 施放时刻已超出战斗时长，则本轮即为最后一轮。
+ */
 function isLastBurstCycle(state) {
   const gaugeRefill = state.burstCycleStartTick - state.lastBurstEndTick;
-  const remaining   = MAX_TICKS - state.tick - TICK_RATE * 10;
-  return gaugeRefill > 0 && remaining <= gaugeRefill;
+  if (gaugeRefill <= 0) return false;
+  const fullBurstEnd = state.tick + FULL_BURST_ENTRY_DELAY_TICKS + TICK_RATE * 10;
+  const nextB3Tick   = fullBurstEnd + gaugeRefill + state.burstStepTicks * 3;
+  return nextB3Tick >= MAX_TICKS;
 }
 
 /** B3 候选：Step3 / StepFull、可施放，且未被 lastBurstOnly 策略在非最后一轮排除。 */
