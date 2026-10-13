@@ -15,7 +15,7 @@ URL 哈希随游戏补丁变化，版本号记录在 [`src/data/manifest.js`](..
 
 | 文件 | 内容说明 |
 |------|---------|
-| [`characters.json`](../src/data/static/characters.json) | 角色花名册（英文名，201 个角色） |
+| [`characters.json`](../src/data/static/characters.json) | 角色花名册（英文名，203 个角色） |
 | [`levels.json`](../src/data/static/levels.json) | 进阶 / 升级表 |
 | [`attractive.json`](../src/data/static/attractive.json) | 吸引力系统数据 |
 | [`recycleRoom.json`](../src/data/static/recycleRoom.json) | 回收室数据 |
@@ -174,11 +174,12 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Mihara: Bonding Chain | [`162.json`](../src/data/static/nikke/162.json) | [`162.js`](../src/data/skills/162.js) |
 | ✔️ | Privaty（SSR：Central Government Special Medal） | [`170.json`](../src/data/static/nikke/170.json) | [`170.js`](../src/data/skills/170.js) |
 | ✔️ | Guillotine | [`180.json`](../src/data/static/nikke/180.json) | [`180.js`](../src/data/skills/180.js) |
+| ✔️ | Maiden | [`181.json`](../src/data/static/nikke/181.json) | [`181.js`](../src/data/skills/181.js) |
 | ✔️ | Maiden: Ice Rose | [`183.json`](../src/data/static/nikke/183.json) | [`183.js`](../src/data/skills/183.js) |
 | ✔️ | Alice | [`191.json`](../src/data/static/nikke/191.json) | [`191.js`](../src/data/skills/191.js) |
 | ✔️ | Tove（SSR：Fire Starter） | [`192.json`](../src/data/static/nikke/192.json) | [`192.js`](../src/data/skills/192.js) |
 | ❌ | Ludmilla: Winter Owner | [`194.json`](../src/data/static/nikke/194.json) | [`194.js`](../src/data/skills/194.js) |
-| ❌ | Exia（SSR：Gamekid Evolution） | [`210.json`](../src/data/static/nikke/210.json) | [`210.js`](../src/data/skills/210.js) |
+| ✔️ | Exia（SSR：Gamekid Evolution） | [`210.json`](../src/data/static/nikke/210.json) | [`210.js`](../src/data/skills/210.js) |
 | ✔️ | Snow White | [`220.json`](../src/data/static/nikke/220.json) | [`220.js`](../src/data/skills/220.js) |
 | ✔️ | Scarlet | [`222.json`](../src/data/static/nikke/222.json) | [`222.js`](../src/data/skills/222.js) |
 | ✔️ | Nayuta | [`223.json`](../src/data/static/nikke/223.json) | [`223.js`](../src/data/skills/223.js) |
@@ -190,7 +191,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Blanc | [`270.json`](../src/data/static/nikke/270.json) | [`270.js`](../src/data/skills/270.js) |
 | ✔️ | Noir | [`271.json`](../src/data/static/nikke/271.json) | [`271.js`](../src/data/skills/271.js) |
 | ✔️ | Rouge | [`272.json`](../src/data/static/nikke/272.json) | [`272.js`](../src/data/skills/272.js) |
-| ❌ | Rosanna（SSR：Signet Ring） | [`280.json`](../src/data/static/nikke/280.json) | [`280.js`](../src/data/skills/280.js) |
+| ✔️ | Rosanna（SSR：Signet Ring） | [`280.json`](../src/data/static/nikke/280.json) | [`280.js`](../src/data/skills/280.js) |
 | ✔️ | Moran | [`281.json`](../src/data/static/nikke/281.json) | [`281.js`](../src/data/skills/281.js) |
 | ✔️ | Privaty: Unkind Maid | [`313.json`](../src/data/static/nikke/313.json) | [`313.js`](../src/data/skills/313.js) |
 | ❌ | Soda: Twinkling Bunny | [`314.json`](../src/data/static/nikke/314.json) | [`314.js`](../src/data/skills/314.js) |

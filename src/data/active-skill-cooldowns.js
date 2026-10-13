@@ -10,6 +10,7 @@
 export const ACTIVE_SKILL_COOLDOWN_SEC = {
   80:  { skill2: 9  },  // Centi — prydwen.gg / nikke.gg
   82:  { skill2: 15 },  // Liter
+  181: { skill2: 30 },  // Maiden — prydwen.gg / Fandom wiki
   220: { skill2: 15 },  // Snow White
   231: { skill2: 15 },  // Isabel — prydwen.gg / nikke.gg
   353: { skill2: 4  },  // Helm: Aquamarine

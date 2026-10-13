@@ -1537,7 +1537,12 @@
         "attack_type": "Metal"
       }
     },
-    "costumes": []
+    "costumes": [
+      {
+        "id": 100005,
+        "costume_index": 1
+      }
+    ]
   },
   {
     "id": 211301,
@@ -5122,6 +5127,41 @@
     "costumes": []
   },
   {
+    "id": 306301,
+    "resource_id": 63,
+    "order": 10143,
+    "original_rare": "SSR",
+    "class": "Supporter",
+    "use_burst_skill": "Step2",
+    "name_code": 5184,
+    "grade_core_id": 1,
+    "corporation": "TETRA",
+    "is_visible": true,
+    "name_localkey": {
+      "name": "Belorta: Pumpkin Witch"
+    },
+    "element_id": {
+      "element": {
+        "id": 200001,
+        "element": "Water",
+        "group_id": 5000002,
+        "weak_element_id": 400001,
+        "element_name_localekey": "Locale_System:ELEMENT_NAME_WARTER",
+        "element_code_name_localekey": "Locale_System:ELEMENT_CODE_NAME_WARTER",
+        "element_desc_localekey": "Locale_System:ELEMENT_DESC_WARTER",
+        "element_icon": "icn_element_water"
+      }
+    },
+    "shot_id": {
+      "element": {
+        "ammo": 6,
+        "weapon_type": "RL",
+        "attack_type": "Metal"
+      }
+    },
+    "costumes": []
+  },
+  {
     "id": 422001,
     "resource_id": 220,
     "order": 10144,
@@ -5713,6 +5753,10 @@
       {
         "id": 50015,
         "costume_index": 1
+      },
+      {
+        "id": 60005,
+        "costume_index": 3
       }
     ]
   },
