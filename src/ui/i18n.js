@@ -38,7 +38,11 @@ export function loadSavedLang() {
 /** 设置模块级当前语言并持久化（store.setLang 调用） */
 export function setCurrentLang(lang) {
   _current = normalizeLang(lang);
-  try { localStorage.setItem(LANG_STORAGE_KEY, _current); } catch { /* 存储不可用时仅本次生效 */ }
+  try {
+    localStorage.setItem(LANG_STORAGE_KEY, _current);
+  } catch (err) {
+    console.error('界面语言保存失败（仅本次生效）:', err);
+  }
   if (typeof document !== 'undefined') {
     document.documentElement.lang = _current === 'zh' ? 'zh-CN' : 'en';
     document.title = translate(_current, 'app.title');

@@ -29,6 +29,7 @@ SSR 专属珍藏品（resource_id `200XXX` / `201XXX` / `202XXX`）会替换角�
 | Centi | 80 | Metal Pendant | 201601 |
 | Drake | 101 | Villain Figurine | 200801 |
 | Sugar | 140 | Commemorative Keychain | 202101 |
+| Frima | 142 | Beloved Pillow | 200301 |
 | Privaty | 170 | Central Government Special Medal | 201401 |
 | Tove | 192 | Fire Starter | 201101 |
 | Exia | 210 | Gamekid Evolution | 200201 |

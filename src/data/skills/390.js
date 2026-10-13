@@ -192,6 +192,8 @@ export default {
           // 第一次命中受 S1 P1 pierce1r 加成并消耗它，随后触发 S1 P2 叠加一次 pierce_stack；
           // 第二次命中受 pierce_stack 加成但不消耗它（由 battle.js 双重命中逻辑处理）。
           caster.skillState.weaponSwitchDoubleHit        = true;
+          // 双枪：双重命中即为切换武器的双枪表现，不再叠加引擎默认的武器伤害系数 ×2
+          caster.skillState.weaponSwitchDualGun          = false;
           // 立即开始蓄力
           caster.chargeTick = state.tick + chargeTimeTicks;
         },

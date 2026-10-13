@@ -456,7 +456,10 @@ export function fireShotCountTriggers(state, unit, shotCtx) {
  * @param {object} unit      射击单位
  * @param {object} shotCtx   { sums, isCharged, hitPart, pellets, ammoAfterShot }
  *                            pellets：本次射击命中目标的弹丸数（SG 含弹丸数增减/固定，其余武器 1）
- *                            isCrit：本次射击是否暴击（引擎按整发判定，弹丸同时暴击；如 K S1 P2 按弹丸计暴击次数）
+ *                            isCrit：本次射击是否暴击（SG 为「至少一颗命中弹丸暴击」）
+ *                            critPellets / corePellets：本次射击暴击 / 命中核心的弹丸数
+ *                              （SG 每颗命中弹丸独立判定暴击与核心；其余武器为 0 或 1。如 K S1 P2 按弹丸计暴击次数）
+ *                            weaponType：本发实际武器类型（含武器切换，如 K 爆裂切换为 'SG'）
  * @param {object} [opts]    可选标志
  *   skipShotCount      {boolean}  跳过 SHOT_COUNT 触发（已由 fireShotCountTriggers 处理）
  */

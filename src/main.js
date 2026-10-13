@@ -22,6 +22,15 @@ document.getElementById('loaderTitle').textContent = t('app.title');
 document.getElementById('loadProgress').textContent = t('app.initializing');
 
 // ── 自动保存 ──────────────────────────────────────────────────────────────────
+// 界面状态（队伍 / 敌人 / 选项）写入 localStorage；失败（配额不足等）时报错弹窗，避免修改静默丢失
+function saveState(snapshot) {
+  try {
+    localStorage.setItem('nikke-sim-v1', JSON.stringify(snapshot));
+  } catch (err) {
+    console.error('界面状态保存失败（刷新后本次修改会丢失）:', err);
+  }
+}
+
 document.addEventListener('alpine:initialized', () => {
   let _saveTimer = null;
   Alpine.effect(() => {
@@ -29,16 +38,14 @@ document.addEventListener('alpine:initialized', () => {
     if (sim.loading) return;
     const snapshot = sim._getSnapshot();
     clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(() => {
-      try { localStorage.setItem('nikke-sim-v1', JSON.stringify(snapshot)); } catch {}
-    }, 500);
+    _saveTimer = setTimeout(() => saveState(snapshot), 500);
   });
 
   // Live Server 热重载触发 beforeunload 时，防抖未触发导致数据丢失——在此强制同步保存
   window.addEventListener('beforeunload', () => {
     const sim = Alpine.store('sim');
     if (sim.loading) return;
-    try { localStorage.setItem('nikke-sim-v1', JSON.stringify(sim._getSnapshot())); } catch {}
+    saveState(sim._getSnapshot());
   });
 });
 

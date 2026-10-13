@@ -1,13 +1,19 @@
 /**
  * 数据加载器 — 优先读取项目内的静态快照（src/data/static/），
- * 文件缺失时回退到 CDN 并缓存到 localStorage。
+ * 文件缺失时回退到 CDN，并缓存到 IndexedDB（库 nikke-sim-cache）。
+ *
+ * 缓存曾存于 localStorage，约 5MB 配额会被数十个角色 JSON 占满，导致界面状态 / 语言设置等
+ * 写入失败；现改存 IndexedDB，启动时删除 localStorage 中的旧缓存键（缓存可随时由静态文件重建）。
  *
  * 静态快照由 `node scripts/download-all-static.mjs` 生成，
  * 生成后非必要不再访问 CDN。
  */
 import { DATA_URLS, CUBE_URLS, FAVORITE_ITEM_URLS, BATTLE_DATA_KEYS, MANIFEST_VERSION } from './manifest.js';
+import { createIdbKv } from './idb-kv.js';
 
-const CACHE_PREFIX = `nikke_sim_${MANIFEST_VERSION}_`;
+const LEGACY_LS_PREFIX = 'nikke_sim_';
+const CACHE_PREFIX = `${LEGACY_LS_PREFIX}${MANIFEST_VERSION}_`;
+const _cache = createIdbKv('nikke-sim-cache');
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 小时
 // 相对于 HTTP 服务根目录（项目根）的静态快照基路径
 const LOCAL_BASE   = '/src/data/static';
@@ -23,6 +29,8 @@ const _store = {};
 export async function loadAllData(onProgress) {
   const keys = BATTLE_DATA_KEYS;
   let done = 0;
+  purgeLegacyLocalStorageCache();
+  pruneOldCacheEntries();
 
   await Promise.all(keys.map(async (key) => {
     _store[key] = await loadOne(key);
@@ -38,7 +46,7 @@ export function getData(key) {
   return _store[key];
 }
 
-/** 按 key 注入数据 — 供 Node.js 测试脚本使用，可绕过 localStorage。 */
+/** 按 key 注入数据 — 供 Node.js 测试脚本使用，可绕过缓存与网络加载。 */
 export function setData(key, value) {
   _store[key] = value;
 }
@@ -93,7 +101,7 @@ export async function refreshOne(key) {
 // ─── 内部实现 ───────────────────────────────────────────────────────────────
 
 /**
- * 通用加载器：优先 localStorage 缓存 → 本地静态文件 → CDN。
+ * 通用加载器：优先 IndexedDB 缓存 → 本地静态文件 → CDN。
  * @param {string}        prefix      缓存键前缀（'nikke' | 'cube' | 'fav'）
  * @param {number}        resourceId  资源 ID（Number 类型）
  * @param {string}        url         CDN fallback URL
@@ -102,14 +110,9 @@ export async function refreshOne(key) {
 async function _loadByUrl(prefix, resourceId, url, localPath) {
   const cacheKey = CACHE_PREFIX + `${prefix}_${resourceId}`;
 
-  // 1. localStorage 缓存
-  try {
-    const raw = localStorage.getItem(cacheKey);
-    if (raw) {
-      const { data, ts } = JSON.parse(raw);
-      if (Date.now() - ts < CACHE_TTL_MS) return data;
-    }
-  } catch { /* 忽略 */ }
+  // 1. IndexedDB 缓存
+  const entry = await readCache(cacheKey);
+  if (entry && !isStale(entry)) return entry.data;
 
   // 2. 本地静态快照（由 download-all-static.mjs 生成）
   if (localPath) {
@@ -117,12 +120,10 @@ async function _loadByUrl(prefix, resourceId, url, localPath) {
       const res = await fetch(localPath);
       if (res.ok) {
         const data = await res.json();
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
-        } catch { /* 存储已满 */ }
+        writeCache(cacheKey, data);
         return data;
       }
-    } catch { /* 静态文件不存在，继续 CDN */ }
+    } catch { /* 静态文件不存在或网络错误：按设计回退到 CDN，CDN 也失败时下方抛错 */ }
   }
 
   // 3. CDN fallback（url 为 null 时说明仅有本地文件，本地已缺失则报错）
@@ -130,25 +131,24 @@ async function _loadByUrl(prefix, resourceId, url, localPath) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch ${prefix} ${resourceId}: ${res.status}`);
   const data = await res.json();
-
-  try {
-    localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
-  } catch { /* 存储已满 */ }
-
+  writeCache(cacheKey, data);
   return data;
 }
 
 async function loadOne(key) {
-  const cached = readCache(key);
-  if (cached) {
+  const cacheKey = CACHE_PREFIX + key;
+  const entry = await readCache(cacheKey);
+  if (entry) {
     // 若过期则后台刷新
-    if (isCacheStale(key)) {
-      fetchFromCDN(key).then(data => writeCache(key, data)).catch(() => {});
+    if (isStale(entry)) {
+      fetchFromCDN(key)
+        .then(data => writeCache(cacheKey, data))
+        .catch(err => console.error(`[数据缓存] 后台刷新 ${key} 失败（继续使用旧缓存）:`, err));
     }
-    return cached;
+    return entry.data;
   }
   const data = await fetchFromCDN(key);
-  writeCache(key, data);
+  writeCache(cacheKey, data);
   return data;
 }
 
@@ -168,46 +168,47 @@ async function fetchFromCDN(key) {
   return Array.isArray(json) ? json : (json.records ?? json);
 }
 
-function readCache(key) {
+// ─── IndexedDB 缓存 ──────────────────────────────────────────────────────────
+// 条目格式：{ data, ts }（ts = 写入时间，毫秒）。缓存失败不影响加载（数据照常返回），但会报错便于排查。
+
+/** 读取缓存条目；缺失或读取失败时返回 null */
+async function readCache(cacheKey) {
   try {
-    const raw = localStorage.getItem(CACHE_PREFIX + key);
-    if (!raw) return null;
-    const { data } = JSON.parse(raw);
-    return data;
-  } catch {
+    const entry = await _cache.get(cacheKey);
+    return entry && typeof entry === 'object' && 'data' in entry ? entry : null;
+  } catch (err) {
+    console.error(`[数据缓存] 读取 ${cacheKey} 失败:`, err);
     return null;
   }
 }
 
-function writeCache(key, data) {
-  try {
-    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({
-      data,
-      ts: Date.now(),
-    }));
-  } catch (e) {
-    // localStorage 已满 — 清理旧条目后重试
-    clearOldCacheEntries();
-    try {
-      localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ data, ts: Date.now() }));
-    } catch { /* 静默放弃 */ }
-  }
+/** 后台写入缓存（不阻塞加载） */
+function writeCache(cacheKey, data) {
+  _cache.set(cacheKey, { data, ts: Date.now() })
+    .catch(err => console.error(`[数据缓存] 写入 ${cacheKey} 失败:`, err));
 }
 
-function isCacheStale(key) {
-  try {
-    const raw = localStorage.getItem(CACHE_PREFIX + key);
-    if (!raw) return true;
-    const { ts } = JSON.parse(raw);
-    return Date.now() - ts > CACHE_TTL_MS;
-  } catch {
-    return true;
-  }
+function isStale(entry) {
+  return !(Date.now() - entry.ts < CACHE_TTL_MS);
 }
 
-function clearOldCacheEntries() {
-  const prefix = 'nikke_sim_';
-  Object.keys(localStorage)
-    .filter(k => k.startsWith(prefix) && !k.startsWith(CACHE_PREFIX))
-    .forEach(k => localStorage.removeItem(k));
+/** 删除其他 manifest 版本的缓存条目（游戏更新后旧数据作废） */
+function pruneOldCacheEntries() {
+  _cache.keys()
+    .then(keys => Promise.all(keys
+      .filter(k => typeof k === 'string' && !k.startsWith(CACHE_PREFIX))
+      .map(k => _cache.del(k))))
+    .catch(err => console.error('[数据缓存] 清理旧版本缓存失败:', err));
+}
+
+/** 删除旧版存在 localStorage 中的缓存（迁移到 IndexedDB 前的遗留，释放 localStorage 配额） */
+function purgeLegacyLocalStorageCache() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(LEGACY_LS_PREFIX))
+      .forEach(k => localStorage.removeItem(k));
+  } catch (err) {
+    console.error('[数据缓存] 清理 localStorage 旧缓存失败:', err);
+  }
 }

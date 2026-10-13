@@ -1,9 +1,10 @@
 ﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
+import { ACTIVE_SKILL_COOLDOWN_SEC } from '../active-skill-cooldowns.js';
 
 // Character: Snow White  (resource_id: 220)
-// S2 冷却时间（CDN 不提供，人工填写）
-const S2_COOLDOWN_SEC = 15;
+// S2 冷却时间（CDN 不提供，人工填写于 active-skill-cooldowns.js）：15s
+const S2_COOLDOWN_SEC = ACTIVE_SKILL_COOLDOWN_SEC[220].skill2;
 
 export default {
 

@@ -12,12 +12,15 @@
  *   P3 — 弹丸数固定为 1：整发充能不变
  *   P4 — 弹丸全部打空（sgHitRate 0、参考距离 50）：充能 0、伤害 0
  *   P5 — 命中率 ▲ 收圆：单弹丸（固定为 1）几乎不再打空
+ *   P6 — 逐弹丸独立判定暴击 / 核心，按（暴击, 核心）分为至多 4 类
+ *   P7 — SG 命中行分类明细：分类伤害之和 = 整发伤害，每弹丸系数 = 整发系数 ÷ 发射弹丸数
  *
  * Run: node scripts/tests/test-sg-pellets.mjs
  */
 
 import { initBattle, tick } from '../../src/engine/battle.js';
 import { setRng } from '../../src/engine/rng.js';
+import { rollPelletGroups } from '../../src/engine/battle-utils.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
 
 const ENEMY = { maxHp: 1e15, def: 0, element: 'Iron', type: 'Boss', hasCore: false, distance: 50 };
@@ -84,6 +87,35 @@ section('P5 — 命中率 ▲ 收圆：单弹丸打空率按有效散布缩放')
   eq('HR 100%、rng 0.9 → 单弹丸命中，整发充能 1000',
     firstShot({ pelletFixed: 1, hitRatePct: 1 }, { sgHitRate: 0.7 })?.gaugeAfter, 1000);
   setRng(null);
+}
+
+section('P6 — 逐弹丸暴击 / 核心分类（rollPelletGroups）');
+{
+  // 暴击率 0.5：rng 依次 0.1（暴击）/ 0.9（不暴击）交替；核心按脚本 [T, F, F, T, ...] 循环
+  const seq = [0.1, 0.9];
+  let i = 0;
+  setRng(() => seq[i++ % 2]);
+  const coreSeq = [true, false, false, true];
+  let j = 0;
+  const groups = rollPelletGroups(8, 0.5, () => coreSeq[j++ % 4]);
+  setRng(null);
+  // 弹丸 1..8：(暴,核)(非,非)(暴,非)(非,核) × 2 → 每类 2 颗，顺序：普通、仅暴击、仅核心、暴击+核心
+  eq('四类齐全', groups.map(g => `${+g.isCrit}${+g.isCore}:${g.count}`).join(' '), '00:2 10:2 01:2 11:2');
+  eq('弹丸数 0 的类不返回', rollPelletGroups(3, 0, () => false).length, 1);
+  eq('命中 0 颗 → 空数组', rollPelletGroups(0, 1, () => true).length, 0);
+}
+
+section('P7 — SG 命中行：分类伤害之和 = 整发伤害，每弹丸系数 = 整发系数 ÷ 发射弹丸数');
+{
+  const state = initBattle({ squad: [sgUnit({ _computedStats: { atk: 100_000, hp: 1_000_000, def: 1_000, critRate: 0.5, critDmg: 0.5 } })],
+    enemy: { ...ENEMY, sgHitRate: 1 }, hitLog: true });
+  for (let t = 0; t < 60 && !state.hitLog.some(h => h.label === 'normal_shot'); t++) tick(state);
+  const h = state.hitLog.find(h => h.label === 'normal_shot');
+  const groups = h?.pelletGroups ?? [];
+  eq('分类弹丸数合计 = 10', groups.reduce((n, g) => n + g.count, 0), 10);
+  eq('分类伤害之和 = 整发伤害', groups.reduce((n, g) => n + g.damage, 0), h?.damage);
+  eq('每弹丸系数 = 1.0 / 10', h?.pelletHitMult, 0.1);
+  eq('整发 isCrit = 存在暴击类', h?.isCrit, groups.some(g => g.isCrit));
 }
 
 summary('SG pellet charge / hit tests');

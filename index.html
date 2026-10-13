@@ -49,6 +49,15 @@
               @change="e => $store.sim.importAccount(e.target.files[0]).then(() => e.target.value = '')">
           </label>
         </template>
+        <!-- 模拟记录：弹窗查看最近的模拟结果 -->
+        <button type="button" class="btn btn-ghost btn-sm topbar-history-btn"
+          :title="$t('top.historyTitle', { n: $store.sim.SIM_HISTORY_MAX })"
+          aria-haspopup="dialog"
+          @click="$store.sim.simHistoryOpen = true">
+          <span x-text="$t('top.history')"></span>
+          <span class="topbar-badge mono" x-show="$store.sim.simHistory.length"
+            x-text="$store.sim.simHistory.length"></span>
+        </button>
         <!-- 界面语言切换：分段按钮，当前语言高亮 -->
         <div class="lang-switch" role="group" :aria-label="$t('lang.label')">
           <template x-for="l in $store.sim.LANGS" :key="l.code">
@@ -526,6 +535,18 @@
                         <span class="skill-name-row"
                           x-show="!!$store.sim.activeSlotData._nikkeData"
                           x-text="$store.sim.effectiveSkillDetail($store.sim.activeSlot, j)?.name_localkey ?? ''"></span>
+                        <!-- 主动技能 / 爆裂技能冷却（时钟图标 + N.0s）：NaN = 主动技能但冷却未登记 -->
+                        <span class="skill-cd"
+                          x-data="{ get cd() { return $store.sim.skillCooldownSec($store.sim.activeSlot, j) } }"
+                          x-show="cd != null"
+                          :title="Number.isNaN(cd) ? $t('skills.activeNoCdTitle') : $t('skills.cooldownTitle')">
+                          <svg class="skill-cd-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <circle cx="10" cy="10" r="10" fill="#585859"></circle>
+                            <path d="M10 5V10L15 14" stroke="white" stroke-width="2"></path>
+                          </svg>
+                          <span class="skill-cd-val mono"
+                            x-text="Number.isNaN(cd) ? $t('skills.active') : (+cd).toFixed(1) + 's'"></span>
+                        </span>
                         <div class="skill-lv-ctrl">
                           <button class="lv-btn"
                             @click="if ($store.sim.activeSlotData.skills[j] > 1) $store.sim.activeSlotData.skills[j]--">−</button>
@@ -707,7 +728,7 @@
               <!-- 固定区域：结果 + 技能伤害 -->
               <div class="result-panel-fixed">
 
-                <!-- 总览 -->
+                <!-- 结果：总览 + 各角色伤害（同一卡片） -->
                 <section class="card">
                   <h2 class="card-title">
                     <span x-text="$t('results.title')"></span>
@@ -726,11 +747,9 @@
                         x-text="Math.round($store.sim.result.burstCount ?? 0)"></span>
                     </div>
                   </div>
-                </section>
 
-                <!-- 各角色伤害 -->
-                <section class="card">
-                  <h3 class="sub-title" x-text="$t('results.unitDamage')"></h3>
+                  <!-- 各角色伤害 -->
+                  <div class="result-units">
                   <template x-for="unit in $store.sim.result.units" :key="unit.id">
                     <div class="unit-block">
                       <div class="unit-header">
@@ -758,6 +777,7 @@
                       </div>
                     </div>
                   </template>
+                  </div><!-- /result-units -->
                 </section>
 
               </div><!-- /result-panel-fixed -->
@@ -942,7 +962,8 @@
                               :class="$store.sim.logMode === 'detail' && row._hit ? 'log-dmg--tip' : ''"
                               x-text="row.damage != null ? $store.sim.fmtNum(row.damage) : ''"
                               @mouseenter="$store.sim.logMode === 'detail' && row._hit && $store.sim.showDmgTooltip($event, row._hit)"
-                              @mouseleave="$store.sim.hideDmgTooltip()"></td>
+                              @mouseleave="$store.sim.hideDmgTooltip()"
+                              @click="$store.sim.logMode === 'detail' && row._hit && $store.sim.copyDmgFormula(row._hit)"></td>
                             <td class="log-ammo mono" x-show="$store.sim.logMode === 'detail'"
                               x-text="row.charge ?? ''"></td>
                             <td class="log-gauge mono"
@@ -1093,6 +1114,80 @@
     </div>
   </div>
 
+  <!-- ── 模拟记录弹窗：最近的模拟结果（队伍组成 + 各角色总伤害） ── -->
+  <div class="modal-overlay"
+       x-data
+       x-show="$store.sim.simHistoryOpen"
+       x-transition.opacity
+       @click.self="$store.sim.simHistoryOpen = false"
+       @keydown.escape.window="$store.sim.simHistoryOpen = false"
+       style="display:none">
+    <div class="modal-box modal-box--history" role="dialog" aria-modal="true" aria-labelledby="sim-history-title" @click.stop>
+      <div class="modal-header">
+        <h2 class="modal-title" id="sim-history-title">
+          <span x-text="$t('history.title')"></span>
+          <span class="hist-count mono"
+            x-text="$t('history.count', { n: $store.sim.simHistory.length, max: $store.sim.SIM_HISTORY_MAX })"></span>
+        </h2>
+        <div class="hist-header-actions">
+          <button type="button" class="btn btn-ghost btn-sm hist-clear-btn"
+            x-show="$store.sim.simHistory.length"
+            @click="$store.sim.clearSimHistory()" x-text="$t('history.clear')"></button>
+          <button type="button" class="btn btn-ghost btn-sm" :title="$t('history.close')"
+            @click="$store.sim.simHistoryOpen = false">✕</button>
+        </div>
+      </div>
+
+      <p class="hist-empty" x-show="!$store.sim.simHistory.length" x-text="$t('history.empty')"></p>
+
+      <!-- 仅在弹窗打开时渲染列表（最多 100 条 × 5 角色），关闭后释放 DOM -->
+      <template x-if="$store.sim.simHistoryOpen && $store.sim.simHistory.length">
+        <ol class="hist-list">
+          <template x-for="rec in $store.sim.simHistory" :key="rec.id">
+            <!-- 单行紧凑布局：元信息 | 总伤害 | 5 个站位格（按队伍槽位对齐，便于逐条对比） | 删除 -->
+            <!-- 点击整行（或聚焦后按 Enter / 空格）应用此记录的队伍配置 -->
+            <li class="hist-item" role="button" tabindex="0"
+              :class="{ 'hist-item--disabled': $store.sim.simRunning }"
+              :aria-disabled="$store.sim.simRunning"
+              :title="$t('history.applyHint')"
+              @click="$store.sim.applySimHistory(rec.id)"
+              @keydown.enter.prevent="$store.sim.applySimHistory(rec.id)"
+              @keydown.space.prevent="$store.sim.applySimHistory(rec.id)">
+              <div class="hist-meta" :title="$store.sim.fmtHistoryTime(rec.createdAt)">
+                <time class="hist-time mono" :datetime="new Date(rec.createdAt).toISOString()"
+                  x-text="$store.sim.fmtHistoryTime(rec.createdAt).slice(5)"></time>
+                <span class="hist-sub"
+                  x-text="[rec.enemy?.element && $t('history.enemy') + ' ' + $store.sim.elementLabel(rec.enemy.element),
+                           rec.level && $t('history.level', { n: rec.level })].filter(Boolean).join(' · ')"></span>
+              </div>
+              <span class="hist-total mono" :title="$t('results.totalDamage')"
+                x-text="$store.sim.fmtNum(rec.totalDamage)"></span>
+
+              <ol class="hist-units">
+                <template x-for="(u, ui) in rec.units" :key="ui">
+                  <li class="hist-unit" :style="'grid-column:' + ((u.position ?? ui) + 1)"
+                    :title="$store.sim.charName(u.characterId, u.name) + (u.isFocus ? ' (' + $t('history.focus') + ')' : '')">
+                    <img class="hist-unit-img" :class="{ 'hist-unit-img--focus': u.isFocus }"
+                      width="64" height="64" loading="lazy"
+                      :src="`src/data/static/images/sm/${String(u.characterId).padStart(3,'0')}_00.webp`"
+                      :alt="$store.sim.charName(u.characterId, u.name)"
+                      @error="$el.style.visibility='hidden'">
+                    <span class="hist-unit-name" x-text="$store.sim.charName(u.characterId, u.name)"></span>
+                    <span class="hist-unit-dmg mono" x-text="$store.sim.fmtNum(u.totalDamage)"></span>
+                  </li>
+                </template>
+              </ol>
+
+              <button type="button" class="hist-del-btn" :title="$t('history.delete')" :aria-label="$t('history.delete')"
+                @click.stop="$store.sim.deleteSimHistory(rec.id)"
+                @keydown.enter.stop @keydown.space.stop>✕</button>
+            </li>
+          </template>
+        </ol>
+      </template>
+    </div>
+  </div>
+
   <!-- 轻提示 -->
   <div class="toast" role="status" aria-live="polite"
        x-data
@@ -1105,6 +1200,8 @@
   <div id="skill-tooltip" class="skill-tooltip" style="display:none"></div>
   <div id="buff-tooltip"  class="skill-tooltip" style="display:none"></div>
   <div id="gauge-tooltip" class="gauge-tooltip" style="display:none"></div>
+  <!-- 错误弹窗：独立模块、先于 main.js 加载，主程序模块加载失败时也能捕获并弹窗 -->
+  <script type="module" src="src/ui/error-report.js"></script>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

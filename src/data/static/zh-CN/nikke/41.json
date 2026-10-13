@@ -5,7 +5,7 @@
     "info_description_localkey": "技能1"
   },
   "skill2_detail": {
-    "name_localkey": "运行正义",
+    "name_localkey": "实现正义",
     "description_localkey": "■倾斜的天秤生效时，全体队友\n<color=#00AEFF>【实现正义】\n功能：最大装弹数减少但攻击伤害增加\n效果1：【最大装弹数{description_value_01}%▼】【持续{description_value_02}秒】（<word_group=10081>相同效果不可重复</word_group>）\n效果2：【攻击伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>\n■全爆裂时间结束时，全体队友\n<color=#00AEFF>【解除实现正义】</color>",
     "info_description_localkey": "技能2"
   },

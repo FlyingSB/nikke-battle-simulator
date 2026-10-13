@@ -141,6 +141,9 @@ export function runSimulation(baseConfig, iterations, { onProgress } = {}) {
       } else if (data.type === 'done') {
         _setStatus({ done: iterations });
         finish('done', null, { mcResult: data.mcResult, hitLog: data.hitLog, log: data.log });
+      } else if (data.type === 'console-error') {
+        // Worker 内引擎日志的错误：转到主线程 console.error，由错误弹窗捕获（模拟继续进行）
+        console.error('[模拟 Worker]', data.text);
       } else if (data.type === 'error') {
         const err = new Error(data.message);
         err.stack = data.stack || err.stack;

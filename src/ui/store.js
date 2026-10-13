@@ -20,8 +20,11 @@ import { MODELED_IDS } from '../data/skill-traits.js';
 import { loadZhNames, loadZhPatch, localizeData } from '../data/locale-loader.js';
 import { LANGS, loadSavedLang, setCurrentLang, t, translate } from './i18n.js';
 import { createNameMap, displayGameText } from './game-text.js';
-import { buildDmgTooltipHTML } from './dmg-tooltip.js';
+import { buildDmgTooltipHTML, pelletGroupTitleKey } from './dmg-tooltip.js';
+import { buildDmgFormulaExport, pickPelletGroup } from './dmg-formula-export.js';
 import { buildEnemyConfigExport, parseEnemyConfig } from './enemy-config-io.js';
+import { getActiveSkillCooldownSec } from '../data/active-skill-cooldowns.js';
+import { SIM_HISTORY_MAX, buildHistoryRecord, addHistoryRecord, mergeHistory, loadHistory, saveHistory } from './sim-history.js';
 import ZH_GAME_TERMS from './locales/zh-game-terms.js';
 
 // ─── 开发模式 trace 上报 ────────────────────────────────────────────────────
@@ -93,6 +96,7 @@ const SSR_FAV_BY_CHAR = {
    80: 201601, // Centi     → Metal Pendant
   101: 200801, // Drake     → Villain Figurine
   140: 202101, // Sugar     → Commemorative Keychain
+  142: 200301, // Frima     → Beloved Pillow
   170: 201401, // Privaty   → Central Government Special Medal
   192: 201101, // Tove      → Fire Starter
   210: 200201, // Exia      → Gamekid Evolution
@@ -884,6 +888,11 @@ export function createStore() {
     showLogReload:       false,
     _squadLookup:  null,
 
+    // 模拟结果记录（最新在前，最多 SIM_HISTORY_MAX 条；只含队伍组成与各角色总伤害）
+    simHistory:     [],
+    simHistoryOpen: false,
+    SIM_HISTORY_MAX,
+
     // 常量（模板使用）
     EQUIP_SLOTS,
     EQUIP_OPTION_TYPES,
@@ -1088,10 +1097,16 @@ export function createStore() {
       // 恢复上次保存的状态（在账号默认值之后，用户自定义优先）
       const _saved = localStorage.getItem(STORAGE_KEY);
       if (_saved) {
-        try { this._restoreSnapshot(JSON.parse(_saved)); } catch {}
+        try {
+          this._restoreSnapshot(JSON.parse(_saved));
+        } catch (err) {
+          console.error('恢复上次保存的界面状态失败（已使用默认配置）:', err);
+        }
       }
 
       this._loadEnemyPresetsFromStorage();
+      // 模拟记录异步读取（IndexedDB），不阻塞启动；与读取期间新产生的记录合并
+      loadHistory(localStorage).then(list => { this.simHistory = mergeHistory(this.simHistory, list); });
       this.loading = false;
     },
 
@@ -1165,28 +1180,33 @@ export function createStore() {
         mastBurstMode:    this.mastBurstMode,
         ccwSnipeModeAtStart: this.ccwSnipeModeAtStart,
         focusSlot:          this.focusSlot,
-        team: this.team.map(slot => ({
-          active:       slot.active,
-          resourceId:   slot.resourceId,
-          name:         slot.name,
-          classType:    slot.classType,
-          corporation:  slot.corporation,
-          element:      slot.element,
-          weaponType:   slot.weaponType,
-          burstStep:    slot.burstStep,
-          grade:        slot.grade,
-          core:         slot.core,
-          bondLevel:    slot.bondLevel,
-          skills:       slot.skills.slice(),
-          cube:         { resourceId: slot.cube.resourceId, level: slot.cube.level },
-          favoriteItem: { resourceId: slot.favoriteItem.resourceId, level: slot.favoriteItem.level },
-          equipment:    Object.fromEntries(EQUIP_SLOTS.map(k => [k, {
-            classReq: slot.equipment[k].classReq,
-            tier:     slot.equipment[k].tier,
-            level:    slot.equipment[k].level,
-            opts:     slot.equipment[k].opts.map(o => ({ type: o.type, value: o.value })),
-          }])),
-        })),
+        team: this.team.map(slot => this._slotSnapshot(slot)),
+      };
+    },
+
+    /** 单个槽位的可序列化配置（不含加载的 CDN 数据）；状态持久化与模拟记录共用 */
+    _slotSnapshot(slot) {
+      return {
+        active:       slot.active,
+        resourceId:   slot.resourceId,
+        name:         slot.name,
+        classType:    slot.classType,
+        corporation:  slot.corporation,
+        element:      slot.element,
+        weaponType:   slot.weaponType,
+        burstStep:    slot.burstStep,
+        grade:        slot.grade,
+        core:         slot.core,
+        bondLevel:    slot.bondLevel,
+        skills:       slot.skills.slice(),
+        cube:         { resourceId: slot.cube.resourceId, level: slot.cube.level },
+        favoriteItem: { resourceId: slot.favoriteItem.resourceId, level: slot.favoriteItem.level },
+        equipment:    Object.fromEntries(EQUIP_SLOTS.map(k => [k, {
+          classReq: slot.equipment[k].classReq,
+          tier:     slot.equipment[k].tier,
+          level:    slot.equipment[k].level,
+          opts:     slot.equipment[k].opts.map(o => ({ type: o.type, value: o.value })),
+        }])),
       };
     },
 
@@ -1234,37 +1254,42 @@ export function createStore() {
       if (!Array.isArray(state.team)) return;
       state.team.forEach((saved, i) => {
         if (i >= this.team.length || !saved) return;
-        const slot = this.team[i];
-        slot.active       = saved.active      ?? slot.active;
-        slot.resourceId   = saved.resourceId  ?? null;
-        slot.name         = saved.name        ?? '';
-        slot.classType    = saved.classType   ?? slot.classType;
-        slot.corporation  = saved.corporation ?? slot.corporation;
-        slot.element      = saved.element     ?? slot.element;
-        slot.weaponType   = saved.weaponType  ?? slot.weaponType;
-        const savedStep   = saved.burstStep ?? slot.burstStep;
-        slot.burstStep    = savedStep === 'AllStep' ? 'Step3' : savedStep;
-        slot.grade        = saved.grade       ?? 0;
-        slot.core         = saved.core        ?? 0;
-        slot.bondLevel    = saved.bondLevel   ?? 1;
-        if (saved.skills)       slot.skills = saved.skills.slice();
-        if (saved.cube)         Object.assign(slot.cube, saved.cube);
-        if (saved.favoriteItem) Object.assign(slot.favoriteItem, saved.favoriteItem);
-        if (saved.equipment) {
-          for (const k of EQUIP_SLOTS) {
-            if (saved.equipment[k]) Object.assign(slot.equipment[k], saved.equipment[k]);
-          }
-        }
-        if (slot.resourceId) {
-          // 从花名册补全可能在旧存档中缺失或错误的字段
-          const charMeta = getCharacterByResourceId(slot.resourceId);
-          if (charMeta?.element) slot.element = charMeta.element;
-          if (charMeta?.weaponType) slot.weaponType = charMeta.weaponType;
-          this._loadNikkeData(i, slot.resourceId);
-          if (slot.cube.resourceId)         this._loadCubeData(i, slot.cube.resourceId);
-          if (slot.favoriteItem.resourceId) this._loadFavData(i, slot.favoriteItem.resourceId);
-        }
+        this._restoreSlot(i, saved);
       });
+    },
+
+    /** 将保存的槽位配置（_slotSnapshot 格式）写入 this.team[i]，并加载对应 CDN 数据 */
+    _restoreSlot(i, saved) {
+      const slot = this.team[i];
+      slot.active       = saved.active      ?? slot.active;
+      slot.resourceId   = saved.resourceId  ?? null;
+      slot.name         = saved.name        ?? '';
+      slot.classType    = saved.classType   ?? slot.classType;
+      slot.corporation  = saved.corporation ?? slot.corporation;
+      slot.element      = saved.element     ?? slot.element;
+      slot.weaponType   = saved.weaponType  ?? slot.weaponType;
+      const savedStep   = saved.burstStep ?? slot.burstStep;
+      slot.burstStep    = savedStep === 'AllStep' ? 'Step3' : savedStep;
+      slot.grade        = saved.grade       ?? 0;
+      slot.core         = saved.core        ?? 0;
+      slot.bondLevel    = saved.bondLevel   ?? 1;
+      if (saved.skills)       slot.skills = saved.skills.slice();
+      if (saved.cube)         Object.assign(slot.cube, saved.cube);
+      if (saved.favoriteItem) Object.assign(slot.favoriteItem, saved.favoriteItem);
+      if (saved.equipment) {
+        for (const k of EQUIP_SLOTS) {
+          if (saved.equipment[k]) Object.assign(slot.equipment[k], saved.equipment[k]);
+        }
+      }
+      if (slot.resourceId) {
+        // 从花名册补全可能在旧存档中缺失或错误的字段
+        const charMeta = getCharacterByResourceId(slot.resourceId);
+        if (charMeta?.element) slot.element = charMeta.element;
+        if (charMeta?.weaponType) slot.weaponType = charMeta.weaponType;
+        this._loadNikkeData(i, slot.resourceId);
+        if (slot.cube.resourceId)         this._loadCubeData(i, slot.cube.resourceId);
+        if (slot.favoriteItem.resourceId) this._loadFavData(i, slot.favoriteItem.resourceId);
+      }
     },
 
     // ── 角色选择 ──────────────────────────────────────────────────────────────
@@ -1294,9 +1319,13 @@ export function createStore() {
       const i = this.charPickerSlot;
       if (i < 0) return;
       this.closeCharPicker();
+      this._assignChar(i, resourceId);
+    },
 
+    /** 把角色放入槽位 i：按花名册 / 账号数据填默认配置并加载 CDN 数据。返回是否成功 */
+    _assignChar(i, resourceId) {
       const char = getCharacterByResourceId(resourceId);
-      if (!char) return;
+      if (!char) return false;
 
       const slot = this.team[i];
       slot.resourceId  = resourceId;
@@ -1330,6 +1359,7 @@ export function createStore() {
       this._loadNikkeData(i, resourceId);
       if (slot.cube.resourceId) this._loadCubeData(i, slot.cube.resourceId);
       if (slot.favoriteItem.resourceId) this._loadFavData(i, slot.favoriteItem.resourceId);
+      return true;
     },
 
     // ── 槽位拖拽换位 ──────────────────────────────────────────────────────────
@@ -1724,6 +1754,26 @@ export function createStore() {
       return [nd?.skill1_detail, nd?.skill2_detail, nd?.ulti_skill_detail][skillIndex] ?? null;
     },
 
+    /**
+     * 技能栏显示的冷却时间（秒）；被动技能返回 null。
+     * 爆裂技能：CDN skill_cooltime_list 按当前技能等级取值（与引擎 burstSkillCooltime 同源）；
+     * 主动 S1 / S2（CDN 表 CharacterSkill）：取人工冷却表，未登记时返回 NaN（界面显示「主动」不带秒数）。
+     */
+    skillCooldownSec(slotIdx, skillIndex) {
+      const slot = this.team[slotIdx];
+      const nd   = slot?._nikkeData;
+      if (!nd) return null;
+      if (skillIndex === 2) {
+        const ult = nd.ulti_skill_detail;
+        const lv  = Math.max(1, slot.skills[2] ?? 1);
+        const raw = ult?.skill_cooltime_list?.[lv - 1] ?? ult?.skill_cooltime;
+        return raw != null ? raw / 100 : null;
+      }
+      const key = skillIndex === 0 ? 'skill1' : 'skill2';
+      if (nd[`${key}_table`] !== 'CharacterSkill') return null;
+      return getActiveSkillCooldownSec(slot.resourceId, key) ?? NaN;
+    },
+
     renderSkillHtml(skillDetail, skillLevel) {
       if (!skillDetail) return '';
       return renderSkillDesc(
@@ -1846,6 +1896,9 @@ export function createStore() {
       this.hitLogRaw    = null;
       this.battleLogRaw = null;
       this._squadLookup = null;
+      // 模拟记录用的队伍配置快照：在启动时取，避免模拟运行期间用户修改队伍导致记录与结果不符
+      const teamSnapshot = this.team.map(s => this._slotSnapshot(s));
+      const focusAtStart = this.focusSlot;
 
       try {
         const research    = this._research();
@@ -2014,11 +2067,12 @@ export function createStore() {
         this.logPage       = 0;
         this._rebuildLog();
         this.saveEnemyPresetIfNew();
+        this._recordSimHistory(squadConfig, nikkeLevel, teamSnapshot, focusAtStart);
         _postTrace(baseConfig, hitLog, log ?? [], { ...mcResult, iterations: iters });
       } catch (err) {
         if (!(err instanceof SimCancelledError)) {
-          console.error('模拟出错:', err);
-          alert(this.t('alert.simError', { msg: err.message }));
+          // 错误弹窗（error-report.js）捕获此日志并显示堆栈，无需再 alert
+          console.error(this.t('alert.simError', { msg: err.message }), err);
         }
       } finally {
         this.simRunning = false;
@@ -2027,6 +2081,73 @@ export function createStore() {
 
     cancelSimulate() {
       cancelSimulation();
+    },
+
+    // ── 模拟结果记录 ──────────────────────────────────────────────────────────
+
+    _recordSimHistory(squadConfig, level, team, focusSlot) {
+      const record = buildHistoryRecord({
+        squadConfig,
+        result: this.result,
+        enemy:  { element: this.enemy.element, type: this.enemy.type },
+        level,
+        team,
+        focusSlot,
+      });
+      this.simHistory = addHistoryRecord(this.simHistory, record);
+      saveHistory(this.simHistory).then(ok => {
+        if (!ok) this.showToast(this.t('history.toast.saveFailed'));
+      });
+    },
+
+    /**
+     * 把记录中的队伍配置应用到当前队伍（替换全部 5 个槽位）。
+     * 有完整快照（team）时原样恢复（含装备 / 魔方 / 珍藏品 / 技能等级）；
+     * 早期记录只有角色与站位，按选择角色的默认配置（账号数据优先）重建，并恢复爆裂阶段与受控角色。
+     */
+    applySimHistory(id) {
+      const rec = this.simHistory.find(r => r.id === id);
+      if (!rec || this.simRunning) return;
+      // 深拷贝：避免槽位与记录共享 equipment.opts 等数组，后续编辑队伍时改动记录
+      const team = Array.isArray(rec.team) ? JSON.parse(JSON.stringify(rec.team)) : null;
+
+      // 先整体换成新槽位对象，再逐个填充（异步加载按调用时的槽位对象写回）
+      this.team = Array.from({ length: 5 }, () => defaultSlot(false));
+      if (team) {
+        team.slice(0, 5).forEach((saved, i) => { if (saved) this._restoreSlot(i, saved); });
+        this.focusSlot = rec.focusSlot ?? null;
+      } else {
+        this.focusSlot = null;
+        for (const u of rec.units) {
+          const i = u.position;
+          if (!(i >= 0 && i < 5) || !this._assignChar(i, u.characterId)) continue;
+          if (u.burstStep) this.team[i].burstStep = u.burstStep;
+          if (u.isFocus)   this.focusSlot = i;
+        }
+      }
+      const first = this.team.findIndex(s => s.resourceId);
+      this.activeSlot = first >= 0 ? first : 0;
+      this.simHistoryOpen = false;
+      this.showToast(this.t(team ? 'history.toast.applied' : 'history.toast.appliedPartial'));
+    },
+
+    deleteSimHistory(id) {
+      this.simHistory = this.simHistory.filter(r => r.id !== id);
+      saveHistory(this.simHistory);  // 失败时 saveHistory 内部告警；内存中已删除
+    },
+
+    clearSimHistory() {
+      if (!this.simHistory.length || !confirm(this.t('history.confirmClear'))) return;
+      this.simHistory = [];
+      saveHistory(this.simHistory);
+    },
+
+    /** 记录时间：YYYY-MM-DD HH:mm:ss（本地时区） */
+    fmtHistoryTime(ts) {
+      const d   = new Date(ts);
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} `
+        + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     },
 
     // preserveFilters：切换聚合/详细模式时保留当前的角色、技能、Buff 轨道筛选；
@@ -2247,6 +2368,22 @@ export function createStore() {
     hideDmgTooltip() {
       const tip = document.getElementById('dmg-tooltip');
       if (tip) tip.style.display = 'none';
+    },
+
+    /** 点击详细日志伤害数字：把该次命中公式按伤害计算器导入格式（JSON）写入剪贴板 */
+    async copyDmgFormula(hitData) {
+      const data = buildDmgFormulaExport(hitData, { lang: this.lang, nameFn: name => this.dispText(name) });
+      // SG 只导出优先级最高的一个弹丸分类的单颗弹丸公式，提示中注明是哪一类
+      const g = pickPelletGroup(hitData);
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+        this.showToast(g
+          ? this.t('dmg.copiedPellets', { group: this.t(pelletGroupTitleKey(g)) })
+          : this.t('dmg.copied'));
+      } catch (err) {
+        console.error('伤害公式复制失败:', err);
+        this.showToast(this.t('dmg.copyFailed'));
+      }
     },
 
     // ── 充能气泡：展示本行事件的充能变动（变动前 -> 变动后） ──────────────────

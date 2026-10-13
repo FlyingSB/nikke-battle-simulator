@@ -23,6 +23,9 @@
    技能主动删除 / 减层带 Max HP 的 buff 后调用 `clampHpToMax`；
    溢出治疗储存用 `applyOverhealStorage`；「平均分摊治疗」在 buff 上加 `shareHeal: true`。
    **B3 爆裂直接伤害**：按 2.1 节由描述措辞判定是否受全爆裂系列加成，延迟按「进入全爆裂后」填写。
+   **双枪角色**（`shot_detail.muzzle_count === 2`）：普攻与切换武器的武器伤害系数由引擎自动 ×2
+   （[battle-logic.md §4.6.1](battle-logic.md)），技能文件无需处理；若技能已用双重命中等方式体现双枪，
+   切换时设 `skillState.weaponSwitchDualGun = false` 避免重复翻倍。
 6. **段号对齐**：触发器数组序号与 ■ 段不一致时用 `partOverride`，不要"接受偏移"。
 7. **注册**：在 `src/data/skill-traits.js` 注册；在 [data-catalog.md](data-catalog.md) 角色表添加条目。
 8. **测试**：`node scripts/tests/test-all.mjs` 全部通过。

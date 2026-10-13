@@ -29,6 +29,7 @@ const SUITES = [
   { name: 'CrystalWave', file: 'test-crystal-wave.mjs', note: 'Cinderella: Crystal Wave Snipe Mode, local JSON' },
   { name: 'ReloadCadence', file: 'test-reload-cadence.mjs', note: 'reload/RPM cadence, no I/O'        },
   { name: 'SgPellets',  file: 'test-sg-pellets.mjs', note: 'SG pellet charge & hit, no I/O'          },
+  { name: 'DualGun',    file: 'test-dual-gun.mjs',   note: 'dual gun (muzzle_count 2) ×2, no I/O'    },
   { name: 'PartsCore',  file: 'test-parts-core.mjs', note: 'PARTS_CORE enemy core state, no I/O'     },
   { name: 'Cubes',      file: 'test-cubes.mjs',      note: 'harmony cube skill modeling, local JSON'  },
   { name: 'URLs',       file: 'test-urls.mjs',       note: 'URL generation algorithm'                },
@@ -36,7 +37,9 @@ const SUITES = [
   { name: 'Stats',      file: 'test-stats.mjs',      note: 'may fetch from CDN'                      },
   { name: 'RedHoodBurst', file: 'test-red-hood-burst.mjs', note: 'Red Hood weapon switch shot count' },
   { name: 'BurstTiming', file: 'test-burst-timing.mjs',   note: 'B3 burst direct damage delay & bonus behavior' },
-  { name: 'I18n',       file: 'test-i18n.mjs',       note: 'UI dictionaries & zh-CN text patches, local JSON' },
+  { name: 'SimHistory', file: 'test-sim-history.mjs', note: 'simulation history records, no I/O'   },
+  { name: 'DmgExport',  file: 'test-dmg-export.mjs',  note: 'damage formula calculator export, no I/O' },
+  { name: 'I18n',      file: 'test-i18n.mjs',       note: 'UI dictionaries & zh-CN text patches, local JSON' },
 ];
 
 const LINE = '═'.repeat(62);

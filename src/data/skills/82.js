@@ -1,11 +1,12 @@
 import { pushBuff, fireSkillHit, addBurstGauge, applyHeal, applyCoverHeal,
          getBuffSums, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
+import { ACTIVE_SKILL_COOLDOWN_SEC } from '../active-skill-cooldowns.js';
 
 // Character: Liter  (resource_id: 82)
 
-// S2 Volt Boost 为主动技能，CDN 不提供冷却时间，人工填写：15s。
-const S2_COOLDOWN_TICKS = 15 * TICK_RATE;
+// S2 Volt Boost 为主动技能，CDN 不提供冷却时间，人工填写：15s（见 active-skill-cooldowns.js）。
+const S2_COOLDOWN_TICKS = ACTIVE_SKILL_COOLDOWN_SEC[82].skill2 * TICK_RATE;
 
 export default {
 

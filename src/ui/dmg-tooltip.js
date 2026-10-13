@@ -3,6 +3,7 @@
  * 由 store.showDmgTooltip 调用；文案走 i18n，buff 名经调用方传入的 nameFn 翻译为界面语言。
  */
 import { t } from './i18n.js';
+import { pelletGroupHit } from './dmg-formula-export.js';
 
 const _ELEM_ADV_BASE      = 0.10;
 const _BASE_CRIT_DAMAGE   = 0.50;
@@ -17,13 +18,39 @@ function _numFmt(v) {
   return Math.round(v).toLocaleString();
 }
 
+// SG 弹丸分类栏标题词条键（顺序同引擎 rollPelletGroups：普通、仅暴击、仅核心、暴击+核心）；复制公式提示亦用
+export const pelletGroupTitleKey = g =>
+  g.isCrit ? (g.isCore ? 'dmg.pelletCritCore' : 'dmg.pelletCrit')
+           : (g.isCore ? 'dmg.pelletCore'     : 'dmg.pelletNormal');
+
 /**
  * @param {object} h  命中记录
  * @param {(name: string) => string} [nameFn]  buff 名显示翻译
  * @param {{ cubeElemName?: string|null }} [opts]  cubeElemName：优越代码加成来源的魔方技能原名（如 'Anti Code HC'）
  * @returns {string}
  */
-export function buildDmgTooltipHTML(h, nameFn = n => n, { cubeElemName = null } = {}) {
+export function buildDmgTooltipHTML(h, nameFn = n => n, opts = {}) {
+  const groups = h.pelletGroups ?? [];
+  // 底部提示：点击伤害数字复制计算器格式公式（store.copyDmgFormula）
+  const hint = `<div class="dmg-tip-hint">${t('dmg.copyHint')}</div>`;
+  if (groups.length === 0) return `<div class="dmg-tip">${_buildFormulaHTML(h, nameFn, opts)}${hint}</div>`;
+
+  // SG：按弹丸分类横向分栏，每栏一套完整公式（伤害系数 = 每弹丸系数，并列出该类弹丸数），底部合计
+  const esc  = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const cols = groups.map(g => {
+    // 栏内伤害系数显示单颗弹丸系数，另列弹丸数（pelletCount）
+    const gh = pelletGroupHit(h, g);
+    const title = `${t(pelletGroupTitleKey(g))} ×${g.count}`;
+    return `<div class="dmg-tip-col"><div class="dmg-tip-col-hd">${esc(title)}</div>`
+      + `${_buildFormulaHTML(gh, nameFn, { ...opts, resultLabel: t('dmg.subtotal') })}</div>`;
+  }).join('');
+  const total = `<div class="dmg-tip-result dmg-tip-result--total"><span class="dmg-tip-result-lbl">${esc(t('dmg.final'))}</span>`
+    + `<span class="dmg-tip-result-val">${_numFmt(h.damage ?? 0)}</span></div>`;
+  return `<div class="dmg-tip"><div class="dmg-tip-cols">${cols}</div>${total}${hint}</div>`;
+}
+
+/** 单套伤害公式（各乘区分段 + 结果行），不含外层容器 */
+function _buildFormulaHTML(h, nameFn, { cubeElemName = null, resultLabel = null } = {}) {
   // 伤害公式中的 buff 显示名：数值按动态倍率 n 放大（multiplier）或按层数叠加（stacks>1）时追加「*n」
   const _bdName = b => {
     const name = nameFn(b.name);
@@ -100,7 +127,12 @@ export function buildDmgTooltipHTML(h, nameFn = n => n, { cubeElemName = null } 
   // ── 伤害系数 ──
   {
     const s = addSect(t('dmg.hitMult'));
-    addItem(s, '', `×${_pct(hitMult)}`, 'pct');
+    // 双枪：hitMult 已含 ×2，拆为「基础系数」+「双枪 ×2」两项
+    const dualGunMult = h.dualGunMult ?? 1;
+    addItem(s, '', `×${_pct(hitMult / dualGunMult)}`, 'pct');
+    if (dualGunMult !== 1) addItem(s, t('dmg.dualGun'), `×${dualGunMult}`, 'mult');
+    // SG 分类栏：hitMult 为每弹丸系数，另列该类弹丸数
+    if (h.pelletCount != null) addItem(s, t('dmg.pellets'), `×${h.pelletCount}`, 'num');
     // 普攻伤害倍率 = 1 + 珍藏品 + Σ 技能 "Normal Attack Damage Multiplier"（同一乘区），逐来源拆分展示
     const normMultBufs = bd.filter(b => Math.abs(b.normalAttackDamageMultPct ?? 0) > 0.0001);
     const favNormalPct = favMult - 1 - normMultBufs.reduce((acc, b) => acc + b.normalAttackDamageMultPct, 0);
@@ -179,8 +211,9 @@ export function buildDmgTooltipHTML(h, nameFn = n => n, { cubeElemName = null } 
     Math.abs(h.pierceDamagePct           ?? 0) > 0.0001 ||
     Math.abs(h.sequentialAttackDamagePct ?? 0) > 0.0001
   );
+  const partsPct = h.damageToPartsPct ?? 0;
   const hasExtra = extraBufs.length > 0 || extraFallback
-    || Math.abs(sustainedPct) > 0.0001 || Math.abs(truePct) > 0.0001;
+    || Math.abs(sustainedPct) > 0.0001 || Math.abs(truePct) > 0.0001 || Math.abs(partsPct) > 0.0001;
 
   if (hasExtra) {
     const s = addSect(t('dmg.damageBonus'));
@@ -208,6 +241,13 @@ export function buildDmgTooltipHTML(h, nameFn = n => n, { cubeElemName = null } 
       const trueResidual = truePct - trueBufs.reduce((acc, b) => acc + (b.trueDamagePct ?? 0), 0);
       trueBufs.forEach(b => addItem(s, _bdName(b), `+${_pct(b.trueDamagePct)}`));
       if (Math.abs(trueResidual) > 0.0001) addItem(s, t('dmg.trueDmgUp'), `+${_pct(trueResidual)}`);
+    }
+    if (Math.abs(partsPct) > 0.0001) {
+      // 零件伤害（零件核心敌人的核心命中 / 技能命中零件）：展开到每个 buff，剩余归入"零件伤害增加"
+      const partsBufs = bd.filter(b => Math.abs(b.damageToPartsPct ?? 0) > 0.0001);
+      const partsResidual = partsPct - partsBufs.reduce((acc, b) => acc + (b.damageToPartsPct ?? 0), 0);
+      partsBufs.forEach(b => addItem(s, _bdName(b), `+${_pct(b.damageToPartsPct)}`));
+      if (Math.abs(partsResidual) > 0.0001) addItem(s, t('dmg.partsDmgUp'), `+${_pct(partsResidual)}`);
     }
   }
 
@@ -240,7 +280,7 @@ export function buildDmgTooltipHTML(h, nameFn = n => n, { cubeElemName = null } 
     return `<div class="dmg-tip-sect${s.sub ? ' dmg-tip-sect--sub' : ''}">${hdHtml}${rowsHtml}</div>`;
   }).join('');
 
-  const resultHtml = `<div class="dmg-tip-result"><span class="dmg-tip-result-lbl">${esc(t('dmg.final'))}</span><span class="dmg-tip-result-val">${_numFmt(h.damage ?? 0)}</span></div>`;
+  const resultHtml = `<div class="dmg-tip-result"><span class="dmg-tip-result-lbl">${esc(resultLabel ?? t('dmg.final'))}</span><span class="dmg-tip-result-val">${_numFmt(h.damage ?? 0)}</span></div>`;
 
-  return `<div class="dmg-tip">${sectHtml}${resultHtml}</div>`;
+  return `${sectHtml}${resultHtml}`;
 }

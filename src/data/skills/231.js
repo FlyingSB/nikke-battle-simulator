@@ -1,13 +1,14 @@
 import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE, ENEMY_UNIT_ID } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 import { tickSkill2Cooldown } from './active-skill-shared.js';
+import { ACTIVE_SKILL_COOLDOWN_SEC } from '../active-skill-cooldowns.js';
 
 // Character: Isabel  (resource_id: 231)
 //
 // 武器：Shotgun（10 弹丸，弹匣 9）。爆裂阶段 Step3，CD 40s。
 // S2 为主动技能（CharacterSkill 表），CDN 不提供冷却时间，人工填写：15s（prydwen.gg / nikke.gg）。
 // 与 80 / 220 约定一致：战斗开始先进入冷却，首次施放于 t+15s；可被 Arcana S1 The Magician 加速。
-const S2_COOLDOWN_TICKS = 15 * TICK_RATE;
+const S2_COOLDOWN_TICKS = ACTIVE_SKILL_COOLDOWN_SEC[231].skill2 * TICK_RATE;
 
 // Marked Target 阶段：按 S1 触发（使用爆裂技能）次数，3 次及以上保持第 3 阶段
 const MT_KEY = 'isabelMarkedTarget';

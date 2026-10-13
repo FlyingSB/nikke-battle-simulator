@@ -73,11 +73,13 @@ export default {
   'jill_acid_ammo': '硫酸弹',
   // ── 850 EVE（伊芙）
   'Eagle Eye-Type Exospine Mk2': '鹰眼型外脊装Mk2',
-  // ── 851 Raven（蕾雯）
+  // ── 851 Raven（渡鸦）
   'A.N. Mode': 'A.N.模式',
   // ── 860 Chisato（千束）
   'Dodging Bullets': '射击看破',
   // ── 870 Queen (Makoto)（QUEEN（真））
   'Persona - Johanna': '人格面具-琼安',
   '1 More': '1MORE',
+  // ── 其他（技能文件中已不再出现，或手工添加）
+  'Fulfillment of Righteousness': '实现正义',
 };

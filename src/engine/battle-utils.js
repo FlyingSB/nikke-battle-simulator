@@ -150,7 +150,17 @@ export function isBuffActiveFor(state, b, unit) {
   if (b.roundsLeft !== undefined && b.roundsLeft <= 0) return false;
   if (b.endTick !== undefined && b.endTick !== Infinity && b.endTick <= state.tick) return false;
   if (b.weaponFilter && unit.weaponType !== b.weaponFilter) return false;
+  // 「最大装弹数 ▼（同类效果不叠加）」（buff.maxAmmoDownNoStack，如 K S2 Fulfillment of Righteousness 效果 1）：
+  // 目标身上有其他生效中的最大装弹数 ▼ 效果时暂时屏蔽（持续时间照常流逝），其他效果结束后恢复生效
+  if (b.maxAmmoDownNoStack && hasOtherMaxAmmoDown(state, b, unit)) return false;
   return true;
+}
+
+/** unit 身上是否有 b 以外、生效中的普通最大装弹数 ▼ 效果（不含同为「不叠加」的效果，避免互相递归屏蔽） */
+function hasOtherMaxAmmoDown(state, b, unit) {
+  return state.buffs.some(o => o !== b && !o.maxAmmoDownNoStack
+    && ((o.maxAmmoPct ?? 0) < 0 || (o.maxAmmoFlat ?? 0) < 0)
+    && isBuffActiveFor(state, o, unit));
 }
 
 /**
@@ -262,6 +272,26 @@ export function rollHitPellets(fired, hitRate) {
   let hit = 0;
   for (let i = 0; i < fired; i++) if (rng() < hitRate) hit++;
   return hit;
+}
+
+/**
+ * SG 逐弹丸判定暴击与核心：命中的每颗弹丸先判暴击、再判核心（各自独立），
+ * 按（暴击, 核心）归为至多 4 类，只返回弹丸数 > 0 的类。
+ * 顺序固定为：非暴击+非核心、仅暴击、仅核心、暴击+核心（伤害明细按此顺序分栏）。
+ * @param {number} hitPellets       命中弹丸数
+ * @param {number} critRate         暴击率（0..1）
+ * @param {() => boolean} rollCore  单颗弹丸核心判定（已含核心保护 / 穿透条件）
+ * @returns {Array<{ isCrit: boolean, isCore: boolean, count: number }>}
+ */
+export function rollPelletGroups(hitPellets, critRate, rollCore) {
+  const counts = [0, 0, 0, 0];   // 下标 = 暴击(1) + 核心(2)
+  for (let i = 0; i < hitPellets; i++) {
+    const crit = rollCrit(critRate) ? 1 : 0;
+    counts[crit + (rollCore() ? 2 : 0)]++;
+  }
+  return counts
+    .map((count, i) => ({ isCrit: (i & 1) !== 0, isCore: (i & 2) !== 0, count }))
+    .filter(g => g.count > 0);
 }
 
 /**
@@ -1288,8 +1318,10 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       isFullBurst,
       damageTakenPct: getEnemyDamageTakenPct(state) + distributedDamagePct,
       enemyDef: isTrueDamage ? 0 : getEffectiveEnemyDef(state),
+      enemyBaseDef: state.enemyDef,   // 降防前的基础 DEF（公式导出反推降防比例）
       isDistributed, distributedDamagePct,
       isCore, coreDmgIncrement, damage,
+      damageToPartsPct: partsBonusApplies ? (sums.damageToPartsPct ?? 0) : 0,
       elementDmgPct: unit.stats.elementDmgPct ?? 0,
       equipElementDmgPct: unit.stats.equipElementDmgPct ?? 0,
       equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0,

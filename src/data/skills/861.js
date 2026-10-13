@@ -1,13 +1,14 @@
 import { pushBuff, TICK_RATE, ENEMY_UNIT_ID } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 import { tickSkill2Cooldown } from './active-skill-shared.js';
+import { ACTIVE_SKILL_COOLDOWN_SEC } from '../active-skill-cooldowns.js';
 
 // Character: Takina  (resource_id: 861)
 //
 // 武器：Sniper Rifle（UP 型，蓄力 1s，弹匣 6，FC 250%）。爆裂阶段 Step2，CD 20s。
 // S2 为主动技能（CharacterSkill 表），CDN 不提供冷却时间，人工填写：15s（nikke.gg 角色页）。
 // 与 80 / 220 约定一致：战斗开始先进入冷却，首次施放于 t+15s。
-const S2_COOLDOWN_TICKS = 15 * TICK_RATE;
+const S2_COOLDOWN_TICKS = ACTIVE_SKILL_COOLDOWN_SEC[861].skill2 * TICK_RATE;
 
 // 爆裂切换武器：CDN ulti skill_value_data = [伤害 11856, 150, 切换武器 shot_id 1086102, 1]。
 // 第 2 项按 K（41）同位置 144 = SMG 1440 RPM × (1 − 90%) 的对照推断为切换武器射速（RPM）；

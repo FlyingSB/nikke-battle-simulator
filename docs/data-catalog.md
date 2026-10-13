@@ -157,7 +157,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Anis: Star | [`17.json`](../src/data/static/nikke/17.json) | [`17.js`](../src/data/skills/17.js) |
 | ✔️ | Neon: Vision Eye | [`18.json`](../src/data/static/nikke/18.json) | [`18.js`](../src/data/skills/18.js) |
 | ✔️ | Miranda | [`32.json`](../src/data/static/nikke/32.json) | [`32.js`](../src/data/skills/32.js) |
-| ❌ | K | [`41.json`](../src/data/static/nikke/41.json) | [`41.js`](../src/data/skills/41.js) |
+| ✔️ | K | [`41.json`](../src/data/static/nikke/41.json) | [`41.js`](../src/data/skills/41.js) |
 | ✔️ | D: Killer Wife | [`43.json`](../src/data/static/nikke/43.json) | [`43.js`](../src/data/skills/43.js) |
 | ✔️ | Brid: Silent Track | [`73.json`](../src/data/static/nikke/73.json) | [`73.js`](../src/data/skills/73.js) |
 | ✔️ | Soline: Frost Ticket | [`74.json`](../src/data/static/nikke/74.json) | [`74.js`](../src/data/skills/74.js) |
@@ -169,10 +169,11 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ❌ | Laplace: Ultimate Hero | [`103.json`](../src/data/static/nikke/103.json) | [`103.js`](../src/data/skills/103.js) |
 | ❌ | Drake: Great Villain | [`104.json`](../src/data/static/nikke/104.json) | [`104.js`](../src/data/skills/104.js) |
 | ❌ | Maxwell: Ordinary Mechanic | [`105.json`](../src/data/static/nikke/105.json) | [`105.js`](../src/data/skills/105.js) |
+| ✔️ | Frima（SSR：Beloved Pillow） | [`142.json`](../src/data/static/nikke/142.json) | [`142.js`](../src/data/skills/142.js) |
 | ✔️ | Sugar（SSR：Commemorative Keychain） | [`140.json`](../src/data/static/nikke/140.json) | [`140.js`](../src/data/skills/140.js) |
 | ✔️ | Mihara: Bonding Chain | [`162.json`](../src/data/static/nikke/162.json) | [`162.js`](../src/data/skills/162.js) |
 | ✔️ | Privaty（SSR：Central Government Special Medal） | [`170.json`](../src/data/static/nikke/170.json) | [`170.js`](../src/data/skills/170.js) |
-| ❌ | Guillotine | [`180.json`](../src/data/static/nikke/180.json) | [`180.js`](../src/data/skills/180.js) |
+| ✔️ | Guillotine | [`180.json`](../src/data/static/nikke/180.json) | [`180.js`](../src/data/skills/180.js) |
 | ✔️ | Maiden: Ice Rose | [`183.json`](../src/data/static/nikke/183.json) | [`183.js`](../src/data/skills/183.js) |
 | ✔️ | Alice | [`191.json`](../src/data/static/nikke/191.json) | [`191.js`](../src/data/skills/191.js) |
 | ✔️ | Tove（SSR：Fire Starter） | [`192.json`](../src/data/static/nikke/192.json) | [`192.js`](../src/data/skills/192.js) |
@@ -226,7 +227,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Rei (Tentative Name) | [`834.json`](../src/data/static/nikke/834.json) | [`834.js`](../src/data/skills/834.js) |
 | ✔️ | Asuka: WILLE | [`835.json`](../src/data/static/nikke/835.json) | [`835.js`](../src/data/skills/835.js) |
 | ✔️ | Ada | [`840.json`](../src/data/static/nikke/840.json) | [`840.js`](../src/data/skills/840.js) |
-| ❌ | Jill | [`841.json`](../src/data/static/nikke/841.json) | [`841.js`](../src/data/skills/841.js) |
+| ✔️ | Jill | [`841.json`](../src/data/static/nikke/841.json) | [`841.js`](../src/data/skills/841.js) |
 | ❌ | EVE | [`850.json`](../src/data/static/nikke/850.json) | [`850.js`](../src/data/skills/850.js) |
 | ❌ | Raven | [`851.json`](../src/data/static/nikke/851.json) | [`851.js`](../src/data/skills/851.js) |
 | ❌ | Chisato | [`860.json`](../src/data/static/nikke/860.json) | [`860.js`](../src/data/skills/860.js) |

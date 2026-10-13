@@ -1,9 +1,10 @@
 ﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
+import { ACTIVE_SKILL_COOLDOWN_SEC } from '../active-skill-cooldowns.js';
 
 // Character: Mari  (resource_id: 832)
 // S2 周期（游戏内实测 10s；战斗开始先进入冷却，首次触发于 t+10s）
-const S2_INTERVAL_SEC = 10;
+const S2_INTERVAL_SEC = ACTIVE_SKILL_COOLDOWN_SEC[832].skill2;
 
 export default {
 

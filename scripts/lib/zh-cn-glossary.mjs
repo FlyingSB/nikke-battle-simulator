@@ -12,6 +12,8 @@ export const ZH_CN_GLOSSARY = [
   ['内核', '核心'],   // Core：台服「內核」，与本项目界面（命中核心 / 暴露核心）统一
   // Anchor: Innocent Maid S1「1次」：台服漏了「获得」（实为 Incoming Healing，受到的治疗量）
   ['1次：【体力恢复量', '1次：【获得体力恢复量'],
+  ['蕾雯', '渡鸦'],   // Raven (851)：台服音译「蕾雯」，改用意译名
+  ['运行正义', '实现正义'],   // K (41) S2 技能名 Execution of Righteousness：与效果名「实现正义」统一
 ];
 
 /**

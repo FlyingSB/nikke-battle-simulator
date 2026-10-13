@@ -11,9 +11,33 @@
  *   出：{ type: 'progress', done, total }
  *       { type: 'done', mcResult, hitLog, log }
  *       { type: 'error', message, stack }
+ *       { type: 'console-error', text }   引擎内 console.error 的转发（主线程错误弹窗只能捕获主线程日志）
  */
 
 import { simulate, simulateMonteCarlo } from './battle.js';
+
+const MAX_FORWARD_ARG_CHARS = 2000;
+
+// 单个日志参数转文本：Error 取堆栈；对象转 JSON 并截断（引擎常附带整个单位配置）
+function formatLogArg(a) {
+  if (a instanceof Error) return a.stack || `${a.name}: ${a.message}`;
+  if (a && typeof a === 'object') {
+    let s;
+    try { s = JSON.stringify(a); } catch { s = String(a); }
+    return s.length > MAX_FORWARD_ARG_CHARS ? `${s.slice(0, MAX_FORWARD_ARG_CHARS)}…` : s;
+  }
+  return String(a);
+}
+
+const _origConsoleError = console.error.bind(console);
+console.error = (...args) => {
+  _origConsoleError(...args);
+  try {
+    self.postMessage({ type: 'console-error', text: args.map(formatLogArg).join('\n') });
+  } catch (err) {
+    _origConsoleError('[sim-worker] 转发错误日志失败:', err);
+  }
+};
 
 // 进度消息节流：每完成约 5% 迭代才发送一次，避免大量小消息。
 const PROGRESS_STEP_RATIO = 0.05;

@@ -1,7 +1,10 @@
 ﻿import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
+import { ACTIVE_SKILL_COOLDOWN_SEC } from '../active-skill-cooldowns.js';
 
 // Character: Helm: Aquamarine  (resource_id: 353)
+// S2 冷却（CDN 不提供，人工填写于 active-skill-cooldowns.js）：4s
+const S2_COOLDOWN_SEC = ACTIVE_SKILL_COOLDOWN_SEC[353].skill2;
 export default {
 
   // ── Admire Accompaniment
@@ -76,7 +79,7 @@ export default {
       // Part2：S2 攻击命中 Electric Code 目标时叠加 Damage Taken▲
       {
         on: 'INTERVAL',
-        opts: { seconds: 4 },
+        opts: { seconds: S2_COOLDOWN_SEC },
         handler(state, caster) {
           if (state.enemyHp <= 0) return;
           const lv   = caster.skillLevels[1];

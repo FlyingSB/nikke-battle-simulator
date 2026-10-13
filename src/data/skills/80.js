@@ -1,6 +1,7 @@
 import { pushBuff, applyHeal, applyOverhealStorage, applySharedShield, fireSkillHit, getBuffSums, getFinalMaxHp,
          TICK_RATE, ALL_ALLIES, ENEMY_UNIT_ID } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
+import { ACTIVE_SKILL_COOLDOWN_SEC } from '../active-skill-cooldowns.js';
 
 // Character: Centi  (resource_id: 80)
 // SSR 珍藏品: Metal Pendant（id: 201601）
@@ -10,7 +11,7 @@ import { getSkillValue } from '../../data/models.js';
 // S2 为主动技能（CharacterSkill 表），CDN 不提供冷却时间，人工填写：9s（prydwen.gg / nikke.gg 角色页）。
 // 与 220 / 832 约定一致：战斗开始先进入冷却，首次施放于 t+9s（扣除 S1 P1 的缩减）。
 // S1 P1「Cooldown of Skill 2 ▼ p00%」= 剩余冷却减少「总冷却 × p00%」（9s × 9.16% ≈ 0.82s，与攻略实测一致）。
-const S2_COOLDOWN_SEC   = 9;
+const S2_COOLDOWN_SEC   = ACTIVE_SKILL_COOLDOWN_SEC[80].skill2;  // 9s
 const S2_COOLDOWN_TICKS = S2_COOLDOWN_SEC * TICK_RATE;
 
 const STOCKPILE = 'Stockpile';

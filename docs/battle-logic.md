@@ -492,9 +492,22 @@ chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
   - 修正前「弹丸数固定为 1」的 Flash 射击按 0.7 整发打空（18% 的 Flash 伤害为 0），Dorothy: Serendipity 低于实测约 10%。
 - **【TODO 可选】SG 逐弹丸核心拆分**：当前 SG 每次射击按单次 `P_core` 判定整发核心与否（期望 DPS 与逐弹丸 k/N 拆分**数学等价**，蒙特卡洛均值一致）；逐弹丸拆分仅降低方差、细化日志 isCore 标记，为低优先级细化项。
 
+### 4.6.1 双枪（`shot_detail.muzzle_count === 2`）
+
+- 判定：CDN `shot_detail.muzzle_count === 2`（`initBattle` 写入 `unit.dualGunMult = DUAL_GUN_MULT = 2`，cfg 可用 `dualGunMult` 覆盖）。
+- 实机效果：SMG / RL 每次射击造成 2 次伤害；SG 弹丸数不变、每颗弹丸伤害翻倍（即武器伤害系数翻倍）。
+- 引擎统一按**武器伤害系数 ×2** 结算（`hitMult = 基础系数 × dualGunMult`）：SG 每弹丸系数随之 ×2，弹丸数与爆裂充能不变；
+  命中次数仍计 1 次（`hitCount`、按命中次数触发的技能不翻倍）。
+- **切换武器默认同样 ×2**；技能已用其他方式体现双枪时设 `skillState.weaponSwitchDualGun = false` 排除
+  （如 Zwei 爆裂的双重命中 `weaponSwitchDoubleHit`）。
+- 日志：命中行记录 `dualGunMult`，伤害明细「伤害系数」段拆为「基础系数」+「双枪 ×2」；公式导出为 `weaponDmg`（基础系数）+ `dualGun` 系数项。
+- 双枪角色：K (41)、Zwei (390)（已核对）；Quency: Escape Queen (403)（TODO 未审核）；
+  Crow (110)、Soline (71)、Quency (402)、Aigis (872)、Noah (232)（未建模，建模时按本节核对）。
+- 回归测试：`test-dual-gun.mjs`。
+
 ### 4.7 武器切换（WEAPON_SWITCH 效果）
 
-- 期间覆盖 `hitMult`、`weaponType`（可选）、是否蓄力。
+- 期间覆盖 `hitMult`、`weaponType`（可选）、是否蓄力；双枪角色切换武器默认同样 ×2（§4.6.1）。
 - 支持时间制（`seconds`）和回合制（`endRounds`，每发消耗 1 回合）。
 - 期间可选无限装弹（`unlimitedAmmo: true`）。
 - 切换结束后可有 `backswingTicks` 的封锁期（`weaponSwitchPostBackswingEndTick`）。

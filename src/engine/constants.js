@@ -64,6 +64,10 @@ export const FULL_BURST_BONUS = 0.50;
 export const BASE_CRIT_DAMAGE  = 0.50;  // 暴击时 +50%（在 critDmgIncrement 之前）
 export const BASE_CORE_DAMAGE  = 1.00;  // 命中核心时 +100%（在 coreDmgIncrement 之前）
 
+// ── 双枪 ──────────────────────────────────────────────────────────────────
+// shot_detail.muzzle_count === 2 的角色：普通攻击（含切换武器）武器伤害系数 ×2
+export const DUAL_GUN_MULT = 2;
+
 // ── 蓄力伤害基准 ────────────────────────────────────────────────────────
 
 /**
