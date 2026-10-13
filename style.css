@@ -70,14 +70,28 @@ body {
 @keyframes loader-slide { from { margin-left: -50%; } to { margin-left: 100%; } }
 
 /* ── Topbar ──────────────────────────────────────────────── */
+/* 三列网格：左右两列等宽，开始模拟按钮始终位于标题栏正中 */
 .topbar {
-  display: flex; align-items: center; justify-content: space-between;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px;
   height: 48px; padding: 0 16px;
   background: var(--surface); border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 100;
 }
-.topbar-brand  { font-size: 0.9rem; font-weight: 600; color: var(--accent); }
-.topbar-right  { display: flex; align-items: center; gap: 10px; }
+.topbar-brand  { font-size: 0.9rem; font-weight: 600; color: var(--accent); justify-self: start; }
+.topbar-right  { display: flex; align-items: center; gap: 10px; justify-self: end; }
+.topbar-run {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-width: 150px; justify-content: center;
+  padding: 6px 22px; border-radius: 99px;
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent),
+              0 4px 14px -4px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition: transform 0.12s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.topbar-run:not(:disabled):hover  { filter: brightness(1.12); transform: translateY(-1px); }
+.topbar-run:not(:disabled):active { transform: translateY(0); filter: brightness(0.95); }
+.topbar-run:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.topbar-run:disabled { opacity: 0.6; cursor: progress; box-shadow: none; }
 .topbar-status { font-size: 0.72rem; color: var(--text-dim); }
 
 /* 界面语言切换：分段按钮，当前语言以强调色填充 */
@@ -324,16 +338,81 @@ select.input:not([multiple], [size]) {
 }
 .empty-slot-num { font-size: 0.8rem; color: var(--text-dim); }
 
+/* 网格：第一行 姓名 + 操作按钮，第二行图标行跨满整宽（.char-info 用 display:contents 摊平） */
 .char-header {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  padding: 10px 12px; gap: 8px;
+  display: grid; grid-template-columns: 1fr auto; align-items: center;
+  grid-template-areas: "name actions" "tags tags";
+  padding: 10px 12px; column-gap: 8px;
   background: var(--surface2); border-bottom: 1px solid var(--border);
   flex-shrink: 0; margin-bottom: 8px;
 }
-.char-info   { flex: 1; min-width: 0; }
-.char-name   { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-.char-tags   { display: flex; flex-wrap: wrap; gap: 3px; }
-.char-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.char-info   { display: contents; }
+.char-name   { grid-area: name; min-width: 0; font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.char-tags   { grid-area: tags; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+
+/* ── 六边形图标底座（素材：src/assets/icons/hex-bg-*.png，63×72） ── */
+.hex-chip {
+  --hex-w: 28px;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: var(--hex-w); height: calc(var(--hex-w) * 72 / 63);
+  background: center / contain no-repeat;
+}
+.hex-chip--dark  { background-image: url(src/assets/icons/hex-bg-dark.png); }
+.hex-chip--light { background-image: url(src/assets/icons/hex-bg-white.png); }
+.hex-chip img { max-width: 52%; max-height: 46%; object-fit: contain; }
+.hex-chip--weapon img { max-width: 70%; max-height: 62%; }
+/* 图标悬停提示：鼠标悬停或键盘聚焦时在图标下方弹出 */
+.has-tip { position: relative; cursor: help; }
+.has-tip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.chip-tip {
+  position: absolute; top: calc(100% + 6px); left: 50%; z-index: 50;
+  display: flex; flex-direction: column; gap: 3px;
+  min-width: 168px; padding: 8px 10px;
+  background: var(--surface3); border: 1px solid var(--border2); border-radius: var(--r-sm);
+  box-shadow: 0 8px 20px -6px rgb(0 0 0 / 0.6);
+  font-size: 0.68rem; white-space: nowrap; cursor: default;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transform: translate(-50%, -3px);
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
+}
+.has-tip:hover .chip-tip,
+.has-tip:focus-visible .chip-tip { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.chip-tip-title {
+  font-weight: 600; color: var(--accent); margin-bottom: 2px;
+  padding-bottom: 4px; border-bottom: 1px solid var(--border2);
+}
+.chip-tip-row { display: flex; justify-content: space-between; gap: 14px; }
+.chip-tip-k { color: var(--text-dim); }
+.chip-tip-v { color: var(--text); }
+.hex-chip--xs { --hex-w: 18px; }
+.hex-chip--xs img { max-width: 62%; max-height: 54%; }
+/* 企业图标为白色，放在亮色底座上需压暗到与职业图标相近的灰度 */
+.corp-img { filter: brightness(0) opacity(0.7); }
+/* 代码图标自带六边形外框，与底座同尺寸 */
+.code-chip { width: 28px; height: calc(28px * 73 / 63); flex-shrink: 0; }
+
+/* 好感度：#DB4857 胶囊，心形图标 + 内嵌输入框 */
+.bond-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  height: 24px; padding: 0 4px 0 6px; margin-left: 2px;
+  background: #db4857; border-radius: 99px;
+  box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.18);
+  cursor: text;
+}
+.bond-chip img { width: 14px; height: 14px; }
+.bond-chip:focus-within { box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.18), 0 0 0 2px rgb(219 72 87 / 0.45); }
+.char-tags .bond-input {
+  width: 3.2ch; height: 18px; padding: 0 2px; margin: 0;
+  background: rgb(0 0 0 / 0.22); border: 0; border-radius: 99px;
+  color: #fff; font-size: 0.72rem; font-weight: 700; text-align: center;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.char-tags .bond-input:focus { background: rgb(0 0 0 / 0.35); outline: none; box-shadow: none; }
+.bond-input::-webkit-inner-spin-button,
+.bond-input::-webkit-outer-spin-button,
+.evolve-input::-webkit-inner-spin-button,
+.evolve-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.char-actions { grid-area: actions; display: flex; gap: 5px; flex-shrink: 0; margin-bottom: 4px; }
 
 .tag {
   display: inline-block; padding: 1px 5px;
@@ -344,10 +423,36 @@ select.input:not([multiple], [size]) {
 .tag-dim   { color: var(--text-muted); }
 
 /* ── Grade buttons ───────────────────────────────────────── */
-.grade-all-row { display: flex; align-items: center; gap: 5px; }
-.grade-field { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
-.grade-field-label { font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; }
-.grade-field .input { width: 46px; padding: 3px 5px; }
+/* 极限突破星级（角色信息行内，与核心一起右对齐）：未点亮的星去色压暗 */
+.grade-stars { display: inline-flex; gap: 0; margin-left: auto; }
+.grade-star {
+  width: 22px; height: 22px; padding: 1px; border: 0; background: none; cursor: pointer;
+  border-radius: 4px; transition: transform 0.12s ease;
+}
+.grade-star img { width: 100%; height: 100%; display: block;
+  filter: grayscale(1) brightness(0.45); opacity: 0.75; transition: filter 0.15s ease, opacity 0.15s ease; }
+.grade-star--on img { filter: drop-shadow(0 0 3px rgb(240 165 0 / 0.45)); opacity: 1; }
+.grade-star:hover { transform: scale(1.12); }
+.grade-star:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* 核心加强：极限突破背景（40×42）上叠放数字输入框，仿 blablalink .evolve */
+.evolve-badge {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 32px;
+  background: url(src/assets/icons/evolve-bg.webp) center / contain no-repeat;
+  transition: filter 0.15s ease;
+}
+.evolve-badge--off { filter: grayscale(1) brightness(0.6); }
+.char-tags .evolve-input {
+  width: 100%; height: 100%; padding: 0; margin: 0;
+  background: transparent; border: 0; box-shadow: none;
+  color: #fff; font-size: 0.85rem; font-weight: 700; line-height: 1; text-align: center;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+  -moz-appearance: textfield; appearance: textfield;
+}
+.char-tags .evolve-input:focus { outline: none; box-shadow: none; background: transparent; }
+.evolve-badge:focus-within { filter: drop-shadow(0 0 4px rgb(214 90 255 / 0.7)); }
+.char-tags .evolve-input:disabled { background: transparent; opacity: 0.7; cursor: not-allowed; }
 
 /* ── Section toggle ──────────────────────────────────────── */
 .section-toggle {
@@ -422,9 +527,15 @@ select.input:not([multiple], [size]) {
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 4px; margin-bottom: 6px;
 }
-.stat-item { display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.stat-label { font-size: 0.58rem; color: var(--text-muted); letter-spacing: 0.04em; }
+/* 最终属性：图标 + HP/ATK/DEF 字样 + 数值，同一行 */
+.stat-item {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 8px; background: var(--surface3); border-radius: var(--r-sm);
+}
+.stat-icon  { width: 14px; height: 14px; object-fit: contain; flex-shrink: 0; opacity: 0.85; }
+.stat-label { font-size: 0.62rem; font-weight: 600; color: var(--text-dim); letter-spacing: 0.04em; }
 .stat-value {
+  margin-left: auto;
   font-size: 0.72rem; font-weight: 500;
   font-family: var(--font-mono); color: var(--text-dim);
   cursor: default;
@@ -981,8 +1092,27 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   display: flex; align-items: center; gap: 6px;
   justify-content: space-between; margin-bottom: 10px; flex-wrap: nowrap;
 }
-.enemy-element-inline  { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
-.enemy-inline-label    { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+.enemy-element-inline  { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.enemy-inline-label    { font-size: 0.72rem; color: var(--text-dim); white-space: nowrap; }
+
+/* 敌人代码单选：未选中去色压暗，选中项全彩放大并带光晕 */
+.code-picker { display: flex; gap: 6px; }
+.code-pick {
+  width: 30px; height: calc(30px * 73 / 63); padding: 0; border: 0; background: none;
+  cursor: pointer; transition: transform 0.12s ease;
+}
+.code-pick img {
+  width: 100%; height: 100%; display: block;
+  filter: grayscale(0.7) brightness(0.8); opacity: 0.6; transition: filter 0.15s ease, opacity 0.15s ease;
+}
+.code-pick:hover img { filter: grayscale(0.2) brightness(0.95); opacity: 0.9; }
+.code-pick--on { transform: scale(1.1); }
+.code-pick--on img,
+.code-pick--on:hover img { filter: drop-shadow(0 0 5px rgb(255 255 255 / 0.35)); opacity: 1; }
+.code-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* 职业 / 厂商研究：标签前加六边形小图标 */
+.field-label--icon { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .enemy-preset-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .enemy-preset-select   { max-width: 90px; }
 

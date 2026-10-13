@@ -35,6 +35,12 @@
     <!-- ── 顶栏 ─────────────────────────────────────────────── -->
     <header class="topbar">
       <div class="topbar-brand" x-text="'⚡ ' + $t('app.title')"></div>
+      <!-- 开始模拟：标题栏居中 -->
+      <button type="button" class="btn btn-primary topbar-run"
+        :disabled="$store.sim.simRunning"
+        @click="$store.sim.runSimulate()">
+        <span x-text="$store.sim.simRunning ? $t('sim.running') : $t('sim.start')"></span>
+      </button>
       <div class="topbar-right">
         <span class="topbar-status" x-text="$store.sim.accountStatusText"></span>
         <template x-if="$store.sim.devMode">
@@ -95,9 +101,14 @@
             </div>
             <div class="section-sub" x-text="$t('global.classResearch')"></div>
             <div class="row-3">
-              <template x-for="cls in ['Attacker','Defender','Supporter']" :key="cls">
+              <template x-for="cls in $store.sim.CLASS_ORDER" :key="cls">
                 <div class="field-group">
-                  <label class="field-label" x-text="$store.sim.classLabel(cls)"></label>
+                  <label class="field-label field-label--icon">
+                    <span class="hex-chip hex-chip--light hex-chip--xs" aria-hidden="true">
+                      <img :src="$store.sim.classIcon(cls)" alt="">
+                    </span>
+                    <span x-text="$store.sim.classLabel(cls)"></span>
+                  </label>
                   <input class="input" type="number" min="0" max="999"
                     :value="$store.sim.classResearch[cls.toLowerCase()]"
                     @input="$store.sim.classResearch[cls.toLowerCase()] = +$event.target.value">
@@ -106,9 +117,14 @@
             </div>
             <div class="section-sub" x-text="$t('global.corpResearch')"></div>
             <div class="row-3">
-              <template x-for="corp in ['ELYSION','MISSILIS','TETRA','PILGRIM','ABNORMAL']" :key="corp">
+              <template x-for="corp in $store.sim.CORP_ORDER" :key="corp">
                 <div class="field-group">
-                  <label class="field-label" x-text="$store.sim.corpLabel(corp)"></label>
+                  <label class="field-label field-label--icon">
+                    <span class="hex-chip hex-chip--light hex-chip--xs" aria-hidden="true">
+                      <img class="corp-img" :src="$store.sim.corpIcon(corp)" alt="">
+                    </span>
+                    <span x-text="$store.sim.corpLabel(corp)"></span>
+                  </label>
                   <input class="input" type="number" min="0" max="999"
                     :value="$store.sim.corpResearch[corp]"
                     @input="$store.sim.corpResearch[corp] = +$event.target.value">
@@ -140,15 +156,21 @@
                   :title="$t('common.delete')">×</button>
               </div>
             </div>
+            <!-- 敌人代码：五个图标单选（燃烧-风压-铁甲-电击-水冷），选中项高亮 -->
             <div class="enemy-element-inline">
-              <label class="enemy-inline-label" x-text="$t('enemy.code')"></label>
-              <select class="input input-sm"
-                :value="$store.sim.enemy.element"
-                @change="$store.sim.enemy.element = $event.target.value; $store.sim.selectedPresetId = null">
-                <template x-for="el in ['Fire','Water','Wind','Electric','Iron']" :key="el">
-                  <option :value="el" :selected="el === $store.sim.enemy.element" x-text="$store.sim.elementLabel(el)"></option>
+              <span class="enemy-inline-label" id="enemyCodeLabel" x-text="$t('enemy.code')"></span>
+              <div class="code-picker" role="radiogroup" aria-labelledby="enemyCodeLabel">
+                <template x-for="el in $store.sim.ELEMENT_ORDER" :key="el">
+                  <button type="button" class="code-pick" role="radio"
+                    :class="{ 'code-pick--on': el === $store.sim.enemy.element }"
+                    :aria-checked="el === $store.sim.enemy.element"
+                    :title="$store.sim.elementLabel(el)"
+                    :aria-label="$store.sim.elementLabel(el)"
+                    @click="$store.sim.enemy.element = el; $store.sim.selectedPresetId = null">
+                    <img :src="$store.sim.elementIcon(el)" alt="">
+                  </button>
                 </template>
-              </select>
+              </div>
             </div>
 
             <div class="section-sub mt-1" x-text="$t('enemy.actions')"></div>
@@ -251,21 +273,24 @@
           <section class="card">
             <h2 class="card-title" x-text="$t('sim.title')"></h2>
             <p class="hint" x-text="$t('sim.durationHint')"></p>
-            <div class="field-group">
-              <label class="field-label" x-text="$t('sim.iterations')"></label>
-              <input class="input" type="number" min="1" max="100"
-                x-model.number="$store.sim.iterations">
+            <!-- 迭代次数 + 锁定等级同一行 -->
+            <div class="row-2">
+              <div class="field-group">
+                <label class="field-label" x-text="$t('sim.iterations')"></label>
+                <input class="input" type="number" min="1" max="100"
+                  x-model.number="$store.sim.iterations">
+              </div>
+              <div class="field-group">
+                <label class="field-label" x-text="$t('sim.levelLock')"></label>
+                <select class="input" x-model.number="$store.sim.levelLock">
+                  <template x-for="lv in $store.sim.LEVEL_LOCK_OPTIONS" :key="lv">
+                    <option :value="lv" :selected="lv === $store.sim.levelLock"
+                      x-text="lv ? $t('sim.levelLock.lv', { lv }) : $t('sim.levelLock.none')"></option>
+                  </template>
+                </select>
+              </div>
             </div>
-            <div class="field-group">
-              <label class="field-label" x-text="$t('sim.levelLock')"></label>
-              <select class="input" x-model.number="$store.sim.levelLock">
-                <template x-for="lv in $store.sim.LEVEL_LOCK_OPTIONS" :key="lv">
-                  <option :value="lv" :selected="lv === $store.sim.levelLock"
-                    x-text="lv ? $t('sim.levelLock.lv', { lv }) : $t('sim.levelLock.none')"></option>
-                </template>
-              </select>
-              <p class="hint" x-show="$store.sim.levelLock > 0" x-text="$t('sim.levelLock.hint')"></p>
-            </div>
+            <p class="hint mt-1" x-show="$store.sim.levelLock > 0" x-text="$t('sim.levelLock.hint')"></p>
             <div class="field-group">
               <label class="field-label">
                 <span x-text="$t('sim.burstDelay')"></span>
@@ -341,13 +366,6 @@
                 </select>
               </div>
             </template>
-
-            <button class="btn btn-primary btn-block mt-1"
-              :disabled="$store.sim.simRunning"
-              @click="$store.sim.runSimulate()">
-              <span x-show="!$store.sim.simRunning" x-text="$t('sim.start')"></span>
-              <span x-show="$store.sim.simRunning" x-text="$t('sim.running')"></span>
-            </button>
           </section>
 
         </div>
@@ -412,14 +430,76 @@
               <div class="char-header">
                 <div class="char-info">
                   <div class="char-name" x-text="$store.sim.slotName($store.sim.activeSlotData)"></div>
-                  <div class="char-tags">
-                    <span class="tag" x-text="$store.sim.classLabel($store.sim.activeSlotData.classType)"></span>
-                    <span class="tag" x-text="$store.sim.elementLabel($store.sim.activeSlotData.element)"></span>
-                    <span class="tag" x-text="$store.sim.activeSlotData.weaponType"></span>
-                    <span class="tag" x-text="$store.sim.corpLabel($store.sim.activeSlotData.corporation)"></span>
-                    <span class="tag tag-burst" x-text="$store.sim.burstLabel($store.sim.activeSlotData.burstStep)"></span>
+                  <!-- 角色信息图标行：爆裂阶段 / 代码 / 武器 / 职业 / 企业 / 好感度（含输入框） -->
+                  <div class="char-tags" x-data="{ get s() { return $store.sim.activeSlotData; } }">
+                    <span class="hex-chip hex-chip--dark" role="img"
+                      :title="$store.sim.burstLabel($store.sim.slotBurstStep(s))"
+                      :aria-label="$store.sim.burstLabel($store.sim.slotBurstStep(s))">
+                      <img :src="$store.sim.slotBurstIcon(s)" alt="">
+                    </span>
+                    <img class="code-chip" x-show="$store.sim.elementIcon(s.element)"
+                      :src="$store.sim.elementIcon(s.element)"
+                      :title="$store.sim.elementLabel(s.element)"
+                      :alt="$store.sim.elementLabel(s.element)">
+                    <!-- 武器：悬停 / 聚焦显示武器参数提示（shot_detail 基础值） -->
+                    <span class="hex-chip hex-chip--dark hex-chip--weapon has-tip" tabindex="0"
+                      :aria-label="s.weaponType" aria-describedby="weaponTip">
+                      <img :src="$store.sim.weaponIcon(s.weaponType)" alt="">
+                      <span class="chip-tip" id="weaponTip" role="tooltip">
+                        <span class="chip-tip-title" x-text="s.weaponType"></span>
+                        <template x-for="r in $store.sim.weaponTipRows(s)" :key="r.label">
+                          <span class="chip-tip-row">
+                            <span class="chip-tip-k" x-text="r.label"></span>
+                            <span class="chip-tip-v mono" x-text="r.value"></span>
+                          </span>
+                        </template>
+                        <span class="chip-tip-row chip-tip-k" x-show="!$store.sim.weaponTipRows(s).length"
+                          x-text="$t('slot.loading')"></span>
+                      </span>
+                    </span>
+                    <span class="hex-chip hex-chip--light" role="img"
+                      :title="$store.sim.classLabel(s.classType)"
+                      :aria-label="$store.sim.classLabel(s.classType)">
+                      <img :src="$store.sim.classIcon(s.classType)" alt="">
+                    </span>
+                    <span class="hex-chip hex-chip--light" role="img" x-show="$store.sim.corpIcon(s.corporation)"
+                      :title="$store.sim.corpLabel(s.corporation)"
+                      :aria-label="$store.sim.corpLabel(s.corporation)">
+                      <img class="corp-img" :src="$store.sim.corpIcon(s.corporation)" alt="">
+                    </span>
+                    <label class="bond-chip"
+                      :title="$t('slot.bond') + ' · ' + $t('slot.bondMax', { n: $store.sim.maxBond(s.grade, s.corporation) })">
+                      <img src="src/assets/icons/love.png" alt="">
+                      <input class="bond-input mono" type="number" min="1"
+                        :aria-label="$t('slot.bond')"
+                        :max="$store.sim.maxBond(s.grade, s.corporation)"
+                        x-model.number="s.bondLevel"
+                        @change="$store.sim.clampBond($store.sim.activeSlot)">
+                    </label>
                     <!-- 不用 x-show：Alpine 3.14 的 x-show 显隐经 rAF 延迟，_loading 同帧内多次翻转时会残留显示；:class 同步生效 -->
-                    <span class="tag tag-dim" :class="{ hidden: !$store.sim.activeSlotData._loading }" x-text="$t('slot.loading')"></span>
+                    <span class="tag tag-dim" :class="{ hidden: !s._loading }" x-text="$t('slot.loading')"></span>
+                    <!-- 极限突破：三颗星，点第 n 颗点亮前 n 颗；点已点亮的星退到 n-1 -->
+                    <div class="grade-stars" role="group" :aria-label="$t('slot.grade')" :title="$t('slot.grade')">
+                      <template x-for="n in [1,2,3]" :key="n">
+                        <button type="button" class="grade-star"
+                          :class="{ 'grade-star--on': s.grade >= n }"
+                          :aria-pressed="s.grade >= n"
+                          :aria-label="$t('slot.grade') + ' ' + n"
+                          @click="$store.sim.clickGradeStar($store.sim.activeSlot, n)">
+                          <img src="src/assets/icons/star-gold.png" alt="">
+                        </button>
+                      </template>
+                    </div>
+                    <!-- 核心加强：数字输入框叠在极限突破背景图上 -->
+                    <span class="evolve-badge"
+                      :class="{ 'evolve-badge--off': s.grade < 3 }"
+                      :title="$t('slot.core') + ' · ' + (s.grade < 3 ? $t('slot.coreLocked') : $t('slot.coreTip'))">
+                      <input class="evolve-input mono" type="number" min="0" max="7"
+                        :aria-label="$t('slot.core')"
+                        :disabled="s.grade < 3"
+                        x-model.number="s.core"
+                        @change="$store.sim.clampCore($store.sim.activeSlot)">
+                    </span>
                   </div>
                 </div>
                 <div class="char-actions">
@@ -430,36 +510,6 @@
                 </div>
               </div>
 
-              <!-- 极限突破 / 核心加强 / 好感度 -->
-              <section class="card">
-                <div class="grade-all-row">
-                  <div class="grade-field">
-                    <label class="grade-field-label" x-text="$t('slot.grade')"></label>
-                    <input class="input" type="number" min="0" max="3"
-                      x-model.number="$store.sim.activeSlotData.grade"
-                      @change="$store.sim.setGrade($store.sim.activeSlot, $store.sim.activeSlotData.grade)">
-                  </div>
-                  <div class="grade-field">
-                    <label class="grade-field-label"
-                      :title="$store.sim.activeSlotData.grade < 3 ? $t('slot.coreLocked') : $t('slot.coreTip')"
-                      x-text="$t('slot.core')"></label>
-                    <input class="input" type="number" min="0" max="7"
-                      :disabled="$store.sim.activeSlotData.grade < 3"
-                      x-model.number="$store.sim.activeSlotData.core"
-                      @change="$store.sim.clampCore($store.sim.activeSlot)">
-                  </div>
-                  <div class="grade-field">
-                    <label class="grade-field-label"
-                      :title="$t('slot.bondMax', { n: $store.sim.maxBond($store.sim.activeSlotData.grade, $store.sim.activeSlotData.corporation) })"
-                      x-text="$t('slot.bond')"></label>
-                    <input class="input" type="number" min="1"
-                      :max="$store.sim.maxBond($store.sim.activeSlotData.grade, $store.sim.activeSlotData.corporation)"
-                      x-model.number="$store.sim.activeSlotData.bondLevel"
-                      @change="$store.sim.clampBond($store.sim.activeSlot)">
-                  </div>
-                </div>
-              </section>
-
               <!-- 最终属性 -->
               <section class="card"
                 x-data="{ get stats() { return $store.sim.computedStats($store.sim.activeSlot); } }">
@@ -468,10 +518,12 @@
                   <div>
                     <div class="stats-grid">
                       <div class="stat-item">
+                        <img class="stat-icon" src="src/assets/icons/stat-hp.png" alt="">
                         <span class="stat-label">HP</span>
                         <span class="stat-value" x-text="$store.sim.fmtStat(stats.hp)"></span>
                       </div>
                       <div class="stat-item">
+                        <img class="stat-icon" src="src/assets/icons/stat-atk.png" alt="">
                         <span class="stat-label">ATK</span>
                         <span class="stat-value"
                           x-text="$store.sim.fmtStat(stats.atk)"
@@ -479,6 +531,7 @@
                         </span>
                       </div>
                       <div class="stat-item">
+                        <img class="stat-icon" src="src/assets/icons/stat-def.png" alt="">
                         <span class="stat-label">DEF</span>
                         <span class="stat-value" x-text="$store.sim.fmtStat(stats.def)"></span>
                       </div>

@@ -26,6 +26,7 @@ import { buildEnemyConfigExport, parseEnemyConfig } from './enemy-config-io.js';
 import { getActiveSkillCooldownSec } from '../data/active-skill-cooldowns.js';
 import { SIM_HISTORY_MAX, buildHistoryRecord, addHistoryRecord, mergeHistory, loadHistory, saveHistory } from './sim-history.js';
 import ZH_GAME_TERMS from './locales/zh-game-terms.js';
+import { ELEMENT_ORDER, CLASS_ORDER, CORP_ORDER, elementIcon, weaponIcon, classIcon, corpIcon, burstIcon } from './icons.js';
 
 // ─── 开发模式 trace 上报 ────────────────────────────────────────────────────
 // 仅在 localhost 且 trace-server.mjs 运行时生效；服务器未启动时静默忽略。
@@ -838,7 +839,7 @@ export function createStore() {
     toast: null,
 
     // 模拟选项
-    iterations:         30,
+    iterations:         5,
     // 命中参数（模拟选项）：
     //   core0 / d0 / hitCoef：核心命中率几何模型校准常量（实证默认；见 dev/game-data.md）
     //   rlCoreRate / sgHitRate：实战命中校正（0..1，1 = 理想命中，默认 0.7），为敌人距离 50 处的命中率，越近越高
@@ -953,7 +954,44 @@ export function createStore() {
     classLabel(c)   { return this.t(`class.${c}`); },
     corpLabel(c)    { return this.t(`corp.${c}`); },
     elementLabel(e) { return this.t(`element.${e}`); },
-    burstLabel(b)   { return ({ Step1: 'B-I', Step2: 'B-II', Step3: 'B-III' })[b] ?? b; },
+    burstLabel(b)   { return ({ Step1: 'B-I', Step2: 'B-II', Step3: 'B-III', AllStep: 'B-ALL' })[b] ?? b; },
+
+    // ── 图标（src/ui/icons.js） ──
+    ELEMENT_ORDER, CLASS_ORDER, CORP_ORDER,
+    elementIcon, weaponIcon, classIcon, corpIcon,
+    /** 槽位的花名册原始爆裂阶段：AllStep 在槽位里被映射为 Step3，图标需按原值显示 */
+    slotBurstStep(slot) {
+      return getCharacterByResourceId(slot.resourceId)?.burstStep === 'AllStep' ? 'AllStep' : slot.burstStep;
+    },
+    slotBurstIcon(slot) { return burstIcon(this.slotBurstStep(slot)); },
+    /**
+     * 武器图标悬停提示行（CDN shot_detail 基础值，不含装备 / 技能加成）。
+     * 时间字段单位厘秒；damage / full_charge_damage / core_damage_rate 以 1/100 % 计。
+     * 蓄力时间 / 全蓄力伤害仅蓄力武器（charge_time > 0）显示；双枪仅 muzzle_count === 2 显示。
+     */
+    weaponTipRows(slot) {
+      const sd = slot?._nikkeData?.shot_detail;
+      if (!sd) return [];
+      const pct = v => (v / 100).toFixed(2).replace(/\.?0+$/, '') + '%';
+      const sec = v => (v / 100).toFixed(2) + 's';
+      const rows = [
+        { label: this.t('tip.maxAmmo'),    value: String(sd.max_ammo ?? '—') },
+        { label: this.t('tip.reloadTime'), value: sd.reload_time != null ? sec(sd.reload_time) : '—' },
+        { label: this.t('tip.damageCoef'), value: sd.damage != null ? pct(sd.damage) : '—' },
+      ];
+      if (sd.charge_time > 0) {
+        rows.push({ label: this.t('tip.chargeTime'), value: sec(sd.charge_time) });
+        if (sd.full_charge_damage != null) rows.push({ label: this.t('tip.fullCharge'), value: pct(sd.full_charge_damage) });
+      }
+      rows.push({ label: this.t('tip.coreDamage'), value: sd.core_damage_rate != null ? pct(sd.core_damage_rate) : '—' });
+      if (sd.muzzle_count === 2) rows.push({ label: this.t('tip.dualGun'), value: this.t('tip.dualGunVal') });
+      return rows;
+    },
+    /** 点击第 n 颗星（1..3）：未点亮 → 突破到 n；已点亮 → 退到 n-1（从 3 星点第 1 颗熄灭全部） */
+    clickGradeStar(i, n) {
+      const cur = this.team[i].grade ?? 0;
+      this.setGrade(i, cur >= n ? n - 1 : n);
+    },
     equipTypeOptions() {
       return EQUIP_OPTION_TYPES.map(ot =>
         `<option value="${ot.key}">${ot.key ? this.t(`equipOpt.${ot.key}`) : this.t('common.none')}</option>`
