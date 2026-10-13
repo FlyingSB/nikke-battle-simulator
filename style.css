@@ -992,19 +992,38 @@ select.input:not([multiple], [size]) {
   max-height: 80vh; display: flex; flex-direction: column;
   overflow: clip; box-shadow: 0 24px 64px rgba(0,0,0,0.6);
 }
+/* 角色选择器：固定为最大高度，筛选结果变少时弹窗尺寸不变 */
+.modal-box--picker { height: 80vh; }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px; border-bottom: 1px solid var(--border);
 }
 .modal-title { font-size: 0.85rem; font-weight: 600; color: var(--text); }
-.modal-search {
-  margin: 8px 14px 2px; width: calc(100% - 28px);
+/* 搜索框与图标筛选同一行；窄屏时筛选组整体换行 */
+.picker-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  padding: 8px 14px 2px;
 }
+.modal-search { flex: 1 1 180px; min-width: 0; width: auto; margin: 0; }
+.picker-filter-group {
+  display: flex; align-items: center; gap: 2px;
+  padding-left: 14px; border-left: 1px solid var(--border);
+}
+.picker-filter {
+  display: inline-flex; padding: 0; border: 0; background: none;
+  cursor: pointer; transition: transform 0.12s ease;
+}
+.picker-filter > * { filter: grayscale(0.7) brightness(0.8); opacity: 0.45; transition: filter 0.15s ease, opacity 0.15s ease; }
+.picker-filter:hover > * { filter: grayscale(0.2) brightness(0.95); opacity: 0.85; }
+.picker-filter--on { transform: scale(1.1); }
+.picker-filter--on > *,
+.picker-filter--on:hover > * { filter: drop-shadow(0 0 4px rgb(255 255 255 / 0.35)); opacity: 1; }
+.picker-filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .char-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
   gap: 5px; padding: 8px 14px;
-  overflow-y: scroll;
-  max-height: calc(80vh - 110px);
+  overflow-y: scroll; min-height: 0;
+  flex: 1 1 auto; align-content: start;
   scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
 }
 .char-card {

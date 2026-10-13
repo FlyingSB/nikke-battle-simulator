@@ -370,4 +370,9 @@ export default {
   'picker.title':       '选择 NIKKE',
   'picker.search':      '按名字搜索…',
   'picker.unmodeled':   '{name}（技能未建模）',
+  'picker.filter.burstStep':   '爆裂阶段筛选',
+  'picker.filter.classType':   '职业筛选',
+  'picker.filter.corporation': '厂商筛选',
+  'picker.filter.weaponType':  '武器类型筛选',
+  'picker.filter.element':     '代码筛选',
 };

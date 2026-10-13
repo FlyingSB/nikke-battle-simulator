@@ -871,6 +871,8 @@ export function createStore() {
     allChars:        [],
     charQuery:       '',
     charPickerSlot:  -1,
+    // 角色选择器图标筛选：每组为已选值数组，空数组 = 该组不筛选；关闭弹窗后保留
+    charFilters:     { burstStep: [], classType: [], corporation: [], weaponType: [], element: [] },
 
     // 结果
     result:        null,
@@ -1084,12 +1086,46 @@ export function createStore() {
 
     maxBond(grade, corp) { return maxBond(grade, corp); },
 
-    // 搜索同时匹配英文名与简体名（与当前界面语言无关）
+    // 角色选择器筛选组（显示顺序即按钮顺序）；值为花名册字段原值
+    CHAR_FILTER_GROUPS: [
+      { key: 'burstStep',   values: ['Step1', 'Step2', 'Step3'] },
+      { key: 'classType',   values: CLASS_ORDER },
+      { key: 'corporation', values: CORP_ORDER },
+      { key: 'weaponType',  values: ['AR', 'SMG', 'SG', 'SR', 'RL', 'MG'] },
+      { key: 'element',     values: ELEMENT_ORDER },
+    ],
+    charFilterIcon(key, v) {
+      return ({ burstStep: burstIcon, classType: classIcon, corporation: corpIcon,
+        weaponType: weaponIcon, element: elementIcon })[key](v);
+    },
+    charFilterLabel(key, v) {
+      if (key === 'burstStep')   return this.burstLabel(v);
+      if (key === 'classType')   return this.classLabel(v);
+      if (key === 'corporation') return this.corpLabel(v);
+      if (key === 'element')     return this.elementLabel(v);
+      return v;
+    },
+    toggleCharFilter(key, v) {
+      const cur = this.charFilters[key];
+      this.charFilters = {
+        ...this.charFilters,
+        [key]: cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v],
+      };
+    },
+
+    // 搜索同时匹配英文名与简体名（与当前界面语言无关）；
+    // 图标筛选：组内为「或」、组间为「且」；AllStep（如 Red Hood）匹配任意爆裂阶段
     get filteredChars() {
       const q = (this.charQuery ?? '').toLowerCase().trim();
-      if (!q) return this.allChars;
+      const f = this.charFilters;
+      const pass = (sel, v) => !sel.length || sel.includes(v);
       return this.allChars.filter(c =>
-        c.name.toLowerCase().includes(q) || (this.zhNames.characters[c.resourceId] ?? '').includes(q));
+        (!q || c.name.toLowerCase().includes(q) || (this.zhNames.characters[c.resourceId] ?? '').includes(q)) &&
+        (c.burstStep === 'AllStep' || pass(f.burstStep, c.burstStep)) &&
+        pass(f.classType, c.classType) &&
+        pass(f.corporation, c.corporation) &&
+        pass(f.weaponType, c.weaponType) &&
+        pass(f.element, c.element));
     },
 
     favItemsForSlot(slotIdx) {

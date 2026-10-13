@@ -1071,14 +1071,41 @@
        x-transition.opacity
        @click.self="$store.sim.closeCharPicker()"
        style="display:none">
-    <div class="modal-box" @click.stop>
+    <div class="modal-box modal-box--picker" @click.stop>
       <div class="modal-header">
         <h2 class="modal-title" x-text="$t('picker.title')"></h2>
         <button class="btn btn-ghost btn-sm" @click="$store.sim.closeCharPicker()">✕</button>
       </div>
-      <input class="input modal-search" type="text"
-        :placeholder="$t('picker.search')"
-        x-model="$store.sim.charQuery">
+      <!-- 搜索框 + 图标筛选（组内多选为「或」，组间为「且」；组内全不选 = 不筛选该组） -->
+      <div class="picker-toolbar">
+        <input class="input modal-search" type="text"
+          :placeholder="$t('picker.search')"
+          x-model="$store.sim.charQuery">
+        <template x-for="g in $store.sim.CHAR_FILTER_GROUPS" :key="g.key">
+          <div class="picker-filter-group" role="group" :aria-label="$t('picker.filter.' + g.key)">
+            <template x-for="v in g.values" :key="v">
+              <button type="button" class="picker-filter"
+                :class="{ 'picker-filter--on': $store.sim.charFilters[g.key].includes(v) }"
+                :aria-pressed="$store.sim.charFilters[g.key].includes(v)"
+                :title="$store.sim.charFilterLabel(g.key, v)"
+                :aria-label="$store.sim.charFilterLabel(g.key, v)"
+                @click="$store.sim.toggleCharFilter(g.key, v)">
+                <img x-show="g.key === 'element'" class="code-chip"
+                  :src="$store.sim.charFilterIcon(g.key, v)" alt="">
+                <span x-show="g.key !== 'element'" class="hex-chip"
+                  :class="{
+                    'hex-chip--dark':   g.key === 'burstStep' || g.key === 'weaponType',
+                    'hex-chip--light':  g.key === 'classType' || g.key === 'corporation',
+                    'hex-chip--weapon': g.key === 'weaponType',
+                  }">
+                  <img :class="{ 'corp-img': g.key === 'corporation' }"
+                    :src="$store.sim.charFilterIcon(g.key, v)" alt="">
+                </span>
+              </button>
+            </template>
+          </div>
+        </template>
+      </div>
       <div class="char-grid">
         <template x-for="char in $store.sim.filteredChars" :key="char.resourceId">
           <button class="char-card"

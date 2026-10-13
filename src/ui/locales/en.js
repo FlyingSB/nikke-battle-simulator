@@ -370,4 +370,9 @@ export default {
   'picker.title':       'Select NIKKE',
   'picker.search':      'Search by name…',
   'picker.unmodeled':   '{name} (skills not modeled)',
+  'picker.filter.burstStep':   'Burst stage filter',
+  'picker.filter.classType':   'Class filter',
+  'picker.filter.corporation': 'Manufacturer filter',
+  'picker.filter.weaponType':  'Weapon type filter',
+  'picker.filter.element':     'Code filter',
 };
