@@ -5,7 +5,7 @@
 
 import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
 import { rng } from './rng.js';
-import { HIT_RATE_REF_DISTANCE, HIDDEN_HITTABLE_SECS, SG_PELLET_REF_SCALE,
+import { HIT_RATE_REF_DISTANCE, SG_PELLET_REF_SCALE,
          RL_REF_PROJECTILE_SPEED, RL_FLIGHT_TICKS_PER_DISTANCE, RL_FLIGHT_TICKS_OFFSET,
          LATERAL_MISS_SLOPE, LATERAL_MISS_FLIGHT_THRESHOLD } from './constants.js';
 
@@ -297,15 +297,35 @@ export function rollPelletGroups(hitPellets, critRate, rollCore) {
 }
 
 /**
- * 敌人当前是否可被命中（供不受操作控制的自动攻击技能判定是否有目标，如 Anis: Star 的 Shooting Stars）。
- * HIDDEN 并非瞬间不可命中：隐藏动画前 HIDDEN_HITTABLE_SECS 秒内仍可被命中，之后才无目标。
+ * 敌人当前是否可被命中：HIDDEN（隐藏，或「跳起」的空中 / 落地段）内完全不可攻击（dev/game-data.md 文首备注）；
+ * 「跳起」的起跳段 JUMP 全队停火，但敌人仍可被已打出的技能命中。
+ * 供不受操作控制的自动攻击技能判定是否有目标（如 Anis: Star 的 Shooting Stars），
+ * 以及延迟技能命中到期时判定是否落空（tick() 延迟命中队列）。
  * （自动战斗的普通射击在 HIDDEN 起点即停火，不经过此函数。）
  * @param {object} state
  * @returns {boolean}
  */
 export function isEnemyHittable(state) {
-  if (state.currentPhaseZone !== 'HIDDEN') return true;
-  return state.tick - (state.hiddenStartTick ?? state.tick) < Math.round(HIDDEN_HITTABLE_SECS * TICK_RATE);
+  return state.currentPhaseZone !== 'HIDDEN';
+}
+
+/**
+ * 记录一次落空的技能命中（如带延迟的技能伤害在敌人隐藏期间到达）：伤害 0，日志标记 missed，
+ * 不触发任何命中效果、不充能、不计入命中次数。
+ * @param {object} state
+ * @param {object} unit
+ * @param {number} hitMult
+ * @param {string} label  原始命中标签
+ */
+export function logMissedSkillHit(state, unit, hitMult, label) {
+  if (!state.hitLog) return;
+  state.hitLog.push({
+    _seq: state._logSeq++,
+    tick: state.tick, unitId: unit.id, label: resolveSkillLabel(unit, label) ?? 'skill',
+    gaugeAfter: state.burstGauge,
+    hitMult, damage: 0, missed: true,
+    buffBreakdown: [],
+  });
 }
 
 /**

@@ -5,8 +5,9 @@
 /**
  * 射击场 BIGARMS（联盟射击场训练目标）。
  * 实测（2026-10-13，Anis: Star 单人，无全爆裂暂停，录像第 604 帧开战）：帧号 − 604 后 / 60 得秒数。
- *   · 隐藏：31.77 / 67.43 / 106.25 / 141.93 / 174.48s，各约 1.8s；174.48s 之后战斗实质结束。
- *   · 距离：开场 30 → 20 → 50 → 40 → 20（每次隐藏结束时切换）。
+ *   · 跳起（固定 1.85s，见 enemy-config-io.js JUMP_*）：31.77 / 67.43 / 106.25 / 141.93 / 174.48s 起跳；
+ *     约 176.5s 战斗结束。
+ *   · 距离：开场 30 → 20 → 50 → 40 → 20 → 50（每次跳起落地时切换）。
  *   · 横向移动（慢）：23 段，距离 50 阶段全程移动。
  */
 const LATERAL_SLOW_SPANS = [
@@ -21,15 +22,11 @@ const RANGE_BIGARMS_ACTIONS = [
   { startTimeS: 0,      type: 'def',      value: 100 },
   { startTimeS: 0,      type: 'core',     value: 'EXPOSED' },
   { startTimeS: 0,      type: 'position', value: 30 },
-  { startTimeS: 31.77,  type: 'hidden',   value: 'HIDDEN' },
-  { startTimeS: 33.57,  type: 'position', value: 20 },
-  { startTimeS: 67.43,  type: 'hidden',   value: 'HIDDEN' },
-  { startTimeS: 69.27,  type: 'position', value: 50 },
-  { startTimeS: 106.25, type: 'hidden',   value: 'HIDDEN' },
-  { startTimeS: 108.08, type: 'position', value: 40 },
-  { startTimeS: 141.93, type: 'hidden',   value: 'HIDDEN' },
-  { startTimeS: 143.77, type: 'position', value: 20 },
-  { startTimeS: 174.48, type: 'hidden',   value: 'HIDDEN' },
+  { startTimeS: 31.77,  type: 'jump',     value: 20 },
+  { startTimeS: 67.43,  type: 'jump',     value: 50 },
+  { startTimeS: 106.25, type: 'jump',     value: 40 },
+  { startTimeS: 141.93, type: 'jump',     value: 20 },
+  { startTimeS: 174.48, type: 'jump',     value: 50 },
   ...LATERAL_SLOW_SPANS.map(([s, e]) => ({ startTimeS: s, type: 'lateral', value: 'SLOW', endTimeS: e })),
 ];
 

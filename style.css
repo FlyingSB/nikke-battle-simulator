@@ -790,6 +790,8 @@ select.input:not([multiple], [size]) {
 
 /* ── 伤害分解 tooltip ────────────────────────────────────────── */
 .log-dmg--tip { cursor: copy; text-decoration: underline dotted var(--text-dim); }
+/* 落空命中（延迟技能伤害在敌人隐藏期间到达）：红字高亮 */
+.log-table td.log-dmg--miss { color: var(--accent2); font-weight: 700; cursor: help; }
 .dmg-tip-hint { padding: 4px 10px 0; font-size: 0.85em; color: var(--text-dim); text-align: right; }
 
 /* ── 充能气泡 ────────────────────────────────────────────────── */

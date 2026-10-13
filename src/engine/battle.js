@@ -20,7 +20,7 @@ import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAU
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, rollPelletGroups, rlCoreHitRate, sgPelletHitRate, isBuffActiveFor, sumBuffField } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, rollPelletGroups, rlCoreHitRate, isEnemyHittable, logMissedSkillHit, sgPelletHitRate, isBuffActiveFor, sumBuffField } from './battle-utils.js';
 import { executeSkillTriggers, dispatchHpChanged, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -78,6 +78,15 @@ const BURST_GAUGE_MAX = 1_000_000;
  * @param {number} tick
  * @returns {string}
  */
+/**
+ * 全队停火的敌人区段：HIDDEN（完全不可攻击）与 JUMP（「跳起」行动的起跳段，敌人仍可被已打出的技能命中）。
+ * @param {number|string|null} zone
+ * @returns {boolean}
+ */
+function isHoldFireZone(zone) {
+  return zone === 'HIDDEN' || zone === 'JUMP';
+}
+
 function getPhaseAtTick(phases, tick) {
   for (let i = phases.length - 1; i >= 0; i--) {
     if (tick >= phases[i].startTick) return phases[i].zone;
@@ -1230,18 +1239,19 @@ export function tick(state) {
   if (state.enemyPhases?.length > 0) {
     const newZone = getPhaseAtTick(state.enemyPhases, state.tick);
     if (newZone !== state.currentPhaseZone) {
+      const wasHoldFire = isHoldFireZone(state.currentPhaseZone);
       state.currentPhaseZone = newZone;
-      if (newZone === 'HIDDEN') {
-        // 记录隐藏起点：隐藏动画前段敌人仍可被命中（见 isEnemyHittable）
-        state.hiddenStartTick = state.tick;
-        // 进入 HIDDEN：所有单位停止攻击（已触发的技能、DoT 仍正常造成伤害，
-        // 见 tick() 上方的 DoT/延迟命中处理，不受此分支影响）。各单位按弹匣状态分流：
+      if (isHoldFireZone(newZone)) {
+        // 进入停火区段（HIDDEN，或「跳起」的起跳段 JUMP）：所有单位停止攻击。
+        //   HIDDEN 敌人完全不可攻击（DoT 仍正常造成伤害；延迟技能命中到期时落空记为「未命中」，
+        //   见 tick() 延迟命中队列）；JUMP 敌人仍可被已打出的技能命中。
+        // 跳起 JUMP → 空中 HIDDEN 属同一次停火，不重复执行以下进入逻辑。各单位按弹匣状态分流：
         //   · 弹匣已满，或正处于武器切换（特殊武器）中 → 待命，不装填、保留弹药。
         //   · 弹匣未满且非空（>0）→ 开始装填：保存当前弹药、将 ammoLeft 置 0，
         //     下一 tick 由装填机制接管。敌人再次出现时若装填未完成，弹药会恢复
         //     （自愿装填被打断，弹匣剩余不变）。
         //   · 弹匣已空（==0，本就在装填）→ 装填继续不中断。
-        for (const u of state.squad) {
+        for (const u of (wasHoldFire ? [] : state.squad)) {
           const weaponSwitching = (u.skillState?.weaponSwitchEndTick ?? 0) > 0
             && state.tick <= u.skillState.weaponSwitchEndTick;
           if (weaponSwitching || u.ammoLeft >= u.maxAmmo) continue; // 待命，不装填
@@ -1393,6 +1403,11 @@ export function tick(state) {
     const due = state.pendingSkillHits.filter(h => h.fireTick <= state.tick);
     state.pendingSkillHits = state.pendingSkillHits.filter(h => h.fireTick > state.tick);
     for (const h of due) {
+      // 带延迟的技能伤害在敌人隐藏期间到达 → 落空：伤害 0，日志标为「未命中」
+      if (!isEnemyHittable(state)) {
+        logMissedSkillHit(state, h.caster, h.mult, h.label);
+        continue;
+      }
       // 兜底：受全爆裂补正的命中若在 B3 施放后、进入全爆裂前到期（含「进入全爆裂后 0s」的命中——
       // 本队列先于本 tick 的 enterFullBurst 处理），改由 enterFullBurst 在 ENTER_FULL_BURST 后结算
       if (h.opts?.affectedByFullBurst && state.burstPhase === 3 && !state.fullBurstActive) {
@@ -1621,8 +1636,8 @@ export function tick(state) {
       }
     }
 
-    // HIDDEN 阶段跳过射击（上方装填仍然允许）。
-    if (state.currentPhaseZone === 'HIDDEN') {
+    // 停火区段（HIDDEN / 跳起 JUMP）跳过射击（上方装填仍然允许）。
+    if (isHoldFireZone(state.currentPhaseZone)) {
       if (unit.mgCurrentRof != null && unit.mgRofDecayPerTick > 0) {
         unit.mgCurrentRof = Math.max(unit.mgStartRof, unit.mgCurrentRof - unit.mgRofDecayPerTick);
       }

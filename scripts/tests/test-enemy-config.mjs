@@ -9,7 +9,8 @@
  * Run: node scripts/tests/test-enemy-config.mjs
  */
 
-import { pickActionFields, buildEnemyConfigExport, parseEnemyConfig } from '../../src/ui/enemy-config-io.js';
+import { pickActionFields, buildEnemyConfigExport, parseEnemyConfig, buildEnemyPhases,
+         JUMP_HITTABLE_SECS, JUMP_DURATION_SECS } from '../../src/ui/enemy-config-io.js';
 import { BUILTIN_ENEMY_PRESETS, DEFAULT_ENEMY_PRESET } from '../../src/data/enemy-presets.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
 
@@ -47,6 +48,21 @@ section('T2: parseEnemyConfig — lateral 校验');
   eq('endTimeS > 180 → 错误', parseEnemyConfig(lat({ endTimeS: 181 })).error?.key, 'enemyIo.err.lateralEnd');
 }
 
+section('T2b: 跳起 jump — 校验与相位展开');
+{
+  const jmp = v => wrap([...FIXED, { startTimeS: 10, type: 'jump', value: v }]);
+  eq('合法 jump', parseEnemyConfig(jmp(50)).ok, true);
+  eq('距离越界 → 错误', parseEnemyConfig(jmp(101)).error?.key, 'enemyIo.err.jumpValue');
+  eq('非数字 → 错误', parseEnemyConfig(jmp('HIDDEN')).error?.key, 'enemyIo.err.jumpValue');
+
+  const phases = buildEnemyPhases([...FIXED, { startTimeS: 10, type: 'jump', value: 50 },
+    { startTimeS: 20, type: 'hidden', value: 'HIDDEN' }, { startTimeS: 22, type: 'position', value: '40' }], 60);
+  eq('展开：开场 30 → JUMP@600 → HIDDEN@660 → 50@711 → HIDDEN@1200 → 40@1320',
+    phases.map(p => `${p.zone}@${p.startTick}`).join(','),
+    '30@0,JUMP@600,HIDDEN@660,50@711,HIDDEN@1200,40@1320');
+  eq('固定时长', `${JUMP_HITTABLE_SECS}/${JUMP_DURATION_SECS}`, '1/1.85');
+}
+
 section('T3: 内置预设「射击场BIGARMS」');
 {
   const p = DEFAULT_ENEMY_PRESET;
@@ -55,10 +71,11 @@ section('T3: 内置预设「射击场BIGARMS」');
   const exp = buildEnemyConfigExport(p.config);
   eq('通过导入校验', parseEnemyConfig(JSON.stringify(exp)).ok, true);
   const acts = p.config.actions;
-  eq('隐藏 5 次', acts.filter(a => a.type === 'hidden').length, 5);
+  eq('跳起 5 次，无隐藏', acts.filter(a => a.type === 'jump').length + '/' + acts.filter(a => a.type === 'hidden').length, '5/0');
   eq('横向移动 23 段', acts.filter(a => a.type === 'lateral').length, 23);
-  eq('距离依次 30 → 20 → 50 → 40 → 20',
-    acts.filter(a => a.type === 'position').map(a => a.value).join(','), '30,20,50,40,20');
+  eq('仅开场一条距离', acts.filter(a => a.type === 'position').map(a => a.value).join(','), '30');
+  eq('落地距离依次 20 → 50 → 40 → 20 → 50',
+    acts.filter(a => a.type === 'jump').map(a => a.value).join(','), '20,50,40,20,50');
   const dyn = acts.slice(3).map(a => a.startTimeS);
   eq('动态行按时间升序', dyn.every((t, i) => i === 0 || dyn[i - 1] <= t), true);
   // 距离 50 阶段（69.27s 起）全程横向移动，直到 106.25s 隐藏

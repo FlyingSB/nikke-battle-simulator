@@ -155,13 +155,6 @@ export const HIT_RATE_REF_DISTANCE = 50;
 export const SG_PELLET_REF_SCALE = 250;
 
 /**
- * 敌人进入 HIDDEN 后仍可被命中的时长（秒）。BIGARMS 隐藏动画约 2s，前 0.9s 仍可被命中（dev/game-data.md）。
- * 自动战斗的角色在 HIDDEN 起点即停火装弹；不受操作控制的自动攻击技能（如 Anis: Star 的 Shooting Stars）
- * 在此窗口内继续命中，之后才因无目标而跳过。
- */
-export const HIDDEN_HITTABLE_SECS = 0.9;
-
-/**
  * RL 核心命中模型（实测：2026-10-13，Anis: Star 单人 vs 射击场 BIGARMS，逐发记录核心命中与敌人横向移动）。
  * 命中本身不建模飞行时间（即时结算），飞行时间只用于核心判定：
  *   · 敌人静止 → 必中核心（约 90 发静止命中仅 1 发偏离）；

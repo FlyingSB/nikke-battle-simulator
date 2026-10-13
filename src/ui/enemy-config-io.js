@@ -13,7 +13,8 @@
 //       { "startTimeS": 0, "type": "core",     "value": "EXPOSED" },
 //       { "startTimeS": 0, "type": "position", "value": 35 },
 //       { "startTimeS": 10, "type": "hidden",  "value": "HIDDEN" },
-//       { "startTimeS": 12, "type": "lateral", "value": "SLOW", "endTimeS": 15 }   // 横向移动区间
+//       { "startTimeS": 12, "type": "lateral", "value": "SLOW", "endTimeS": 15 },  // 横向移动区间
+//       { "startTimeS": 30, "type": "jump",    "value": 20 }                       // 跳起（固定 1.85s），落地距离 20
 //     ]
 //   }
 // }
@@ -24,10 +25,45 @@ export const ENEMY_CONFIG_FORMAT  = 'nikke-enemy-config';
 export const ENEMY_CONFIG_VERSION = 1;
 
 const ELEMENTS        = ['Fire', 'Water', 'Wind', 'Electric', 'Iron'];
-const ACTION_TYPES    = ['def', 'core', 'position', 'hidden', 'lateral'];
+const ACTION_TYPES    = ['def', 'core', 'position', 'hidden', 'lateral', 'jump'];
 const CORE_VALUES     = ['EXPOSED', 'PROTECTED', 'PARTS_CORE', 'NONE'];
 // 横向移动速度档（目前仅「慢」）
 export const LATERAL_SPEEDS = ['SLOW'];
+
+/**
+ * 「跳起」行动固定时长（射击场 BIGARMS 实测，dev/game-data.md）：
+ *   [0, 1s)     起跳：全队停止攻击，敌人仍可被已打出的技能命中（引擎区段 JUMP）
+ *   [1s, 1.85s) 空中 1–1.7s + 落地 1.7–1.85s：完全不可攻击，DoT 仍造成伤害（引擎区段 HIDDEN）
+ *   1.85s       行动结束，敌人落在目标距离（value）
+ */
+export const JUMP_HITTABLE_SECS = 1;
+export const JUMP_DURATION_SECS = 1.85;
+
+/**
+ * 由敌人行动构建引擎相位表（startTick 升序）：
+ *   position → 距离；hidden → HIDDEN；jump → JUMP @0 / HIDDEN @1s / 目标距离 @1.85s。
+ * 数字字符串统一转数字（引擎 phaseToDistance 再把旧 NEAR/MID/FAR 标签映射为默认距离）。
+ * @param {{ startTimeS: number|string, type: string, value: * }[]} actions
+ * @param {number} tickRate
+ * @returns {{ startTick: number, zone: number|string }[]}
+ */
+export function buildEnemyPhases(actions, tickRate) {
+  const toTick = s => Math.round(Number(s) * tickRate);
+  const toZone = v => ((typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) ? Number(v) : v);
+  const phases = [];
+  for (const a of actions) {
+    if (a.type === 'position') phases.push({ startTick: toTick(a.startTimeS), zone: toZone(a.value) });
+    else if (a.type === 'hidden') phases.push({ startTick: toTick(a.startTimeS), zone: 'HIDDEN' });
+    else if (a.type === 'jump') {
+      const t0 = Number(a.startTimeS);
+      phases.push({ startTick: toTick(t0), zone: 'JUMP' });
+      phases.push({ startTick: toTick(t0 + JUMP_HITTABLE_SECS), zone: 'HIDDEN' });
+      phases.push({ startTick: toTick(t0 + JUMP_DURATION_SECS), zone: toZone(a.value) });
+    }
+  }
+  // 同一 tick 保持行动顺序（Array.prototype.sort 稳定）
+  return phases.sort((x, y) => x.startTick - y.startTick);
+}
 const FIXED_TYPES     = ['def', 'core', 'position'];
 const MAX_START_TIME  = 180;
 const MAX_DISTANCE    = 100;
@@ -71,6 +107,9 @@ function validateActionValue(a, row) {
     case 'position':
       return isFiniteNum(a.value) && a.value >= 0 && a.value <= MAX_DISTANCE
         ? null : fail('enemyIo.err.positionValue', { row });
+    case 'jump':
+      return isFiniteNum(a.value) && a.value >= 0 && a.value <= MAX_DISTANCE
+        ? null : fail('enemyIo.err.jumpValue', { row });
     case 'lateral':
       if (!LATERAL_SPEEDS.includes(a.value)) return fail('enemyIo.err.lateralValue', { row });
       return isFiniteNum(a.endTimeS) && a.endTimeS > a.startTimeS && a.endTimeS <= MAX_START_TIME

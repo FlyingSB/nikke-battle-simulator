@@ -20,7 +20,7 @@ import {
 } from '../../src/engine/accuracy.js';
 import { CORE0_DEFAULT, D0_DEFAULT, HITRATE_CORE_COEF_DEFAULT } from '../../src/engine/constants.js';
 import { rollHitPellets, rollProjectileCore, distanceScaledHitRate, sgPelletHitRate, isEnemyHittable,
-         enemyLateralSpeedAt, rlFlightTicks, rlCoreHitRate } from '../../src/engine/battle-utils.js';
+         enemyLateralSpeedAt, rlFlightTicks, rlCoreHitRate, logMissedSkillHit } from '../../src/engine/battle-utils.js';
 import { setRng } from '../../src/engine/rng.js';
 import { eq, near, section, summary } from '../lib/test-harness.mjs';
 
@@ -185,14 +185,25 @@ section('T6b: sgPelletHitRate（散布收束 / 命中率 ▲ 减少弹丸打空�
   eq('散布大于标定 → 不放大打空率', sgPelletHitRate(0.7, 50, 400, 0, c), 0.7);
 }
 
-section('T7: isEnemyHittable（HIDDEN 前 0.9s 仍可命中）');
+section('T7: isEnemyHittable（隐藏时段内完全不可攻击）');
 {
-  const hidden = (elapsedTicks) => ({ currentPhaseZone: 'HIDDEN', hiddenStartTick: 1000, tick: 1000 + elapsedTicks });
-  eq('非 HIDDEN → 可命中', isEnemyHittable({ currentPhaseZone: 'NEAR', tick: 5 }), true);
-  eq('HIDDEN 起点 → 可命中', isEnemyHittable(hidden(0)), true);
-  eq('HIDDEN 0.88s（53t）→ 可命中', isEnemyHittable(hidden(53)), true);
-  eq('HIDDEN 0.9s（54t）→ 不可命中', isEnemyHittable(hidden(54)), false);
-  eq('HIDDEN 1.5s → 不可命中', isEnemyHittable(hidden(90)), false);
+  eq('非 HIDDEN → 可命中', isEnemyHittable({ currentPhaseZone: 20, tick: 5 }), true);
+  eq('跳起起跳段 JUMP → 仍可命中', isEnemyHittable({ currentPhaseZone: 'JUMP', tick: 5 }), true);
+  eq('HIDDEN 起点 → 不可命中', isEnemyHittable({ currentPhaseZone: 'HIDDEN', tick: 1000 }), false);
+  eq('HIDDEN 1.5s → 不可命中', isEnemyHittable({ currentPhaseZone: 'HIDDEN', tick: 1090 }), false);
+}
+
+section('T8: logMissedSkillHit（延迟技能伤害落空）');
+{
+  const unit = { id: 7, rawBurst: { name_localkey: 'Big Bang' } };
+  const st = { tick: 300, burstGauge: 1234, _logSeq: 0, hitLog: [] };
+  logMissedSkillHit(st, unit, 2.5, 'Burst');
+  const h = st.hitLog[0];
+  eq('写入一条日志', st.hitLog.length, 1);
+  eq('伤害为 0', h.damage, 0);
+  eq('标记 missed', h.missed, true);
+  eq('标签解析为技能名', h.label, 'Big Bang');
+  eq('无 hitLog 时不报错', logMissedSkillHit({ tick: 1 }, unit, 1, 'Burst'), undefined);
 }
 
 summary('Accuracy (HitRate core-hit model) tests');

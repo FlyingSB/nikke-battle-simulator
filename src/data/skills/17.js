@@ -251,8 +251,8 @@ export default {
 
       // Part1 INTERVAL：Shooting Star —— 每 0.25 sec 以当前 buff 状态造成一次伤害
       // 性质：RL 未蓄力的普通攻击（isCharged=false，chargeMult=1）
-      //   · 自动攻击随机目标：不受自动战斗停火影响，敌人进入 HIDDEN 后前 0.9s 仍可命中并继续攻击，
-      //     之后敌人无法被命中（无目标）时跳过该轮（isEnemyHittable，dev/game-data.md）
+      //   · 自动攻击随机目标：与其他技能一样，敌人隐藏期间无目标，跳过该轮
+      //     （isEnemyHittable，dev/game-data.md 2026-10-13 整局观察）
       //   · 可命中核心：敌人有核心且未被保护时，静止必中、横向移动时按 0.7 × 修正系数判定
       //     （shootingStarCoreRate；RL 无穿透）
       //   · 享受普攻加成（normalAttackDamagePct / normalAttackCritRatePct）
@@ -270,7 +270,7 @@ export default {
           const endTick = caster.skillState.shootingStarsEndTick;
           if (!endTick || state.tick > endTick) return false;
           if (state.enemyHp <= 0) return;
-          // 敌人隐藏且已不可命中（隐藏动画前 0.9s 仍可命中）→ 无目标，本轮跳过（计时照常推进，不顺延）
+          // 敌人隐藏 → 无目标，本轮跳过（计时照常推进，不顺延）
           if (!isEnemyHittable(state)) return;
           const lv     = caster.skillLevels[2];
           const pct    = getSkillValue(caster.rawBurst, 0, lv) / 100;

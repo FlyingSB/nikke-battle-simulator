@@ -22,7 +22,7 @@ import { LANGS, loadSavedLang, setCurrentLang, t, translate } from './i18n.js';
 import { createNameMap, displayGameText } from './game-text.js';
 import { buildDmgTooltipHTML, pelletGroupTitleKey } from './dmg-tooltip.js';
 import { buildDmgFormulaExport, pickPelletGroup } from './dmg-formula-export.js';
-import { buildEnemyConfigExport, parseEnemyConfig, pickActionFields } from './enemy-config-io.js';
+import { buildEnemyConfigExport, parseEnemyConfig, pickActionFields, buildEnemyPhases } from './enemy-config-io.js';
 import { BUILTIN_ENEMY_PRESETS, DEFAULT_ENEMY_PRESET } from '../data/enemy-presets.js';
 import { getActiveSkillCooldownSec } from '../data/active-skill-cooldowns.js';
 import { SIM_HISTORY_MAX, buildHistoryRecord, addHistoryRecord, mergeHistory, loadHistory, saveHistory } from './sim-history.js';
@@ -497,6 +497,7 @@ function clampRate(v, fallback) {
 // 敌人位置事件的显示值：隐藏 / 连续距离 / 旧版 NEAR·MID·FAR 标签
 function _zoneDesc(zone) {
   if (zone === 'HIDDEN') return t('ev.hidden');
+  if (zone === 'JUMP')   return t('ev.jump');
   if (typeof zone === 'number') return t('ev.distance', { n: zone });
   return ['NEAR', 'MID', 'FAR'].includes(zone) ? t(`ev.zone.${zone}`) : zone;
 }
@@ -712,6 +713,7 @@ function buildAggregateLog(hitLog, unitNames) {
       h.chargeMult ?? 1,
       h.favNormalAttackDamageMult ?? 1,
       h.critDmgInc ?? 0,
+      h.missed ? 1 : 0,   // 落空（未命中）与正常命中分行
     ].map(v => (typeof v === 'number' ? v.toFixed(6) : v)).join('|');
 
     const key = `${h.unitId}|${h.label}`;
@@ -737,6 +739,7 @@ function buildAggregateLog(hitLog, unitNames) {
         damage:    h.damage,
         count:     1,
         isCrit:    h.isCrit,
+        missed:    !!h.missed,
         _seq:      h._seq ?? null,
       });
     }
@@ -761,6 +764,7 @@ function buildDetailLog(hitLog, unitNames) {
     damage:     h.damage,
     count:      1,
     isCrit:     h.isCrit,
+    missed:     !!h.missed,
     isCore:     h.isCore,
     distanceAdv: h.distanceAdv,
     ammoLeft:   h.ammoLeft,
@@ -1559,7 +1563,8 @@ export function createStore() {
       this.selectedPresetId = null;
       if (field === 'type') {
         // 类型切换时重置值为合理默认；横向移动为区间，默认持续 1 秒
-        const defaults = { def: 500, core: 'NONE', position: DEFAULT_ENEMY_DISTANCE, hidden: 'HIDDEN', lateral: 'SLOW' };
+        const defaults = { def: 500, core: 'NONE', position: DEFAULT_ENEMY_DISTANCE, hidden: 'HIDDEN', lateral: 'SLOW',
+          jump: DEFAULT_ENEMY_DISTANCE };
         action.value = defaults[val] ?? 500;
         if (val === 'lateral') action.endTimeS = Math.min(180, (Number(action.startTimeS) || 0) + 1);
         else delete action.endTimeS;
@@ -2115,16 +2120,8 @@ export function createStore() {
         const initPosAction  = enemyActions.find(a => a.startTimeS === 0 && a.type === 'position');
 
         const initCore = initCoreAction?.value ?? 'NONE';
-        const positionPhases = enemyActions
-          .filter(a => a.type === 'position' || a.type === 'hidden')
-          .map(a => {
-            // 「隐藏」行动固定映射为 HIDDEN 阶段；position 值为连续距离，数字字符串统一转数字，
-            // 引擎 phaseToDistance 再把旧 NEAR/MID/FAR 标签映射为默认距离。
-            const v = a.type === 'hidden' ? 'HIDDEN' : a.value;
-            const zone = (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) ? Number(v) : v;
-            return { startTick: Math.round(Number(a.startTimeS) * ENEMY_TICK_RATE), zone };
-          })
-          .sort((x, y) => x.startTick - y.startTick);
+        // 距离 / 隐藏 / 跳起（展开为 JUMP → HIDDEN → 落地距离）→ 引擎相位表
+        const positionPhases = buildEnemyPhases(enemyActions, ENEMY_TICK_RATE);
         const defActions = enemyActions
           .filter(a => a.type === 'def' && a.startTimeS > 0)
           .map(a => ({ startTick: Math.round(Number(a.startTimeS) * ENEMY_TICK_RATE), value: Number(a.value) || 0 }))

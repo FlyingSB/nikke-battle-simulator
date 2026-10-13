@@ -208,7 +208,7 @@
                           :value="action.type"
                           :title="action.type === 'position' ? $t('enemy.distanceTip') : ''"
                           @change="$store.sim.updateEnemyAction(action.id, 'type', $event.target.value)">
-                          <template x-for="tp in ['def','core','position','hidden','lateral']" :key="tp">
+                          <template x-for="tp in ['def','core','position','hidden','jump','lateral']" :key="tp">
                             <option :value="tp" :selected="tp === action.type" x-text="$t('enemy.type.' + tp)"></option>
                           </template>
                         </select>
@@ -239,6 +239,14 @@
                       </template>
                       <template x-if="action.type === 'hidden'">
                         <span class="action-fixed-cell" :title="$t('enemy.hiddenTip')">—</span>
+                      </template>
+                      <!-- 跳起：固定 1.85s，值为落地后的目标距离 -->
+                      <template x-if="action.type === 'jump'">
+                        <input class="input input-sm" type="number" min="0" max="100" step="1"
+                          :value="action.value"
+                          @input="$store.sim.updateEnemyAction(action.id, 'value', +$event.target.value)"
+                          :aria-label="$t('enemy.jumpValue')"
+                          :title="$t('enemy.jumpTip')">
                       </template>
                       <!-- 横向移动：速度档 + 结束时间（区间 [开始, 结束)） -->
                       <template x-if="action.type === 'lateral'">
@@ -1033,12 +1041,14 @@
                               </template>
                               <span x-show="!(row.buffArr && row.buffArr.length)" x-text="$store.sim.dispText(row.buffDesc)"></span>
                             </td>
+                            <!-- 落空命中（带延迟的技能伤害在敌人隐藏期间到达）：显示「未命中」红字，无伤害明细 -->
                             <td class="log-dmg mono"
-                              :class="$store.sim.logMode === 'detail' && row._hit ? 'log-dmg--tip' : ''"
-                              x-text="row.damage != null ? $store.sim.fmtNum(row.damage) : ''"
-                              @mouseenter="$store.sim.logMode === 'detail' && row._hit && $store.sim.showDmgTooltip($event, row._hit)"
+                              :class="row.missed ? 'log-dmg--miss' : ($store.sim.logMode === 'detail' && row._hit ? 'log-dmg--tip' : '')"
+                              :title="row.missed ? $t('log.missedTip') : ''"
+                              x-text="row.missed ? $t('log.missed') : (row.damage != null ? $store.sim.fmtNum(row.damage) : '')"
+                              @mouseenter="!row.missed && $store.sim.logMode === 'detail' && row._hit && $store.sim.showDmgTooltip($event, row._hit)"
                               @mouseleave="$store.sim.hideDmgTooltip()"
-                              @click="$store.sim.logMode === 'detail' && row._hit && $store.sim.copyDmgFormula(row._hit)"></td>
+                              @click="!row.missed && $store.sim.logMode === 'detail' && row._hit && $store.sim.copyDmgFormula(row._hit)"></td>
                             <td class="log-ammo mono" x-show="$store.sim.logMode === 'detail'"
                               x-text="row.charge ?? ''"></td>
                             <td class="log-gauge mono"

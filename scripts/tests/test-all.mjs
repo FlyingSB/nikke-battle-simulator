@@ -40,6 +40,7 @@ const SUITES = [
   { name: 'SimHistory', file: 'test-sim-history.mjs', note: 'simulation history records, no I/O'   },
   { name: 'DmgExport',  file: 'test-dmg-export.mjs',  note: 'damage formula calculator export, no I/O' },
   { name: 'EnemyConfig', file: 'test-enemy-config.mjs', note: 'enemy config IO & built-in presets, no I/O' },
+  { name: 'EnemyJump',  file: 'test-enemy-jump.mjs',  note: 'enemy jump action (hold fire / airborne miss), no I/O' },
   { name: 'I18n',      file: 'test-i18n.mjs',       note: 'UI dictionaries & zh-CN text patches, local JSON' },
 ];
 
