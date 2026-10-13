@@ -138,11 +138,9 @@ export const HITRATE_CORE_COEF_DEFAULT = 4.5;  // HitRate 收圆系数（Drake �
 /**
  * 实战命中校正系数（模拟选项可调）。引擎层默认 1 = 理想命中（与旧行为一致，回归测试依赖）；
  * 界面默认 0.7（src/ui/store.js HIT_CAL_DEFAULTS），每次模拟显式传入。
- *   RL_CORE_RATE_DEFAULT：RL（及类 RL 弹道技能，如 Anis: Star 的 Shooting Stars）核心命中率。
- *     RL 有弹道与飞行时间（CDN shot_detail.spot_projectile_speed），敌人移动 / 远距离时无法保证命中核心。
  *   SG_PELLET_HIT_RATE_DEFAULT：SG 每颗弹丸命中躯体的概率（散布大，远距离时部分弹丸打空）。
+ * RL 核心命中不用校正系数，按敌人横向移动 + 弹道飞行时间建模（见下方 RL_FLIGHT_* / LATERAL_*）。
  */
-export const RL_CORE_RATE_DEFAULT       = 1;
 export const SG_PELLET_HIT_RATE_DEFAULT = 1;
 /**
  * 上述系数为敌人距离 HIT_RATE_REF_DISTANCE 时的命中率；敌人越近命中率越高，按距离线性缩放：
@@ -162,3 +160,27 @@ export const SG_PELLET_REF_SCALE = 250;
  * 在此窗口内继续命中，之后才因无目标而跳过。
  */
 export const HIDDEN_HITTABLE_SECS = 0.9;
+
+/**
+ * RL 核心命中模型（实测：2026-10-13，Anis: Star 单人 vs 射击场 BIGARMS，逐发记录核心命中与敌人横向移动）。
+ * 命中本身不建模飞行时间（即时结算），飞行时间只用于核心判定：
+ *   · 敌人静止 → 必中核心（约 90 发静止命中仅 1 发偏离）；
+ *   · 敌人横向移动（以「出手 + 飞行时间」时刻判定）→ 打偏率 = clamp(斜率 × (飞行帧 − 阈值), 0, 1)：
+ *       距离 20（飞行约 8 帧）0/30，距离 30/40（约 15/21 帧）6/25，距离 50（约 27 帧）14/31。
+ * 飞行帧 = max(0, RL_FLIGHT_TICKS_PER_DISTANCE × 距离 + RL_FLIGHT_TICKS_OFFSET) × RL_REF_PROJECTILE_SPEED / 弹速
+ *   （实测出手 → 命中帧：距离 20 → 7 / 9，30 → 18，40 → 19，50 → 27，线性拟合）。
+ * 弹速取 CDN shot_detail.spot_projectile_speed（绝大多数 RL 为 100；Laplace / A2 300，
+ * Scarlet: Black Shadow / Raven 400，Cinderella 1500 → 飞行极短，几乎不会打偏）。
+ */
+export const RL_REF_PROJECTILE_SPEED      = 100;
+export const RL_FLIGHT_TICKS_PER_DISTANCE = 0.603;
+export const RL_FLIGHT_TICKS_OFFSET       = -3.3;
+/** 横向移动速度档 → 每飞行帧的打偏率斜率（目前仅「慢」，实测拟合）。 */
+export const LATERAL_MISS_SLOPE = { SLOW: 0.028 };
+/** 飞行帧低于该值时横向移动不致打偏。 */
+export const LATERAL_MISS_FLIGHT_THRESHOLD = 10.8;
+/**
+ * Anis: Star 的 Shooting Stars 在敌人横向移动时的核心命中率基准（另一场整局实测：移动中约 30% 未中核心，
+ * 与距离无稳定关系，疑与攻击角度有关）。界面「流星核心命中率修正系数」与之相乘；敌人静止时必中核心。
+ */
+export const STAR_MOVING_CORE_RATE = 0.7;

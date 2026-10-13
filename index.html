@@ -142,16 +142,16 @@
                   :value="$store.sim.selectedPresetId ?? ''"
                   @change="$store.sim.loadEnemyPreset($event.target.value)">
                   <option value="" x-text="$t('enemy.savedPresets')"></option>
-                  <template x-for="p in $store.sim.enemyPresets" :key="p.id">
+                  <template x-for="p in $store.sim.allEnemyPresets" :key="p.id">
                     <option :value="p.id" x-text="p.name"></option>
                   </template>
                 </select>
                 <button class="btn btn-ghost btn-sm"
-                  :disabled="!$store.sim.selectedPresetId"
+                  :disabled="!$store.sim.selectedPresetId || $store.sim.selectedPresetIsBuiltin"
                   @click="$store.sim.renameEnemyPreset($store.sim.selectedPresetId)"
                   :title="$t('common.rename')">✎</button>
                 <button class="btn btn-ghost btn-sm"
-                  :disabled="!$store.sim.selectedPresetId"
+                  :disabled="!$store.sim.selectedPresetId || $store.sim.selectedPresetIsBuiltin"
                   @click="$store.sim.deleteEnemyPreset($store.sim.selectedPresetId)"
                   :title="$t('common.delete')">×</button>
               </div>
@@ -208,7 +208,7 @@
                           :value="action.type"
                           :title="action.type === 'position' ? $t('enemy.distanceTip') : ''"
                           @change="$store.sim.updateEnemyAction(action.id, 'type', $event.target.value)">
-                          <template x-for="tp in ['def','core','position','hidden']" :key="tp">
+                          <template x-for="tp in ['def','core','position','hidden','lateral']" :key="tp">
                             <option :value="tp" :selected="tp === action.type" x-text="$t('enemy.type.' + tp)"></option>
                           </template>
                         </select>
@@ -239,6 +239,23 @@
                       </template>
                       <template x-if="action.type === 'hidden'">
                         <span class="action-fixed-cell" :title="$t('enemy.hiddenTip')">—</span>
+                      </template>
+                      <!-- 横向移动：速度档 + 结束时间（区间 [开始, 结束)） -->
+                      <template x-if="action.type === 'lateral'">
+                        <div class="lateral-cell" :title="$t('enemy.lateralTip')">
+                          <select class="input input-sm"
+                            :value="action.value"
+                            @change="$store.sim.updateEnemyAction(action.id, 'value', $event.target.value)">
+                            <template x-for="sp in ['SLOW']" :key="sp">
+                              <option :value="sp" :selected="sp === action.value" x-text="$t('enemy.lateral.' + sp)"></option>
+                            </template>
+                          </select>
+                          <span class="lateral-until" x-text="$t('enemy.lateralUntil')"></span>
+                          <input class="input input-sm" type="number" min="0" max="180" step="0.01"
+                            :aria-label="$t('enemy.lateralEnd')"
+                            :value="action.endTimeS"
+                            @input="$store.sim.updateEnemyAction(action.id, 'endTimeS', +$event.target.value)">
+                        </div>
                       </template>
                     </td>
                     <td>
@@ -320,10 +337,6 @@
                 </label>
               </div>
               <div class="hit-cal-row" :title="$t('sim.hitRealTip')">
-                <label><span x-text="$t('sim.rlCoreRate')"></span>
-                  <input class="input input-sm" type="number" min="0" max="1" step="0.01"
-                    x-model.number="$store.sim.hitCal.rlCoreRate">
-                </label>
                 <label><span x-text="$t('sim.sgHitRate')"></span>
                   <input class="input input-sm" type="number" min="0" max="1" step="0.01"
                     x-model.number="$store.sim.hitCal.sgHitRate">
@@ -331,6 +344,15 @@
               </div>
             </div>
             <!-- 角色专属策略选项 -->
+            <template x-if="$store.sim.hasAnisStar">
+              <div class="field-group mt-1">
+                <label class="field-label" :title="$t('sim.starCoreCoefTip')"
+                  x-text="$t('sim.starCoreCoef', { name: $store.sim.charName(17, 'Anis: Star') })"></label>
+                <input class="input input-sm" type="number" min="0" step="0.05"
+                  :title="$t('sim.starCoreCoefTip')"
+                  x-model.number="$store.sim.starCoreCoef">
+              </div>
+            </template>
             <template x-if="$store.sim.hasEbsBoomAndShock">
               <div class="field-group mt-1">
                 <label class="checkbox-label">

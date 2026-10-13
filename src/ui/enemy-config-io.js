@@ -12,27 +12,39 @@
 //       { "startTimeS": 0, "type": "def",      "value": 100 },
 //       { "startTimeS": 0, "type": "core",     "value": "EXPOSED" },
 //       { "startTimeS": 0, "type": "position", "value": 35 },
-//       { "startTimeS": 10, "type": "hidden",  "value": "HIDDEN" }
+//       { "startTimeS": 10, "type": "hidden",  "value": "HIDDEN" },
+//       { "startTimeS": 12, "type": "lateral", "value": "SLOW", "endTimeS": 15 }   // 横向移动区间
 //     ]
 //   }
 // }
-// 命中参数（core0 / d0 / hitCoef / rlCoreRate / sgHitRate）属于模拟选项，不随敌人配置导出；
-// 旧文件中若带有这些字段，导入时忽略。
+// 命中参数（core0 / d0 / hitCoef / sgHitRate）属于模拟选项，不随敌人配置导出；
+// 旧文件中若带有这些字段（含已移除的 rlCoreRate），导入时忽略。
 
 export const ENEMY_CONFIG_FORMAT  = 'nikke-enemy-config';
 export const ENEMY_CONFIG_VERSION = 1;
 
 const ELEMENTS        = ['Fire', 'Water', 'Wind', 'Electric', 'Iron'];
-const ACTION_TYPES    = ['def', 'core', 'position', 'hidden'];
+const ACTION_TYPES    = ['def', 'core', 'position', 'hidden', 'lateral'];
 const CORE_VALUES     = ['EXPOSED', 'PROTECTED', 'PARTS_CORE', 'NONE'];
+// 横向移动速度档（目前仅「慢」）
+export const LATERAL_SPEEDS = ['SLOW'];
 const FIXED_TYPES     = ['def', 'core', 'position'];
 const MAX_START_TIME  = 180;
 const MAX_DISTANCE    = 100;
 
 /**
+ * 取行动的可序列化字段（不含内部 id）：{ startTimeS, type, value }，横向移动额外带 endTimeS。
+ * 导出、预设保存共用。
+ * @param {{ startTimeS: number, type: string, value: *, endTimeS?: number }} a
+ */
+export function pickActionFields({ startTimeS, type, value, endTimeS }) {
+  return type === 'lateral' ? { startTimeS, type, value, endTimeS } : { startTimeS, type, value };
+}
+
+/**
  * 由当前敌人状态构建导出对象（不含内部 id / _nextId）。
  * @param {{ element: string, type: string,
- *           actions: { startTimeS: number, type: string, value: * }[] }} enemy
+ *           actions: { startTimeS: number, type: string, value: *, endTimeS?: number }[] }} enemy
  */
 export function buildEnemyConfigExport(enemy) {
   return {
@@ -41,7 +53,7 @@ export function buildEnemyConfigExport(enemy) {
     enemy: {
       element: enemy.element,
       type:    enemy.type,
-      actions: enemy.actions.map(({ startTimeS, type, value }) => ({ startTimeS, type, value })),
+      actions: enemy.actions.map(pickActionFields),
     },
   };
 }
@@ -59,6 +71,10 @@ function validateActionValue(a, row) {
     case 'position':
       return isFiniteNum(a.value) && a.value >= 0 && a.value <= MAX_DISTANCE
         ? null : fail('enemyIo.err.positionValue', { row });
+    case 'lateral':
+      if (!LATERAL_SPEEDS.includes(a.value)) return fail('enemyIo.err.lateralValue', { row });
+      return isFiniteNum(a.endTimeS) && a.endTimeS > a.startTimeS && a.endTimeS <= MAX_START_TIME
+        ? null : fail('enemyIo.err.lateralEnd', { row });
     default: // hidden
       return a.value === 'HIDDEN' ? null : fail('enemyIo.err.hiddenValue', { row });
   }
@@ -118,7 +134,7 @@ export function parseEnemyConfig(text) {
     config: {
       element: e.element,
       type:    e.type,
-      actions: e.actions.map(({ startTimeS, type, value }) => ({ startTimeS, type, value })),
+      actions: e.actions.map(pickActionFields),
     },
   };
 }

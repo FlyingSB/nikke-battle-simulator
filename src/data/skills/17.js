@@ -1,9 +1,18 @@
 ﻿import { pushBuff, fireSkillHit, addBurstGauge, applyHeal,
-         getBuffSums, rollProjectileCore, isEnemyHittable, TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
+         getBuffSums, rollProjectileCore, isEnemyHittable, enemyLateralSpeedAt,
+         TICK_RATE, ALL_ALLIES } from '../../engine/battle-utils.js';
+import { STAR_MOVING_CORE_RATE } from '../../engine/constants.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Anis: Star  (resource_id: 17)
 const MY_OWN_STAR_BUFF = 'My Own Star';
+
+// Shooting Star 核心命中率：敌人静止 → 必中；横向移动 → STAR_MOVING_CORE_RATE × 界面修正系数（上限 1）。
+// 实测流星打偏与距离无稳定关系（疑与攻击角度有关），不按弹速 / 飞行时间建模，由用户按实战调整系数。
+function shootingStarCoreRate(state) {
+  if (!enemyLateralSpeedAt(state, state.tick)) return 1;
+  return Math.min(1, Math.max(0, STAR_MOVING_CORE_RATE * (state.starCoreCoef ?? 1)));
+}
 
 // S1 Part2 公共逻辑：根据队伍 B1 构成决定 Star 状态并施加相应效果（两种状态互斥）
 function applyStarEffect(state, caster) {
@@ -244,8 +253,8 @@ export default {
       // 性质：RL 未蓄力的普通攻击（isCharged=false，chargeMult=1）
       //   · 自动攻击随机目标：不受自动战斗停火影响，敌人进入 HIDDEN 后前 0.9s 仍可命中并继续攻击，
       //     之后敌人无法被命中（无目标）时跳过该轮（isEnemyHittable，dev/game-data.md）
-      //   · 可命中核心：类 RL 弹道（有飞行时间），敌人有核心且未被保护时按 RL 核心命中率
-      //     （随敌人距离缩放）判定（rollProjectileCore，默认 1 = 恒中；RL 无穿透）
+      //   · 可命中核心：敌人有核心且未被保护时，静止必中、横向移动时按 0.7 × 修正系数判定
+      //     （shootingStarCoreRate；RL 无穿透）
       //   · 享受普攻加成（normalAttackDamagePct / normalAttackCritRatePct）
       //   · 享受 Projectile Explosion Damage 加成（如 S2 P3）
       //   · 享受 Explosion Radius 加成：单目标模型下不影响伤害，无需额外计算
@@ -266,7 +275,7 @@ export default {
           const lv     = caster.skillLevels[2];
           const pct    = getSkillValue(caster.rawBurst, 0, lv) / 100;
           const sums   = getBuffSums(state, caster.id);
-          const isCore = rollProjectileCore(state);
+          const isCore = rollProjectileCore(state, shootingStarCoreRate(state));
           fireSkillHit(state, caster, pct, sums, 'Burst P1 Shooting Stars', {
             hitPart:             isCore ? 'core' : 'body',
             coreDmgIncrement:    caster.coreDmgIncrement ?? 0,

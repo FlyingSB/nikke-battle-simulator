@@ -5,7 +5,9 @@
 
 import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
 import { rng } from './rng.js';
-import { HIT_RATE_REF_DISTANCE, HIDDEN_HITTABLE_SECS, SG_PELLET_REF_SCALE } from './constants.js';
+import { HIT_RATE_REF_DISTANCE, HIDDEN_HITTABLE_SECS, SG_PELLET_REF_SCALE,
+         RL_REF_PROJECTILE_SPEED, RL_FLIGHT_TICKS_PER_DISTANCE, RL_FLIGHT_TICKS_OFFSET,
+         LATERAL_MISS_SLOPE, LATERAL_MISS_FLIGHT_THRESHOLD } from './constants.js';
 
 export const TICK_RATE       = 60;         // 每秒 tick 数
 
@@ -307,14 +309,55 @@ export function isEnemyHittable(state) {
 }
 
 /**
- * 弹道类技能命中（类 RL，如 Anis: Star 的 Shooting Stars）是否命中核心：
- * 敌人有核心且未被保护时，按 RL 核心命中率（state.accRlCoreRate，随敌人距离缩放）判定。
+ * 敌人在指定 tick 的横向移动速度档（敌人配置「横向移动」区间，[startTick, endTick)）。
+ * @param {{ enemyLateralMoves?: { startTick: number, endTick: number, speed: string }[] }} state
+ * @param {number} tick
+ * @returns {string|null} 速度档（如 'SLOW'）；静止返回 null
+ */
+export function enemyLateralSpeedAt(state, tick) {
+  for (const m of state.enemyLateralMoves ?? []) {
+    if (tick >= m.startTick && tick < m.endTick) return m.speed;
+  }
+  return null;
+}
+
+/**
+ * RL 弹道飞行 tick 数（按敌人距离线性拟合，再按弹速缩放）。
+ * @param {number|null} distance 敌人连续距离（null 按参考距离）
+ * @param {number|null} [speed]  弹速（spot_projectile_speed；无数据按标定弹速 100）
+ * @returns {number}
+ */
+export function rlFlightTicks(distance, speed = null) {
+  const d = distance ?? HIT_RATE_REF_DISTANCE;
+  const v = speed > 0 ? speed : RL_REF_PROJECTILE_SPEED;
+  const base = Math.max(0, RL_FLIGHT_TICKS_PER_DISTANCE * d + RL_FLIGHT_TICKS_OFFSET);
+  return base * RL_REF_PROJECTILE_SPEED / v;
+}
+
+/**
+ * RL 普通攻击核心命中率：命中时刻（出手 + 飞行时间）敌人静止 → 1；
+ * 横向移动 → 1 − clamp(斜率[速度档] × (飞行帧 − 阈值), 0, 1)。
  * @param {object} state
+ * @param {number|null} [speed]  弹速
+ * @returns {number} 0..1
+ */
+export function rlCoreHitRate(state, speed = null) {
+  const flight = rlFlightTicks(state.enemyDistance, speed);
+  const moving = enemyLateralSpeedAt(state, state.tick + Math.round(flight));
+  if (!moving) return 1;
+  const miss = (LATERAL_MISS_SLOPE[moving] ?? 0) * (flight - LATERAL_MISS_FLIGHT_THRESHOLD);
+  return 1 - Math.min(1, Math.max(0, miss));
+}
+
+/**
+ * 弹道类技能命中（如 Anis: Star 的 Shooting Stars）是否命中核心：
+ * 敌人有核心且未被保护时，按给定核心命中率判定。
+ * @param {object} state
+ * @param {number} [rate=1]  核心命中率（0..1）
  * @returns {boolean}
  */
-export function rollProjectileCore(state) {
+export function rollProjectileCore(state, rate = 1) {
   if (!state.enemyHasCore || state.enemyCoreProtected) return false;
-  const rate = distanceScaledHitRate(state.accRlCoreRate ?? 1, state.enemyDistance);
   return rate >= 1 || rng() < rate;
 }
 

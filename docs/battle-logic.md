@@ -225,6 +225,17 @@ P_core    = clamp( (r_core / R_eff)², 0, 1 )        // 散布圆内均匀落点
 - `currentScale`：武器 auto 散布 scale（SG 250 / SMG 110 / AR 75 / MG 250→10 暖机收束 / SR·RL 无散布）。
 - `hitRatePct` = `stats.hitRatePct + sums.hitRatePct`（装备词条 + 技能 buff）。
 - **SR/RL/Charged**：精准武器 `alwaysCore=1`（恒核心命中）。散布数据缺失的角色亦保守视为恒核心。
+- **RL 核心命中（敌人横向移动 × 飞行时间）**：RL 不走几何模型，按 `battle-utils.js:rlCoreHitRate` 判定。
+  命中本身即时结算，飞行时间只用于核心判定：
+  ```
+  飞行帧 f = max(0, 0.603·d − 3.3) × 100 / 弹速     // 弹速 = CDN spot_projectile_speed（多数 RL 为 100）
+  命中时刻（出手 tick + f）敌人静止              → P_core = 1
+  命中时刻敌人横向移动（敌人配置「横向移动」区间）→ P_core = 1 − clamp(0.028·(f − 10.8), 0, 1)
+  ```
+  实测（2026-10-13，Anis: Star 单人 vs 射击场 BIGARMS，逐发记录）：静止约 90 发仅 1 发偏离核心；移动中
+  距离 20（f≈8）0/30、距离 30/40（f≈15/21）6/25、距离 50（f≈27）14/31。出手 → 命中帧：d20 7/9、d30 18、d40 19、d50 27。
+  Anis: Star 的 Shooting Stars 不按飞行时间建模：静止必中核心，移动时 `0.7 × 流星核心命中率修正系数`（界面选项，
+  疑与攻击角度有关，由用户按实测调整）。
 - **MG**：`currentScale` 由暖机 ramp 从 250 收束到 10，核心率随暖机由 ~2% 升到接近 100%。
 - **距离优势**：改由各角色 CDN `bonusrange_min/max` 判定（敌人连续距离 ∈ [min,max] → +30%），废弃旧的按武器类型分档 `DISTANCE_ZONES`。
 

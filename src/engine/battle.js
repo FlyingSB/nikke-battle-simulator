@@ -16,11 +16,11 @@ import { calcDamage, rollCrit } from './damage.js';
 import { rng, setRng } from './rng.js';
 import { computeFinalStats } from './stats.js';
 import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAULT, HITRATE_CORE_COEF_DEFAULT,
-         RL_CORE_RATE_DEFAULT, SG_PELLET_HIT_RATE_DEFAULT, DUAL_GUN_MULT } from './constants.js';
+         SG_PELLET_HIT_RATE_DEFAULT, DUAL_GUN_MULT } from './constants.js';
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, rollPelletGroups, distanceScaledHitRate, sgPelletHitRate, isBuffActiveFor, sumBuffField } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, rollPelletGroups, rlCoreHitRate, sgPelletHitRate, isBuffActiveFor, sumBuffField } from './battle-utils.js';
 import { executeSkillTriggers, dispatchHpChanged, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -972,6 +972,8 @@ export function initBattle(config) {
       // 距离优势区间（各角色 CDN bonusrange_min/max）。
       bonusRangeMin:     cfg._nikkeData?.bonusrange_min ?? cfg.bonusRangeMin ?? 0,
       bonusRangeMax:     cfg._nikkeData?.bonusrange_max ?? cfg.bonusRangeMax ?? 0,
+      // 弹速（CDN spot_projectile_speed）：RL 飞行时间按弹速缩放，影响敌人移动时的核心命中（rlCoreHitRate）。
+      projectileSpeed:   cfg._nikkeData?.shot_detail?.spot_projectile_speed ?? cfg.projectileSpeed ?? null,
       // MG 武器逐发起速参数（非 MG 或无起速时均为 null）。
       // 保存在单位上而非 skillState，因为这是武器物理属性，不是技能效果。
       mgCurrentRof:       cfg._nikkeData?.shot_detail?.rate_of_fire_change_pershot > 0
@@ -1072,9 +1074,12 @@ export function initBattle(config) {
     accCore0:           config.enemy.core0   ?? CORE0_DEFAULT,
     accD0:              config.enemy.d0      ?? D0_DEFAULT,
     accHitCoef:         config.enemy.hitCoef ?? HITRATE_CORE_COEF_DEFAULT,
-    // 实战命中校正：RL（含类 RL 弹道技能）核心命中率、SG 弹丸命中率（默认 1 = 理想命中）。
-    accRlCoreRate:      config.enemy.rlCoreRate ?? RL_CORE_RATE_DEFAULT,
+    // 实战命中校正：SG 弹丸命中率（默认 1 = 理想命中）。
     accSgHitRate:       config.enemy.sgHitRate  ?? SG_PELLET_HIT_RATE_DEFAULT,
+    // 敌人横向移动区间（[startTick, endTick)，speed 速度档）：RL / 弹道技能核心判定用（rlCoreHitRate）
+    enemyLateralMoves:  config.enemy.lateralMoves ?? [],
+    // Anis: Star 的 Shooting Stars 核心命中率修正系数（界面选项，默认 1）
+    starCoreCoef:       config.starCoreCoef ?? 1,
     // 防御力/核心状态的定时行动（startTick 升序，不含初始值）
     enemyDefActions:    config.enemy.defActions  ?? [],
     enemyCoreActions:   config.enemy.coreActions ?? [],
@@ -1738,11 +1743,14 @@ export function tick(state) {
       // weaponSwitchCoreRate：技能显式指定切换武器核心率（如 Drake: Great Villain 的蓄力霰弹枪
       // 以 'Charged' 类型获得蓄力倍率，但散布仍为霰弹 → 沿用 SG 核心率）。
       // weaponSwitchAccuracyScale：技能给出切换武器散布圈（固定 scale，无收束）时改用几何模型（如 K 爆裂，目测 250）。
-      // RL：有弹道与飞行时间，实战核心命中率按 rlCoreRate 校正并随敌人距离缩放（技能显式指定切换武器核心率时除外）。
+      // RL：敌人静止时必中核心；命中时刻（出手 + 飞行时间）敌人横向移动则按飞行时间打偏（rlCoreHitRate；
+      //   技能显式指定切换武器核心率时除外）。切换武器为 RL 时缺乏其弹速数据，按标定弹速处理。
       const switchScale = unit.skillState.weaponSwitchAccuracyScale;
       const rlCoreOverride = effectiveWeaponType === 'RL'
         && !(weaponSwitchActive && unit.skillState.weaponSwitchCoreRate != null);
-      const pCore = rlCoreOverride ? distanceScaledHitRate(state.accRlCoreRate, state.enemyDistance) : weaponSwitchActive
+      const pCore = rlCoreOverride
+        ? rlCoreHitRate(state, weaponSwitchActive ? null : unit.projectileSpeed)
+        : weaponSwitchActive
         ? (unit.skillState.weaponSwitchCoreRate
           ?? (switchScale != null
             ? coreHitChance({

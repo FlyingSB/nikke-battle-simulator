@@ -39,6 +39,7 @@ const SUITES = [
   { name: 'BurstTiming', file: 'test-burst-timing.mjs',   note: 'B3 burst direct damage delay & bonus behavior' },
   { name: 'SimHistory', file: 'test-sim-history.mjs', note: 'simulation history records, no I/O'   },
   { name: 'DmgExport',  file: 'test-dmg-export.mjs',  note: 'damage formula calculator export, no I/O' },
+  { name: 'EnemyConfig', file: 'test-enemy-config.mjs', note: 'enemy config IO & built-in presets, no I/O' },
   { name: 'I18n',      file: 'test-i18n.mjs',       note: 'UI dictionaries & zh-CN text patches, local JSON' },
 ];
 

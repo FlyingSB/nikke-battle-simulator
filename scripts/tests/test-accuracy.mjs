@@ -5,7 +5,8 @@
  *   parseAccuracyProfile  — auto/手动回退、SR/RL→alwaysCore、数据缺失→alwaysCore
  *   ramp                  — MG 暖机收束 / 停火恢复；AR/SMG/SG 恒定
  *   coreHitChance         — 边界、单调性、实测数据回归（dev/game-data.md）
- *   rollHitPellets / rollProjectileCore — 实战命中校正（SG 弹丸命中率 / RL 核心命中率）
+ *   rollHitPellets / rollProjectileCore — 实战命中校正（SG 弹丸命中率 / 弹道核心判定）
+ *   rlFlightTicks / enemyLateralSpeedAt / rlCoreHitRate — RL 核心命中（敌人横向移动 × 飞行时间）
  *
  * Run: node scripts/tests/test-accuracy.mjs
  */
@@ -18,7 +19,8 @@ import {
   coreHitChance,
 } from '../../src/engine/accuracy.js';
 import { CORE0_DEFAULT, D0_DEFAULT, HITRATE_CORE_COEF_DEFAULT } from '../../src/engine/constants.js';
-import { rollHitPellets, rollProjectileCore, distanceScaledHitRate, sgPelletHitRate, isEnemyHittable } from '../../src/engine/battle-utils.js';
+import { rollHitPellets, rollProjectileCore, distanceScaledHitRate, sgPelletHitRate, isEnemyHittable,
+         enemyLateralSpeedAt, rlFlightTicks, rlCoreHitRate } from '../../src/engine/battle-utils.js';
 import { setRng } from '../../src/engine/rng.js';
 import { eq, near, section, summary } from '../lib/test-harness.mjs';
 
@@ -125,9 +127,9 @@ section('T5: rollHitPellets / rollProjectileCore');
 
   const exposed = { enemyHasCore: true, enemyCoreProtected: false };
   setRng(() => 0.5);
-  eq('RL 核心率缺省（1）→ 恒中', rollProjectileCore(exposed), true);
-  eq('rate=0.6, rng=0.5 → 命中核心', rollProjectileCore({ ...exposed, accRlCoreRate: 0.6 }), true);
-  eq('rate=0.4, rng=0.5 → 未命中核心', rollProjectileCore({ ...exposed, accRlCoreRate: 0.4 }), false);
+  eq('核心率缺省（1）→ 恒中', rollProjectileCore(exposed), true);
+  eq('rate=0.6, rng=0.5 → 命中核心', rollProjectileCore(exposed, 0.6), true);
+  eq('rate=0.4, rng=0.5 → 未命中核心', rollProjectileCore(exposed, 0.4), false);
   eq('核心被保护 → 不命中', rollProjectileCore({ enemyHasCore: true, enemyCoreProtected: true }), false);
   eq('无核心 → 不命中', rollProjectileCore({ enemyHasCore: false, enemyCoreProtected: false }), false);
   setRng(null);
@@ -142,13 +144,31 @@ section('T6: distanceScaledHitRate（敌人越近命中率越高）');
   near('d=75 → 0.4（继续线性下降）', distanceScaledHitRate(0.6, 75), 0.4);
   eq('远距离夹到 0', distanceScaledHitRate(0.2, 100), 0);
   near('距离未知（null）→ 按参考距离', distanceScaledHitRate(0.7, null), 0.7);
+}
 
-  // RL 核心判定随距离：系数 0.6、rng=0.7 → 近（d=20，P=0.84）命中、远（d=50，P=0.6）未命中
-  setRng(() => 0.7);
-  const core = { enemyHasCore: true, enemyCoreProtected: false, accRlCoreRate: 0.6 };
-  eq('RL d=20 命中核心', rollProjectileCore({ ...core, enemyDistance: 20 }), true);
-  eq('RL d=50 未命中核心', rollProjectileCore({ ...core, enemyDistance: 50 }), false);
-  setRng(null);
+section('T6a: RL 核心命中（敌人横向移动 × 飞行时间）');
+{
+  // 飞行帧 = max(0, 0.603d − 3.3) × 100 / 弹速（实测：d20 → 7/9，d30 → 18，d40 → 19，d50 → 27 帧）
+  near('飞行帧 d=50 → 26.85', rlFlightTicks(50), 26.85, 0.01);
+  near('飞行帧 d=20 → 8.76', rlFlightTicks(20), 8.76, 0.01);
+  near('弹速 300 → 飞行帧 ÷3', rlFlightTicks(50, 300), 8.95, 0.01);
+  near('无弹速数据 → 按 100', rlFlightTicks(50, null), 26.85, 0.01);
+  eq('距离 0 → 飞行帧不为负', rlFlightTicks(0), 0);
+
+  const moves = [{ startTick: 100, endTick: 200, speed: 'SLOW' }];
+  eq('区间内 → SLOW', enemyLateralSpeedAt({ enemyLateralMoves: moves }, 150), 'SLOW');
+  eq('结束 tick 不含 → 静止', enemyLateralSpeedAt({ enemyLateralMoves: moves }, 200), null);
+  eq('无移动配置 → 静止', enemyLateralSpeedAt({}, 150), null);
+
+  const st = (tick, d) => ({ tick, enemyDistance: d, enemyLateralMoves: moves });
+  eq('静止 → 必中核心', rlCoreHitRate(st(10, 50)), 1);
+  // d=50：出手 tick 80 + 飞行 27 → 命中 tick 107 在移动区间内；打偏率 0.028 × (26.85 − 10.8) ≈ 0.449
+  near('出手时静止、命中时移动 → 按命中时刻判定', rlCoreHitRate(st(80, 50)), 1 - 0.028 * (26.85 - 10.8), 0.001);
+  near('d=30 移动 → ≈0.888', rlCoreHitRate(st(150, 30)), 1 - 0.028 * (14.79 - 10.8), 0.001);
+  eq('d=20 移动（飞行 < 阈值）→ 必中核心', rlCoreHitRate(st(150, 20)), 1);
+  eq('弹速 300 移动 → 必中核心', rlCoreHitRate(st(150, 50), 300), 1);
+  // 命中时刻已离开移动区间（出手 190 + 27 = 217）→ 必中
+  eq('命中时移动已结束 → 必中核心', rlCoreHitRate(st(190, 50)), 1);
 }
 
 section('T6b: sgPelletHitRate（散布收束 / 命中率 ▲ 减少弹丸打空）');

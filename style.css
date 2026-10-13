@@ -1072,6 +1072,10 @@ select.input:not([multiple], [size]) {
 .enemy-actions-table .input-sm {
   padding: 2px 5px; font-size: 0.7rem; height: 24px; width: 100%;
 }
+/* 横向移动：速度档下拉 + 「至」+ 结束时间，同一行平分 */
+.lateral-cell { display: flex; align-items: center; gap: 4px; }
+.lateral-cell .input-sm { flex: 1 1 0; min-width: 0; }
+.lateral-until { flex: none; color: var(--text-muted); }
 .action-fixed-cell {
   display: inline-block; padding: 2px 6px;
   color: var(--text-dim); font-size: 0.7rem;

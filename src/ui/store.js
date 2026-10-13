@@ -22,7 +22,8 @@ import { LANGS, loadSavedLang, setCurrentLang, t, translate } from './i18n.js';
 import { createNameMap, displayGameText } from './game-text.js';
 import { buildDmgTooltipHTML, pelletGroupTitleKey } from './dmg-tooltip.js';
 import { buildDmgFormulaExport, pickPelletGroup } from './dmg-formula-export.js';
-import { buildEnemyConfigExport, parseEnemyConfig } from './enemy-config-io.js';
+import { buildEnemyConfigExport, parseEnemyConfig, pickActionFields } from './enemy-config-io.js';
+import { BUILTIN_ENEMY_PRESETS, DEFAULT_ENEMY_PRESET } from '../data/enemy-presets.js';
 import { getActiveSkillCooldownSec } from '../data/active-skill-cooldowns.js';
 import { SIM_HISTORY_MAX, buildHistoryRecord, addHistoryRecord, mergeHistory, loadHistory, saveHistory } from './sim-history.js';
 import ZH_GAME_TERMS from './locales/zh-game-terms.js';
@@ -443,18 +444,32 @@ function migrateEnemyActions(actions) {
  */
 function enemyConfigSignature(cfg) {
   const actions = (cfg?.actions ?? [])
-    .map(({ startTimeS, type, value }) => `${startTimeS}|${type}|${value}`)
+    .map(({ startTimeS, type, value, endTimeS }) =>
+      `${startTimeS}|${type}|${value}` + (endTimeS != null ? `|${endTimeS}` : ''))
     .join(',');
   return `${cfg?.element}:${cfg?.type}:${actions}`;
 }
 
+/** 由内置预设生成新的敌人状态（行动带连续 id）。 */
+function enemyFromPreset(preset) {
+  const actions = preset.config.actions.map((a, i) => ({ ...a, id: i + 1 }));
+  return {
+    element:  preset.config.element,
+    type:     preset.config.type,
+    actions,
+    _nextId:  actions.length + 1,
+  };
+}
+
 /**
  * 命中参数默认值（模拟选项 hitCal）。
- * rlCoreRate / sgHitRate = 0.7：敌人距离 50 处的实战命中率（BIGARMS 整局实测标定；
- * SG 与 Brid 弹丸实测 NEAR 92% / MID 77% / FAR 67% 量级一致，见 dev/game-data.md）。
- * 引擎层默认仍为 1（理想命中，回归测试不传此参数），界面每次模拟都显式传入。
+ * sgHitRate = 0.7：敌人距离 50 处的实战弹丸命中率（SG 与 Brid 弹丸实测 NEAR 92% / MID 77% / FAR 67%，
+ * 见 dev/game-data.md）。引擎层默认仍为 1（理想命中，回归测试不传此参数），界面每次模拟都显式传入。
+ * RL 核心命中按敌人「横向移动」行动与弹道飞行时间建模，不再有校正系数。
  */
-const HIT_CAL_DEFAULTS = { core0: 55, d0: 77, hitCoef: 4.5, rlCoreRate: 0.7, sgHitRate: 0.7 };
+const HIT_CAL_DEFAULTS = { core0: 55, d0: 77, hitCoef: 4.5, sgHitRate: 0.7 };
+/** Anis: Star 的 Shooting Stars 核心命中率修正系数默认值（乘以敌人移动时的基准核心命中率 0.7）。 */
+const STAR_CORE_COEF_DEFAULT = 1;
 
 /**
  * 从存档恢复命中参数：新存档读顶层 hitCal；旧存档（命中参数曾存于 enemy 内）自动迁移。
@@ -465,6 +480,12 @@ function restoreHitCal(state) {
   const src = state.hitCal ?? state.enemy ?? {};
   return Object.fromEntries(Object.entries(HIT_CAL_DEFAULTS)
     .map(([k, v]) => [k, Number.isFinite(src[k]) ? src[k] : v]));
+}
+
+/** 流星核心命中率修正系数：非负数；非数值（空输入等）回退为 1。核心命中率最终在引擎中夹到 ≤ 1。 */
+function clampCoef(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && v !== '' && v !== null ? Math.max(0, n) : STAR_CORE_COEF_DEFAULT;
 }
 
 /** 命中校正系数夹到 [0, 1]；非数值（空输入等）回退为默认值。 */
@@ -815,18 +836,10 @@ export function createStore() {
     corpResearch:    { ELYSION: 0, MISSILIS: 0, TETRA: 0, PILGRIM: 0, ABNORMAL: 0 },
 
     // 敌人
-    enemy: {
-      element:  'Iron',
-      type:     'Boss',
-      // 行动阶段：前3条固定（时间=0，类型固定），后续可增删
-      // 默认值参考联盟射击场 BIGARMS。position 值为连续距离（0-100，与 bonusrange 同刻度）；隐藏阶段用独立的 hidden 类型行动表示。
-      actions: [
-        { id: 1, startTimeS: 0, type: 'def',      value: 100 },
-        { id: 2, startTimeS: 0, type: 'core',     value: 'EXPOSED' },
-        { id: 3, startTimeS: 0, type: 'position', value: 35 },
-      ],
-      _nextId: 4,
-    },
+    // 行动阶段：前3条固定（时间=0，类型固定），后续可增删。默认为内置预设「射击场BIGARMS」。
+    // position 值为连续距离（0-100，与 bonusrange 同刻度）；隐藏阶段用独立的 hidden 类型行动表示；
+    // 横向移动（lateral）为 [startTimeS, endTimeS) 区间，value 为速度档（目前仅 SLOW）。
+    enemy: enemyFromPreset(DEFAULT_ENEMY_PRESET),
 
     // 敌人配置预设
     enemyPresets:     [],
@@ -842,8 +855,10 @@ export function createStore() {
     iterations:         5,
     // 命中参数（模拟选项）：
     //   core0 / d0 / hitCoef：核心命中率几何模型校准常量（实证默认；见 dev/game-data.md）
-    //   rlCoreRate / sgHitRate：实战命中校正（0..1，1 = 理想命中，默认 0.7），为敌人距离 50 处的命中率，越近越高
+    //   sgHitRate：实战弹丸命中校正（0..1，1 = 理想命中，默认 0.7），为敌人距离 50 处的命中率，越近越高
     hitCal: { ...HIT_CAL_DEFAULTS },
+    // Anis: Star 在队时显示：Shooting Stars 在敌人横向移动时的核心命中率修正系数（× 基准 0.7）
+    starCoreCoef:       STAR_CORE_COEF_DEFAULT,
     burstStepSecs:      0.4,
     // 锁定等级：0 = 无限制（按同步器等级）；40 / 200 / 400 = 基础属性按该等级重算。
     // 仅替换等级表基础属性（突破 / 核心照常叠加），好感度、装备、魔方、珍藏品、研究等加成不变。
@@ -1063,6 +1078,21 @@ export function createStore() {
       return this.team.some(s => s.active && s.resourceId === 515);
     },
 
+    // Anis: Star（resource_id: 17）在队时显示流星核心命中率修正系数
+    get hasAnisStar() {
+      return this.team.some(s => s.active && s.resourceId === 17);
+    },
+
+    // 预设下拉列表：内置预设（名称按当前语言）在前，用户预设在后
+    get allEnemyPresets() {
+      const builtins = BUILTIN_ENEMY_PRESETS.map(p => ({ ...p, name: this.t(p.nameKey) }));
+      return [...builtins, ...this.enemyPresets];
+    },
+
+    get selectedPresetIsBuiltin() {
+      return BUILTIN_ENEMY_PRESETS.some(p => p.id === this.selectedPresetId);
+    },
+
     // 下拉选项：B3 A / B 按队伍槽位顺序取第 1 / 第 2 名 B3（含 StepFull），与引擎一致；
     // 对应 B3 不存在时不提供该选项
     get mastBurstOptions() {
@@ -1247,6 +1277,7 @@ export function createStore() {
         },
         iterations:         this.iterations,
         hitCal:             { ...this.hitCal },
+        starCoreCoef:       this.starCoreCoef,
         burstStepSecs:      this.burstStepSecs,
         levelLock:          this.levelLock,
         ebsLastBurstOnly: this.ebsLastBurstOnly,
@@ -1318,6 +1349,7 @@ export function createStore() {
       }
       if (state.iterations          != null) this.iterations          = state.iterations;
       this.hitCal = restoreHitCal(state);
+      if (Number.isFinite(state.starCoreCoef)) this.starCoreCoef = state.starCoreCoef;
       // 旧版本保存的 0.6s 等超出上限的值统一压到 0.4s（自动战斗实测上限）
       if (state.burstStepSecs       != null) this.burstStepSecs       = Math.min(0.4, state.burstStepSecs);
       if (state.ebsLastBurstOnly  != null) this.ebsLastBurstOnly  = state.ebsLastBurstOnly;
@@ -1526,9 +1558,11 @@ export function createStore() {
       if (!action) return;
       this.selectedPresetId = null;
       if (field === 'type') {
-        // 类型切换时重置值为合理默认
-        const defaults = { def: 500, core: 'NONE', position: DEFAULT_ENEMY_DISTANCE, hidden: 'HIDDEN' };
+        // 类型切换时重置值为合理默认；横向移动为区间，默认持续 1 秒
+        const defaults = { def: 500, core: 'NONE', position: DEFAULT_ENEMY_DISTANCE, hidden: 'HIDDEN', lateral: 'SLOW' };
         action.value = defaults[val] ?? 500;
+        if (val === 'lateral') action.endTimeS = Math.min(180, (Number(action.startTimeS) || 0) + 1);
+        else delete action.endTimeS;
       }
       action[field] = val;
     },
@@ -1557,6 +1591,7 @@ export function createStore() {
     saveEnemyPresetIfNew() {
       const sig = this._getEnemyConfigSignature();
       if (this.enemyPresets.some(p => p._sig === sig)) return;
+      if (BUILTIN_ENEMY_PRESETS.some(p => enemyConfigSignature(p.config) === sig)) return;
       const now = Date.now();
       const d   = new Date(now);
       const pad = n => String(n).padStart(2, '0');
@@ -1569,7 +1604,7 @@ export function createStore() {
         config: {
           element: this.enemy.element,
           type:    this.enemy.type,
-          actions: this.enemy.actions.map(({ startTimeS, type, value }) => ({ startTimeS, type, value })),
+          actions: this.enemy.actions.map(pickActionFields),
         },
       });
       this._saveEnemyPresetsToStorage();
@@ -1577,7 +1612,7 @@ export function createStore() {
 
     loadEnemyPreset(id) {
       if (!id) return;
-      const preset = this.enemyPresets.find(p => p.id === id);
+      const preset = this.allEnemyPresets.find(p => p.id === id);
       if (!preset) return;
       this.enemy.element = preset.config.element;
       this.enemy.type    = preset.config.type;
@@ -1587,6 +1622,7 @@ export function createStore() {
     },
 
     deleteEnemyPreset(id) {
+      // 内置预设不在 enemyPresets 中，过滤后无变化（界面按钮已禁用）
       this.enemyPresets = this.enemyPresets.filter(p => p.id !== id);
       if (this.selectedPresetId === id) this.selectedPresetId = null;
       this._saveEnemyPresetsToStorage();
@@ -2097,6 +2133,15 @@ export function createStore() {
           .filter(a => a.type === 'core' && a.startTimeS > 0)
           .map(a => ({ startTick: Math.round(Number(a.startTimeS) * ENEMY_TICK_RATE), value: a.value }))
           .sort((x, y) => x.startTick - y.startTick);
+        // 横向移动区间 [startTick, endTick)：RL / 弹道技能核心判定用
+        const lateralMoves = enemyActions
+          .filter(a => a.type === 'lateral' && Number(a.endTimeS) > Number(a.startTimeS))
+          .map(a => ({
+            startTick: Math.round(Number(a.startTimeS) * ENEMY_TICK_RATE),
+            endTick:   Math.round(Number(a.endTimeS)   * ENEMY_TICK_RATE),
+            speed:     a.value,
+          }))
+          .sort((x, y) => x.startTick - y.startTick);
 
         const baseConfig = {
           squad:    squadConfig,
@@ -2112,12 +2157,14 @@ export function createStore() {
             core0:          Number(this.hitCal.core0)  || 55,
             d0:             Number(this.hitCal.d0)     || 77,
             hitCoef:        Number(this.hitCal.hitCoef) || 4.5,
-            // 实战命中校正（0 合法：表示从不命中核心 / 弹丸全部打空）
-            rlCoreRate:     clampRate(this.hitCal.rlCoreRate, HIT_CAL_DEFAULTS.rlCoreRate),
+            // 实战命中校正（0 合法：表示弹丸全部打空）
             sgHitRate:      clampRate(this.hitCal.sgHitRate,  HIT_CAL_DEFAULTS.sgHitRate),
-            ...(defActions.length  ? { defActions  } : {}),
-            ...(coreActions.length ? { coreActions } : {}),
+            ...(defActions.length   ? { defActions   } : {}),
+            ...(coreActions.length  ? { coreActions  } : {}),
+            ...(lateralMoves.length ? { lateralMoves } : {}),
           },
+          // 选项不可见（Anis: Star 不在队）时按默认 1 传递，不影响结果
+          starCoreCoef: this.hasAnisStar ? clampCoef(this.starCoreCoef) : STAR_CORE_COEF_DEFAULT,
           duration:           180,
           burstStepSecs:      this.burstStepSecs,
           // 选项不可见（角色不在队 / 不足 3 名 B3）时不向引擎传递该策略
