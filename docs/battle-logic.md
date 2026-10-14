@@ -642,6 +642,10 @@ HIDDEN 期间全队停止攻击，按弹匣状态分流（机制详述见 §11.2
   - 加成**仅限蓄力武器**；非蓄力武器无论是否 Focus 均为 `targetBurstEnergyPerShot`。
   - 实测验证（G=1,000,000，Privaty 每发 4000）：非Focus Yulha(target 55000)单刷 19 发=⌈1M/55000⌉、Centi(69000)15 发、Trina(72000)14 发、Alice/D:KW(56000)18 发，均 = target；Focus Alice = 56000×3.5 = 196000。
   - **⚠ 影响很大：** Focus 角色蓄力充能可达非Focus 的 2.5–3.5 倍，直接改变整局爆裂循环数。同一队伍实测：Focus Alice 11 次循环、Focus Diesel: Winter Sweets 10 次循环（数据见 dev/game-data.md）。因此 `focusSlot` 的选择必须与实机打法一致，否则循环数与伤害都会偏差。
+  - **速充（手动打法，`config.quickChargeMode`）：** 仅 Focus 的 UP 型 SR/RL 可用（DOWN_Charge 按住自动全蓄力击发，无法提前松手）。速充攻击按 Alice 爆裂快速攻击节奏（蓄力 13 帧 + 空闲 2 帧、规避前后摇）连发短蓄力攻击，仍算蓄力攻击：蓄力比例 r = min(1, 13 / 当前有效蓄力帧数)，蓄力伤害倍率 = 1 + (满蓄倍率 − 1) × r，Focus 充能系数 = 1 + (fullChargeBurstEnergy/10000 − 1) × r；r < 1 时不触发 `FULL_CHARGE` / `DURING_FULL_CHARGE`（`IS_CHARGED` 条件仍成立）。以发数换取更快的充能。打空后走常规换弹，换弹完成 + 15t 续发。
+    - **全爆裂收尾：** 全爆裂结束前预留「换弹 + 前摇 + 全蓄力」时间开始手动换弹（弹匣未空也换），换弹完成后前摇 + 全蓄力，使该发恰好在全爆裂结束 tick 打出（槽已清零，全蓄力充能计入下一轮），之后继续速充。每轮全爆裂收尾一次；收尾中途蓄速 buff 到期则按新蓄力时长顺延。
+    - **模式：** `always` 始终速充（收尾除外）；`untilFull` 仅充能阶段（burstPhase 0）速充，槽满后（爆裂阶段 / 全爆裂期间）恢复全蓄力攻击。
+    - Alice Wonderland 快速攻击（全蓄力 15t 连发）优先于速充。回归测试：`scripts/tests/test-quick-charge.mjs`。
 - **技能附加伤害命中也充能**，每次 = `targetBurstEnergyPerShot`（如 Privaty S2P1、Neon: Vision Eye S1P2、A2 S2P1、Maiden: Ice Rose S2P3、Scarlet: Black Shadow S1 多段）。属独立于「武器普通攻击」的充能源。【TODO 逐角色建模】
 - **SG 武器（整发充能固定，按命中弹丸比例折算）：** 整发充能 = `targetBurstEnergyPerShot × 基础 shotCount`，为【全部弹丸命中】时的充能（如 Brid: Silent Track 4000 × 10 = 每次射击 40000）。弹丸数 ▲ / 「弹丸数固定为 N」**不改变**整发充能（同伤害系数口径），每颗弹丸充能 = 整发充能 / 发射弹丸数，动态计算；本次射击充能 = 整发充能 × 命中弹丸数 / 发射弹丸数（四舍五入）。命中弹丸数见 §4.6 SG 弹丸命中判定（引擎默认全部命中）。
 - buff 的 `burstGaugeFlat` 加成：叠加到 `baseEnergy`（按每次射击计、不乘弹丸数），Focus 蓄力时整体再乘以全蓄力系数。

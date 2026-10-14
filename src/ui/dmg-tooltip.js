@@ -179,7 +179,11 @@ function _buildFormulaHTML(h, nameFn, { cubeElemName = null, resultLabel = null 
   }
 
   // ── 蓄力系数 ──
-  // chargeMult = 武器基础×(1+珍藏品+倍率 buff) + 装备 + 加法 buff，逐来源拆分展示
+  // 满蓄 fullMult = 武器基础×(1+珍藏品+倍率 buff) + 装备 + 加法 buff，逐来源拆分展示。
+  // 未蓄满（速充，chargeRatio < 1）：引擎按 chargeMult = 1 + (fullMult − 1) × r 插值，
+  // 先由 chargeMult 反推满蓄值再拆分；各来源行置灰作参考，末尾「实际蓄力」才是参与乘算的值。
+  const chargeRatio = h.chargeRatio ?? 1;
+  const isPartial   = chargeRatio > 0 && chargeRatio < 1;
   if (Math.abs(chargeMult - 1) > 0.0001) {
     const chargeBufs   = bd.filter(b => Math.abs(b.chargeDamagePct ?? 0) > 0.0001);
     const chargeBufSum = chargeBufs.reduce((acc, b) => acc + (b.chargeDamagePct ?? 0), 0);
@@ -187,9 +191,10 @@ function _buildFormulaHTML(h, nameFn, { cubeElemName = null, resultLabel = null 
     const multBufSum   = multBufs.reduce((acc, b) => acc + (b.chargeDamageMultPct ?? 0), 0);
     const equipCharge  = h.equipChargeDmgPct ?? 0;
     const favChargePct = h.favChargeDmgPct ?? 0;
+    const fullMult     = isPartial ? 1 + (chargeMult - 1) / chargeRatio : chargeMult;
     // 珍藏品与 "Charge Damage Multiplier" buff 对武器基础是乘算（同一乘区相加）
     // 先剥离装备/加法 buff，再按 (1+珍藏品+倍率 buff) 还原出纯武器基础
-    const baseWithFav  = chargeMult - equipCharge - chargeBufSum;
+    const baseWithFav  = fullMult - equipCharge - chargeBufSum;
     const weaponBase   = baseWithFav / (1 + favChargePct + multBufSum);
     const s = addSect(t('dmg.chargeMult'));
     addItem(s, t('dmg.weaponBase'), `${_pct(weaponBase)}`);
@@ -198,6 +203,12 @@ function _buildFormulaHTML(h, nameFn, { cubeElemName = null, resultLabel = null 
     multBufs.forEach(b => addItem(s, _bdName(b), `×${_pct(b.chargeDamageMultPct)}`, 'mult'));
     if (Math.abs(equipCharge)  > 0.0001) addItem(s, t('dmg.gear'), `+${_pct(equipCharge)}`);
     chargeBufs.forEach(b => addItem(s, _bdName(b), `+${_pct(b.chargeDamagePct)}`));
+    if (isPartial) {
+      addItem(s, t('dmg.fullChargeTotal'), `=${_pct(fullMult)}`);
+      s.items.forEach(it => { it.ref = true; });
+      addItem(s, t('dmg.chargeProgress'), _pct(chargeRatio), 'note');
+      addItem(s, t('dmg.actualCharge'), _pct(chargeMult), 'final');
+    }
   }
 
   // ── 伤害加成（ExtraMultiplier）──
@@ -274,9 +285,15 @@ function _buildFormulaHTML(h, nameFn, { cubeElemName = null, resultLabel = null 
 
   const sectHtml = sects.map(s => {
     const hdHtml   = `<div class="dmg-tip-hd">${esc(s.title)}</div>`;
-    const rowsHtml = s.items.map(({ lbl, val, type }) =>
-      `<div class="dmg-tip-row"><span class="dmg-tip-lbl">${esc(lbl)}</span><span class="${typeClass(type)}">${val}</span></div>`
-    ).join('');
+    const rowsHtml = s.items.map(({ lbl, val, type, ref }) => {
+      // 实际蓄力：已含上方全部蓄力系数的最终值，单独成行强调并附说明，避免被重复计算
+      if (type === 'final') {
+        return `<div class="dmg-tip-row dmg-tip-row--final"><span class="dmg-tip-lbl">${esc(lbl)}`
+          + `<span class="dmg-tip-final-note">${esc(t('dmg.actualChargeNote'))}</span></span>`
+          + `<span class="dmg-tip-final">${val}</span></div>`;
+      }
+      return `<div class="dmg-tip-row${ref ? ' dmg-tip-row--ref' : ''}"><span class="dmg-tip-lbl">${esc(lbl)}</span><span class="${typeClass(type)}">${val}</span></div>`;
+    }).join('');
     return `<div class="dmg-tip-sect${s.sub ? ' dmg-tip-sect--sub' : ''}">${hdHtml}${rowsHtml}</div>`;
   }).join('');
 

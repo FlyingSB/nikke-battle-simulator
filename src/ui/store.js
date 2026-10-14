@@ -874,6 +874,8 @@ export function createStore() {
     mastBurstMode:    'auto',
     // Cinderella: Crystal Wave 手动打法：进入战斗时切换到 Snipe Mode（射击 1 发 → 主动装填 → 射击 1 发 → 主动装填）
     ccwSnipeModeAtStart: false,
+    // 速充（Focus 的 UP 型 SR/RL 手动打法）：off / always（始终速充）/ untilFull（充能满后恢复全蓄力）
+    quickChargeMode: 'off',
 
     // 队伍
     activeSlot:   0,
@@ -1006,6 +1008,15 @@ export function createStore() {
       }
       rows.push({ label: this.t('tip.coreDamage'), value: sd.core_damage_rate != null ? pct(sd.core_damage_rate) : '—' });
       if (sd.muzzle_count === 2) rows.push({ label: this.t('tip.dualGun'), value: this.t('tip.dualGunVal') });
+      // 命中目标充能：CDN 原值（与日志「充能」列同单位）；SG 为每发弹丸
+      rows.push({
+        label: this.t('tip.hitCharge'),
+        value: sd.target_burst_energy_pershot != null ? fmtNum(sd.target_burst_energy_pershot) : '—',
+      });
+      // 蓄力充能系数：CDN full_charge_burst_energy（1/100 %），仅 > 0 时显示（引擎不使用该字段）
+      if (sd.full_charge_burst_energy > 0) {
+        rows.push({ label: this.t('tip.chargeBurstCoef'), value: pct(sd.full_charge_burst_energy) });
+      }
       return rows;
     },
     /** 点击第 n 颗星（1..3）：未点亮 → 突破到 n；已点亮 → 退到 n-1（从 3 星点第 1 颗熄灭全部） */
@@ -1082,6 +1093,14 @@ export function createStore() {
       return this.team.some(s => s.active && s.resourceId === 515);
     },
 
+    // 速充选项显示条件：Focus 角色为 SR/RL 且非 DOWN_Charge 型（DOWN_Charge 按住自动全蓄力击发，无法速充）
+    get quickChargeSlot() {
+      const slot = this.focusSlot != null ? this.team[this.focusSlot] : null;
+      if (!slot?.active || !slot.resourceId || !['SR', 'RL'].includes(slot.weaponType)) return null;
+      if (slot._nikkeData?.shot_detail?.input_type === 'DOWN_Charge') return null;
+      return slot;
+    },
+
     // Anis: Star（resource_id: 17）在队时显示流星核心命中率修正系数
     get hasAnisStar() {
       return this.team.some(s => s.active && s.resourceId === 17);
@@ -1145,6 +1164,16 @@ export function createStore() {
         ...this.charFilters,
         [key]: cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v],
       };
+    },
+    /** 是否存在任何生效的筛选（含名字搜索），用于禁用重置按钮 */
+    get hasCharFilters() {
+      return (this.charQuery ?? '').trim() !== ''
+        || Object.values(this.charFilters).some(arr => arr.length > 0);
+    },
+    /** 清空名字搜索与全部图标筛选 */
+    resetCharFilters() {
+      this.charQuery = '';
+      this.charFilters = Object.fromEntries(Object.keys(this.charFilters).map(k => [k, []]));
     },
 
     // 搜索同时匹配英文名与简体名（与当前界面语言无关）；
@@ -1288,6 +1317,7 @@ export function createStore() {
         mirLastBurstOnly: this.mirLastBurstOnly,
         mastBurstMode:    this.mastBurstMode,
         ccwSnipeModeAtStart: this.ccwSnipeModeAtStart,
+        quickChargeMode:    this.quickChargeMode,
         focusSlot:          this.focusSlot,
         team: this.team.map(slot => this._slotSnapshot(slot)),
       };
@@ -1360,6 +1390,7 @@ export function createStore() {
       if (state.mirLastBurstOnly  != null) this.mirLastBurstOnly  = state.mirLastBurstOnly;
       if (state.mastBurstMode     != null) this.mastBurstMode     = state.mastBurstMode;
       if (state.ccwSnipeModeAtStart != null) this.ccwSnipeModeAtStart = state.ccwSnipeModeAtStart;
+      if (['off', 'always', 'untilFull'].includes(state.quickChargeMode)) this.quickChargeMode = state.quickChargeMode;
       if (state.focusSlot !== undefined)   this.focusSlot         = state.focusSlot;
       if (!Array.isArray(state.team)) return;
       state.team.forEach((saved, i) => {
@@ -2169,6 +2200,7 @@ export function createStore() {
           mirLastBurstOnly: this.hasMaidenIceRose   && this.mirLastBurstOnly,
           mastBurstMode:    this.effectiveMastBurstMode,
           ccwSnipeModeAtStart: this.hasCinderellaCrystalWave && this.ccwSnipeModeAtStart,
+          quickChargeMode:  this.quickChargeSlot ? this.quickChargeMode : 'off',
         };
 
         const iters = Math.max(1, Math.min(100, Number(this.iterations) || 30));

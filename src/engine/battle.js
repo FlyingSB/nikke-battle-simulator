@@ -125,9 +125,46 @@ function aliceFastAttackNextTicks(state, unit, effectiveCharge) {
   // 蓄力段（% + flat 减少后）≤ 99.52% 蓄速等价 ticks 时才进入快速攻击
   const threshold = Math.round(unit.chargeTimeTicks * (1 - 0.9952));
   if (effectiveCharge > threshold) return null;
-  const ticks = Math.round(TICK_RATE * 10 / 40);
+  const ticks = FAST_ATTACK_SHOT_TICKS;
   if (state.tick + ticks > end) return null;  // 下一发越过 Wonderland 窗口 → 回退正常蓄力
   return ticks;
+}
+
+// Alice Wonderland 快速攻击发间：40 发/10s（每 15 ticks），规避前后摇。
+const FAST_ATTACK_SHOT_TICKS = Math.round(TICK_RATE * 10 / 40);
+// 速充攻击：蓄力 13 帧 + 空闲 2 帧（发间 15 帧，同 Alice 快速攻击节奏），规避前后摇。
+const QUICK_CHARGE_TICKS      = 13;
+const QUICK_CHARGE_IDLE_TICKS = 2;
+const QUICK_CHARGE_SHOT_TICKS = QUICK_CHARGE_TICKS + QUICK_CHARGE_IDLE_TICKS;
+
+/**
+ * 是否武器切换期间（切换武器自带蓄力规则，速充不适用）。
+ * @param {object} state
+ * @param {object} unit
+ * @returns {boolean}
+ */
+function isWeaponSwitchActive(state, unit) {
+  const end = unit.skillState?.weaponSwitchEndTick ?? 0;
+  return end > 0 && state.tick <= end;
+}
+
+/**
+ * 「速充」手动打法（Focus 的 UP 型 SR/RL，见 config.quickChargeMode）：下一发是否打速充攻击。
+ * 速充攻击按 Alice 快速攻击节奏（蓄力 13 帧 + 空闲 2 帧、规避前后摇）连发短蓄力攻击。仍算蓄力攻击，
+ * 蓄力比例 r = min(1, 13 / 当前有效蓄力帧数)：蓄力伤害倍率与 Focus 全蓄力充能倍率按 r 线性插值，
+ * r < 1 时不触发全蓄力类效果——以发数换取更快的爆裂充能。
+ *   always    — 始终速充（全爆裂结束前的全蓄力收尾除外）
+ *   untilFull — 仅爆裂槽充能阶段（burstPhase 0）速充；槽满后（爆裂阶段 / 全爆裂期间）恢复全蓄力攻击
+ * 全爆裂收尾（qcFinisherPending，见 maybeStartQuickChargeFinisher）期间一律全蓄力。
+ * @param {object} state
+ * @param {object} unit
+ * @returns {boolean}
+ */
+function quickChargeWanted(state, unit) {
+  if (!unit.quickChargeMode || unit.qcFinisherPending) return false;
+  if (isWeaponSwitchActive(state, unit)) return false;
+  if (unit.quickChargeMode === 'untilFull' && state.burstPhase !== 0) return false;
+  return true;
 }
 
 /**
@@ -215,6 +252,7 @@ function reloadDurationTicks(state, unit, sums) {
  * 记录 chargeBaseTick / chargeFixedTicks / engineChargeTick，供 rescheduleEngineCharge 每 tick 按
  * 当前蓄力时长重算（蓄速 buff / 固定蓄力在蓄力中途变化时立即生效，见 §4.3.10）。
  * Alice Wonderland 快速攻击：发间固定 15t，不参与重算（engineChargeTick = null）。
+ * 速充：下一发为速充攻击时固定 13 + 2 帧（自发间起点起算），并以 qcShotTick 标记该发。
  * @param {object} state
  * @param {object} unit
  * @param {number} baseTick   发间起点（通常为射击 tick / 换弹相位结束 tick / HIDDEN 结束 tick）
@@ -222,11 +260,18 @@ function reloadDurationTicks(state, unit, sums) {
  * @param {object} sums getBuffSums 汇总
  */
 function scheduleEngineCharge(state, unit, baseTick, fixedTicks, sums) {
+  unit.qcShotTick = null;
   const effCharge = effectiveChargeTicks(state, unit, sums);
   const fastTicks = aliceFastAttackNextTicks(state, unit, effCharge);
   if (fastTicks != null) {
     unit.chargeTick       = state.tick + fastTicks;
     unit.engineChargeTick = null;
+    return;
+  }
+  if (quickChargeWanted(state, unit)) {
+    unit.chargeTick       = Math.max(state.tick, baseTick) + QUICK_CHARGE_SHOT_TICKS;
+    unit.engineChargeTick = null;
+    unit.qcShotTick       = unit.chargeTick;
     return;
   }
   unit.chargeBaseTick   = baseTick;
@@ -304,6 +349,49 @@ function scheduleBackswingReload(state, unit, events) {
     unit.reloadTick      = state.tick + dur;
     unit.reloadStartTick = state.tick;
   }
+}
+
+/**
+ * 速充的全爆裂收尾：全爆裂结束前预留「换弹 + 前摇 + 全蓄力」，手动换弹后全蓄力，
+ * 使该发恰好在全爆裂结束瞬间打出（此时槽已清零，全蓄力充能计入下一轮），之后继续速充。
+ * 每 tick 检查：按当前换弹 / 蓄力时长估算收尾发 tick，首次 ≥ 全爆裂结束 tick 时开始（每轮全爆裂一次）。
+ *   - 已在换弹中：仅标记收尾，换弹完成后按全蓄力排定；
+ *   - 弹匣未满：打断当前攻击 / 后摇期间换弹，开始手动换弹（qcManualReload，装填分支照常处理）；
+ *   - 弹匣已满或换弹瞬间完成：直接排定前摇 + 全蓄力。
+ * 蓄速 buff 在收尾蓄力中途到期时由 rescheduleEngineCharge 按新时长顺延（与实机一致）。
+ * @param {object} state
+ * @param {object} unit
+ * @param {object[]} events 本 tick 事件列表
+ */
+function maybeStartQuickChargeFinisher(state, unit, events) {
+  if (!unit.quickChargeMode || !state.fullBurstActive) return;
+  const fbEnd = state.fullBurstTick;
+  if (unit.qcFinisherFbTick === fbEnd || isWeaponSwitchActive(state, unit)) return;
+  const sums       = getBuffSums(state, unit.id);
+  const reloading  = unit.reloadTick > 0;
+  const unlimited  = (unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick;
+  const needReload = !reloading && !unlimited && unit.ammoLeft < unit.maxAmmo;
+  const reloadDur  = needReload ? reloadDurationTicks(state, unit, sums) : 0;
+  // UP 型换弹相位结束 = max(换弹完成, 末发 + 后摇)，之后前摇 + 全蓄力（§4.3.6）
+  const phaseEnd = Math.max(reloading ? unit.reloadTick : state.tick + reloadDur,
+    unit.lastChargeShotTick + unit.backswingTicks);
+  if (phaseEnd + unit.foreswingTicks + effectiveChargeTicks(state, unit, sums) < fbEnd) return;
+  unit.qcFinisherFbTick  = fbEnd;
+  unit.qcFinisherPending = true;
+  if (reloading) return;
+  unit.backswingReloadTick = 0;
+  if (reloadDur > 0) {
+    unit.qcManualReload  = true;
+    unit.reloadTick      = state.tick + reloadDur;
+    unit.reloadStartTick = state.tick;
+    return;
+  }
+  if (needReload) {
+    refillMagazine(state, unit, events);
+    onReloadEnd(state, unit);
+  }
+  scheduleEngineCharge(state, unit, Math.max(state.tick, unit.lastChargeShotTick + unit.backswingTicks),
+    unit.foreswingTicks, getBuffSums(state, unit.id));
 }
 
 /**
@@ -1041,6 +1129,20 @@ export function initBattle(config) {
     // Cinderella: Crystal Wave（515）手动打法：进入战斗时切换到 Snipe Mode（515.js 据此执行
     // 「射击 1 发 → 主动装填 → 射击 1 发 → 主动装填」的切枪流程）。
     if (config.ccwSnipeModeAtStart && cfg.characterId === 515) unit.ccwSnipeModeAtStart = true;
+    // 速充（config.quickChargeMode：'always' / 'untilFull'，见 quickChargeWanted）：仅 Focus 的 UP 型 SR/RL
+    // （DOWN_Charge 型按住自动全蓄力击发，无法提前松手）。开局处于充能阶段，第一发即为速充攻击。
+    unit.quickChargeMode   = null;
+    unit.qcShotTick        = null;   // 已排定的速充发 tick（chargeTick 等于它时本发为速充攻击）
+    unit.qcFinisherFbTick  = null;   // 已开始收尾的全爆裂结束 tick（每轮全爆裂只收尾一次）
+    unit.qcFinisherPending = false;  // 收尾全蓄力发尚未打出
+    unit.qcManualReload    = false;  // 收尾手动换弹进行中（弹匣未空）
+    if ((config.quickChargeMode === 'always' || config.quickChargeMode === 'untilFull')
+        && unit.isFocus && chargeTimeTicks > 0 && !isDownCharge) {
+      unit.quickChargeMode  = config.quickChargeMode;
+      unit.chargeTick       = QUICK_CHARGE_SHOT_TICKS;
+      unit.engineChargeTick = null;
+      unit.qcShotTick       = QUICK_CHARGE_SHOT_TICKS;
+    }
     return unit;
   });
 
@@ -1565,6 +1667,9 @@ export function tick(state) {
     if ((unit.skillState.weaponSwitchPostBackswingEndTick ?? 0) > 0
         && state.tick < unit.skillState.weaponSwitchPostBackswingEndTick) continue;
 
+    // 速充：全爆裂结束前开始手动换弹 + 全蓄力收尾
+    maybeStartQuickChargeFinisher(state, unit, events);
+
     // UP 型蓄力武器后摇期间换弹（§4.3.9）：后摇内完成的换弹到点补满（HIDDEN 期间同样完成）。
     // 射击节奏不受影响（chargeTick 已按常规发间排定），仅恢复弹药并触发 RELOAD_END。
     if (unit.backswingReloadTick > 0 && state.tick >= unit.backswingReloadTick) {
@@ -1576,7 +1681,8 @@ export function tick(state) {
     // 装填处理（HIDDEN 期间也会运行，让进行中的装填能够完成）
     // unlimitedAmmoEndTick 激活期间弹药不消耗，永远不会达到 0，跳过装填逻辑
     // 后摇期间换弹尚未完成时（backswingReloadTick > 0）由上方补满，不另起常规换弹
-    if (unit.ammoLeft <= 0 && unit.backswingReloadTick === 0
+    // 速充收尾的手动换弹（qcManualReload）弹匣未空也走本分支（reloadTick 已由收尾逻辑设置）
+    if ((unit.ammoLeft <= 0 || unit.qcManualReload) && unit.backswingReloadTick === 0
         && !((unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick)) {
       if (unit.reloadTick === 0) {
         // 换弹相位 = 折减后的装填时长 + 末发后摇（非蓄力武器 spot_last_delay，不受换弹速度折减）。
@@ -1601,6 +1707,7 @@ export function tick(state) {
         continue;
       }
       refillMagazine(state, unit, events);
+      unit.qcManualReload = false;
       // 装填后射击周期衔接：非蓄力 RPM 武器保留换弹期间累积的累加器（封顶 1）——
       // 装填时长 ≥ RPM 发间时累加器已到 1，换弹完成第一发立即击发（与旧行为一致）；
       // 装填被换弹速度 buff 压缩到发间以内时，下一发仍落在「上一发 + RPM 发间」。
@@ -1719,6 +1826,16 @@ export function tick(state) {
         ? (unit.skillState.weaponSwitchHitMult ?? WEAPON_HIT_MULT[effectiveWeaponType] ?? 0.03)
         : unit.shotDamageMult) * dualGunMult;
       const isCharged = ['SR', 'RL', 'Charged'].includes(effectiveWeaponType);
+      // 速充攻击（蓄力 13 帧）：仍是蓄力攻击，蓄力比例 r = min(1, 13 / 当前有效蓄力帧数)；
+      // 蓄力伤害倍率与 Focus 全蓄力充能倍率按 r 插值，r < 1 时不算全蓄力（不触发全蓄力类效果）
+      const isQuickShot = !weaponSwitchActive && unit.qcShotTick != null && unit.chargeTick === unit.qcShotTick;
+      unit.qcShotTick = null;
+      const quickEffCharge = isQuickShot ? effectiveChargeTicks(state, unit, getBuffSums(state, unit.id)) : 0;
+      const chargeRatio  = isQuickShot && quickEffCharge > QUICK_CHARGE_TICKS
+        ? QUICK_CHARGE_TICKS / quickEffCharge : 1;
+      const isFullCharge = isCharged && chargeRatio >= 1;
+      // 速充收尾的全蓄力发已打出 → 恢复速充排定
+      if (isCharged && !isQuickShot && !weaponSwitchActive) unit.qcFinisherPending = false;
       // RL 普攻即 Projectile Explosion：受 projectileExplosionDamagePct 加成（伤害计算与日志明细共用此口径）
       const isExplosive = effectiveWeaponType === 'RL';
       const projExpOf = b => (isExplosive ? (b.projectileExplosionDamagePct ?? 0) : 0);
@@ -1728,7 +1845,7 @@ export function tick(state) {
       const normalMultOf  = (s, favBase = favNormalBase) => favBase + (s.normalAttackDamageMultPct ?? 0);
 
       // DURING_FULL_CHARGE：全蓄力击发前触发，推入的 buff 立即被 getBuffSums 读取
-      if (isCharged) fireDuringFullChargeTriggers(state, unit);
+      if (isFullCharge) fireDuringFullChargeTriggers(state, unit);
 
       // 计算 buff 汇总（round-based buff 由 getBuffSums 自动根据 roundsLeft 过滤）
       const sums = getBuffSums(state, unit.id);
@@ -1846,6 +1963,7 @@ export function tick(state) {
         favChargeDmgPct:   unit.favChargeDmgPct ?? 0,
         chargeDmgStat:     1 + (unit.stats.chargeDmgPct ?? 0) + s.chargeDamagePct,
         chargeDmgMultPct:  s.chargeDamageMultPct ?? 0,
+        chargeRatio,
         favNormalAttackDamageMult: unitFav ? normalMultOf(s, unit.favNormalAttackDamageMult ?? 1) : normalMultOf(s),
         isTrueDamage:      s.normalAttackTrueDamage,
         extra:             { attackDamageMult: s.attackDamagePct + s.normalAttackDamagePct + projExpOf(s),
@@ -1921,7 +2039,7 @@ export function tick(state) {
       if (isDoubleHit) {
         _shotCountPendingLen = state.pendingSkillEvents?.length ?? 0;
         decrementRoundBuffs(state, unit.id);
-        fireShotCountTriggers(state, unit, { sums, isCharged, hitPart, pellets, isCrit, critPellets, corePellets,
+        fireShotCountTriggers(state, unit, { sums, isCharged, isFullCharge, hitPart, pellets, isCrit, critPellets, corePellets,
           weaponType: effectiveWeaponType, ammoAfterShot: unit.ammoLeft - 1 });
         if (state.hitLog) _hit2BreakdownBufs = _snapActiveBufs();
         const sums2 = getBuffSums(state, unit.id);
@@ -1986,9 +2104,10 @@ export function tick(state) {
       //   战斗日志「充能列」据此按行计算增量；否则会把本发充能误记到下一行。
       const fullShotEnergy = unit.targetBurstEnergyPerShot * (effectiveWeaponType === 'SG' ? (unit.shotCount ?? 1) : 1);
       const baseEnergy  = Math.round(fullShotEnergy * pellets / firedPellets) + (sums.burstGaugeFlat ?? 0);
+      // 未蓄满（速充 chargeRatio < 1）：全蓄力充能系数按蓄力比例线性插值 1 → fullChargeBurstEnergy/10000
       const focusCharged = unit.isFocus && isCharged && unit.fullChargeBurstEnergy > 10000;
       const burstEnergy = focusCharged
-        ? Math.round(baseEnergy * unit.fullChargeBurstEnergy / 10000)
+        ? Math.round(baseEnergy * (1 + (unit.fullChargeBurstEnergy / 10000 - 1) * chargeRatio))
         : baseEnergy;
       addBurstGauge(state, unit.name, focusCharged ? 'fc_shot' : 'shot', burstEnergy);
 
@@ -2029,6 +2148,8 @@ export function tick(state) {
           equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0, favChargeDmgPct: unit.favChargeDmgPct ?? 0,
           elemMult: bd.elemMult,
           chargeMult: bd.chargeMult,
+          // 速充未蓄满的蓄力比例（满蓄时省略）
+          ...(chargeRatio < 1 ? { chargeRatio } : {}),
           // 武器切换期间距离加成仍按原始武器判定（游戏实测规则）
           distanceAdv: distAdv,
           ammoLeft: unit.ammoLeft,
@@ -2067,6 +2188,7 @@ export function tick(state) {
             equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0, favChargeDmgPct: unit.favChargeDmgPct ?? 0,
             elemMult: bd.elemMult,
             chargeMult: bd.chargeMult,
+            ...(chargeRatio < 1 ? { chargeRatio } : {}),
             distanceAdv: distAdv,
             ammoLeft: unit.ammoLeft,
             maxAmmo: effectiveMaxAmmo,
@@ -2104,6 +2226,7 @@ export function tick(state) {
             equipChargeDmgPct: unit.stats.chargeDmgPct ?? 0, favChargeDmgPct: unit.favChargeDmgPct ?? 0,
             elemMult: bd.elemMult,
             chargeMult: bd.chargeMult,
+            ...(chargeRatio < 1 ? { chargeRatio } : {}),
             distanceAdv: distAdv,
             ammoLeft: unit.ammoLeft,
             maxAmmo: effectiveMaxAmmo,
@@ -2147,7 +2270,7 @@ export function tick(state) {
 
       // ── 每发射击后的单位技能触发（声明式执行器） ────────────────
       // 双重命中：SHOT_COUNT 已由 fireShotCountTriggers 处理，跳过。
-      onShotFired(state, unit, { sums, isCharged, hitPart, pellets, isCrit, critPellets, corePellets,
+      onShotFired(state, unit, { sums, isCharged, isFullCharge, hitPart, pellets, isCrit, critPellets, corePellets,
         weaponType: effectiveWeaponType, ammoAfterShot: unit.ammoLeft },
         isDoubleHit ? { skipShotCount: true } : undefined);
       flushCsChanged(state);
@@ -2189,7 +2312,8 @@ export function tick(state) {
 
       // UP 型蓄力武器：进入后摇即开始换弹（§4.3.9）。放在射后触发器与 Bastion 补弹之后，
       // 以最终弹药与换弹速度判断；仅引擎排定的蓄力射击适用（武器切换期间不适用）。
-      if (_engineScheduledChargeTick !== null) scheduleBackswingReload(state, unit, events);
+      // 速充攻击规避后摇（同 Alice 快速攻击），不做后摇期间换弹，弹匣打空后走常规换弹。
+      if (_engineScheduledChargeTick !== null && !isQuickShot) scheduleBackswingReload(state, unit, events);
 
       // ── 弹药里程碑（声明式） ──────────────────────────────────────────
       const cur400 = Math.floor(state.totalAmmoFired / 400);

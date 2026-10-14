@@ -385,6 +385,19 @@
                 </label>
               </div>
             </template>
+            <!-- 速充：Focus 角色为 UP 型 SR/RL 时显示 -->
+            <template x-if="$store.sim.quickChargeSlot">
+              <div class="field-group mt-1">
+                <label class="field-label" :title="$t('sim.quickChargeTip')"
+                  x-text="$t('sim.quickCharge', { name: $store.sim.slotName($store.sim.quickChargeSlot) })"></label>
+                <select class="input input-sm" x-model="$store.sim.quickChargeMode" :title="$t('sim.quickChargeTip')">
+                  <template x-for="mode in ['off', 'always', 'untilFull']" :key="mode">
+                    <option :value="mode" x-text="$t('sim.quickCharge.' + mode)"
+                      :selected="mode === $store.sim.quickChargeMode"></option>
+                  </template>
+                </select>
+              </div>
+            </template>
             <template x-if="$store.sim.hasMastRomanticMaid">
               <div class="field-group mt-1">
                 <label class="field-label" x-text="$t('sim.mastBurst', { name: $store.sim.charName(354, 'Mast: Romantic Maid') })"></label>
@@ -1137,6 +1150,11 @@
             </template>
           </div>
         </template>
+        <!-- 重置：清空名字搜索与全部图标筛选（无生效筛选时禁用） -->
+        <button type="button" class="btn btn-ghost btn-sm picker-reset"
+          :disabled="!$store.sim.hasCharFilters"
+          @click="$store.sim.resetCharFilters()"
+          x-text="$t('picker.reset')"></button>
       </div>
       <div class="char-grid">
         <template x-for="char in $store.sim.filteredChars" :key="char.resourceId">

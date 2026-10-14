@@ -873,6 +873,35 @@ select.input:not([multiple], [size]) {
 .dmg-tip-mult { font-family: var(--font-mono); color: var(--purple);  white-space: nowrap; flex-shrink: 0; }
 .dmg-tip-note { color: var(--text-dim); font-style: italic;           white-space: nowrap; flex-shrink: 0; }
 
+/* 未蓄满蓄力：满蓄构成各行仅作参考（置灰 + 左侧竖线归组），不直接参与乘算 */
+.dmg-tip-row--ref {
+  opacity: 0.5;
+  padding-left: 6px;
+  border-left: 2px solid var(--border2);
+}
+/* 实际蓄力：已含上方全部系数的最终值（虚线分隔 + 加粗强调 + 说明行） */
+.dmg-tip-row--final {
+  align-items: baseline;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border2);
+}
+.dmg-tip-row--final .dmg-tip-lbl { color: var(--text); font-weight: 600; white-space: normal; }
+.dmg-tip-final-note {
+  display: block;
+  font-size: 0.85em;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text-dim);
+}
+.dmg-tip-final {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* 最终伤害 */
 .dmg-tip-result {
   display: flex;
@@ -1021,6 +1050,9 @@ select.input:not([multiple], [size]) {
 .picker-filter--on > *,
 .picker-filter--on:hover > * { filter: drop-shadow(0 0 4px rgb(255 255 255 / 0.35)); opacity: 1; }
 .picker-filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+/* 重置按钮固定在筛选行最右侧；无生效筛选时淡化 */
+.picker-reset { margin-left: auto; }
+.picker-reset:disabled { opacity: 0.35; cursor: default; }
 .char-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
   gap: 5px; padding: 8px 14px;

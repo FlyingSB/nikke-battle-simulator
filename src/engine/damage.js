@@ -123,6 +123,8 @@ const ELEMENT_CHART = {
  *   与 favChargeDmgPct 相加后乘 full_charge_damage
  * @property {number}        [chargeDmgStat=1]       装备 / 技能 / 魔方带来的蓄力伤害加成（不含珍藏品）。
  *   以 (1 + stats.chargeDmgPct + sums.chargeDamagePct) 形式传入。
+ * @property {number}        [chargeRatio=1]         蓄力比例（0..1，未蓄满的蓄力攻击，如速充）：
+ *   蓄力倍率按比例线性插值 = 1 + (满蓄倍率 − 1) × chargeRatio
  * @property {number}        [favNormalAttackDamageMult=1]  普攻伤害倍率 = 1 + 珍藏品 "Normal Attack Damage Multiplier ▲"
  *   （SMG/SG 物品）+ Σ 技能同名效果（buff 字段 normalAttackDamageMultPct）— 二者同一乘区相加，
  *   独立倍率，直接乘在 baseDamage 上（与 ExtraMultiplier 不是加法关系）。
@@ -162,6 +164,7 @@ export function calcDamage(input) {
     favChargeDmgPct     = 0,
     chargeDmgMultPct    = 0,
     chargeDmgStat       = 1,
+    chargeRatio         = 1,
     favNormalAttackDamageMult = 1,
     extra               = {},
     damageTakenMult     = 0,
@@ -190,8 +193,10 @@ export function calcDamage(input) {
   // "Charge Damage Multiplier"（珍藏品 + 技能）同一乘区：相加后与 shot_detail.damage 相乘；
   // "Charge Damage"（装备/魔方/其他技能）为加法。
   // chargeDmgStat 传入形式为 (1 + 装备/技能/魔方加成)，因此 (chargeDmgStat - 1) 即为纯加成部分。
+  // 未蓄满（chargeRatio < 1）：在不蓄力（×1）与满蓄倍率之间线性插值
+  const fullChargeMult = (fullChargeDamage / CHARGE_DAMAGE_BASE) * (1 + favChargeDmgPct + chargeDmgMultPct) + (chargeDmgStat - 1);
   const chargeMult   = (canCharge && isCharged)
-    ? (fullChargeDamage / CHARGE_DAMAGE_BASE) * (1 + favChargeDmgPct + chargeDmgMultPct) + (chargeDmgStat - 1)
+    ? 1 + (fullChargeMult - 1) * Math.min(1, Math.max(0, chargeRatio))
     : 1.0;
 
   // ── ExtraMultiplier ──

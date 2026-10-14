@@ -540,7 +540,8 @@ export function onShotFired(state, unit, shotCtx, opts = {}) {
         }
 
         case 'FULL_CHARGE': {
-          if (!shotCtx.isCharged) break;
+          // 未蓄满的蓄力攻击（速充，isFullCharge === false）不算全蓄力；未传 isFullCharge 时视同全蓄力
+          if (!shotCtx.isCharged || shotCtx.isFullCharge === false) break;
           if (!checkConditions(state, unit, tdef, ctx)) break;
           {
             const logCtx = buildLogCtx(unit, skillKey, tdefIdx, tdef, skill, 'FULL_CHARGE');

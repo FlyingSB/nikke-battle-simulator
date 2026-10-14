@@ -28,6 +28,7 @@ const SUITES = [
   { name: 'Cinderella', file: 'test-cinderella.mjs', note: 'Cinderella skill fixes, no I/O'           },
   { name: 'CrystalWave', file: 'test-crystal-wave.mjs', note: 'Cinderella: Crystal Wave Snipe Mode, local JSON' },
   { name: 'ReloadCadence', file: 'test-reload-cadence.mjs', note: 'reload/RPM cadence, no I/O'        },
+  { name: 'QuickCharge', file: 'test-quick-charge.mjs', note: 'focus SR/RL quick charge, no I/O'     },
   { name: 'SgPellets',  file: 'test-sg-pellets.mjs', note: 'SG pellet charge & hit, no I/O'          },
   { name: 'DualGun',    file: 'test-dual-gun.mjs',   note: 'dual gun (muzzle_count 2) ×2, no I/O'    },
   { name: 'PartsCore',  file: 'test-parts-core.mjs', note: 'PARTS_CORE enemy core state, no I/O'     },
