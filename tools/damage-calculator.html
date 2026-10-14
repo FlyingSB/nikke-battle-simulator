@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nikke 伤害计算器</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans",
+                 sans-serif;
+    background: #f3f4f6;
+    color: #1f2937;
+    line-height: 1.4;
+  }
+
+  .app {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    gap: 12px;
+  }
+  h1 {
+    font-size: 24px;
+    margin: 0;
+    letter-spacing: 0.5px;
+    color: #111827;
+  }
+  h2 {
+    font-size: 14px;
+    margin: 0 0 12px;
+    color: #6b7280;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04),
+                0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  /* ----- Form ----- */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 20px;
+  }
+  .form-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .form-label {
+    min-width: 130px;
+    font-size: 13px;
+    color: #374151;
+    font-weight: 500;
+  }
+  .radio-group { display: flex; gap: 16px; flex: 1; }
+  .radio-group label {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 13px; cursor: pointer;
+  }
+  input[type="number"], input[type="text"], select {
+    padding: 7px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #fff;
+    color: #111827;
+    flex: 1;
+    min-width: 0;
+    font-family: inherit;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+
+  .add-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .add-form select { min-width: 220px; flex: 0 1 240px; }
+  .add-form input[type="text"] { flex: 1 1 160px; min-width: 140px; }
+  .add-form input[type="number"] { width: 130px; flex: 0 0 130px; }
+  .add-form .pct-wrap { flex: 0 0 130px; }
+  .add-form #coeffValueSelect { flex: 0 1 auto; min-width: 130px; max-width: 100%; }
+  input:disabled { background: #f3f4f6; color: #6b7280; cursor: not-allowed; }
+  .def-note {
+    font-size: 12px; color: #92400e; background: #fffbeb;
+    border: 1px solid #fde68a; border-radius: 4px; padding: 2px 6px; white-space: nowrap;
+  }
+
+  .pct-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+  }
+  .pct-wrap input[type="number"] {
+    width: 100%;
+    padding-right: 26px;
+  }
+  .pct-suffix {
+    position: absolute;
+    right: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 600;
+    pointer-events: none;
+    user-select: none;
+  }
+  .pct-wrap.no-pct .pct-suffix { display: none; }
+  .pct-wrap.no-pct input[type="number"] { padding-right: 10px; }
+
+  button {
+    padding: 7px 18px;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: #4338ca; }
+  button:disabled { background: #9ca3af; cursor: not-allowed; }
+
+  .btn-ghost {
+    background: #fff;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+  }
+  .header-actions { display: flex; gap: 8px; }
+  .btn-secondary {
+    background: #fff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+  }
+  .btn-secondary:hover { background: #eef2ff; border-color: #818cf8; }
+
+  .status {
+    position: relative;
+    border-radius: 8px;
+    padding: 10px 36px 10px 14px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    border: 1px solid;
+  }
+  .status.ok   { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+  .status.warn { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+  .status.err  { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+  .status ul { margin: 4px 0 0; padding-left: 20px; }
+  .status-close {
+    position: absolute; top: 6px; right: 6px;
+    background: transparent; color: inherit;
+    padding: 2px 8px; font-size: 16px; line-height: 1;
+  }
+  .status-close:hover { background: rgba(0,0,0,0.06); }
+
+  .modal {
+    position: fixed; inset: 0;
+    background: rgba(17,24,39,0.45);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; padding: 16px;
+  }
+  .modal-box {
+    background: #fff; border-radius: 12px;
+    padding: 18px 20px; width: 100%; max-width: 640px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  }
+  .modal-box h3 { margin: 0 0 4px; font-size: 16px; }
+  .modal-box textarea {
+    width: 100%; height: 280px; margin-top: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; padding: 10px;
+    border: 1px solid #d1d5db; border-radius: 6px; resize: vertical;
+  }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+  .btn-ghost:hover {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+  }
+
+  .hint {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 6px;
+  }
+
+  .error {
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  /* ----- Formula ----- */
+  .formula-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #f3f4f6;
+  }
+  .formula-line.summary {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+  }
+  .formula-line.muted { opacity: 0.5; }
+  .formula-line.muted .formula-result { color: #6b7280; }
+  .formula-label {
+    font-weight: 600;
+    font-size: 13px;
+    color: #374151;
+    min-width: 130px;
+    flex-shrink: 0;
+  }
+  .formula-expr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+  }
+  .formula-result {
+    font-weight: 700;
+    color: #1e3a8a;
+    margin-left: auto;
+    padding-left: 14px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+  }
+  .op {
+    font-weight: 600;
+    font-size: 15px;
+    color: #6b7280;
+    padding: 0 1px;
+    user-select: none;
+  }
+  .sub-formula {
+    font-style: italic;
+    color: #6b7280;
+    font-size: 13px;
+    padding: 4px 6px;
+  }
+
+  /* ----- Chips ----- */
+  .chip {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2px 10px 4px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    min-width: 42px;
+    transition: transform 0.1s;
+    line-height: 1.15;
+  }
+  .chip:hover:not(.preset) { transform: translateY(-1px); }
+  .chip-name {
+    font-size: 9px;
+    font-weight: 500;
+    opacity: 0.92;
+    white-space: nowrap;
+    margin-bottom: 1px;
+  }
+  .chip-value {
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .chip.preset {
+    cursor: default;
+    border-style: solid;
+    border-width: 1px;
+    background: transparent;
+  }
+  .chip-remove {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.92);
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    opacity: 0.55;
+    transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .chip:hover .chip-remove { opacity: 1; color: #b91c1c; border-color: #fca5a5; }
+  .chip-remove:hover {
+    background: #b91c1c;
+    color: #fff !important;
+    border-color: #b91c1c !important;
+    opacity: 1 !important;
+  }
+  .chip.disabled {
+    filter: grayscale(85%);
+    opacity: 0.45;
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+  }
+  .chip.disabled .chip-remove {
+    text-decoration: none;
+  }
+
+  /* ----- Final ----- */
+  .final-card {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a8a 100%);
+    color: #fff;
+    text-align: center;
+    padding: 22px;
+  }
+  .final-label {
+    font-size: 12px;
+    opacity: 0.75;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .final-value {
+    font-size: 40px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+  }
+
+  @media (max-width: 720px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .form-label { min-width: 100px; }
+    .formula-label { min-width: 100%; margin-bottom: 4px; }
+    .formula-result { margin-left: 0; padding-left: 0; width: 100%; text-align: right; margin-top: 4px; }
+    .final-value { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>Nikke 伤害计算器</h1>
+    <div class="header-actions">
+      <button id="exportBtn" class="btn-secondary" title="将当前输入与系数以 JSON 格式复制到剪贴板">导出到剪贴板</button>
+      <button id="importBtn" class="btn-secondary" title="从剪贴板读取 JSON / YAML 数据并填入公式">从剪贴板导入</button>
+      <button id="resetBtn" class="btn-ghost" title="清空全部输入与系数">重置</button>
+    </div>
+  </div>
+
+  <div id="importStatus" class="status" style="display:none">
+    <button class="status-close" id="importStatusClose" title="关闭">×</button>
+    <div id="importStatusBody"></div>
+  </div>
+
+  <div id="exportModal" class="modal" style="display:none">
+    <div class="modal-box">
+      <h3>导出数据</h3>
+      <p class="hint" id="exportModalHint">浏览器不允许直接写入剪贴板，内容已选中，可点「复制」或按 Ctrl+C / ⌘C。</p>
+      <textarea id="exportText" spellcheck="false" readonly></textarea>
+      <div class="modal-actions">
+        <button id="exportClose" class="btn-ghost">关闭</button>
+        <button id="exportCopy">复制</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="importModal" class="modal" style="display:none">
+    <div class="modal-box">
+      <h3>粘贴导入数据</h3>
+      <p class="hint" id="importModalHint">支持 JSON / YAML 格式，导入会覆盖当前全部输入与系数。</p>
+      <textarea id="importText" spellcheck="false" placeholder='{"baseAtk": 50000, "enemyBaseDef": 1000, ...}'></textarea>
+      <div id="importModalError" class="error" style="display:none; margin: 8px 0 0"></div>
+      <div class="modal-actions">
+        <button id="importCancel" class="btn-ghost">取消</button>
+        <button id="importConfirm">导入</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2>必填项</h2>
+    <div class="form-grid">
+      <div class="form-row">
+        <span class="form-label">基础攻击力</span>
+        <input type="number" id="baseAtk" step="any" placeholder="例: 50000">
+      </div>
+      <div class="form-row">
+        <span class="form-label">敌人基础防御力</span>
+        <input type="number" id="enemyBaseDef" step="any" placeholder="例: 1000">
+        <span id="defIgnoredNote" class="def-note" style="display:none">已被无视防御力伤害屏蔽</span>
+      </div>
+      <div class="form-row">
+        <span class="form-label">伤害类型</span>
+        <div class="radio-group">
+          <label><input type="radio" name="dmgType" value="weapon" checked> 武器伤害</label>
+          <label><input type="radio" name="dmgType" value="skill"> 技能伤害</label>
+        </div>
+      </div>
+      <div class="form-row" id="weaponDmgRow">
+        <span class="form-label">基本武器伤害系数</span>
+        <div class="pct-wrap">
+          <input type="number" id="baseWeaponDmg" step="any" placeholder="例: 9.72">
+          <span class="pct-suffix">%</span>
+        </div>
+      </div>
+      <div class="form-row" id="skillDmgRow" style="display:none">
+        <span class="form-label">技能伤害系数</span>
+        <div class="pct-wrap">
+          <input type="number" id="skillDmg" step="any" placeholder="例: 250">
+          <span class="pct-suffix">%</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>添加系数</h2>
+    <div class="add-form">
+      <select id="coeffType"></select>
+      <input type="text" id="coeffName" placeholder="名称（默认类别名，可清空）">
+      <div class="pct-wrap" id="coeffValueWrap">
+        <input type="number" id="coeffValue" step="any" placeholder="数值">
+        <span class="pct-suffix" id="coeffPctSuffix">%</span>
+      </div>
+      <select id="coeffValueSelect" style="display:none"></select>
+      <button id="addBtn">添加</button>
+    </div>
+    <div class="hint" id="coeffHint"></div>
+  </section>
+
+  <section class="card">
+    <h2>公式细节</h2>
+    <div id="error" class="error" style="display:none"></div>
+    <div id="formula"></div>
+  </section>
+
+  <section class="card final-card">
+    <div class="final-label">最终伤害</div>
+    <div id="finalDmg" class="final-value">--</div>
+  </section>
+</div>
+
+<script>
+  // ============================================================
+  // 类别定义：family 决定色系，shade 决定同色系内的色调
+  // ============================================================
+  const CATEGORIES = {
+    atkIncrease:               { name: '攻击力（百分比）',     family: 'atk',  shade: 0, isPercent: true },
+    extraAtk:                  { name: '攻击力（值）',         family: 'atk',  shade: 1, isPercent: false },
+    defReduction:              { name: '防御力降低（百分比）', family: 'def',  shade: 0, isPercent: true },
+    collectibleNormalAtkMult:  { name: '普通攻击倍率（珍藏品）', family: 'wpn',  shade: 0, isPercent: true, weaponOnly: true },
+    dualGun:                   { name: '双枪',                 family: 'wpn',  shade: 1, isPercent: true, fixed: 2, single: true },
+    stackCopy:                 { name: '叠加复制',             family: 'wpn',  shade: 2, isPercent: false, single: true, integer: true, min: 1, defaultValue: 1, skillOnly: true },
+    critDmg:                   { name: '暴击伤害',             family: 'uni',  shade: 0, isPercent: true,
+                                 variants: {
+                                   base: { label: '基础', name: '基础暴击', fixed: 0.5, unique: true },
+                                 } },
+    coreDmg:                   { name: '核心伤害',             family: 'uni',  shade: 1, isPercent: true,
+                                 variants: {
+                                   base: { label: '基础', name: '基础核心', unique: true, options: [2, 2.5] },
+                                 } },
+    fullBurst:                 { name: '全爆裂补正',           family: 'uni',  shade: 2, isPercent: true, fixed: 0.5, single: true },
+    distance:                  { name: '优势距离',             family: 'uni',  shade: 3, isPercent: true, fixed: 0.3, single: true },
+    attributeDmg:              { name: '优越代码伤害增加',     family: 'attr', shade: 0, isPercent: true,
+                                 variants: {
+                                   base: { label: '基础', name: '基础优越', fixed: 0.1, unique: true },
+                                   cube: { label: '魔方', name: '魔方', unique: true,
+                                           options: [0.0848, 0.106, 0.1272, 0.1484, 0.1696, 0.1909] },
+                                 } },
+    weaponBaseCharge:          { name: '武器基本蓄力伤害',     family: 'chg',  shade: 0, isPercent: true, single: true, lockName: true,
+                                 options:     [1, 1.5, 2, 2.5, 3.5],
+                                 optionHints: [['帕斯卡'], ['红莲：暗影'], ['贝丝蒂：战术升级', '灰姑娘'], [],
+                                               ['贝洛塔', 'N102', '尤妮', '爱丽丝', '杨']] },
+    collectibleChargeIncrease: { name: '蓄力伤害倍率（珍藏品）', family: 'chg',  shade: 1, isPercent: true },
+    chargeDmgIncrease:         { name: '蓄力伤害',             family: 'chg',  shade: 2, isPercent: true },
+    dmgIncrease:               { name: '攻击伤害',             family: 'bst',  shade: 0, isPercent: true },
+    penetrationDmg:            { name: '穿透伤害',             family: 'bst',  shade: 1, isPercent: true },
+    continuousAttackDmg:       { name: '依次攻击伤害',         family: 'bst',  shade: 2, isPercent: true },
+    dotDmg:                    { name: '持续伤害',             family: 'bst',  shade: 3, isPercent: true },
+    ignoreDefDmg:              { name: '无视防御力伤害',       family: 'bst',  shade: 4, isPercent: true, ignoresDef: true },
+    projectileAttachDmg:       { name: '发射体附着伤害',       family: 'bst',  shade: 5, isPercent: true },
+    projectileExplosionDmg:    { name: '发射体爆炸伤害',       family: 'bst',  shade: 6, isPercent: true },
+    partsDmg:                  { name: '零件伤害',             family: 'bst',  shade: 7, isPercent: true },
+    enemyDmgTaken:             { name: '敌人受到伤害',         family: 'vul',  shade: 0, isPercent: true },
+    sharedDmg:                 { name: '分摊伤害',             family: 'vul',  shade: 1, isPercent: true },
+  };
+
+  const FAMILIES = {
+    atk:  { hue: 0,   label: '攻击力' },
+    def:  { hue: 220, label: '防御力' },
+    wpn:  { hue: 280, label: '武器/技能' },
+    uni:  { hue: 140, label: '通用' },
+    attr: { hue: 30,  label: '优越代码' },
+    chg:  { hue: 48,  label: '蓄力' },
+    bst:  { hue: 320, label: '攻击伤害' },
+    vul:  { hue: 180, label: '易伤' },
+  };
+
+  // ============================================================
+  // 状态
+  // ============================================================
+  const state = {
+    baseAtk: null,
+    enemyBaseDef: null,
+    damageType: 'weapon',
+    baseWeaponDmg: null,
+    skillDmg: null,
+    coeffs: {},
+  };
+  Object.keys(CATEGORIES).forEach(k => state.coeffs[k] = []);
+  let nextId = 1;
+
+  // ============================================================
+  // 工具函数
+  // ============================================================
+  function colorFor(category) {
+    const cat = CATEGORIES[category];
+    const fam = FAMILIES[cat.family];
+    const hue = fam.hue + cat.shade * 4;
+    const sat = Math.max(50, 65 - cat.shade * 2);
+    const light = Math.max(34, 55 - cat.shade * 4);
+    return `hsl(${hue}, ${sat}%, ${light}%)`;
+  }
+
+  function familyPalette(family) {
+    const fam = FAMILIES[family];
+    return {
+      bg:     `hsl(${fam.hue}, 35%, 95%)`,
+      border: `hsl(${fam.hue}, 45%, 70%)`,
+      text:   `hsl(${fam.hue}, 50%, 30%)`,
+    };
+  }
+
+  function fmtPct(v) {
+    if (v === null || v === undefined || !isFinite(v)) return '--';
+    return (v * 100).toFixed(2).replace(/\.?0+$/, '') + '%';
+  }
+
+  function fmtNum(v) {
+    if (v === null || v === undefined || !isFinite(v)) return '--';
+    return Number(v.toFixed(2)).toLocaleString('zh-CN');
+  }
+
+  function sumOf(cat) {
+    return state.coeffs[cat].reduce((s, x) => x.hidden ? s : s + x.value, 0);
+  }
+
+  function visibleCount(cat) {
+    return state.coeffs[cat].filter(x => !x.hidden).length;
+  }
+
+  // 下拉选项 → 规格：普通类别 "critDmg"，子项 "critDmg:base"
+  function specOf(optValue) {
+    const [catKey, vKey] = optValue.split(':');
+    const cat = CATEGORIES[catKey];
+    if (!cat) return null;
+    if (vKey) {
+      const v = cat.variants && cat.variants[vKey];
+      if (!v) return null;
+      return {
+        catKey, vKey, cat,
+        label: `${cat.name} - ${v.label}`,
+        name: v.name, fixed: v.fixed, options: v.options, optionHints: v.optionHints,
+        unique: !!v.unique, lockName: true,
+      };
+    }
+    return {
+      catKey, vKey: null, cat,
+      label: cat.name,
+      name: cat.name, fixed: cat.fixed, options: cat.options, optionHints: cat.optionHints,
+      unique: !!cat.single, lockName: cat.fixed !== undefined || !!cat.lockName,
+    };
+  }
+
+  // 规格对应的唯一项是否已存在于给定 coeffs 中
+  function specTaken(spec, coeffs) {
+    if (!spec.unique) return false;
+    const list = coeffs[spec.catKey];
+    return spec.vKey ? list.some(x => x.variant === spec.vKey) : list.length > 0;
+  }
+
+  // 存在激活的无视防御力伤害时，敌人防御力视为 0
+  function defIgnored() {
+    return Object.entries(CATEGORIES).some(([k, c]) => c.ignoresDef && visibleCount(k) > 0);
+  }
+
+  function isReady() {
+    if (state.baseAtk === null || isNaN(state.baseAtk)) return false;
+    if (!defIgnored() && (state.enemyBaseDef === null || isNaN(state.enemyBaseDef))) return false;
+    if (state.damageType === 'weapon') {
+      if (state.baseWeaponDmg === null || isNaN(state.baseWeaponDmg)) return false;
+    } else {
+      if (state.skillDmg === null || isNaN(state.skillDmg)) return false;
+    }
+    return true;
+  }
+
+  function compute() {
+    if (!isReady()) return null;
+    const finalAtk = state.baseAtk * (1 + sumOf('atkIncrease')) + sumOf('extraAtk');
+    const enemyFinalDef = defIgnored() ? 0 : state.enemyBaseDef * (1 - sumOf('defReduction'));
+    const visibleStack = state.coeffs.stackCopy.find(x => !x.hidden);
+    const stack = visibleStack ? visibleStack.value : 1;
+    const visibleDual = state.coeffs.dualGun.find(x => !x.hidden);
+    const dual = visibleDual ? visibleDual.value : 1;   // 双枪：武器与技能伤害系数均 ×200%
+    const wsDmg = (state.damageType === 'weapon'
+      ? state.baseWeaponDmg * (1 + sumOf('collectibleNormalAtkMult'))
+      : state.skillDmg * stack) * dual;
+    const baseDmg = (finalAtk - enemyFinalDef) * wsDmg;
+    const hasCore = visibleCount('coreDmg') > 0;
+    const universal = (hasCore ? 0 : 1) + sumOf('critDmg') + sumOf('coreDmg') + sumOf('fullBurst') + sumOf('distance');
+    const attribute = 1 + sumOf('attributeDmg');
+    const wbc = sumOf('weaponBaseCharge');
+    const chargeApplies = wbc > 0;
+    const chargeRaw = wbc * (1 + sumOf('collectibleChargeIncrease')) + sumOf('chargeDmgIncrease');
+    const charge = chargeApplies ? chargeRaw : 1;
+    const boost = 1 + sumOf('dmgIncrease') + sumOf('penetrationDmg') + sumOf('continuousAttackDmg')
+                    + sumOf('dotDmg') + sumOf('ignoreDefDmg')
+                    + sumOf('projectileAttachDmg') + sumOf('projectileExplosionDmg')
+                    + sumOf('partsDmg');
+    const vulnerability = 1 + sumOf('enemyDmgTaken') + sumOf('sharedDmg');
+    const finalDmg = baseDmg * universal * attribute * charge * boost * vulnerability;
+    return { finalAtk, enemyFinalDef, wsDmg, baseDmg, universal, attribute, charge, chargeApplies, chargeRaw, boost, vulnerability, finalDmg };
+  }
+
+  // ============================================================
+  // 节点构造
+  // ============================================================
+  function chipNode(category, item) {
+    const cat = CATEGORIES[category];
+    const div = document.createElement('div');
+    div.className = 'chip';
+    div.style.background = colorFor(category);
+    div.style.color = '#fff';
+    if (item.hidden) div.classList.add('disabled');
+    div.title = item.hidden ? '已禁用（点击启用）' : '点击禁用（不参与计算）';
+
+    // 右上角删除按钮（始终可见，淡色）
+    const btn = document.createElement('button');
+    btn.className = 'chip-remove';
+    btn.textContent = '×';
+    btn.title = '删除此项';
+    btn.onclick = (e) => { e.stopPropagation(); removeCoeff(category, item.id); };
+    div.appendChild(btn);
+
+    // 点击 chip 主体切换显示/隐藏
+    div.onclick = (e) => {
+      e.stopPropagation();
+      item.hidden = !item.hidden;
+      render();
+    };
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'chip-name';
+    nameDiv.textContent = item.name || '\u00A0';
+    div.appendChild(nameDiv);
+
+    const valDiv = document.createElement('div');
+    valDiv.className = 'chip-value';
+    if (cat.isPercent) {
+      valDiv.textContent = fmtPct(item.value);
+    } else if (cat.integer) {
+      valDiv.textContent = '×' + item.value;
+    } else {
+      valDiv.textContent = fmtNum(item.value);
+    }
+    div.appendChild(valDiv);
+
+    return div;
+  }
+
+  function presetNode(name, value, family) {
+    const pal = familyPalette(family);
+    const div = document.createElement('div');
+    div.className = 'chip preset';
+    div.style.background = pal.bg;
+    div.style.color = pal.text;
+    div.style.borderColor = pal.border;
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'chip-name';
+    nameDiv.textContent = name || '\u00A0';
+    div.appendChild(nameDiv);
+
+    const valDiv = document.createElement('div');
+    valDiv.className = 'chip-value';
+    valDiv.textContent = value;
+    div.appendChild(valDiv);
+
+    return div;
+  }
+
+  function inputValueNode(name, value, family) {
+    const fam = FAMILIES[family];
+    const div = document.createElement('div');
+    div.className = 'chip preset';
+    div.style.background = `hsl(${fam.hue}, 70%, 42%)`;
+    div.style.color = '#fff';
+    div.style.borderColor = `hsl(${fam.hue}, 70%, 30%)`;
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'chip-name';
+    nameDiv.textContent = name;
+    div.appendChild(nameDiv);
+
+    const valDiv = document.createElement('div');
+    valDiv.className = 'chip-value';
+    valDiv.textContent = value;
+    div.appendChild(valDiv);
+
+    return div;
+  }
+
+  function opNode(text) {
+    const span = document.createElement('span');
+    span.className = 'op';
+    span.textContent = text;
+    return span;
+  }
+
+  function addChips(expr, cat, op) {
+    state.coeffs[cat].forEach(item => {
+      expr.appendChild(opNode(op));
+      expr.appendChild(chipNode(cat, item));
+    });
+  }
+
+  // ============================================================
+  // 渲染公式
+  // ============================================================
+  function renderLine(parent, label, build, resultText, opts) {
+    opts = opts || {};
+    const line = document.createElement('div');
+    let cls = 'formula-line';
+    if (opts.summary) cls += ' summary';
+    if (opts.muted)   cls += ' muted';
+    line.className = cls;
+
+    const lbl = document.createElement('div');
+    lbl.className = 'formula-label';
+    lbl.textContent = label;
+    line.appendChild(lbl);
+
+    line.appendChild(opNode('='));
+
+    const expr = document.createElement('div');
+    expr.className = 'formula-expr';
+    build(expr);
+    line.appendChild(expr);
+
+    if (resultText !== null && resultText !== undefined) {
+      const res = document.createElement('div');
+      res.className = 'formula-result';
+      res.textContent = '= ' + resultText;
+      line.appendChild(res);
+    }
+
+    parent.appendChild(line);
+  }
+
+  function renderFormula() {
+    const root = document.getElementById('formula');
+    root.innerHTML = '';
+
+    const r = compute();
+
+    // 1. 最终攻击力
+    renderLine(root, '最终攻击力', expr => {
+      expr.appendChild(inputValueNode(
+        '基础攻击力',
+        state.baseAtk !== null ? fmtNum(state.baseAtk) : '?',
+        'atk'
+      ));
+      expr.appendChild(opNode('×'));
+      expr.appendChild(opNode('('));
+      expr.appendChild(presetNode('攻击力（百分比）', '100%', 'atk'));
+      addChips(expr, 'atkIncrease', '+');
+      expr.appendChild(opNode(')'));
+      addChips(expr, 'extraAtk', '+');
+    }, r ? fmtNum(r.finalAtk) : null);
+
+    // 2. 敌人最终防御力（存在激活的无视防御力伤害时屏蔽为 0）
+    const ignored = defIgnored();
+    renderLine(root, '敌人最终防御力', expr => {
+      expr.appendChild(inputValueNode(
+        '敌人基础防御力',
+        state.enemyBaseDef !== null ? fmtNum(state.enemyBaseDef) : '?',
+        'def'
+      ));
+      expr.appendChild(opNode('×'));
+      expr.appendChild(opNode('('));
+      expr.appendChild(presetNode('防御力降低（百分比）', '100%', 'def'));
+      addChips(expr, 'defReduction', '−');
+      expr.appendChild(opNode(')'));
+    }, ignored ? '0（已被无视防御力伤害屏蔽）' : (r ? fmtNum(r.enemyFinalDef) : null), { muted: ignored });
+
+    // 3. 武器/技能伤害系数
+    if (state.damageType === 'weapon') {
+      renderLine(root, '武器伤害系数', expr => {
+        expr.appendChild(inputValueNode(
+          '基本武器伤害系数',
+          state.baseWeaponDmg !== null ? fmtPct(state.baseWeaponDmg) : '?',
+          'wpn'
+        ));
+        expr.appendChild(opNode('×'));
+        expr.appendChild(opNode('('));
+        expr.appendChild(presetNode('珍藏品普通攻击倍率', '100%', 'wpn'));
+        addChips(expr, 'collectibleNormalAtkMult', '+');
+        expr.appendChild(opNode(')'));
+        addChips(expr, 'dualGun', '×');
+      }, r ? fmtPct(r.wsDmg) : null);
+    } else {
+      renderLine(root, '技能伤害系数', expr => {
+        expr.appendChild(inputValueNode(
+          '技能伤害系数',
+          state.skillDmg !== null ? fmtPct(state.skillDmg) : '?',
+          'wpn'
+        ));
+        state.coeffs.stackCopy.forEach(item => {
+          expr.appendChild(opNode('×'));
+          expr.appendChild(chipNode('stackCopy', item));
+        });
+        addChips(expr, 'dualGun', '×');
+      }, r ? fmtPct(r.wsDmg) : null);
+    }
+
+    // 4. 通用（有任意可见核心伤害时，核心伤害取代基础 100%）
+    renderLine(root, '通用', expr => {
+      const visibleCores = state.coeffs.coreDmg.filter(x => !x.hidden);
+      if (visibleCores.length > 0) {
+        state.coeffs.coreDmg.forEach((item, i) => {
+          if (i > 0) expr.appendChild(opNode('+'));
+          expr.appendChild(chipNode('coreDmg', item));
+        });
+      } else {
+        expr.appendChild(presetNode('通用', '100%', 'uni'));
+        state.coeffs.coreDmg.forEach(item => {
+          expr.appendChild(opNode('+'));
+          expr.appendChild(chipNode('coreDmg', item));
+        });
+      }
+      addChips(expr, 'critDmg', '+');
+      addChips(expr, 'fullBurst', '+');
+      addChips(expr, 'distance', '+');
+    }, r ? fmtPct(r.universal) : null);
+
+    // 5. 优越代码
+    renderLine(root, '优越代码', expr => {
+      expr.appendChild(presetNode('优越代码', '100%', 'attr'));
+      addChips(expr, 'attributeDmg', '+');
+    }, r ? fmtPct(r.attribute) : null);
+
+    // 6. 蓄力（武器基本蓄力系数 = 0 时整项不纳入计算）
+    const chargeApplies = sumOf('weaponBaseCharge') > 0;
+    renderLine(root, '蓄力', expr => {
+      expr.appendChild(opNode('('));
+      if (state.coeffs.weaponBaseCharge.length === 0) {
+        expr.appendChild(presetNode('武器基本蓄力伤害', '0%', 'chg'));
+      } else {
+        state.coeffs.weaponBaseCharge.forEach((item, i) => {
+          if (i > 0) expr.appendChild(opNode('+'));
+          expr.appendChild(chipNode('weaponBaseCharge', item));
+        });
+      }
+      expr.appendChild(opNode(')'));
+      expr.appendChild(opNode('×'));
+      expr.appendChild(opNode('('));
+      expr.appendChild(presetNode('基础蓄力倍率', '100%', 'chg'));
+      addChips(expr, 'collectibleChargeIncrease', '+');
+      expr.appendChild(opNode(')'));
+      addChips(expr, 'chargeDmgIncrease', '+');
+    }, r ? (chargeApplies ? fmtPct(r.charge) : '未应用 (×100%)') : null, { muted: !chargeApplies });
+
+    // 7. 攻击伤害
+    renderLine(root, '攻击伤害', expr => {
+      expr.appendChild(presetNode('攻击伤害', '100%', 'bst'));
+      addChips(expr, 'dmgIncrease', '+');
+      addChips(expr, 'penetrationDmg', '+');
+      addChips(expr, 'continuousAttackDmg', '+');
+      addChips(expr, 'dotDmg', '+');
+      addChips(expr, 'ignoreDefDmg', '+');
+      addChips(expr, 'projectileAttachDmg', '+');
+      addChips(expr, 'projectileExplosionDmg', '+');
+      addChips(expr, 'partsDmg', '+');
+    }, r ? fmtPct(r.boost) : null);
+
+    // 8. 易伤
+    renderLine(root, '易伤', expr => {
+      expr.appendChild(presetNode('易伤', '100%', 'vul'));
+      addChips(expr, 'enemyDmgTaken', '+');
+      addChips(expr, 'sharedDmg', '+');
+    }, r ? fmtPct(r.vulnerability) : null);
+  }
+
+  // ============================================================
+  // 交互
+  // ============================================================
+  function removeCoeff(category, id) {
+    state.coeffs[category] = state.coeffs[category].filter(x => x.id !== id);
+    renderDropdown();
+    render();
+  }
+
+  function addCoeff(category, name, value, variant) {
+    const item = { id: nextId++, name: name || '', value };
+    if (variant) item.variant = variant;
+    state.coeffs[category].push(item);
+    renderDropdown();
+    render();
+  }
+
+  // ============================================================
+  // 表单与下拉
+  // ============================================================
+  function renderDropdown() {
+    const sel = document.getElementById('coeffType');
+    const prev = sel.value;
+    sel.innerHTML = '';
+    Object.entries(FAMILIES).forEach(([famKey, fam]) => {
+      const og = document.createElement('optgroup');
+      og.label = fam.label;
+      Object.entries(CATEGORIES).forEach(([catKey, cat]) => {
+        if (cat.family !== famKey) return;
+        if (cat.weaponOnly && state.damageType !== 'weapon') return;
+        if (cat.skillOnly && state.damageType !== 'skill') return;
+        const optValues = [catKey].concat(Object.keys(cat.variants || {}).map(v => `${catKey}:${v}`));
+        optValues.forEach(ov => {
+          const spec = specOf(ov);
+          if (specTaken(spec, state.coeffs)) return;
+          const opt = document.createElement('option');
+          opt.value = ov;
+          opt.textContent = spec.label;
+          og.appendChild(opt);
+        });
+      });
+      if (og.children.length > 0) sel.appendChild(og);
+    });
+    if (prev && sel.querySelector(`option[value="${prev}"]`)) {
+      sel.value = prev;
+    }
+    updateAddForm();
+  }
+
+  function updateAddForm() {
+    const sel = document.getElementById('coeffType');
+    if (!sel.value) return;
+    const spec = specOf(sel.value);
+    const cat = spec.cat;
+    const valInput = document.getElementById('coeffValue');
+    const valWrap = document.getElementById('coeffValueWrap');
+    const valSelect = document.getElementById('coeffValueSelect');
+    const nameInput = document.getElementById('coeffName');
+    const hint = document.getElementById('coeffHint');
+
+    valWrap.classList.toggle('no-pct', !cat.isPercent);
+
+    // 名称：锁定的规格直接填入且不可编辑
+    nameInput.value = spec.name;
+    nameInput.placeholder = spec.name;
+    nameInput.disabled = spec.lockName;
+
+    // 数值：菜单 / 固定 / 自由输入 三种形态
+    if (spec.options) {
+      valWrap.style.display = 'none';
+      valSelect.style.display = '';
+      valSelect.innerHTML = '';
+      spec.options.forEach((v, i) => {
+        const o = document.createElement('option');
+        o.value = i;
+        const h = spec.optionHints && spec.optionHints[i];
+        o.textContent = fmtPct(v) + (h && h.length ? `（${h.join('、')}）` : '');
+        valSelect.appendChild(o);
+      });
+      hint.textContent = `${spec.label}：${spec.lockName ? '名称固定，' : ''}请从菜单中选择数值${spec.unique ? '，限 1 个' : ''}`;
+      return;
+    }
+    valWrap.style.display = '';
+    valSelect.style.display = 'none';
+
+    if (spec.fixed !== undefined) {
+      valInput.value = cat.isPercent ? +(spec.fixed * 100).toFixed(10) : spec.fixed;
+      valInput.disabled = true;
+      hint.textContent = `${spec.label} 为固定值 ${fmtPct(spec.fixed)}${spec.unique ? '，限 1 个' : ''}（名称与数值不可修改）`;
+    } else {
+      if (valInput.disabled) valInput.value = '';
+      valInput.disabled = false;
+      if (cat.integer) {
+        if (valInput.value === '' && cat.defaultValue !== undefined) valInput.value = cat.defaultValue;
+        hint.textContent = `请输入整数${cat.min !== undefined ? `（≥ ${cat.min}）` : ''}`;
+      } else if (cat.isPercent) {
+        hint.textContent = '请输入百分比数值（无需带 %），例如 50 表示 50%、9.72 表示 9.72%';
+      } else {
+        hint.textContent = '请输入数值（直接的攻击力数字）';
+      }
+    }
+  }
+
+  function setupHandlers() {
+    document.getElementById('baseAtk').addEventListener('input', e => {
+      state.baseAtk = e.target.value === '' ? null : parseFloat(e.target.value);
+      render();
+    });
+    document.getElementById('enemyBaseDef').addEventListener('input', e => {
+      state.enemyBaseDef = e.target.value === '' ? null : parseFloat(e.target.value);
+      render();
+    });
+    document.getElementById('baseWeaponDmg').addEventListener('input', e => {
+      state.baseWeaponDmg = e.target.value === '' ? null : parseFloat(e.target.value) / 100;
+      render();
+    });
+    document.getElementById('skillDmg').addEventListener('input', e => {
+      state.skillDmg = e.target.value === '' ? null : parseFloat(e.target.value) / 100;
+      render();
+    });
+    document.querySelectorAll('input[name="dmgType"]').forEach(r => {
+      r.addEventListener('change', e => {
+        state.damageType = e.target.value;
+        document.getElementById('weaponDmgRow').style.display = state.damageType === 'weapon' ? '' : 'none';
+        document.getElementById('skillDmgRow').style.display = state.damageType === 'skill' ? '' : 'none';
+        renderDropdown();
+        render();
+      });
+    });
+
+    document.getElementById('coeffType').addEventListener('change', updateAddForm);
+
+    document.getElementById('addBtn').addEventListener('click', () => {
+      const sel = document.getElementById('coeffType');
+      if (!sel.value) return;
+      const spec = specOf(sel.value);
+      const cat = spec.cat;
+      const name = spec.lockName ? spec.name : document.getElementById('coeffName').value;
+
+      let storedVal;
+      if (spec.options) {
+        storedVal = spec.options[+document.getElementById('coeffValueSelect').value];
+      } else if (spec.fixed !== undefined) {
+        storedVal = spec.fixed;
+      } else {
+        const valStr = document.getElementById('coeffValue').value;
+        const val = parseFloat(valStr);
+        if (valStr === '' || isNaN(val)) { alert('请输入有效的数值'); return; }
+        if (cat.integer && !Number.isInteger(val)) { alert(`${cat.name} 必须为整数`); return; }
+        if (cat.min !== undefined && val < cat.min) { alert(`${cat.name} 不能小于 ${cat.min}`); return; }
+        // 先清空输入，再添加（addCoeff 内部会重渲下拉）
+        document.getElementById('coeffValue').value = '';
+        storedVal = cat.isPercent ? val / 100 : val;
+      }
+      addCoeff(spec.catKey, name, storedVal, spec.vKey);
+    });
+
+    // 名称 / 数值输入框中按回车直接添加（中文输入法选词时的回车不触发）
+    ['coeffName', 'coeffValue', 'coeffValueSelect'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
+          e.preventDefault();
+          document.getElementById('addBtn').click();
+        }
+      });
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', resetAll);
+  }
+
+  function resetAll() {
+    if (!confirm('确定要重置所有输入和系数吗？此操作不可撤销。')) return;
+    clearAll();
+    hideStatus();
+    renderDropdown();
+    render();
+  }
+
+  function clearAll() {
+    state.baseAtk = null;
+    state.enemyBaseDef = null;
+    state.damageType = 'weapon';
+    state.baseWeaponDmg = null;
+    state.skillDmg = null;
+    Object.keys(CATEGORIES).forEach(k => state.coeffs[k] = []);
+
+    document.getElementById('baseAtk').value = '';
+    document.getElementById('enemyBaseDef').value = '';
+    document.getElementById('baseWeaponDmg').value = '';
+    document.getElementById('skillDmg').value = '';
+    document.querySelector('input[name="dmgType"][value="weapon"]').checked = true;
+    document.getElementById('weaponDmgRow').style.display = '';
+    document.getElementById('skillDmgRow').style.display = 'none';
+    document.getElementById('coeffName').value = '';
+    document.getElementById('coeffValue').value = '';
+  }
+
+  function render() {
+    renderFormula();
+    const r = compute();
+    document.getElementById('finalDmg').textContent = r ? fmtNum(r.finalDmg) : '--';
+    const ignored = defIgnored();
+    document.getElementById('enemyBaseDef').disabled = ignored;
+    document.getElementById('defIgnoredNote').style.display = ignored ? '' : 'none';
+    const errEl = document.getElementById('error');
+    if (!isReady()) {
+      errEl.textContent = '⚠ 请先填写所有必填项：基础攻击力、'
+        + (ignored ? '' : '敌人基础防御力、') + '武器伤害系数 / 技能伤害系数';
+      errEl.style.display = '';
+    } else {
+      errEl.style.display = 'none';
+    }
+  }
+
+  // ============================================================
+  // 启动
+  // ============================================================
+  // ============================================================
+  // 导入（剪贴板 / 粘贴弹窗）
+  // ============================================================
+  const DMG_TYPE_ALIASES = {
+    weapon: 'weapon', '武器': 'weapon', '武器伤害': 'weapon',
+    skill: 'skill',   '技能': 'skill',  '技能伤害': 'skill',
+  };
+
+  // 取对象中第一个存在的键（支持英文键和中文键）
+  function pick(obj, ...keys) {
+    for (const k of keys) {
+      if (obj && Object.prototype.hasOwnProperty.call(obj, k)) return obj[k];
+    }
+    return undefined;
+  }
+
+  // 数值宽松解析：支持 50、"50"、"50%"；未提供返回 null，非法返回 NaN
+  function toNum(v) {
+    if (v === undefined || v === null || v === '') return null;
+    if (typeof v === 'number') return isFinite(v) ? v : NaN;
+    const n = parseFloat(String(v).trim().replace(/%$/, '').replace(/,/g, ''));
+    return isFinite(n) ? n : NaN;
+  }
+
+  // 类别解析：支持内部键（critDmg）或显示名（暴击伤害）
+  // 旧名兼容
+  const CATEGORY_ALIASES = { trueDmg: 'ignoreDefDmg', '真实伤害': 'ignoreDefDmg' };
+
+  function resolveCategory(t) {
+    if (typeof t !== 'string') return null;
+    t = t.trim();
+    if (CATEGORY_ALIASES[t]) return CATEGORY_ALIASES[t];
+    if (CATEGORIES[t]) return t;
+    const hit = Object.entries(CATEGORIES).find(([, c]) => c.name === t);
+    return hit ? hit[0] : null;
+  }
+
+  function parseImportText(text) {
+    text = (text || '').trim();
+    if (!text) throw new Error('内容为空');
+    try { return JSON.parse(text); } catch (_) { /* 继续尝试 YAML */ }
+    if (!window.jsyaml) throw new Error('不是合法的 JSON，且 YAML 解析库未加载');
+    try {
+      return window.jsyaml.load(text);
+    } catch (e) {
+      throw new Error('JSON / YAML 解析失败：' + (e.reason || e.message));
+    }
+  }
+
+  // 校验并构造新状态；fatal 错误抛出，非致命问题记入 warnings
+  function buildImport(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('顶层必须是一个对象（键值结构）');
+    }
+    const warnings = [];
+    const out = {
+      baseAtk: null, enemyBaseDef: null, damageType: 'weapon',
+      baseWeaponDmg: null, skillDmg: null, coeffs: {},
+    };
+    Object.keys(CATEGORIES).forEach(k => out.coeffs[k] = []);
+
+    const numField = (label, raw) => {
+      const n = toNum(raw);
+      if (Number.isNaN(n)) throw new Error(`「${label}」不是合法数值：${JSON.stringify(raw)}`);
+      return n;
+    };
+
+    out.baseAtk      = numField('基础攻击力',     pick(data, 'baseAtk', '基础攻击力'));
+    out.enemyBaseDef = numField('敌人基础防御力', pick(data, 'enemyBaseDef', '敌人基础防御力'));
+
+    const rawType = pick(data, 'damageType', '伤害类型');
+    const wDmg = numField('基本武器伤害系数', pick(data, 'weaponDmg', '基本武器伤害系数'));
+    const sDmg = numField('技能伤害系数',     pick(data, 'skillDmg', '技能伤害系数'));
+
+    if (rawType !== undefined && rawType !== null) {
+      const t = DMG_TYPE_ALIASES[String(rawType).trim()];
+      if (!t) throw new Error(`「伤害类型」只能是 weapon / skill，收到：${JSON.stringify(rawType)}`);
+      out.damageType = t;
+    } else if (sDmg !== null && wDmg === null) {
+      out.damageType = 'skill';   // 未指定类型时按提供的系数推断
+    }
+    if (wDmg !== null && sDmg !== null) {
+      warnings.push(`同时提供了武器与技能伤害系数，当前按「${out.damageType === 'weapon' ? '武器' : '技能'}」计算，另一项仅保留在输入框中`);
+    }
+    out.baseWeaponDmg = wDmg === null ? null : wDmg / 100;
+    out.skillDmg      = sDmg === null ? null : sDmg / 100;
+
+    const list = pick(data, 'coeffs', '系数');
+    if (list !== undefined && list !== null && !Array.isArray(list)) {
+      throw new Error('「coeffs」必须是数组');
+    }
+    let id = nextId;
+    (list || []).forEach((c, i) => {
+      const where = `第 ${i + 1} 项系数`;
+      if (!c || typeof c !== 'object') { warnings.push(`${where} 不是对象，已跳过`); return; }
+      const rawCat = pick(c, 'type', '类型');
+      const key = resolveCategory(rawCat);
+      if (!key) { warnings.push(`${where}：未知类型 ${JSON.stringify(rawCat)}，已跳过`); return; }
+      const cat = CATEGORIES[key];
+
+      // 子项解析：支持内部键（base / cube）或显示名（基础 / 魔方）
+      const rawVar = pick(c, 'variant', '子项');
+      let vKey = null;
+      if (rawVar !== undefined && rawVar !== null && rawVar !== '') {
+        const vs = Object.entries(cat.variants || {});
+        const hit = vs.find(([k, v]) => k === String(rawVar).trim() || v.label === String(rawVar).trim());
+        if (!hit) { warnings.push(`${where}「${cat.name}」没有子项 ${JSON.stringify(rawVar)}，已跳过`); return; }
+        vKey = hit[0];
+      }
+      const spec = specOf(vKey ? `${key}:${vKey}` : key);
+
+      if (cat.weaponOnly && out.damageType !== 'weapon') { warnings.push(`${where}「${cat.name}」仅适用于武器伤害，已跳过`); return; }
+      if (cat.skillOnly  && out.damageType !== 'skill')  { warnings.push(`${where}「${cat.name}」仅适用于技能伤害，已跳过`); return; }
+      if (specTaken(spec, out.coeffs)) { warnings.push(`${where}「${spec.label}」最多 1 个，重复项已跳过`); return; }
+
+      const given = toNum(pick(c, 'value', '数值'));
+      let value;
+      if (spec.fixed !== undefined) {
+        value = spec.fixed;
+        if (given !== null && !Number.isNaN(given) && Math.abs(given / 100 - spec.fixed) > 1e-9) {
+          warnings.push(`${where}「${spec.label}」为固定值 ${fmtPct(spec.fixed)}，已忽略填写的 ${given}`);
+        }
+      } else if (spec.options) {
+        const hit = given === null || Number.isNaN(given) ? undefined
+          : spec.options.find(o => Math.abs(o * 100 - given) < 1e-6);
+        if (hit === undefined) {
+          warnings.push(`${where}「${spec.label}」数值必须是 ${spec.options.map(fmtPct).join(' / ')} 之一，已跳过`);
+          return;
+        }
+        value = hit;
+      } else {
+        if (given === null || Number.isNaN(given)) { warnings.push(`${where}「${cat.name}」缺少合法数值，已跳过`); return; }
+        if (cat.integer && !Number.isInteger(given)) { warnings.push(`${where}「${cat.name}」必须为整数，已跳过`); return; }
+        if (cat.min !== undefined && given < cat.min) { warnings.push(`${where}「${cat.name}」不能小于 ${cat.min}，已跳过`); return; }
+        value = cat.isPercent ? given / 100 : given;
+      }
+
+      const rawName = pick(c, 'name', '名称');
+      let name;
+      if (spec.lockName) {
+        name = spec.name;
+        if (rawName !== undefined && rawName !== null && String(rawName) !== spec.name) {
+          warnings.push(`${where}「${spec.label}」名称固定为「${spec.name}」，已忽略填写的 ${JSON.stringify(rawName)}`);
+        }
+      } else {
+        name = rawName === undefined || rawName === null ? cat.name : String(rawName);
+      }
+      const hidden = !!(pick(c, 'hidden', '隐藏') ?? (pick(c, 'enabled', '启用') === false));
+
+      const item = { id: id++, name, value, hidden };
+      if (vKey) item.variant = vKey;
+      out.coeffs[key].push(item);
+    });
+
+    return { out, warnings, nextIdAfter: id };
+  }
+
+  function hasAnyData() {
+    return state.baseAtk !== null || state.enemyBaseDef !== null
+      || state.baseWeaponDmg !== null || state.skillDmg !== null
+      || Object.values(state.coeffs).some(a => a.length > 0);
+  }
+
+  function applyImport(built) {
+    const { out, nextIdAfter } = built;
+    clearAll();
+    state.baseAtk = out.baseAtk;
+    state.enemyBaseDef = out.enemyBaseDef;
+    state.damageType = out.damageType;
+    state.baseWeaponDmg = out.baseWeaponDmg;
+    state.skillDmg = out.skillDmg;
+    state.coeffs = out.coeffs;
+    nextId = nextIdAfter;
+
+    const pctStr = v => v === null ? '' : String(+(v * 100).toFixed(10));
+    document.getElementById('baseAtk').value = out.baseAtk ?? '';
+    document.getElementById('enemyBaseDef').value = out.enemyBaseDef ?? '';
+    document.getElementById('baseWeaponDmg').value = pctStr(out.baseWeaponDmg);
+    document.getElementById('skillDmg').value = pctStr(out.skillDmg);
+    document.querySelector(`input[name="dmgType"][value="${out.damageType}"]`).checked = true;
+    document.getElementById('weaponDmgRow').style.display = out.damageType === 'weapon' ? '' : 'none';
+    document.getElementById('skillDmgRow').style.display  = out.damageType === 'skill'  ? '' : 'none';
+
+    renderDropdown();
+    render();
+  }
+
+  // 返回 true 表示导入完成（或用户取消覆盖），false 表示解析/校验失败
+  function handleImportText(text) {
+    let built;
+    try {
+      built = buildImport(parseImportText(text));
+    } catch (e) {
+      return e.message;
+    }
+    if (hasAnyData() && !confirm('导入将覆盖当前所有输入与系数，是否继续？')) return true;
+    applyImport(built);
+
+    const count = Object.values(built.out.coeffs).reduce((s, a) => s + a.length, 0);
+    const msg = `导入成功：${count} 项系数`;
+    if (built.warnings.length) showStatus('warn', msg + `，${built.warnings.length} 条提示：`, built.warnings);
+    else showStatus('ok', msg);
+    return true;
+  }
+
+  function showStatus(kind, title, items) {
+    const box = document.getElementById('importStatus');
+    const body = document.getElementById('importStatusBody');
+    box.className = 'status ' + kind;
+    body.innerHTML = '';
+    const t = document.createElement('div');
+    t.textContent = title;
+    body.appendChild(t);
+    if (items && items.length) {
+      const ul = document.createElement('ul');
+      items.forEach(s => { const li = document.createElement('li'); li.textContent = s; ul.appendChild(li); });
+      body.appendChild(ul);
+    }
+    box.style.display = '';
+  }
+  function hideStatus() { document.getElementById('importStatus').style.display = 'none'; }
+
+  function openImportModal(prefill, errorMsg, hint) {
+    document.getElementById('importText').value = prefill || '';
+    document.getElementById('importModalHint').textContent =
+      hint || '支持 JSON / YAML 格式，导入会覆盖当前全部输入与系数。';
+    const err = document.getElementById('importModalError');
+    err.textContent = errorMsg || '';
+    err.style.display = errorMsg ? '' : 'none';
+    document.getElementById('importModal').style.display = '';
+    document.getElementById('importText').focus();
+  }
+  function closeImportModal() { document.getElementById('importModal').style.display = 'none'; }
+
+  async function importFromClipboard() {
+    let text = null;
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      try { text = await navigator.clipboard.readText(); } catch (_) { text = null; }
+    }
+    if (text === null) {
+      // 常见于 iframe（如 JSFiddle 结果区）或非 HTTPS 环境没有剪贴板读取权限
+      openImportModal('', null, '浏览器不允许直接读取剪贴板，请按 Ctrl+V / ⌘V 粘贴到下方。支持 JSON / YAML。');
+      return;
+    }
+    const result = handleImportText(text);
+    if (result !== true) openImportModal(text, result);
+  }
+
+  // ============================================================
+  // 导出（与导入格式完全兼容）
+  // ============================================================
+  function buildExport() {
+    const pct = v => +(v * 100).toFixed(10);
+    const data = {};
+    if (state.baseAtk !== null) data.baseAtk = state.baseAtk;
+    if (state.enemyBaseDef !== null) data.enemyBaseDef = state.enemyBaseDef;
+    data.damageType = state.damageType;
+    if (state.baseWeaponDmg !== null) data.weaponDmg = pct(state.baseWeaponDmg);
+    if (state.skillDmg !== null) data.skillDmg = pct(state.skillDmg);
+    data.coeffs = [];
+    Object.entries(CATEGORIES).forEach(([key, cat]) => {
+      state.coeffs[key].forEach(item => {
+        const spec = specOf(item.variant ? `${key}:${item.variant}` : key);
+        const o = { type: key };
+        if (item.variant) o.variant = item.variant;
+        if (!spec.lockName && item.name !== cat.name) o.name = item.name;
+        if (spec.fixed === undefined) o.value = cat.isPercent ? pct(item.value) : item.value;
+        if (item.hidden) o.hidden = true;
+        data.coeffs.push(o);
+      });
+    });
+    // 每个系数一行，便于阅读和手动编辑
+    const head = JSON.stringify(Object.assign({}, data, { coeffs: undefined }), null, 2).replace(/\n}$/, '');
+    const items = data.coeffs.map(o => '    ' + JSON.stringify(o).replace(/":/g, '": ').replace(/,"/g, ', "').replace(/^\{/, '{ ').replace(/\}$/, ' }'));
+    return head + ',\n  "coeffs": [' + (items.length ? '\n' + items.join(',\n') + '\n  ' : '') + ']\n}';
+  }
+
+  async function exportToClipboard() {
+    const text = buildExport();
+    let ok = false;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try { await navigator.clipboard.writeText(text); ok = true; } catch (_) { ok = false; }
+    }
+    if (ok) { showStatus('ok', '已导出到剪贴板（JSON 格式，可直接用于导入）'); return; }
+    openExportModal(text);
+  }
+
+  function openExportModal(text) {
+    const ta = document.getElementById('exportText');
+    ta.value = text;
+    document.getElementById('exportModal').style.display = '';
+    ta.focus();
+    ta.select();
+  }
+  function closeExportModal() { document.getElementById('exportModal').style.display = 'none'; }
+
+  document.getElementById('exportBtn').addEventListener('click', exportToClipboard);
+  document.getElementById('exportClose').addEventListener('click', closeExportModal);
+  document.getElementById('exportModal').addEventListener('click', e => {
+    if (e.target.id === 'exportModal') closeExportModal();
+  });
+  document.getElementById('exportCopy').addEventListener('click', () => {
+    const ta = document.getElementById('exportText');
+    ta.focus(); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+    if (ok) { closeExportModal(); showStatus('ok', '已复制到剪贴板'); }
+    else { document.getElementById('exportModalHint').textContent = '自动复制失败，请按 Ctrl+C / ⌘C 手动复制已选中的内容。'; }
+  });
+
+  document.getElementById('importBtn').addEventListener('click', importFromClipboard);
+  document.getElementById('importStatusClose').addEventListener('click', hideStatus);
+  document.getElementById('importCancel').addEventListener('click', closeImportModal);
+  document.getElementById('importModal').addEventListener('click', e => {
+    if (e.target.id === 'importModal') closeImportModal();
+  });
+  document.getElementById('importConfirm').addEventListener('click', () => {
+    const result = handleImportText(document.getElementById('importText').value);
+    if (result === true) {
+      closeImportModal();
+    } else {
+      const err = document.getElementById('importModalError');
+      err.textContent = result;
+      err.style.display = '';
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('importModal').style.display !== 'none') closeImportModal();
+    if (document.getElementById('exportModal').style.display !== 'none') closeExportModal();
+  });
+
+  setupHandlers();
+  renderDropdown();
+  render();
+</script>
+</body>
+</html>

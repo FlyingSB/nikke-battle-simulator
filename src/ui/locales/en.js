@@ -19,6 +19,18 @@ export default {
   'top.history':          '📜 History',
   'top.historyTitle':     'View recent simulation results (up to {n} saved)',
 
+  // ── 辅助工具菜单 ──
+  'tools.menu':           '🧰 Tools',
+  'tools.open':           'Open',
+  'tools.jsfiddle':       'jsfiddle ↗',
+  'tools.install':        'Install script',
+  'tools.stat.name':      'Stat Calculator',
+  'tools.stat.desc':      'Base HP / ATK / DEF by class, level, grade and core',
+  'tools.dmg.name':       'Damage Calculator',
+  'tools.dmg.desc':       'Click a damage value in the detailed log to copy its formula, then use "从剪贴板导入" (import from clipboard) there to check each term',
+  'tools.export.name':    'Account Exporter (userscript)',
+  'tools.export.desc':    'Requires Tampermonkey. Log in on blablalink and export your account JSON for "Import Account"',
+
   'history.title':        'Simulation History',
   'history.count':        '{n} / {max}',
   'history.empty':        'No records yet. A summary is saved automatically after each simulation.',

@@ -110,6 +110,27 @@ body {
 .lang-switch-btn--active,
 .lang-switch-btn--active:hover { background: var(--accent-dim); color: #fff; cursor: default; }
 
+/* 辅助工具菜单：顶栏右侧下拉，右对齐展开；每项为「名称 + 说明 + 链接」 */
+.tools-menu { position: relative; }
+.tools-menu-panel {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 200;
+  width: 280px; padding: 4px;
+  background: var(--surface3); border: 1px solid var(--border2); border-radius: var(--r);
+  box-shadow: 0 10px 28px rgba(0,0,0,.5);
+}
+.tools-menu-item { padding: 8px 10px; }
+.tools-menu-item + .tools-menu-item { border-top: 1px solid var(--border); }
+.tools-menu-name { font-size: 0.74rem; font-weight: 600; color: var(--text); }
+.tools-menu-desc { font-size: 0.66rem; color: var(--text-dim); margin: 2px 0 6px; line-height: 1.45; }
+.tools-menu-links { display: flex; gap: 6px; }
+.tools-menu-links a {
+  padding: 2px 9px; border-radius: 99px; border: 1px solid var(--border2);
+  font-size: 0.66rem; color: var(--accent); text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.tools-menu-links a:hover { background: var(--accent-dim); border-color: var(--accent); color: #fff; }
+.tools-menu-links a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
 /* ── 3-column layout ─────────────────────────────────────── */
 .layout {
   display: grid;

@@ -16,6 +16,9 @@ let _settings = null;
 
 const _DEFAULT_SYNCHRO = 400;
 
+// 项目根下的 dev/ 目录：相对本模块解析，支持子路径部署（线上不存在该目录，fetch 返回 404 即视为无开发账号）
+const DEV_BASE = new URL('../../dev', import.meta.url).href;
+
 /**
  * 开发模式：从 /dev/config.json 读取文件名，再加载对应账号数据。
  * 同时解析 data.outpost_info 填充全局设置（同步器、研究等级）。
@@ -61,12 +64,12 @@ export async function loadSettingsFromDev() {
  * @returns {Promise<object|null>}
  */
 async function _fetchAccountJson() {
-  const cfgRes = await fetch('/dev/config.json');
+  const cfgRes = await fetch(`${DEV_BASE}/config.json`);
   if (!cfgRes.ok) return null;
   const cfg = await cfgRes.json();
   if (!cfg.account_file) return null;
 
-  const dataRes = await fetch(`/dev/${cfg.account_file}`);
+  const dataRes = await fetch(`${DEV_BASE}/${cfg.account_file}`);
   if (!dataRes.ok) return null;
   return dataRes.json();
 }

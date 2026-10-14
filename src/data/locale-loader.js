@@ -6,8 +6,8 @@
  */
 import { applyTextPatch } from './text-patch.js';
 
-// 相对于 HTTP 服务根目录（项目根），与 loader.js 的 LOCAL_BASE 一致
-const ZH_BASE = '/src/data/static/zh-CN';
+// 相对本模块解析，与 loader.js 的 LOCAL_BASE 一致（支持子路径部署）
+const ZH_BASE = new URL('./static/zh-CN', import.meta.url).href;
 
 const EMPTY_NAMES = Object.freeze({ characters: {}, cubes: {}, favorites: {} });
 

@@ -15,8 +15,8 @@ const LEGACY_LS_PREFIX = 'nikke_sim_';
 const CACHE_PREFIX = `${LEGACY_LS_PREFIX}${MANIFEST_VERSION}_`;
 const _cache = createIdbKv('nikke-sim-cache');
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 小时
-// 相对于 HTTP 服务根目录（项目根）的静态快照基路径
-const LOCAL_BASE   = '/src/data/static';
+// 静态快照基路径：相对本模块解析，部署在子路径（如 GitHub Pages 的 /<仓库名>/）下同样可用
+const LOCAL_BASE   = new URL('./static', import.meta.url).href;
 
 /** @type {Record<string, any>} */
 const _store = {};

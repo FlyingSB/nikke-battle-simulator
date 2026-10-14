@@ -19,6 +19,18 @@ export default {
   'top.history':          '📜 模拟记录',
   'top.historyTitle':     '查看最近的模拟结果（最多保存 {n} 条）',
 
+  // ── 辅助工具菜单 ──
+  'tools.menu':           '🧰 工具',
+  'tools.open':           '打开',
+  'tools.jsfiddle':       'jsfiddle 版 ↗',
+  'tools.install':        '安装脚本',
+  'tools.stat.name':      '属性计算器',
+  'tools.stat.desc':      '按职业、等级、星级与突破计算基础 HP / ATK / DEF',
+  'tools.dmg.name':       '伤害计算器',
+  'tools.dmg.desc':       '在详细日志中点击伤害数值复制公式，再用「从剪贴板导入」逐项核算',
+  'tools.export.name':    '角色数据导出（油猴脚本）',
+  'tools.export.desc':    '需先安装 Tampermonkey；在 blablalink 登录后导出账号 JSON，用于「导入账号」',
+
   'history.title':        '模拟记录',
   'history.count':        '{n} / {max}',
   'history.empty':        '暂无记录。每次模拟完成后会自动保存一条结果摘要。',

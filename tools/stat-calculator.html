@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nikke 属性计算器</title>
+<!-- 与 jsfiddle 版本同源：https://jsfiddle.net/FlyingSB/8pof5csj/ （HTML / CSS / JS 三栏合并为单文件） -->
+<style>
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #1e1e24;
+  color: #f5f5f5;
+  display: flex;
+  justify-content: center;
+  padding-top: 50px;
+}
+
+.container {
+  background: #2b2b36;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+  width: 340px;
+}
+
+h2 {
+  font-size: 1.2rem;
+  text-align: center;
+  margin-top: 0;
+  color: #ffca28;
+}
+
+.input-group {
+  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.row-group {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.half-width {
+  flex: 1;
+}
+
+label {
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+  color: #b0bec5;
+}
+
+select, input {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #454555;
+  background: #1e1e24;
+  color: #fff;
+  font-size: 1rem;
+}
+
+select:focus, input:focus {
+  outline: none;
+  border-color: #ffca28;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  background-color: #ffca28;
+  color: #1e1e24;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 5px;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background-color: #ffd54f;
+}
+
+.result-card {
+  margin-top: 25px;
+  background: #1e1e24;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #ffca28;
+}
+
+.result-card h3 {
+  margin: 0 0 15px 0;
+  font-size: 1rem;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+}
+
+.stat-value {
+  font-weight: bold;
+  font-family: monospace;
+  color: #4fc3f7;
+}
+
+.note {
+  font-size: 0.75rem;
+  color: #78909c;
+  margin-top: 15px;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>妮姬 (NIKKE) 属性计算器</h2>
+
+  <div class="input-group">
+    <label for="classSelect">角色类型 (Class):</label>
+    <select id="classSelect">
+      <option value="Attacker">火力型 (Attacker)</option>
+      <option value="Supporter">辅助型 (Supporter)</option>
+      <option value="Defender">防御型 (Defender)</option>
+    </select>
+  </div>
+
+  <div class="input-group">
+    <label for="levelInput">目标等级 (Level):</label>
+    <input type="number" id="levelInput" value="200" min="1" max="2000">
+  </div>
+
+  <div class="row-group">
+    <div class="input-group half-width">
+      <label for="gradeSelect">星级 (Grade):</label>
+      <select id="gradeSelect">
+        <option value="0">0 星</option>
+        <option value="1">1 星</option>
+        <option value="2">2 星</option>
+        <option value="3">3 星</option>
+      </select>
+    </div>
+
+    <div class="input-group half-width">
+      <label for="coreSelect">突破 (Core):</label>
+      <select id="coreSelect">
+        <option value="0">+0</option>
+        <option value="1">+1</option>
+        <option value="2">+2</option>
+        <option value="3">+3</option>
+        <option value="4">+4</option>
+        <option value="5">+5</option>
+        <option value="6">+6</option>
+        <option value="7">+7</option>
+      </select>
+    </div>
+  </div>
+
+  <button onclick="calculate()">计算精确面板</button>
+
+  <div class="result-card">
+    <h3>计算结果 (Level <span id="displayLevel">200</span>)</h3>
+    <div class="stat-row">
+      <span class="stat-label">❤️ HP:</span>
+      <span class="stat-value" id="resHP">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">⚔️ ATK:</span>
+      <span class="stat-value" id="resATK">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">🛡️ DEF:</span>
+      <span class="stat-value" id="resDEF">0</span>
+    </div>
+  </div>
+  <p class="note">* 显示为 Double 双精度浮点数值</p>
+</div>
+<script>
+// 初始1级基础浮点数值
+const baseStats = {
+  Attacker: { ATK: 600, DEF: 76, HP: 13500 },
+  Supporter: { ATK: 500, DEF: 84, HP: 15000 },
+  Defender: { ATK: 400, DEF: 107, HP: 16500 }
+};
+
+// 核心常数 C_Class
+const C_Class_Map = {
+  Attacker: 959,
+  Defender: 931,
+  Supporter: 921
+};
+
+// 前端 UI 交互限制：星级与突破等级联动
+const gradeSelect = document.getElementById('gradeSelect');
+const coreSelect = document.getElementById('coreSelect');
+
+gradeSelect.addEventListener('change', (e) => {
+  if (parseInt(e.target.value) < 3) {
+    coreSelect.value = "0"; // 星级小于3时，突破强制置0
+  }
+});
+
+coreSelect.addEventListener('change', (e) => {
+  if (parseInt(e.target.value) > 0) {
+    gradeSelect.value = "3"; // 选择突破时，星级强制置3
+  }
+});
+
+// 计算 0星 递归基础面板 V(0,0) (原生 Double 精度)
+function getBaseFloat(baseValue, targetLevel) {
+  if (targetLevel <= 1) return baseValue;
+
+  let currentScore = baseValue;
+  const step = baseValue * 0.05;
+
+  for (let i = 2; i <= targetLevel; i++) {
+    if (i === 11 || i === 21) {
+      currentScore = currentScore + step * 2;
+    } else if (i > 40 && (i - 1) % 20 === 0) {
+      currentScore = currentScore * 1.05;
+    } else {
+      currentScore += step * Math.ceil(i / 40);
+    }
+  }
+  return currentScore;
+}
+
+// 结合星级(grade)和突破(core)的最终公式
+function calculateFinalStat(baseValue, targetLevel, grade, core, nikkeClass) {
+  const v00 = getBaseFloat(baseValue, targetLevel);
+  const C_Class = C_Class_Map[nikkeClass];
+
+  if (grade <= 3 && core === 0) {
+    return v00 * (1 + 0.02 * grade) + 20 * grade;
+  } else if (grade === 3 && core >= 0 && core <= 7) {
+    // 修正后的公式
+    return v00 * (1.06 + core * 0.0212) + 60 + core * C_Class / 7;
+  } else {
+    return NaN; // 非法输入
+  }
+}
+
+// 绑定按钮点击事件
+function calculate() {
+  const nikkeClass = document.getElementById('classSelect').value;
+  const level = parseInt(document.getElementById('levelInput').value, 10);
+  const grade = parseInt(gradeSelect.value, 10);
+  const core = parseInt(coreSelect.value, 10);
+
+  if (isNaN(level) || level < 1) {
+    alert("请输入大于或等于1的有效等级！");
+    return;
+  }
+
+  const stats = baseStats[nikkeClass];
+
+  const finalATK = calculateFinalStat(stats.ATK, level, grade, core, nikkeClass);
+  const finalDEF = calculateFinalStat(stats.DEF, level, grade, core, nikkeClass);
+  const finalHP = calculateFinalStat(stats.HP, level, grade, core, nikkeClass);
+
+  // 更新到UI (保留最多6位小数展示浮点精度)
+  const formatOptions = { minimumFractionDigits: 0, maximumFractionDigits: 6 };
+  document.getElementById('displayLevel').innerText = level;
+  document.getElementById('resATK').innerText = isNaN(finalATK) ? "NaN" : finalATK.toLocaleString(undefined, formatOptions);
+  document.getElementById('resDEF').innerText = isNaN(finalDEF) ? "NaN" : finalDEF.toLocaleString(undefined, formatOptions);
+  document.getElementById('resHP').innerText = isNaN(finalHP) ? "NaN" : finalHP.toLocaleString(undefined, formatOptions);
+}
+
+// 页面加载时自动计算一次
+window.onload = calculate;
+</script>
+</body>
+</html>

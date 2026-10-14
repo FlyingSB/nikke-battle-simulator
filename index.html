@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NIKKE 战斗模拟器</title>
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  <link rel="manifest" href="/site.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <link rel="manifest" href="site.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="vendor/pico-forms.css">
@@ -64,6 +64,40 @@
           <span class="topbar-badge mono" x-show="$store.sim.simHistory.length"
             x-text="$store.sim.simHistory.length"></span>
         </button>
+        <!-- 辅助工具菜单：tools/ 下的独立静态页（计算器另附 jsfiddle 版）与油猴导出脚本 -->
+        <div class="tools-menu" x-data="{ open: false }"
+          @click.outside="open = false" @keydown.escape="open = false">
+          <button type="button" class="btn btn-ghost btn-sm" aria-haspopup="true"
+            :aria-expanded="open" @click="open = !open">
+            <span x-text="$t('tools.menu')"></span>
+          </button>
+          <div class="tools-menu-panel" x-show="open" x-cloak>
+            <div class="tools-menu-item">
+              <div class="tools-menu-name" x-text="$t('tools.stat.name')"></div>
+              <div class="tools-menu-desc" x-text="$t('tools.stat.desc')"></div>
+              <div class="tools-menu-links">
+                <a href="tools/stat-calculator.html" target="_blank" rel="noopener" x-text="$t('tools.open')"></a>
+                <a href="https://jsfiddle.net/FlyingSB/8pof5csj/" target="_blank" rel="noopener" x-text="$t('tools.jsfiddle')"></a>
+              </div>
+            </div>
+            <div class="tools-menu-item">
+              <div class="tools-menu-name" x-text="$t('tools.dmg.name')"></div>
+              <div class="tools-menu-desc" x-text="$t('tools.dmg.desc')"></div>
+              <div class="tools-menu-links">
+                <a href="tools/damage-calculator.html" target="_blank" rel="noopener" x-text="$t('tools.open')"></a>
+                <a href="https://jsfiddle.net/FlyingSB/e0vg2sa8/" target="_blank" rel="noopener" x-text="$t('tools.jsfiddle')"></a>
+              </div>
+            </div>
+            <div class="tools-menu-item">
+              <div class="tools-menu-name" x-text="$t('tools.export.name')"></div>
+              <div class="tools-menu-desc" x-text="$t('tools.export.desc')"></div>
+              <div class="tools-menu-links">
+                <!-- 不加 download 属性：让 Tampermonkey 拦截 .user.js 并弹出安装页 -->
+                <a href="tools/blablalink-export.user.js" target="_blank" rel="noopener" x-text="$t('tools.install')"></a>
+              </div>
+            </div>
+          </div>
+        </div>
         <!-- 界面语言切换：分段按钮，当前语言高亮 -->
         <div class="lang-switch" role="group" :aria-label="$t('lang.label')">
           <template x-for="l in $store.sim.LANGS" :key="l.code">
