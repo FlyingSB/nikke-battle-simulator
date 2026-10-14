@@ -870,6 +870,8 @@ export function createStore() {
     // Anis: Star 在队时显示：Shooting Stars 在敌人横向移动时的核心命中率修正系数（× 基准 0.7）
     starCoreCoef:       STAR_CORE_COEF_DEFAULT,
     burstStepSecs:      0.4,
+    // 在敌人隐藏（跳起 / HIDDEN）时继续开爆裂：默认 false = 自动战斗实测行为，停火区段内不施放爆裂
+    burstDuringHidden:  false,
     // 锁定等级：0 = 无限制（按同步器等级）；40 / 200 / 400 = 基础属性按该等级重算。
     // 仅替换等级表基础属性（突破 / 核心照常叠加），好感度、装备、魔方、珍藏品、研究等加成不变。
     levelLock:          0,
@@ -1332,6 +1334,7 @@ export function createStore() {
         hitCal:             { ...this.hitCal },
         starCoreCoef:       this.starCoreCoef,
         burstStepSecs:      this.burstStepSecs,
+        burstDuringHidden:  this.burstDuringHidden,
         levelLock:          this.levelLock,
         ebsLastBurstOnly: this.ebsLastBurstOnly,
         mirLastBurstOnly: this.mirLastBurstOnly,
@@ -1407,6 +1410,7 @@ export function createStore() {
       if (Number.isFinite(state.starCoreCoef)) this.starCoreCoef = state.starCoreCoef;
       // 旧版本保存的 0.6s 等超出上限的值统一压到 0.4s（自动战斗实测上限）
       if (state.burstStepSecs       != null) this.burstStepSecs       = Math.min(0.4, state.burstStepSecs);
+      if (typeof state.burstDuringHidden === 'boolean') this.burstDuringHidden = state.burstDuringHidden;
       if (state.ebsLastBurstOnly  != null) this.ebsLastBurstOnly  = state.ebsLastBurstOnly;
       if (state.mirLastBurstOnly  != null) this.mirLastBurstOnly  = state.mirLastBurstOnly;
       if (state.mastBurstMode     != null) this.mastBurstMode     = state.mastBurstMode;
@@ -2120,6 +2124,10 @@ export function createStore() {
                   ? nd.shot_detail.maintain_fire_stance
                   : (nd?.shot_detail?.spot_last_delay ?? 16.67))) / 100 * 60)
               : 0,
+            // 出停火区段（HIDDEN / 跳起）后重新举枪的后摇：始终取 spot_last_delay（不被 maintain_fire_stance 覆盖）
+            spotLastTicks:         isChargeWeapon
+              ? Math.round((nd?.shot_detail?.spot_last_delay ?? 16.67) / 100 * 60)
+              : 0,
             // 非蓄力武器（AR/SMG/MG/SG）：末发后摇（spot_last_delay）计入换弹相位。
             // maintain_fire_stance > 0 时覆盖。无 CDN 数据则为 0（不加后摇）。
             reloadRecoveryTicks:   isChargeWeapon
@@ -2217,6 +2225,7 @@ export function createStore() {
           starCoreCoef: this.hasAnisStar ? clampCoef(this.starCoreCoef) : STAR_CORE_COEF_DEFAULT,
           duration:           180,
           burstStepSecs:      this.burstStepSecs,
+          burstDuringHidden:  this.burstDuringHidden === true,
           // 选项不可见（角色不在队 / 不足 3 名 B3）时不向引擎传递该策略
           ebsLastBurstOnly: this.hasEbsBoomAndShock && this.ebsLastBurstOnly,
           mirLastBurstOnly: this.hasMaidenIceRose   && this.mirLastBurstOnly,

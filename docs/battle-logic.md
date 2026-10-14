@@ -394,9 +394,14 @@ chargeTick = now + effectiveCharge
 
 **UP 型：**
 ```
-chargeTick = now + backswingTicks + foreswingTicks + effectiveCharge
+chargeTick = now + hiddenResetBackswingTicks + foreswingTicks + effectiveCharge
 ```
 即完整发间重置。物理含义：HIDDEN 时角色放弃瞄准（等价后摇动作），再次可见时需重新前摇＋蓄力，合计等于一次完整射击周期。
+
+`hiddenResetBackswingTicks` 取 CDN `spot_last_delay`（store 传入 `spotLastTicks`），**不被 `maintain_fire_stance` 覆盖**：
+停火期间早已收枪，「保持开火姿势」时长不再适用。两者仅对 mfs 较大的武器有差别（Raven 83 / A2 84 → 50t；
+spot_last 20 → 12t）。实测 Raven（BIGARMS）落地 → 首发 84–87t（全爆裂计时器差 1.44–1.45s）= 12 + 12 + 蓄力 58 = 82t，
+而非 50 + 12 + 58 = 120t。未传 `spotLastTicks`（测试脚本）时回退 `backswingTicks`。
 
 若不重置，每次 HIDDEN 过渡约多出 1 发（4 次 HIDDEN ≈ 多 4 发）。
 
@@ -1013,6 +1018,13 @@ burstPhase = 0（充能中）
 | 1.85s | 目标距离 | 恢复攻击（同 HIDDEN 退出：恢复被打断的装填、蓄力重置） | 是 |
 
 原「隐藏」行动保留，用于瞬间隐藏的实战 BOSS（隐藏时段内完全不可攻击）。实测记录见 `dev/game-data.md`。
+
+#### 停火区段内的爆裂施放
+
+自动战斗实测：敌人跳起 / 隐藏（`JUMP` / `HIDDEN`）期间**不自动施放爆裂**，落地后才继续爆裂序列
+（Raven 队 BIGARMS：起跳 2483f、落地 2592f，全爆裂动画 2628f 才开始）。引擎 `isBurstCastBlocked` 在停火区段内
+拦截 B1 / B2 / B3 施放；槽满进入阶段 1、各阶段 10s 超时照常计时。
+模拟选项「在敌人隐藏时继续开爆裂」（`config.burstDuringHidden`，默认 false）勾选时不做拦截（手动操作）。
 
 - **进入 HIDDEN — 全队停止攻击，按状态分流：**
   - 弹匣已满，或正处于武器切换（特殊武器装备切换）中的角色 → **直接待命**（不装填、保留弹药）。

@@ -327,6 +327,12 @@
                 <span>0.1s</span><span>0.4s</span>
               </div>
             </div>
+            <div class="field-group">
+              <label class="checkbox-label" :title="$t('sim.burstDuringHiddenTip')">
+                <input type="checkbox" x-model="$store.sim.burstDuringHidden">
+                <span x-text="$t('sim.burstDuringHidden')"></span>
+              </label>
+            </div>
             <!-- 命中参数：核心命中率几何模型校准 + 实战命中校正（随敌人距离缩放） -->
             <div class="field-group">
               <label class="field-label" x-text="$t('sim.hitCal')"></label>

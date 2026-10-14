@@ -15,6 +15,7 @@
  */
 
 import { initBattle, tick } from '../../src/engine/battle.js';
+import { BURST_GAUGE_MAX } from '../../src/engine/constants.js';
 import { buildEnemyPhases } from '../../src/ui/enemy-config-io.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
 
@@ -87,6 +88,59 @@ section('J3 — 落地距离');
   eq('落地后距离 = 50', distAtLanding, 50);
   eq('起跳 / 空中区段依次出现', phases.map(p => p.zone).join(','), '30,JUMP,HIDDEN,50');
   eq('空中段起点 tick', phases.find(p => p.zone === 'HIDDEN')?.startTick, AIR_TICK);
+}
+
+// J4：自动战斗实测——敌人跳起 / 隐藏期间不自动施放爆裂，落地后才继续（Raven 队 BIGARMS 实测）。
+//   模拟选项 burstDuringHidden=true 时按手动操作，隐藏期间照常施放。
+//   起跳 tick 将爆裂槽置满：槽满 → B1 延迟（0.4s）在跳起区段内到期。
+function runBurstJump(burstDuringHidden) {
+  const squad = ['Step1', 'Step2', 'Step3'].map((burstStep, i) => ({
+    ...SMG, characterId: 94010 + i, name: `Jump-Burst-${burstStep}`, burstStep,
+    targetBurstEnergyPerShot: 0, burstEnergyPerShot: 0,
+  }));
+  const s = initBattle({ squad, enemy: ENEMY, burstDuringHidden });
+  const casts = [];
+  for (let t = 0; t < LAND_TICK + 120; t++) {
+    if (s.tick === JUMP_TICK) s.burstGauge = BURST_GAUGE_MAX;
+    const { events } = tick(s);
+    for (const e of events) {
+      if (['burst_i', 'burst_ii', 'burst_iii', 'full_burst'].includes(e.type)) casts.push({ type: e.type, tick: e.tick });
+    }
+  }
+  return casts;
+}
+
+section('J4 — 跳起期间不自动施放爆裂（选项 burstDuringHidden）');
+{
+  const auto = runBurstJump(false);
+  eq('默认：跳起区段内无爆裂施放', auto.filter(c => c.tick < LAND_TICK).length, 0);
+  eq('默认：落地 tick 施放 B1', auto.find(c => c.type === 'burst_i')?.tick, LAND_TICK);
+  eq('默认：落地后完成全爆裂', auto.some(c => c.type === 'full_burst'), true);
+
+  const manual = runBurstJump(true);
+  eq('勾选：B1 在跳起区段内施放', (manual.find(c => c.type === 'burst_i')?.tick ?? Infinity) < LAND_TICK, true);
+  eq('勾选：全爆裂在落地前进入', (manual.find(c => c.type === 'full_burst')?.tick ?? Infinity) < LAND_TICK, true);
+}
+
+// J5：出停火区段后蓄力武器首发 = 落地 + spot_last 后摇 + 前摇 + 蓄力（不取 maintain_fire_stance）。
+//   Raven 实测（BIGARMS）：落地 → 首发 84–87t ≈ 12 + 12 + 58 = 82t，而非 50 + 12 + 58 = 120t。
+function runRlJump(extra) {
+  const rl = {
+    ...SMG, characterId: 94020, name: 'Jump-Test-RL', weaponType: 'RL',
+    rateOfFire: 60, baseAmmo: 1000, reloadTicks: 120, fullChargeDamage: 25000,
+    chargeTimeTicks: 58, foreswingTicks: 12, backswingTicks: 50, ...extra,
+  };
+  const s = initBattle({ squad: [rl], enemy: ENEMY, hitLog: true });
+  for (let t = 0; t < LAND_TICK + 200; t++) tick(s);
+  return s.hitLog.filter(h => h.ammoBeforeShot !== undefined).map(h => h.tick);
+}
+
+section('J5 — 落地后蓄力武器首发：后摇取 spot_last_delay');
+{
+  const withSpotLast = runRlJump({ spotLastTicks: 12 });
+  eq('后摇 50 / spot_last 12：落地 + 82t 首发', withSpotLast.find(t => t >= LAND_TICK), LAND_TICK + 82);
+  const noSpotLast = runRlJump({});
+  eq('未提供 spotLastTicks：回退 backswingTicks（落地 + 120t）', noSpotLast.find(t => t >= LAND_TICK), LAND_TICK + 120);
 }
 
 summary('Enemy jump tests');

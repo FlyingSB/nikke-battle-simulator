@@ -27,14 +27,17 @@ export default {
     triggers: [
       // S1 Part1：本轮本单位施放爆裂后进入全爆裂 → 对最高 MaxHP 敌人（单 Boss）造成 p02% ATK 附加伤害。
       //   Effect2 敌方 ATK ▼ 为防御向，DPS 模拟不建模。
+      //   描述 as additional damage：走 pendingFireInBurstHits + sums:null，在所有 ENTER_FULL_BURST 触发器
+      //   结算后取快照出伤，确保吃到站位在本单位右侧队友的进入全爆裂 buff（如 Privaty EX Magazine）。
       {
         on: 'ENTER_FULL_BURST',
         handler(state, caster) {
           if (!state.burstCastersThisRotation?.has(caster.id)) return;
           if (state.enemyHp <= 0) return;
           const mult = getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]) / 100;
-          const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, 'S1 P1');
+          state.pendingFireInBurstHits.push({
+            caster, mult, sums: null, isCharged: false, label: 'S1 P1', opts: {},
+          });
         },
       },
 

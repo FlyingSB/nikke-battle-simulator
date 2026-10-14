@@ -143,6 +143,8 @@ export default {
   'sim.durationHint':   '战斗时长固定 180 秒',
   'sim.iterations':     '迭代次数（最多 100 次）',
   'sim.burstDelay':     '爆裂延迟',
+  'sim.burstDuringHidden':    '在敌人隐藏时继续开爆裂',
+  'sim.burstDuringHiddenTip': '自动战斗中敌人跳起 / 隐藏期间不会自动施放爆裂，落地后才继续；勾选后按手动操作，隐藏期间照常施放',
   'sim.hitCal':         '命中参数',
   'sim.hitCalTip':      '核心命中率几何模型 P=clamp((CORE0·(1−d/D0)/(scale/(1+c·HitRate)))²,0,1)；实证默认 55/77/4.5（适用于 AR / SMG / SG / MG）',
   'sim.hitCoef':        'HitRate系数 c',

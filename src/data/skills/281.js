@@ -156,7 +156,7 @@ export default {
     groupId: 12813,
     triggers: [
       // Burst（Fair and Square!）— 自身：
-      //   武器替换 10s（hitMult lv10=14.7%）+ 无限弹药 10s
+      //   武器替换 10s（SMG 型，hitMult lv10=14.7%）+ 无限弹药 10s
       //   变更武器射速 1440 RPM（24 发/秒；来源 nikke.gg，未实测验证）
       //   生命偷取 X%（lv10=36.14%）10s
       //   S1 Fervor 效果：使用后自身爆裂冷却 ▼20s（param[3] 常量）
@@ -175,7 +175,11 @@ export default {
           const end10   = state.tick + TICK_RATE * 10;
 
           caster.skillState.weaponSwitchHitMult       = hitMult;
-          caster.skillState.weaponSwitchType          = null;
+          // 变更武器按 SMG 处理：仅用于射击内的武器类型判定（核心率取 SMG 硬编码 3.3%）。
+          // 实测校准：按 100% 核心时 Moran 伤害 +44%，按 SMG 核心率后约 −5%（与队内其他角色误差一致）。
+          // 不影响：Miranda S1 等「SMG 友军」buff（weaponFilter 按基础 weaponType=AR 匹配）、
+          // 优势射程（bonusrange 取角色 CDN 数据，仍为 AR 区间）、伤害倍率（hitMult 已显式指定）。
+          caster.skillState.weaponSwitchType          = 'SMG';
           caster.skillState.weaponSwitchEndTick       = end10;
           caster.skillState.weaponSwitchRoundsLeft    = 0;
           caster.skillState.weaponSwitchUnlimitedAmmo = true;

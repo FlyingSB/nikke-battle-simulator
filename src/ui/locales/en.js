@@ -143,6 +143,8 @@ export default {
   'sim.durationHint':   'Battle duration is fixed at 180 s',
   'sim.iterations':     'Iterations (max 100)',
   'sim.burstDelay':     'Burst Delay',
+  'sim.burstDuringHidden':    'Keep bursting while enemy is hidden',
+  'sim.burstDuringHiddenTip': 'In auto battle, Bursts are not cast while the enemy is jumping / hidden and resume after it lands; check to keep casting during that time (manual play)',
   'sim.hitCal':         'Hit Parameters',
   'sim.hitCalTip':      'Core hit geometry model P=clamp((CORE0·(1−d/D0)/(scale/(1+c·HitRate)))²,0,1); empirical defaults 55/77/4.5 (applies to AR / SMG / SG / MG)',
   'sim.hitCoef':        'HitRate coef c',

@@ -194,10 +194,10 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Rosanna（SSR：Signet Ring） | [`280.json`](../src/data/static/nikke/280.json) | [`280.js`](../src/data/skills/280.js) |
 | ✔️ | Moran | [`281.json`](../src/data/static/nikke/281.json) | [`281.js`](../src/data/skills/281.js) |
 | ✔️ | Privaty: Unkind Maid | [`313.json`](../src/data/static/nikke/313.json) | [`313.js`](../src/data/skills/313.js) |
-| ❌ | Soda: Twinkling Bunny | [`314.json`](../src/data/static/nikke/314.json) | [`314.js`](../src/data/skills/314.js) |
+| ✔️ | Soda: Twinkling Bunny | [`314.json`](../src/data/static/nikke/314.json) | [`314.js`](../src/data/skills/314.js) |
 | ✔️ | Ade: Agent Bunny | [`315.json`](../src/data/static/nikke/315.json) | [`315.js`](../src/data/skills/315.js) |
 | ✔️ | Velvet | [`316.json`](../src/data/static/nikke/316.json) | [`316.js`](../src/data/skills/316.js) |
-| ❌ | Marciana: Marine Study | [`322.json`](../src/data/static/nikke/322.json) | [`322.js`](../src/data/skills/322.js) |
+| ✔️ | Marciana: Marine Study | [`322.json`](../src/data/static/nikke/322.json) | [`322.js`](../src/data/skills/322.js) |
 | ✔️ | Crown | [`330.json`](../src/data/static/nikke/330.json) | [`330.js`](../src/data/skills/330.js) |
 | ✔️ | Helm | [`352.json`](../src/data/static/nikke/352.json) | [`352.js`](../src/data/skills/352.js) |
 | ✔️ | Helm: Aquamarine | [`353.json`](../src/data/static/nikke/353.json) | [`353.js`](../src/data/skills/353.js) |
@@ -211,7 +211,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Trina | [`412.json`](../src/data/static/nikke/412.json) | [`412.js`](../src/data/skills/412.js) |
 | ✔️ | Volume | [`431.json`](../src/data/static/nikke/431.json) | [`431.js`](../src/data/skills/431.js) |
 | ✔️ | Naga | [`450.json`](../src/data/static/nikke/450.json) | [`450.js`](../src/data/skills/450.js) |
-| ❌ | Tia | [`451.json`](../src/data/static/nikke/451.json) | [`451.js`](../src/data/skills/451.js) |
+| ✔️ | Tia | [`451.json`](../src/data/static/nikke/451.json) | [`451.js`](../src/data/skills/451.js) |
 | ✔️ | Red Hood | [`470.json`](../src/data/static/nikke/470.json) | [`470.js`](../src/data/skills/470.js) |
 | ✔️ | Snow White: Heavy Arms | [`471.json`](../src/data/static/nikke/471.json) | [`471.js`](../src/data/skills/471.js) |
 | ✔️ | Elegg: Boom and Shock | [`502.json`](../src/data/static/nikke/502.json) | [`502.js`](../src/data/skills/502.js) |
@@ -229,8 +229,8 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Asuka: WILLE | [`835.json`](../src/data/static/nikke/835.json) | [`835.js`](../src/data/skills/835.js) |
 | ✔️ | Ada | [`840.json`](../src/data/static/nikke/840.json) | [`840.js`](../src/data/skills/840.js) |
 | ✔️ | Jill | [`841.json`](../src/data/static/nikke/841.json) | [`841.js`](../src/data/skills/841.js) |
-| ❌ | EVE | [`850.json`](../src/data/static/nikke/850.json) | [`850.js`](../src/data/skills/850.js) |
-| ❌ | Raven | [`851.json`](../src/data/static/nikke/851.json) | [`851.js`](../src/data/skills/851.js) |
+| ✔️ | EVE | [`850.json`](../src/data/static/nikke/850.json) | [`850.js`](../src/data/skills/850.js) |
+| ✔️ | Raven | [`851.json`](../src/data/static/nikke/851.json) | [`851.js`](../src/data/skills/851.js) |
 | ❌ | Chisato | [`860.json`](../src/data/static/nikke/860.json) | [`860.js`](../src/data/skills/860.js) |
 | ✔️ | Takina | [`861.json`](../src/data/static/nikke/861.json) | [`861.js`](../src/data/skills/861.js) |
 | ❌ | Queen (Makoto) | [`870.json`](../src/data/static/nikke/870.json) | [`870.js`](../src/data/skills/870.js) |

@@ -87,6 +87,19 @@ function isHoldFireZone(zone) {
   return zone === 'HIDDEN' || zone === 'JUMP';
 }
 
+/**
+ * 本 tick 是否禁止施放爆裂技能（B1 / B2 / B3）。
+ * 自动战斗实测：敌人跳起 / 隐藏（停火区段）期间不会自动施放爆裂，落地后才继续爆裂序列
+ * （Raven 队 BIGARMS 实测：起跳 2483f、落地 2592f，全爆裂动画 2628f 才开始）。
+ * 模拟选项「在敌人隐藏时继续开爆裂」（config.burstDuringHidden）勾选时不做限制。
+ * 仅拦截施放；槽满进入阶段 1 与各阶段 10s 超时照常计时。
+ * @param {object} state
+ * @returns {boolean}
+ */
+function isBurstCastBlocked(state) {
+  return !state.burstDuringHidden && isHoldFireZone(state.currentPhaseZone);
+}
+
 function getPhaseAtTick(phases, tick) {
   for (let i = phases.length - 1; i >= 0; i--) {
     if (tick >= phases[i].startTick) return phases[i].zone;
@@ -878,6 +891,9 @@ export function initBattle(config) {
     const hasMgRamp = (cfg._nikkeData?.shot_detail?.rate_of_fire_change_pershot ?? 0) > 0;
     const foreswingTicks = isChargWeapon ? (cfg.foreswingTicks ?? 10) : 0;
     const backswingTicks = isChargWeapon ? (cfg.backswingTicks ?? 10) : 0;
+    // 出停火区段（HIDDEN / 跳起）后重新举枪的后摇：取 spot_last_delay，不用 maintain_fire_stance
+    // （停火期间早已收枪，「保持开火姿势」时长不再适用）。无 CDN 数据时回退 backswingTicks。
+    const hiddenResetBackswingTicks = isChargWeapon ? (cfg.spotLastTicks ?? backswingTicks) : 0;
     // 非蓄力武器（AR/SMG/MG/SG）：末发后摇（CDN spot_last_delay）计入换弹相位。
     // 真机换弹相位 = 后摇 + 装填时长；引擎此前漏算后摇，使换弹偏快、整体偏慢。
     const reloadRecoveryTicks = isChargWeapon ? 0 : (cfg.reloadRecoveryTicks ?? 0);
@@ -940,6 +956,7 @@ export function initBattle(config) {
       chargeTimeTicks,
       foreswingTicks,
       backswingTicks,
+      hiddenResetBackswingTicks,
       // 非蓄力武器换弹后摇（spot_last_delay）；蓄力武器为 0。仅用于换弹时长。
       reloadRecoveryTicks,
       // 非蓄力武器对准期 ticks（spot_first_delay）；aimReadyTick 之前不射击（射击累加器照常累积，封顶 1）。
@@ -1258,6 +1275,8 @@ export function initBattle(config) {
     enemyCoreActions:   config.enemy.coreActions ?? [],
     tick:               0,
     burstStepTicks,
+    // 模拟选项「在敌人隐藏时继续开爆裂」：默认 false = 停火区段内不施放爆裂（自动战斗实测）
+    burstDuringHidden:  config.burstDuringHidden === true,
     fullBurstActive:    false,
     fullBurstTick:      0,
     burstPhase:         0,
@@ -1440,6 +1459,9 @@ export function tick(state) {
         //   UP 型（松手触发）：重置为完整发间（后摇+前摇+蓄力）。
         //   实测：Helm 180s=121发，完整发间重置(84t)预测精确匹配；不重置则预测125（每次HIDDEN多1发）。
         //   Scarlet:BS 233发同模型误差≤1发。
+        //   后摇取 spot_last_delay（hiddenResetBackswingTicks），不取 maintain_fire_stance：
+        //   Raven（mfs 83 → 50t，spot_last 20 → 12t）BIGARMS 落地 → 首发实测 84–87t（全爆裂计时器 1.44–1.45s），
+        //   = 12 + 12 + 蓄力 58 = 82t，而非 50 + 12 + 58 = 120t。
         for (const u of state.squad) {
           // 非蓄力武器处于蓄力型切换武器期间（如 Cinderella: Crystal Wave Snipe Mode）：
           // 出 HIDDEN 后同样重新蓄力一次（切换武器固定蓄力时长，不含前后摇）。
@@ -1452,7 +1474,7 @@ export function tick(state) {
           }
           if (u.chargeTimeTicks <= 0) continue;
           scheduleEngineCharge(state, u, state.tick,
-            u.isDownCharge ? 0 : u.backswingTicks + u.foreswingTicks, getBuffSums(state, u.id));
+            u.isDownCharge ? 0 : u.hiddenResetBackswingTicks + u.foreswingTicks, getBuffSums(state, u.id));
         }
       }
       events.push({ type: 'phase_change', tick: state.tick, zone: newZone });
@@ -1613,7 +1635,10 @@ export function tick(state) {
 
   // 阶段 1：等待槽满延迟结束且有 B1 单位冷却结束 — 每 tick 重试。
   // 槽满那一 tick 只进入阶段 1（触发 ENTER_BURST_I 被动），B1 最早在 burstStepTicks 后施放。
-  if (state.burstPhase === 1 && state.burstPhaseTick === Infinity && state.tick >= state.burstB1ReadyTick) {
+  // 停火区段（敌人跳起 / 隐藏）内默认不施放 B1 / B2 / B3（isBurstCastBlocked），落地后继续。
+  const burstCastBlocked = isBurstCastBlocked(state);
+  if (state.burstPhase === 1 && state.burstPhaseTick === Infinity && state.tick >= state.burstB1ReadyTick
+      && !burstCastBlocked) {
     // _bSeq：在 executeSkillTriggers（BURST_SKILL_USE）运行前占用序列号，保证 burst_i 排在技能触发事件之前
     const _bSeq = state._logSeq++;
     const fired = applyBurstISkills(state);
@@ -1638,7 +1663,7 @@ export function tick(state) {
   }
 
   // 阶段 2：等待 B2 冷却 — 每 tick 重试，直到有 B2 单位冷却结束。
-  if (state.burstPhase === 2 && state.burstPhaseTick === Infinity) {
+  if (state.burstPhase === 2 && state.burstPhaseTick === Infinity && !burstCastBlocked) {
     const _bSeq = state._logSeq++;
     const fired = applyBurstIISkills(state);
     if (fired) {
@@ -1658,7 +1683,8 @@ export function tick(state) {
 
   // 阶段 3：等待 B3 冷却 — 每 tick 重试，直到有 B3 单位冷却结束（或无 B3 单位则立即触发）。
   // fullBurstActive 由 applyFullBurstSkills 在 B3 全部施放完毕后设置（文档 §6.5 时序）。
-  if (state.burstPhase === 3 && !state.fullBurstActive && state.burstPhaseTick === Infinity) {
+  if (state.burstPhase === 3 && !state.fullBurstActive && state.burstPhaseTick === Infinity
+      && !burstCastBlocked) {
     // lastBurstOnly：非最后一轮时跳过带策略标记的单位（其他 B3 照常触发全爆裂）
     const lastCycle = state.squad.some(u => u.lastBurstOnly) && isLastBurstCycle(state);
     const hasB3     = state.squad.some(u => isBurst3Candidate(u, lastCycle));
