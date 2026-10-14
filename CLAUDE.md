@@ -38,6 +38,9 @@ src/data/      – CDN 数据获取与缓存
 src/engine/    – 战斗模拟逻辑
 src/ui/        – UI 组件
 scripts/       – 工具脚本（Node.js，手动运行）
+tools/         – 面向用户的独立辅助工具（首页「工具」菜单链接）
+                 stat-calculator.html / damage-calculator.html：单文件静态页，与 jsfiddle 版同源，保持不引用 src/
+                 blablalink-export.user.js：油猴脚本，修改后须提高 @version 才会触发用户端自动更新
 ```
 
 ## 测试套件
