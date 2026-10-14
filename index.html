@@ -465,6 +465,18 @@
                 </select>
               </div>
             </template>
+            <template x-if="$store.sim.hasRedHood">
+              <div class="field-group mt-1">
+                <label class="field-label" :title="$t('sim.rhBurstTip')"
+                  x-text="$t('sim.rhBurst', { name: $store.sim.charName(470, 'Red Hood') })"></label>
+                <select class="input input-sm" x-model="$store.sim.rhBurstMode" :title="$t('sim.rhBurstTip')">
+                  <template x-for="opt in $store.sim.rhBurstOptions" :key="opt.value">
+                    <option :value="opt.value" x-text="opt.label"
+                      :selected="opt.value === $store.sim.effectiveRhBurstMode"></option>
+                  </template>
+                </select>
+              </div>
+            </template>
           </section>
 
         </div>

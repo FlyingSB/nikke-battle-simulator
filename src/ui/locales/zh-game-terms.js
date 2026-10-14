@@ -45,6 +45,7 @@ export default {
   // ── 431 Volume（沃纶姆）
   'Drop the Beat': 'Drop the Beat',
   // ── 470 Red Hood（小红帽）
+  'Beast Cage': '野兽之笼',
   'The Last Howl': '最终的嚎叫',
   // ── 471 Snow White: Heavy Arms（白雪公主：重型武装）
   'Auto Fire Ready': '自动射击就绪',

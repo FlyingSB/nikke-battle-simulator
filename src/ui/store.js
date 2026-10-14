@@ -61,6 +61,10 @@ const EQUIP_SLOTS = ['head', 'torso', 'arms', 'legs'];
 const MIRANDA_ID         = 32;
 const FULL_CRIT_CHAR_IDS = [162, 391];
 
+// Red Hood（470，AllStep）爆裂用法选项（引擎 config.rhBurstMode，见 battle.js 轮次策略）
+const RED_HOOD_ID    = 470;
+const RH_BURST_MODES = ['b3', 'b1odd', 'b1even', 'b1r1b3', 'b1r2b3even'];
+
 // vals 以整数厘百分比存储（954 表示 9.54%），与 account-loader._OPTION_GROUPS 保持一致
 // 显示名由 i18n 词典 equipOpt.<key> 提供
 export const EQUIP_OPTION_TYPES = [
@@ -880,6 +884,9 @@ export function createStore() {
     mirLastBurstOnly: true,
     // Mast: Romantic Maid 爆裂轮次策略：auto / drunken3 / b3a / b3b（见 mastBurstOptions）
     mastBurstMode:    'auto',
+    // Red Hood（AllStep）爆裂用法：b3（作为 B3）/ b1odd、b1even（作为 B1，奇 / 偶数轮）/
+    // b1r1b3（第 1 轮 B1，其余与 b3 相同）/ b1r2b3even（第 2 轮 B1，偶数轮无视站位 B3）
+    rhBurstMode:      'b3',
     // Cinderella: Crystal Wave 手动打法：进入战斗时切换到 Snipe Mode（射击 1 发 → 主动装填 → 射击 1 发 → 主动装填）
     ccwSnipeModeAtStart: false,
     // 速充（Focus 的 UP 型 SR/RL 手动打法）：off / always（始终速充）/ untilFull（充能满后恢复全蓄力）
@@ -1069,11 +1076,34 @@ export function createStore() {
     // ── 计算辅助 ──
     get activeSlotData() { return this.team[this.activeSlot]; },
 
-    // 队伍中 Burst 3 角色数量（StepFull 全阶段角色可充当 B3，一并计入）
+    // 槽位是否充当 B3（StepFull 全阶段角色可充当 B3；Red Hood 作为 B1 用法时不计入）
+    _slotActsAsB3(s) {
+      if (!s.active || !(s.burstStep === 'Step3' || s.burstStep === 'StepFull')) return false;
+      return !(s.resourceId === RED_HOOD_ID && this.rhActsAsB1);
+    },
+
+    // 队伍中 Burst 3 角色数量
     get burst3Count() {
-      return this.team.filter(s =>
-        s.active && (s.burstStep === 'Step3' || s.burstStep === 'StepFull')
-      ).length;
+      return this.team.filter(s => this._slotActsAsB3(s)).length;
+    },
+
+    // Red Hood（resource_id: 470）在队时显示爆裂用法下拉菜单
+    get hasRedHood() {
+      return this.team.some(s => s.active && s.resourceId === RED_HOOD_ID);
+    },
+
+    get rhBurstOptions() {
+      return RH_BURST_MODES.map(value => ({ value, label: this.t(`sim.rh.${value}`) }));
+    },
+
+    // 实际生效的用法：不在队或保存值非法时回退为 b3
+    get effectiveRhBurstMode() {
+      if (!this.hasRedHood) return 'b3';
+      return RH_BURST_MODES.includes(this.rhBurstMode) ? this.rhBurstMode : 'b3';
+    },
+
+    get rhActsAsB1() {
+      return this.effectiveRhBurstMode === 'b1odd' || this.effectiveRhBurstMode === 'b1even';
     },
 
     // "最后一轮爆裂"策略选项显示条件：目标角色在队 且 队伍中有 3 名 Burst 3 角色
@@ -1142,7 +1172,7 @@ export function createStore() {
     // 对应 B3 不存在时不提供该选项
     get mastBurstOptions() {
       const b3Names = this.team
-        .filter(s => s.active && s.resourceId && (s.burstStep === 'Step3' || s.burstStep === 'StepFull'))
+        .filter(s => s.resourceId && this._slotActsAsB3(s))
         .map(s => this.slotName(s));
       const opts = [
         { value: 'auto',     label: this.t('sim.mast.auto') },
@@ -1347,6 +1377,7 @@ export function createStore() {
         ebsLastBurstOnly: this.ebsLastBurstOnly,
         mirLastBurstOnly: this.mirLastBurstOnly,
         mastBurstMode:    this.mastBurstMode,
+        rhBurstMode:      this.rhBurstMode,
         ccwSnipeModeAtStart: this.ccwSnipeModeAtStart,
         quickChargeMode:    this.quickChargeMode,
         fullCritChar:       this.fullCritChar,
@@ -1422,6 +1453,7 @@ export function createStore() {
       if (state.ebsLastBurstOnly  != null) this.ebsLastBurstOnly  = state.ebsLastBurstOnly;
       if (state.mirLastBurstOnly  != null) this.mirLastBurstOnly  = state.mirLastBurstOnly;
       if (state.mastBurstMode     != null) this.mastBurstMode     = state.mastBurstMode;
+      if (RH_BURST_MODES.includes(state.rhBurstMode)) this.rhBurstMode = state.rhBurstMode;
       if (state.ccwSnipeModeAtStart != null) this.ccwSnipeModeAtStart = state.ccwSnipeModeAtStart;
       if (['off', 'always', 'untilFull'].includes(state.quickChargeMode)) this.quickChargeMode = state.quickChargeMode;
       if (FULL_CRIT_CHAR_IDS.includes(state.fullCritChar)) this.fullCritChar = state.fullCritChar;
@@ -1509,8 +1541,7 @@ export function createStore() {
       slot.corporation = char.corporation;
       slot.element     = char.element;
       slot.weaponType  = char.weaponType;
-      // AllStep（如 Red Hood）目前仅支持用法1（纯 B3），默认映射为 Step3。
-      // TODO: 将来在 UI 提供选项支持用法2（B1奇/偶轮）、用法3（B1+首轮-40s）、用法4（首轮补位+第二轮独推全爆裂）。
+      // AllStep（如 Red Hood）在槽位中映射为 Step3；Red Hood 作为 B1 等用法由模拟选项 rhBurstMode 交给引擎处理。
       slot.burstStep   = char.burstStep === 'AllStep' ? 'Step3' : (char.burstStep ?? 'Step3');
       slot.active      = true;
       slot._nikkeData  = null;
@@ -2238,6 +2269,7 @@ export function createStore() {
           ebsLastBurstOnly: this.hasEbsBoomAndShock && this.ebsLastBurstOnly,
           mirLastBurstOnly: this.hasMaidenIceRose   && this.mirLastBurstOnly,
           mastBurstMode:    this.effectiveMastBurstMode,
+          rhBurstMode:      this.effectiveRhBurstMode,
           ccwSnipeModeAtStart: this.hasCinderellaCrystalWave && this.ccwSnipeModeAtStart,
           quickChargeMode:  this.quickChargeSlot ? this.quickChargeMode : 'off',
           // 百暴：仅传队伍中实际出现的所选角色（Miranda 不在队时候选为空 → 关闭）

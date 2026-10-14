@@ -487,12 +487,28 @@ function shotsPerTick(state, unit) {
 // ─── 技能事件处理器 ─────────────────────────────────────────────────────
 
 /**
- * 寻找在指定 step 上可以释放 burst 技能的最高优先级（最左侧）单位。
- * 若其 burst 技能冷却已结束则返回该单位，否则返回 null。
+ * B1 选择：与 selectBurst2Unit 相同的轮次策略规则（策略单位在自己的轮次优先，其余轮次跳过），
+ * 无策略单位按 §6.0 从左到右。b1Once 策略单位（Red Hood「第 N 轮爆裂 1」系列用法）
+ * 本身为 Step3，仅在第 policy.b1Cycle 轮作为 B1 候选。
  */
-function selectBurstUnit(state, burstStep) {
-  return state.squad.find(u => u.burstStep === burstStep && u.canBurst !== false && u.burstCdRemaining <= 0 &&
-    !isStunned(state, u)) ?? null;
+function selectBurst1Unit(state) {
+  const ready = state.squad.filter(u =>
+    (u.burstStep === 'Step1' || u.burstRoundPolicy?.mode === 'b1Once') &&
+    u.canBurst !== false && u.burstCdRemaining <= 0 && !isStunned(state, u));
+  return ready.find(u => u.burstRoundPolicy && isPolicyBurstRound(state, u))
+    ?? ready.find(u => !u.burstRoundPolicy)
+    ?? null;
+}
+
+const RED_HOOD_ID = 470;
+
+/**
+ * Red Hood（AllStep）作为 B1 用法（config.rhBurstMode = b1odd / b1even）时的爆裂阶段：Step1；
+ * 其余用法（b3 / b1r1b3 / b1r2b3even）或非 Red Hood 返回 null（沿用槽位配置的 Step3）。
+ */
+function redHoodBurstStep(config, cfg) {
+  if (cfg.characterId !== RED_HOOD_ID) return null;
+  return config.rhBurstMode === 'b1odd' || config.rhBurstMode === 'b1even' ? 'Step1' : null;
 }
 
 /** 眩晕中（如 Mast: Romantic Maid 的 Hangover）的单位无法施放爆裂技能，由同阶段其他单位接替。 */
@@ -513,27 +529,38 @@ function isLastBurstCycle(state) {
   return nextB3Tick >= MAX_TICKS;
 }
 
-/** B3 候选：Step3 / StepFull、可施放，且未被 lastBurstOnly 策略在非最后一轮排除。 */
-function isBurst3Candidate(u, lastCycle) {
+/**
+ * B3 候选：Step3 / StepFull、可施放，且未被 lastBurstOnly 策略在非最后一轮排除，
+ * 也未被 B3 轮次奇偶策略（burstRoundPolicy.b3Parity）在非自己的轮次排除。
+ */
+function isBurst3Candidate(state, u, lastCycle) {
+  const b3Parity = u.burstRoundPolicy?.b3Parity;
   return (u.burstStep === 'Step3' || u.burstStep === 'StepFull') &&
-    u.canBurst !== false && !(u.lastBurstOnly && !lastCycle);
+    u.canBurst !== false && !(u.lastBurstOnly && !lastCycle) &&
+    (b3Parity == null || state.burstCycleCount % 2 === b3Parity);
 }
 
 /**
- * 按 §6.0 从左到右选出本轮施放 B3 的单位；最后一轮时 lastBurstOnly 单位优先。
+ * 按 §6.0 从左到右选出本轮施放 B3 的单位；最后一轮时 lastBurstOnly 单位优先；
+ * 带 b3Parity 策略的单位在自己的轮次无视站位优先（冷却未就绪时由其他 B3 按站位施放）。
  * cdLookahead > 0 时为预测用法：B2 阶段预判 cdLookahead tick 后进入阶段 3 时由谁施放 B3。
  */
 function selectBurst3Unit(state, cdLookahead = 0) {
   const lastCycle = state.squad.some(u => u.lastBurstOnly) && isLastBurstCycle(state);
-  const ready = state.squad.filter(u => isBurst3Candidate(u, lastCycle) && u.burstCdRemaining <= cdLookahead &&
-    !isStunned(state, u));
-  return (lastCycle ? ready.find(u => u.lastBurstOnly) : null) ?? ready[0] ?? null;
+  const ready = state.squad.filter(u => isBurst3Candidate(state, u, lastCycle) &&
+    u.burstCdRemaining <= cdLookahead && !isStunned(state, u));
+  return ready.find(u => u.burstRoundPolicy?.b3Parity != null)
+    ?? (lastCycle ? ready.find(u => u.lastBurstOnly) : null) ?? ready[0] ?? null;
 }
 
 /**
  * 爆裂轮次策略（unit.burstRoundPolicy）：本轮是否轮到该单位施放爆裂技能。
  *   drunken3 — 自身 Drunken 叠满 3 层的轮次（Mast: Romantic Maid）
  *   withB3   — 预测本轮 B3 施放者为 policy.b3Id 的轮次
+ *   parity   — 爆裂轮次序号（第 1 轮起）奇偶与 policy.parity 相同的轮次（1 = 奇数轮，0 = 偶数轮）
+ *   b1Once   — 爆裂轮次序号等于 policy.b1Cycle 的轮次（仅该轮可作为 B1；B3 按站位照常选择，
+ *              另设 policy.b3Parity 时仅在该奇偶轮次作为 B3，见 isBurst3Candidate）
+ * 策略单位只在自己的轮次施放：即使冷却已就绪，非自己的轮次也不施放。
  */
 function isPolicyBurstRound(state, u) {
   const policy = u.burstRoundPolicy;
@@ -542,6 +569,8 @@ function isPolicyBurstRound(state, u) {
     return stacks >= 3;
   }
   if (policy.mode === 'withB3') return selectBurst3Unit(state, state.burstStepTicks)?.id === policy.b3Id;
+  if (policy.mode === 'parity') return state.burstCycleCount % 2 === policy.parity;
+  if (policy.mode === 'b1Once') return state.burstCycleCount === policy.b1Cycle;
   return true;
 }
 
@@ -657,7 +686,7 @@ function applyEnterBurst3Passives(state) {
  * §6.4：不存在 Step1 单位，或 Step1 单位冷却中，均返回 null（阶段无法推进，等待 §6.3 超时）。
  */
 function applyBurstISkills(state) {
-  const b1 = selectBurstUnit(state, 'Step1');
+  const b1 = selectBurst1Unit(state);
   if (!b1) return null;
 
   b1.burstCdRemaining = b1.burstSkillCooltime;
@@ -922,10 +951,10 @@ export function initBattle(config) {
       })(),
       element:          cfg.element ?? null,
       weaponType:       wt,
-      burstStep:        cfg.burstStep ?? 'Step3',
+      burstStep:        redHoodBurstStep(config, cfg) ?? cfg.burstStep ?? 'Step3',
       // CDN native burst step (use_burst_skill). Used by skills like Rapi S1 to identify
       // "native B1/B2/B3 allies" (characters whose CDN burst step matches a given step).
-      nativeBurstStep:  cfg.nativeBurstStep ?? cfg.burstStep ?? 'Step3',
+      nativeBurstStep:  redHoodBurstStep(config, cfg) ?? cfg.nativeBurstStep ?? cfg.burstStep ?? 'Step3',
       // CDN native "change burst step" (change_burst_step): the burst step the engine advances to
       // after this unit fires its burst skill (e.g., Step2 for most B1 units).
       nativeChangeBurstStep: cfg.nativeChangeBurstStep ?? cfg._nikkeData?.change_burst_step ?? null,
@@ -1231,6 +1260,19 @@ export function initBattle(config) {
     if (b3) mastUnit.burstRoundPolicy = { mode: 'withB3', b3Id: b3.id };
   }
 
+  // Red Hood（470，AllStep）爆裂用法（config.rhBurstMode，默认 b3 = 纯 B3）：
+  //   b1odd / b1even — 作为 B1（burstStep 已在单位构建时改为 Step1），仅在奇数 / 偶数轮施放
+  //   b1r1b3     — 第 1 轮施放 B1（Beast Cage 冷却 ▼40s），其余与 b3 相同：B3 按站位从左到右选择（含第 1 轮）
+  //   b1r2b3even — 第 2 轮施放 B1；B3 仅在偶数轮施放且无视站位优先（含第 2 轮），奇数轮不施放 B3
+  const rhUnit = squad.find(u => u.id === RED_HOOD_ID);
+  if (rhUnit && (config.rhBurstMode === 'b1odd' || config.rhBurstMode === 'b1even')) {
+    rhUnit.burstRoundPolicy = { mode: 'parity', parity: config.rhBurstMode === 'b1odd' ? 1 : 0 };
+  } else if (rhUnit && config.rhBurstMode === 'b1r1b3') {
+    rhUnit.burstRoundPolicy = { mode: 'b1Once', b1Cycle: 1 };
+  } else if (rhUnit && config.rhBurstMode === 'b1r2b3even') {
+    rhUnit.burstRoundPolicy = { mode: 'b1Once', b1Cycle: 2, b3Parity: 0 };
+  }
+
   // 爆裂阶段间隔（ticks）：槽满→B1、B1→B2、B2→B3 各等待此时长。
   // config.burstStepSecs 范围 0.1–0.4；默认 0.4 秒（自动战斗实测值，且为上限）。
   const burstStepTicks = Math.round(TICK_RATE * Math.max(0.1, Math.min(BURST_STEP_SECS_MAX, config.burstStepSecs ?? BURST_STEP_SECS_MAX)));
@@ -1318,6 +1360,8 @@ export function initBattle(config) {
     // EBS 最后一轮策略：追踪 burst 循环节奏
     lastBurstEndTick:    0,  // 上次 full burst 结束的 tick（初始=0=战斗开始）
     burstCycleStartTick: 0,  // 当前循环 burst gauge 填满（burstPhase 0→1）时的 tick
+    // 爆裂轮次序号：槽满进入阶段 1 时自增（第 1 轮 = 1，含超时取消的轮次）；轮次策略 parity / b1Once 使用
+    burstCycleCount:     0,
     // Deferred skill hits: [{ fireTick, caster, mult, sums, isCharged, label, opts }]
     // Processed at the start of each tick before unit loops.
     pendingSkillHits: [],
@@ -1687,7 +1731,7 @@ export function tick(state) {
       && !burstCastBlocked) {
     // lastBurstOnly：非最后一轮时跳过带策略标记的单位（其他 B3 照常触发全爆裂）
     const lastCycle = state.squad.some(u => u.lastBurstOnly) && isLastBurstCycle(state);
-    const hasB3     = state.squad.some(u => isBurst3Candidate(u, lastCycle));
+    const hasB3     = state.squad.some(u => isBurst3Candidate(state, u, lastCycle));
     const b3Ready   = !hasB3 || selectBurst3Unit(state) !== null;
     if (b3Ready) {
       state.burstPhaseTimeoutTick = 0;
@@ -1715,6 +1759,7 @@ export function tick(state) {
   // 之间也有 burstStepTicks 延迟（自动战斗实测 0.4s），由上方阶段 1 分支在延迟结束后施放。
   if (state.burstPhase === 0 && state.burstGauge >= BURST_GAUGE_MAX) {
     state.burstCycleStartTick  = state.tick;   // 记录本轮 gauge 填满时刻
+    state.burstCycleCount++;
     state.burstPhase           = 1;
     state.burstPhaseTick       = Infinity;
     state.burstB1ReadyTick     = state.tick + state.burstStepTicks;

@@ -32,6 +32,13 @@ function updateRhCsConversion(state, caster, endTick = Infinity) {
   }
 }
 
+// Beast Cage / The Last Howl：自身爆裂冷却 ▼40s，两者各自每场战斗仅生效一次（flagKey 记录于 skillState）
+function reduceBurstCdOnce(caster, flagKey) {
+  if (caster.skillState[flagKey]) return;
+  caster.skillState[flagKey] = true;
+  caster.burstCdRemaining = Math.max(0, caster.burstCdRemaining - TICK_RATE * 40);
+}
+
 export default {
 
   // ── Glaring Eyes
@@ -96,12 +103,12 @@ export default {
         },
       },
     ],
-    // [TODO] S2 Part2（Beast Cage）：全员 DEF ▲50.68% RH.DEF 10s
+    // S2 Part2（Beast Cage）：全员 DEF ▲50.68% RH.DEF 10s — inline 于 Burst handler（Step1）
     // S2 Part3（The Last Howl）：自身生命偷取 23.04% 10s — inline 于 Burst handler（Step2）
     // S2 Part4（Red Wolf）：自身 ATK ▲71.42% 10s — inline 于 Burst handler
-    // [TODO] 用法2：AllStep B1 奇数轮/偶数轮 — Beast Cage 效果（全员 ATK ▲77.55% 施者ATK · 10s）
-    // [TODO] 用法3：用法2补充 — 首轮额外使用一次 Beast Cage（利用一次性 -40s CD）
-    // [TODO] 用法4：首轮其他角色推进爆裂链，第二轮 Red Hood 独自 B1+B2+B3 推全爆裂，之后退回用法1
+    // 爆裂用法由模拟选项 rhBurstMode 决定（引擎 battle.js 轮次策略）：
+    //   b3（纯 B3）/ b1odd、b1even（作为 B1，仅奇 / 偶数轮）/ b1r1b3（第 1 轮 B1，其余按站位 B3）/ b1r2b3even（第 2 轮 B1，偶数轮无视站位 B3）
+    // [TODO] 用法4：首轮其他角色推进爆裂链，第二轮 Red Hood 独自 B1+B2+B3 推全爆裂，之后退回纯 B3
     //         配合暖机 CD 缩减角色（Liter / Helm: Aquamarine / Volume / Dolla）在冷却真空期抢时间
   },
 
@@ -140,17 +147,36 @@ export default {
     triggers: [
       // Red Wolf（仅 Step3/StepFull）：
       //   S2 Part4 ATK ▲71.42% + CS ▲100.8% + 武器切换（51.46%·250%FC·10s·弹匣99）
-      //   The Last Howl（Step2）：自身受治疗量 ▲ p05% 10s + S2 Part3 生命偷取 10s（嘲讽 / CD▼40s 未建模）。
-      //   Beast Cage（Step1）使用 burst 时此 handler 直接返回（[TODO] 全员 ATK ▲ 未建模）。
+      //   The Last Howl（Step2）：自身受治疗量 ▲ p05% 10s + S2 Part3 生命偷取 10s + CD▼40s（每场一次；嘲讽未建模）。
+      //   Beast Cage（Step1）：全员 ATK ▲ p01% 施放者 ATK 10s + S2 Part2 全员 DEF 10s + CD▼40s（每场一次）。
       //   weaponSwitchChargeTimeTicks=19：跳过 fore/backswing，
       //   游戏实测 10s 内 32 次攻击 → 600/(32-1) = 19.35 ≈ 19 ticks/shot。
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
           if (state.burstPhase === 1) {
-
+            const end10 = state.tick + TICK_RATE * 10;
+            // Beast Cage：全员 ATK ▲[Burst param0]% 施放者 ATK 10s
+            const atkPct = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
+            pushBuff(state, { name: 'Beast Cage (ATK)', unitId: null,
+              atkFlat: Math.round(caster.stats.atk * atkPct), endTick: end10 });
+            // S2 Part2：Beast Cage 期间全员 DEF ▲[S2 param0]% 施放者 DEF 10s（日志归属 S2 P2）
+            const defPct = getSkillValue(caster.rawSkill2, 0, caster.skillLevels[1]) / 100;
+            pushBuff(state, { name: 'Wild Tooth (DEF)', unitId: null,
+              defFlat: Math.round(caster.stats.def * defPct), endTick: end10 },
+              { unitName: caster.name,
+                skillLabel: caster.rawSkill2?.name_localkey ?? 'S2',
+                slot: 'S2',
+                partIdx: 1,
+                lineIdx: null,
+                trigger: state._logCtx?.trigger ?? 'BURST_SKILL_USE',
+              });
+            // 自身爆裂冷却 ▼40s（每场战斗一次）
+            reduceBurstCdOnce(caster, 'rhBeastCageCdUsed');
           } else if (state.burstPhase === 2) {
             const end10 = state.tick + TICK_RATE * 10;
+            // 自身爆裂冷却 ▼40s（每场战斗一次）
+            reduceBurstCdOnce(caster, 'rhLastHowlCdUsed');
             // The Last Howl：自身受治疗量（Incoming Healing）▲[Burst param4]% 10s（作用于自身受到的一切治疗，含生命偷取）
             const incomingPct = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
             pushBuff(state, { name: 'The Last Howl (Incoming Healing)', unitId: caster.id,

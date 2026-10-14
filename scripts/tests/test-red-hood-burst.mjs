@@ -11,7 +11,7 @@
  * Run: node scripts/tests/test-red-hood-burst.mjs
  */
 
-import { simulate } from '../../src/engine/battle.js';
+import { simulate, initBattle, tick } from '../../src/engine/battle.js';
 import { initUnitMaxAmmo, recalcMaxAmmo } from '../../src/engine/battle-utils.js';
 import { eq, section, summary } from '../lib/test-harness.mjs';
 
@@ -186,6 +186,140 @@ section('RH4 — isWeaponSwitchAmmoFixed / recalcMaxAmmo');
   const expired = mk(true);
   recalcMaxAmmo(stateFor(expired, 201), expired);
   eq('RH4.4  切换结束后恢复截断',               expired.ammoLeft,   15);
+}
+
+// ─── RH5–RH8: 爆裂用法（config.rhBurstMode）──────────────────────────────────
+
+// 逐 tick 运行并按轮次收集 B1 / B2 / B3 施放者名字：[{ b1, b2, b3 }, ...]
+function runRotations(squad, rhBurstMode, ticks = 60 * 60) {
+  const s = initBattle({ squad, enemy: ENEMY, duration: 60, rhBurstMode });
+  const rounds = [];
+  const KEY = { burst_i: 'b1', burst_ii: 'b2', burst_iii: 'b3' };
+  for (let t = 0; t < ticks; t++) {
+    const { events, over } = tick(s);
+    for (const e of events) {
+      if (e.type === 'burst_i') rounds.push({});
+      if (KEY[e.type] && rounds.length) rounds[rounds.length - 1][KEY[e.type]] = e.unitName;
+    }
+    if (over) break;
+  }
+  return { state: s, rounds };
+}
+
+const named = (u, name) => ({ ...u, name });
+
+section('RH5 — Red Hood 作为 B1（奇数轮 / 偶数轮）');
+for (const [mode, rhRound] of [['b1odd', i => i % 2 === 0], ['b1even', i => i % 2 === 1]]) {
+  const squad = [
+    named(dummyUnit('Step1'), 'B1'),
+    named(dummyUnit('Step2'), 'B2'),
+    named(dummyUnit('Step3'), 'B3'),
+    { ...redHoodUnit(), burstSkillCooltime: 0 },
+  ];
+  const { state, rounds } = runRotations(squad, mode);
+  const rh = state.squad.find(u => u.id === 470);
+  eq(`RH5.1  ${mode}：Red Hood 爆裂阶段为 Step1`, rh.burstStep, 'Step1');
+  eq(`RH5.2  ${mode}：至少 4 轮`,                 rounds.length >= 4, true);
+  eq(`RH5.3  ${mode}：B1 施放者按轮次奇偶交替`,
+    rounds.every((r, i) => r.b1 === (rhRound(i) ? 'Red Hood' : 'B1')), true);
+  eq(`RH5.4  ${mode}：Red Hood 不参与 B2 / B3`,
+    rounds.every(r => r.b2 === 'B2' && (r.b3 ?? 'B3') === 'B3'), true);
+}
+
+// 真实 40s 冷却：首次 B1 的冷却 ▼40s 使下一轮冷却已就绪，仍必须等到自己的轮次
+for (const [mode, rhRound, nextIdx] of [['b1odd', i => i % 2 === 0, 1], ['b1even', i => i % 2 === 1, 2]]) {
+  const squad = [
+    named(dummyUnit('Step1'), 'B1'),
+    named(dummyUnit('Step2'), 'B2'),
+    named(dummyUnit('Step3'), 'B3'),
+    redHoodUnit(),
+  ];
+  const { rounds } = runRotations(squad, mode, 60 * 120);
+  eq(`RH5.5  ${mode}（40s 冷却）：Red Hood 仅在自己的轮次施放 B1`,
+    rounds.length >= 6 && rounds.every((r, i) => r.b1 !== 'Red Hood' || rhRound(i)), true);
+  eq(`RH5.6  ${mode}（40s 冷却）：首次 B1 后的下一轮（冷却已就绪）仍不施放`,
+    rounds[nextIdx]?.b1, 'B1');
+}
+
+section('RH6 — Red Hood 第 1 轮爆裂 1 + 按顺序爆裂 3 / 第 2 轮爆裂 1 + 偶数轮爆裂 3');
+{
+  // 三名 B3 各 40s 冷却按站位轮换；Red Hood 在最右
+  const squad = [
+    named(dummyUnit('Step1'), 'B1'),
+    named(dummyUnit('Step2'), 'B2'),
+    named({ ...dummyUnit('Step3'), burstSkillCooltime: 40 * 60 }, 'B3a'),
+    named({ ...dummyUnit('Step3'), burstSkillCooltime: 40 * 60 }, 'B3b'),
+    redHoodUnit(),
+  ];
+  const r1 = runRotations(squad, 'b1r1b3', 60 * 90).rounds;
+  eq('RH6.1  b1r1b3：第 1 轮 B1 = Red Hood',              r1[0]?.b1, 'Red Hood');
+  eq('RH6.2  b1r1b3：第 1 轮 B3 按站位 = B3a',            r1[0]?.b3, 'B3a');
+  eq('RH6.3  b1r1b3：其余各轮 B1 均为其他角色',           r1.length > 2 && r1.slice(1).every(r => r.b1 === 'B1'), true);
+  eq('RH6.4  b1r1b3：之后 Red Hood 按站位施放 B3',        r1.slice(1).some(r => r.b3 === 'Red Hood'), true);
+
+  // b1r2b3even：两名冷却为 0 的 B3 位于左侧，Red Hood 仍在偶数轮无视站位施放 B3
+  const evenSquad = cd => [
+    named(dummyUnit('Step1'), 'B1'),
+    named(dummyUnit('Step2'), 'B2'),
+    named(dummyUnit('Step3'), 'B3a'),
+    named(dummyUnit('Step3'), 'B3b'),
+    { ...redHoodUnit(), burstSkillCooltime: cd },
+  ];
+  const r2 = runRotations(evenSquad(0), 'b1r2b3even', 60 * 90).rounds;
+  const isEven = i => i % 2 === 1;   // 下标 1 = 第 2 轮
+  eq('RH6.5  b1r2b3even：第 1 轮 B1 = 其他角色',          r2[0]?.b1, 'B1');
+  eq('RH6.6  b1r2b3even：第 2 轮 B1 + B3 均为 Red Hood',  `${r2[1]?.b1}/${r2[1]?.b3}`, 'Red Hood/Red Hood');
+  eq('RH6.7  b1r2b3even：第 2 轮以外 B1 均为其他角色',
+    r2.length > 4 && r2.every((r, i) => i === 1 || r.b1 === 'B1'), true);
+  eq('RH6.8  b1r2b3even：偶数轮 B3 = Red Hood，奇数轮 = 站位最左 B3a',
+    r2.every((r, i) => r.b3 === (isEven(i) ? 'Red Hood' : 'B3a')), true);
+
+  // 真实 40s 冷却：奇数轮即使冷却就绪也不施放 B3；偶数轮冷却未就绪时由其他 B3 按站位施放
+  const r2cd = runRotations(evenSquad(40 * 60), 'b1r2b3even', 60 * 120).rounds;
+  eq('RH6.9  b1r2b3even（40s 冷却）：Red Hood 仅在偶数轮施放 B3',
+    r2cd.length > 6 && r2cd.every((r, i) => r.b3 !== 'Red Hood' || isEven(i)), true);
+  eq('RH6.10 b1r2b3even（40s 冷却）：第 2 轮 B3 = Red Hood', r2cd[1]?.b3, 'Red Hood');
+
+  // Red Hood 是最左侧的 B3：B1 那一轮的 B3 也由她施放（Beast Cage 冷却 ▼40s 后就绪）
+  const left = [
+    named(dummyUnit('Step1'), 'B1'),
+    named(dummyUnit('Step2'), 'B2'),
+    redHoodUnit(),
+    named({ ...dummyUnit('Step3'), burstSkillCooltime: 40 * 60 }, 'B3a'),
+  ];
+  const r3 = runRotations(left, 'b1r1b3', 60 * 30).rounds;
+  eq('RH6.11 b1r1b3 且 Red Hood 在左：第 1 轮 B1 + B3 均为 Red Hood',
+    `${r3[0]?.b1}/${r3[0]?.b3}`, 'Red Hood/Red Hood');
+}
+
+section('RH7 — 默认（作为 B3）不参与 B1');
+{
+  const squad = [
+    named(dummyUnit('Step1'), 'B1'),
+    named(dummyUnit('Step2'), 'B2'),
+    { ...redHoodUnit(), burstSkillCooltime: 0 },
+  ];
+  const { rounds } = runRotations(squad, 'b3');
+  eq('RH7.1  B1 均为其他角色',  rounds.length > 0 && rounds.every(r => r.b1 === 'B1'), true);
+  eq('RH7.2  B3 均为 Red Hood', rounds.every(r => (r.b3 ?? 'Red Hood') === 'Red Hood'), true);
+}
+
+section('RH8 — Beast Cage：全员 ATK ▲ 施放者 ATK，自身冷却 ▼40s（每场一次）');
+{
+  const squad = [
+    named(dummyUnit('Step2'), 'B2'),
+    named(dummyUnit('Step3'), 'B3'),
+    redHoodUnit(),
+  ];
+  const r  = simulate({ squad, enemy: ENEMY, duration: 15, hitLog: true, rhBurstMode: 'b1odd' });
+  const bc = (r.buffLog ?? []).find(b => b.name === 'Beast Cage (ATK)' && b.type === 'buff_gain');
+  eq('RH8.1  Beast Cage (ATK) buff 已应用', bc != null, true);
+
+  const { state, rounds } = runRotations(squad, 'b1odd', 60 * 3);
+  const rh = state.squad.find(u => u.id === 470);
+  eq('RH8.2  首轮 B1 = Red Hood',           rounds[0]?.b1, 'Red Hood');
+  eq('RH8.3  首次 B1 后冷却 ▼40s → 0',      rh.burstCdRemaining, 0);
+  eq('RH8.4  ▼40s 已标记为本场已使用',       rh.skillState.rhBeastCageCdUsed, true);
 }
 
 summary('Red Hood weapon switch shot count tests');
