@@ -43,18 +43,18 @@
       </button>
       <div class="topbar-right">
         <span class="topbar-status" x-text="$store.sim.accountStatusText"></span>
-        <template x-if="$store.sim.devMode">
-          <button class="btn btn-ghost btn-sm" :title="$t('top.reloadDevTitle')"
-            @click="$store.sim.reloadAccountFromDev()" x-text="$t('top.importAccount')">
-          </button>
-        </template>
-        <template x-if="!$store.sim.devMode">
-          <label class="btn btn-ghost btn-sm" :title="$t('top.importTitle')">
-            <span x-text="$t('top.importAccount')"></span>
-            <input type="file" accept=".json" class="visually-hidden"
-              @change="e => $store.sim.importAccount(e.target.files[0]).then(() => e.target.value = '')">
-          </label>
-        </template>
+        <!-- 开发模式先尝试从 dev/config.json 重新加载；读不到或出错时回退为选择文件对话框 -->
+        <label class="btn btn-ghost btn-sm"
+          :title="$store.sim.devMode ? $t('top.reloadDevTitle') : $t('top.importTitle')"
+          @click="async e => {
+            if (!$store.sim.devMode || e.target === $refs.accountFile) return;
+            e.preventDefault();
+            if (!(await $store.sim.reloadAccountFromDev())) $refs.accountFile.click();
+          }">
+          <span x-text="$t('top.importAccount')"></span>
+          <input type="file" accept=".json" class="visually-hidden" x-ref="accountFile"
+            @change="e => $store.sim.importAccount(e.target.files[0]).then(() => e.target.value = '')">
+        </label>
         <!-- 模拟记录：弹窗查看最近的模拟结果 -->
         <button type="button" class="btn btn-ghost btn-sm topbar-history-btn"
           :title="$t('top.historyTitle', { n: $store.sim.SIM_HISTORY_MAX })"

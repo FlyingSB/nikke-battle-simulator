@@ -1271,21 +1271,29 @@ export function createStore() {
 
     // ── 账号导入 ──────────────────────────────────────────────────────────────
 
+    /**
+     * 开发专用：从 dev/config.json 重新加载账号。
+     * 读不到或任何环节出错均返回 false，由调用方回退到选择文件对话框。
+     * @returns {Promise<boolean>}
+     */
     async reloadAccountFromDev() {
       this.accountStatus = { key: 'status.reloading' };
-      const ok = await loadAccountFromDev();
-      if (!ok) {
+      try {
+        if (!(await loadAccountFromDev())) throw new Error('dev 账号文件不可用');
+        const settings = getAccountSettings();
+        this._applySettings(settings);
+        this.accountStatus = { key: 'status.updated', params: { n: getAccountSize() } };
+        for (let i = 0; i < 5; i++) {
+          const slot = this.team[i];
+          if (!slot.resourceId) continue;
+          const entry = getRosterEntry(slot.resourceId);
+          if (entry) this._applyRosterEntry(i, entry);
+        }
+        return true;
+      } catch (err) {
+        console.warn('从 dev/config.json 加载账号失败，改为手动选择文件:', err);
         this.accountStatus = { key: 'status.reloadFailed' };
-        return;
-      }
-      const settings = getAccountSettings();
-      this._applySettings(settings);
-      this.accountStatus = { key: 'status.updated', params: { n: getAccountSize() } };
-      for (let i = 0; i < 5; i++) {
-        const slot = this.team[i];
-        if (!slot.resourceId) continue;
-        const entry = getRosterEntry(slot.resourceId);
-        if (entry) this._applyRosterEntry(i, entry);
+        return false;
       }
     },
 
