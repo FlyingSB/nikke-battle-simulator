@@ -165,6 +165,9 @@ export default {
   'sim.quickCharge.off':       '关闭',
   'sim.quickCharge.always':    '始终速充',
   'sim.quickCharge.untilFull': '充能满后恢复全蓄力攻击',
+  'sim.fullCrit':       '百暴',
+  'sim.fullCritTip':    '{name} 技能 2 第 3 段的暴击率提升持续 1 回合：不进行普通攻击就不会被消耗，但对所有技能伤害生效。\n所选角色在自己轮次（本轮施放爆裂技能）的全爆裂期间停止普通攻击：弹匣未满先换弹，之后空闲至全爆裂结束，依靠技能输出。\n若 {name} 本轮把该效果给了其他角色，百暴失效，照常攻击。',
+  'sim.fullCrit.off':   '关闭',
   'sim.start':          '▶ 开始模拟',
   'sim.running':        '⏳ 运行中…',
 

@@ -352,11 +352,63 @@ function scheduleBackswingReload(state, unit, events) {
 }
 
 /**
+ * 「百暴」手动打法（config.fullCritCharIds）：本 tick 是否停止普通攻击。
+ * Miranda S2 P3「Wake Up! (Crit Rate)」为 1 回合的回合制 buff——不进行普通攻击就不会被消耗，
+ * 但对所有技能伤害同样生效（buff 带 fullCritSource 标记，见 32.js）。选中的角色在自己轮次
+ * （本轮施放过爆裂技能）的全爆裂期间、且身上持有该 buff 时停火，依靠技能输出。
+ *   - Miranda 把 buff 给了别人（本单位身上没有）→ 百暴失效，照常攻击；
+ *   - 无限弹射击（武器切换无限弹 / unlimitedAmmoEndTick）不消耗回合制 buff，照常射击。
+ *     （Nayuta 这类无限弹爆裂角色因此本就无需百暴，UI 不提供该选项；此处仅作通用保护。）
+ * @param {object} state
+ * @param {object} unit
+ * @returns {boolean}
+ */
+function fullCritHoldActive(state, unit) {
+  if (!unit.fullCritHold || !state.fullBurstActive) return false;
+  if (!state.burstCastersThisRotation?.has(unit.id)) return false;
+  if (isWeaponSwitchActive(state, unit) && unit.skillState.weaponSwitchUnlimitedAmmo) return false;
+  if ((unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick) return false;
+  return state.buffs.some(b => b.unitId === unit.id && b.fullCritSource && (b.roundsLeft ?? 0) > 0);
+}
+
+/**
+ * 百暴停火中的一 tick：弹匣未满且未在换弹 → 标记手动换弹（下一 tick 由装填分支开始），之后空闲。
+ * 空闲期间 MG 射速衰减、散布恢复（同停火区段）。
+ * @param {object} state
+ * @param {object} unit
+ */
+function holdFireForFullCrit(state, unit) {
+  unit.fullCritHolding = true;
+  if (unit.ammoLeft < unit.maxAmmo && unit.reloadTick === 0 && unit.backswingReloadTick === 0)
+    unit.manualReload = true;
+  if (unit.mgCurrentRof != null && unit.mgRofDecayPerTick > 0)
+    unit.mgCurrentRof = Math.max(unit.mgStartRof, unit.mgCurrentRof - unit.mgRofDecayPerTick);
+  recoverAccuracy(unit, 1);
+}
+
+/**
+ * 百暴停火结束（全爆裂结束 / buff 消失）：重新开始攻击。
+ * 蓄力武器从本 tick 起重新蓄力（UP 型含前摇），非蓄力武器进入对准期（spot_first_delay）。
+ * @param {object} state
+ * @param {object} unit
+ */
+function resumeAfterFullCritHold(state, unit) {
+  unit.fullCritHolding = false;
+  if (isWeaponSwitchActive(state, unit)) return;
+  if (unit.chargeTimeTicks > 0) {
+    scheduleEngineCharge(state, unit, state.tick, unit.isDownCharge ? 0 : unit.foreswingTicks,
+      getBuffSums(state, unit.id));
+  } else if (unit.reloadAimTicks > 0) {
+    unit.aimReadyTick = state.tick + unit.reloadAimTicks;
+  }
+}
+
+/**
  * 速充的全爆裂收尾：全爆裂结束前预留「换弹 + 前摇 + 全蓄力」，手动换弹后全蓄力，
  * 使该发恰好在全爆裂结束瞬间打出（此时槽已清零，全蓄力充能计入下一轮），之后继续速充。
  * 每 tick 检查：按当前换弹 / 蓄力时长估算收尾发 tick，首次 ≥ 全爆裂结束 tick 时开始（每轮全爆裂一次）。
  *   - 已在换弹中：仅标记收尾，换弹完成后按全蓄力排定；
- *   - 弹匣未满：打断当前攻击 / 后摇期间换弹，开始手动换弹（qcManualReload，装填分支照常处理）；
+ *   - 弹匣未满：打断当前攻击 / 后摇期间换弹，开始手动换弹（manualReload，装填分支照常处理）；
  *   - 弹匣已满或换弹瞬间完成：直接排定前摇 + 全蓄力。
  * 蓄速 buff 在收尾蓄力中途到期时由 rescheduleEngineCharge 按新时长顺延（与实机一致）。
  * @param {object} state
@@ -365,6 +417,7 @@ function scheduleBackswingReload(state, unit, events) {
  */
 function maybeStartQuickChargeFinisher(state, unit, events) {
   if (!unit.quickChargeMode || !state.fullBurstActive) return;
+  if (fullCritHoldActive(state, unit)) return;  // 百暴停火优先：本轮全爆裂不做收尾
   const fbEnd = state.fullBurstTick;
   if (unit.qcFinisherFbTick === fbEnd || isWeaponSwitchActive(state, unit)) return;
   const sums       = getBuffSums(state, unit.id);
@@ -381,7 +434,7 @@ function maybeStartQuickChargeFinisher(state, unit, events) {
   if (reloading) return;
   unit.backswingReloadTick = 0;
   if (reloadDur > 0) {
-    unit.qcManualReload  = true;
+    unit.manualReload  = true;
     unit.reloadTick      = state.tick + reloadDur;
     unit.reloadStartTick = state.tick;
     return;
@@ -1135,7 +1188,7 @@ export function initBattle(config) {
     unit.qcShotTick        = null;   // 已排定的速充发 tick（chargeTick 等于它时本发为速充攻击）
     unit.qcFinisherFbTick  = null;   // 已开始收尾的全爆裂结束 tick（每轮全爆裂只收尾一次）
     unit.qcFinisherPending = false;  // 收尾全蓄力发尚未打出
-    unit.qcManualReload    = false;  // 收尾手动换弹进行中（弹匣未空）
+    unit.manualReload      = false;  // 手动换弹进行中（弹匣未空；速充收尾 / 百暴停火前换弹）
     if ((config.quickChargeMode === 'always' || config.quickChargeMode === 'untilFull')
         && unit.isFocus && chargeTimeTicks > 0 && !isDownCharge) {
       unit.quickChargeMode  = config.quickChargeMode;
@@ -1143,6 +1196,9 @@ export function initBattle(config) {
       unit.engineChargeTick = null;
       unit.qcShotTick       = QUICK_CHARGE_SHOT_TICKS;
     }
+    // 百暴（config.fullCritCharIds：选中角色的 resource_id 列表，见 fullCritHoldActive）
+    unit.fullCritHold    = Array.isArray(config.fullCritCharIds) && config.fullCritCharIds.includes(cfg.characterId);
+    unit.fullCritHolding = false;  // 本轮全爆裂停火中（停火结束时据此重新排定攻击）
     return unit;
   });
 
@@ -1681,8 +1737,9 @@ export function tick(state) {
     // 装填处理（HIDDEN 期间也会运行，让进行中的装填能够完成）
     // unlimitedAmmoEndTick 激活期间弹药不消耗，永远不会达到 0，跳过装填逻辑
     // 后摇期间换弹尚未完成时（backswingReloadTick > 0）由上方补满，不另起常规换弹
-    // 速充收尾的手动换弹（qcManualReload）弹匣未空也走本分支（reloadTick 已由收尾逻辑设置）
-    if ((unit.ammoLeft <= 0 || unit.qcManualReload) && unit.backswingReloadTick === 0
+    // 手动换弹（manualReload：速充收尾 / 百暴停火前）弹匣未空也走本分支
+    // （速充收尾已设置 reloadTick；百暴仅置标记，由本分支按常规换弹时长开始换弹）
+    if ((unit.ammoLeft <= 0 || unit.manualReload) && unit.backswingReloadTick === 0
         && !((unit.skillState.unlimitedAmmoEndTick ?? 0) > state.tick)) {
       if (unit.reloadTick === 0) {
         // 换弹相位 = 折减后的装填时长 + 末发后摇（非蓄力武器 spot_last_delay，不受换弹速度折减）。
@@ -1707,7 +1764,7 @@ export function tick(state) {
         continue;
       }
       refillMagazine(state, unit, events);
-      unit.qcManualReload = false;
+      unit.manualReload = false;
       // 装填后射击周期衔接：非蓄力 RPM 武器保留换弹期间累积的累加器（封顶 1）——
       // 装填时长 ≥ RPM 发间时累加器已到 1，换弹完成第一发立即击发（与旧行为一致）；
       // 装填被换弹速度 buff 压缩到发间以内时，下一发仍落在「上一发 + RPM 发间」。
@@ -1788,6 +1845,17 @@ export function tick(state) {
         state.ammoLog.push({ tick: state.tick, unitId: unit.id, unitName: unit.name,
           delta: unit.ammoLeft - beforeFill, ammoAfter: unit.ammoLeft, maxAmmo: unit.maxAmmo,
           source: 'weapon_switch_end' });
+    }
+
+    // 百暴：自己轮次全爆裂期间停止普通攻击（保留 Miranda S2 P3 暴击率），按规则装弹后空闲至全爆裂结束。
+    // 放在武器切换结束补满之后：切换刚结束（如 Nayuta）时弹匣已补满，不再多余换弹。
+    if (fullCritHoldActive(state, unit)) {
+      holdFireForFullCrit(state, unit);
+      continue;
+    }
+    if (unit.fullCritHolding) {
+      resumeAfterFullCritHold(state, unit);
+      continue;  // 本 tick 起重新蓄力 / 对准
     }
 
     let shotsThisTick;

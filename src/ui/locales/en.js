@@ -165,6 +165,9 @@ export default {
   'sim.quickCharge.off':       'Off',
   'sim.quickCharge.always':    'Always quick charge',
   'sim.quickCharge.untilFull': 'Full charge once the gauge is full',
+  'sim.fullCrit':       '100% Crit',
+  'sim.fullCritTip':    '{name}\'s Skill 2 Part 3 Crit Rate buff lasts 1 round: it is not consumed unless a normal attack is made, yet it applies to all skill damage.\nThe selected unit stops normal attacks during Full Burst on her own rotation (she used her Burst Skill this cycle): reload if the magazine is not full, then stay idle until Full Burst ends, relying on skill damage.\nIf {name} gives the buff to another unit this cycle, 100% Crit does not apply and the unit attacks normally.',
+  'sim.fullCrit.off':   'Off',
   'sim.start':          '▶ Run Simulation',
   'sim.running':        '⏳ Running…',
 

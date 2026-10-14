@@ -91,10 +91,11 @@ export default {
           const topAlly = state.squad
             .filter(u => u.id !== caster.id)
             .sort((a, b) => effectiveAtk(b) - effectiveAtk(a))[0];
+          // fullCritSource：「百暴」打法据此判断本单位持有该 buff（不普攻即不消耗、技能同样享受；见 battle.js fullCritHoldActive）
           if (topAlly) {
             const crBonus = getSkillValue(favS2, 7, lv) / 100;
             pushBuff(state, { name: 'Wake Up! (Crit Rate)', unitId: topAlly.id,
-              critRatePct: crBonus, roundsLeft: 1, endTick: Infinity }, 
+              critRatePct: crBonus, roundsLeft: 1, endTick: Infinity, fullCritSource: true },
               { ...state._logCtx, partIdx: 2 });
           }
         },
