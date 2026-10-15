@@ -110,6 +110,17 @@ body {
 .lang-switch-btn--active,
 .lang-switch-btn--active:hover { background: var(--accent-dim); color: #fff; cursor: default; }
 
+/* GitHub 仓库链接：与语言切换同高的圆形图标按钮，悬停时图标提亮、边框转强调色 */
+.topbar-github {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 1px solid var(--border2); background: var(--bg); color: var(--text-dim);
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+.topbar-github svg { fill: currentColor; }
+.topbar-github:hover { color: var(--text); border-color: var(--accent); background: var(--surface3); }
+.topbar-github:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* 辅助工具菜单：顶栏右侧下拉，右对齐展开；每项为「名称 + 说明 + 链接」 */
 .tools-menu { position: relative; }
 .tools-menu-panel {

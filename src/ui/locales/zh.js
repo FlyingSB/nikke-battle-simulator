@@ -17,6 +17,7 @@ export default {
   'top.reloadDevTitle':   '重新从 dev/config.json 加载账号',
   'top.importTitle':      '导入账号 JSON',
   'top.history':          '📜 模拟记录',
+  'top.github':           'GitHub 仓库',
   'top.historyTitle':     '查看最近的模拟结果（最多保存 {n} 条）',
 
   // ── 辅助工具菜单 ──

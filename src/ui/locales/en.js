@@ -17,6 +17,7 @@ export default {
   'top.reloadDevTitle':   'Reload account from dev/config.json',
   'top.importTitle':      'Import account JSON',
   'top.history':          '📜 History',
+  'top.github':           'GitHub repository',
   'top.historyTitle':     'View recent simulation results (up to {n} saved)',
 
   // ── 辅助工具菜单 ──
