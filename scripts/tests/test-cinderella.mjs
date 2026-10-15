@@ -8,6 +8,7 @@
  *   Fix 6  — S3 Part2 mult = Beautiful stacks × 28.9% (one hit per Part1 trigger)
  *   Fix 7  — S3 Part2 fires once per each of the 10 S3 Part1 hits
  *   Fix 8  — S3 Part1 默认结算，无 burstSkillDamage 标记（引擎自动抑制全爆裂加成）
+ *   2026-10-15 — 敌人承伤 debuff 随 sums 快照；首段伤害于进入全爆裂后 0.95s 命中
  *
  * Run: node scripts/tests/test-cinderella.mjs
  */
@@ -35,6 +36,11 @@ function makeState(overrides = {}) {
     burstEnergyLog: null,
     ...overrides,
   };
+}
+
+// 模拟 B3 施放中的状态：fireSkillHit 对施放者（511）的伤害排入延迟命中队列（同 skill-executor 的 _deferB3HitsFor）
+function makeB3CastState(overrides = {}) {
+  return makeState({ pendingSkillHits: [], _deferB3HitsFor: 511, ...overrides });
 }
 
 // 构造最小化 skill detail，使 getSkillValue(detail, paramIndex, 10) 能正确返回 lv10 值
@@ -204,27 +210,21 @@ section('Fix 6: S3 Part2 mirrors Beautiful stack count (mult = stacks × 0.289)'
   eq('Burst has BURST_SKILL_USE handler', !!burstUseTrigger, true);
 
   // 12 Beautiful stacks → mult = 12 × 0.289 = 3.468
-  const state  = makeState();
+  const state  = makeB3CastState();
   const caster = makeCaster();
   caster.skillState.cinderellaBeautyStacks = 12;
   state.squad = [caster];
 
   burstUseTrigger.handler(state, caster, {});
 
+  const p2 = state.pendingSkillHits.filter(h => h.label === 'Burst P2');
   const expectedMult = 12 * 0.289;
-  const allCorrectMult = state.pendingFireInBurstHits.every(h =>
-    Math.abs(h.mult - expectedMult) < 0.0001);
-  eq('all burst_beautiful hits mult = 12 × 0.289', allCorrectMult, true);
-
+  eq('all Burst P2 hits mult = 12 × 0.289', p2.every(h => Math.abs(h.mult - expectedMult) < 0.0001), true);
   near('expected mult value', expectedMult, 3.468, 0.0001);
 
-  // label should be 'burst_beautiful'
-  eq('all burst_beautiful label correct',
-    state.pendingFireInBurstHits.every(h => h.label === 'Burst P2'), true);
-
-  // sums = null (recomputed after ENTER_FULL_BURST)
-  eq('all burst_beautiful sums = null',
-    state.pendingFireInBurstHits.every(h => h.sums === null), true);
+  // 受全爆裂影响：sums = null（进入全爆裂瞬间由引擎快照）
+  eq('all Burst P2 affectedByFullBurst', p2.every(h => h.opts?.affectedByFullBurst === true), true);
+  eq('all Burst P2 sums = null', p2.every(h => h.sums === null), true);
 }
 
 // ── Fix 7: S3 Part2 fires 10 times (once per S3 Part1 hit) ───────────────────
@@ -234,26 +234,56 @@ section('Fix 7: S3 Part2 enqueued exactly 10 times (one per Part1 hit)');
   const burstUseTrigger = SKILL_TRAITS[511]?.burst?.triggers.find(t => t.on === 'BURST_SKILL_USE');
 
   // With Beautiful stacks > 0
-  const state  = makeState();
+  const state  = makeB3CastState();
   const caster = makeCaster();
   caster.skillState.cinderellaBeautyStacks = 7;
   state.squad = [caster];
 
   burstUseTrigger.handler(state, caster, {});
 
-  eq('pendingFireInBurstHits count = 10', state.pendingFireInBurstHits.length, 10);
-  eq('burst_seq hit count = 10', caster.skillDamageCount?.['Burst P1'] ?? 0, 10);
+  eq('Burst P1 enqueued 10 times', state.pendingSkillHits.filter(h => h.label === 'Burst P1').length, 10);
+  eq('Burst P2 enqueued 10 times', state.pendingSkillHits.filter(h => h.label === 'Burst P2').length, 10);
 
   // With 0 stacks: no Part2 enqueued
-  const state2  = makeState();
+  const state2  = makeB3CastState();
   const caster2 = makeCaster();
   caster2.skillState.cinderellaBeautyStacks = 0;
   state2.squad = [caster2];
 
   burstUseTrigger.handler(state2, caster2, {});
 
-  eq('no pendingFireInBurstHits when Beautiful = 0', state2.pendingFireInBurstHits.length, 0);
-  eq('Part1 still fires 10 times', caster2.skillDamageCount?.['Burst P1'] ?? 0, 10);
+  eq('no Burst P2 when Beautiful = 0', state2.pendingSkillHits.filter(h => h.label === 'Burst P2').length, 0);
+  eq('Part1 still enqueued 10 times', state2.pendingSkillHits.filter(h => h.label === 'Burst P1').length, 10);
+}
+
+// ── 2026-10-15 实测：敌人 debuff 快照 + 首段延迟 0.95s ─────────────────────────
+
+section('Burst: 敌人承伤 debuff 施放瞬间快照（Part1），首段于进入全爆裂后 0.95s 命中');
+{
+  const burstUseTrigger = SKILL_TRAITS[511]?.burst?.triggers.find(t => t.on === 'BURST_SKILL_USE');
+
+  const state  = makeB3CastState({ tick: 1000 });
+  const caster = makeCaster();
+  caster.skillState.cinderellaBeautyStacks = 3;
+  state.squad = [caster];
+  state.buffs.push({ name: 'Marked Target 1', unitId: '__enemy__', isDebuff: true,
+    enemyDamageTakenPct: 0.3996, endTick: 1010 });
+
+  burstUseTrigger.handler(state, caster, {});
+
+  const p1 = state.pendingSkillHits.filter(h => h.label === 'Burst P1');
+  const p2 = state.pendingSkillHits.filter(h => h.label === 'Burst P2');
+  eq('Part1 带敌人 debuff 快照', p1.every(h => h.opts?.enemyDebuffSnapshot != null), true);
+  near('Part1 快照承伤 = Marked Target 1', p1[0]?.opts?.enemyDebuffSnapshot?.damageTakenPct ?? 0, 0.3996, 1e-9);
+  eq('Part1 快照明细含 Marked Target 1',
+    p1[0]?.opts?.enemyDebuffSnapshot?.breakdown?.some(b => b.name === 'Marked Target 1') ?? false, true);
+  // Part2 的 sums 与敌人 debuff 均在进入全爆裂瞬间快照（施放时只打标记）
+  eq('Part2 标记 snapshotEnemyDebuffs', p2.every(h => h.opts?.snapshotEnemyDebuffs === true), true);
+  eq('Part2 施放时不带快照', p2.every(h => h.opts?.enemyDebuffSnapshot == null), true);
+
+  // 施放 tick 1000 + 首段延迟 round(0.95 × 60) = 57（进入全爆裂的 0.05s 由引擎另行后移）
+  eq('Part1 fireTick = 施放 + 57', p1.every(h => h.fireTick === 1000 + 57), true);
+  eq('Part2 fireTick = 施放 + 57', p2.every(h => h.fireTick === 1000 + 57), true);
 }
 
 // ── Fix 8: S3 Part1 默认结算（无 burstSkillDamage 标记，引擎自动抑制加成）────

@@ -117,6 +117,18 @@ section('Q4 — untilFull：槽满后恢复全蓄力，收尾后恢复速充');
   eq('之后恢复速充', isQuick(shots.find(s => s.tick > fbEnd)), true);
 }
 
+section('Q6 — 换弹较慢：全爆裂中换弹完成后不打出首发，全蓄力按住至全爆裂结束');
+{
+  // 弹匣 10、换弹 280t：换弹完成（弹匣满）时若照常打出下一发再手动换弹，收尾发会晚于全爆裂结束
+  // （回归：Arcana 未装 Resilience 魔方时收尾前多打一发，收尾发延后到全爆裂结束之后）
+  for (const mode of ['untilFull', 'always']) {
+    const { shots, log } = run(focusSr({ baseAmmo: 10, reloadTicks: 280 }), mode);
+    const fbEnds = log.filter(e => e.type === 'burst_end').map(e => e.tick);
+    eq(`${mode}：每次全爆裂结束 tick 均打出全蓄力收尾发`,
+       fbEnds.every(t => shots.find(s => s.tick === t)?.chargeMult === 2.5), true);
+  }
+}
+
 section('Q5 — DOWN_Charge 型 / 非 Focus 不启用速充');
 {
   const down = run(focusSr({ isDownCharge: true }), 'always').shots;

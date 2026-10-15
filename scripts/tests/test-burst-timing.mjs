@@ -9,7 +9,7 @@
  * 非默认角色（描述 as additional damage，且已实测）：
  *   - Rapi: Red Hood (16)：进入全爆裂后 0.1s，获得 50% 加成和 ENTER_FULL_BURST buff
  *   - Liberalio (262)：进入全爆裂后 0.97s，获得 50% 加成和 ENTER_FULL_BURST buff
- *   - Cinderella Beautiful 加成 (511)：pendingFireInBurstHits + sums:null，获得两者
+ *   - Cinderella Beautiful 加成 (511)：affectedByFullBurst（进入全爆裂瞬间快照），获得两者
  * 实测例外（描述 as damage / as true damage 但受影响）：
  *   - Elegg: Boom and Shock (502)：进入全爆裂后 0.2s 起，获得两者及 S2 P1 Ghostbuster ATK ▲
  *   - Ein (391) Burst P2（as true damage）：进入全爆裂时命中，获得两者
@@ -266,18 +266,20 @@ section('Cinderella 主爆裂 (511) — 直接 fireSkillHit，无标记（默认
 
   eq('主爆裂不含 burstSkillDamage（默认结算）', src.includes('burstSkillDamage'), false);
   eq('主爆裂 label = Burst P1', src.includes('Burst P1'), true);
-  eq('主爆裂不使用 pendingSkillHits', src.includes('pendingSkillHits'), false);
+  // 首段于进入全爆裂后 0.95s 命中（2026-10-15 实测）：handler 后移本次排入的延迟命中
+  eq('主爆裂后移首段延迟', src.includes('BURST_FIRST_HIT_DELAY_TICKS'), true);
+  eq('主爆裂快照敌人 debuff', src.includes('snapshotEnemyDebuffs: true'), true);
 }
 
-// ── Cinderella Beautiful 加成 (511) — 非默认：pendingFireInBurstHits + sums:null ─
+// ── Cinderella Beautiful 加成 (511) — 受全爆裂影响：affectedByFullBurst ─────────
 
-section('Cinderella Beautiful 加成 (511) — pendingFireInBurstHits，sums:null，无 burstSkillDamage');
+section('Cinderella Beautiful 加成 (511) — affectedByFullBurst（进入全爆裂瞬间快照），无 burstSkillDamage');
 {
   const src = SKILL_TRAITS[511]?.burst?.triggers
     .find(t => t.on === 'BURST_SKILL_USE')?.handler?.toString() ?? '';
 
-  eq('Beautiful 加成使用 pendingFireInBurstHits', src.includes('pendingFireInBurstHits'), true);
-  eq('Beautiful 加成 sums: null', src.includes('sums: null'), true);
+  eq('Beautiful 加成不再走 pendingFireInBurstHits', src.includes('pendingFireInBurstHits'), false);
+  eq('Beautiful 加成 affectedByFullBurst: true', src.includes('affectedByFullBurst: true'), true);
 }
 
 // ── Maiden: Ice Rose (183) — 默认：延迟 0.73s + 0.1s 间隔 ───────────────────────

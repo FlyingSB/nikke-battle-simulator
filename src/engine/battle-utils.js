@@ -448,6 +448,15 @@ export function getEnemyDebuffBreakdown(state) {
   return entries;
 }
 
+/**
+ * 快照敌人当前的承伤 debuff（总量 + 明细），供延迟命中按快照结算（fireSkillHit opts.enemyDebuffSnapshot）。
+ * @param {object} state
+ * @returns {{ damageTakenPct: number, breakdown: object[] }}
+ */
+export function snapshotEnemyDebuffs(state) {
+  return { damageTakenPct: getEnemyDamageTakenPct(state), breakdown: getEnemyDebuffBreakdown(state) };
+}
+
 // ─── Buff 添加 ─────────────────────────────────────────────────────────────
 
 /**
@@ -1091,7 +1100,7 @@ export function pushHoT(state, target, amount, durationSecs, logCtxOverride = nu
  *   projectileExplosion      {boolean}  Projectile Explosion 命中（受 projectileExplosionDamagePct 影响）
  *   affectedByFullBurst      {boolean}  B3 爆裂技能描述为 "as additional damage" 时设置：该命中受全爆裂 +50% 与
  *                                       ENTER_FULL_BURST buff 影响（Rapi: Red Hood、Liberalio、Laplace: Ultimate Hero P3、
- *                                       Sin: Swift Bunny P3；实测例外 Elegg: Boom and Shock；Cinderella P2 走 pendingFireInBurstHits）
+ *                                       Sin: Swift Bunny P3、Cinderella P2；实测例外 Elegg: Boom and Shock）
  *   suppressFullBurst        {boolean}  [引擎内部] 由引擎自动标记延迟爆裂技能命中，抑制全爆裂补正
  *   applyDistanceAdv         {boolean}  该技能命中受距离优势影响（默认仅普通攻击；Rapi S2 P1/P2 需显式开启）
  *   isSequentialAttack       {boolean}  依次攻击命中（受 sequentialAttackDamagePct buff 加成）
@@ -1101,6 +1110,9 @@ export function pushHoT(state, target, amount, durationSecs, logCtxOverride = nu
  *                                       在写入 hitLog 前累加，使充能与伤害合并为同一日志行（同普通射击）；
  *                                       不再单独产生「爆裂槽」行。爆裂期间（burstPhase!==0）不充能
  *   burstEnergySource        {string}   burstEnergyLog 中的来源标识（缺省为解析后的 label）
+ *   snapshotEnemyDebuffs     {boolean}  B3 延迟命中连同敌人承伤 debuff 一起快照（与 sums 同一时刻：默认命中在施放时，
+ *                                       affectedByFullBurst 命中在进入全爆裂时），之后 debuff 消失不影响伤害（Cinderella 实测）
+ *   enemyDebuffSnapshot      {object}   [引擎内部] snapshotEnemyDebuffs 的快照结果，替代命中时刻的敌人承伤
  */
 function resolveSkillLabel(unit, label) {
   if (!label || label === 'normal_shot') return label;
@@ -1278,10 +1290,13 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       fireTick: state.tick, caster: unit, mult: hitMult, label,
       sums: affected ? null : sums,
       opts: affected ? opts
-        : { ...opts, preBuffBreakdown: opts.preBuffBreakdown ?? snapshotBuffBreakdown(state, unit.id, label, opts) },
+        : { ...opts, preBuffBreakdown: opts.preBuffBreakdown ?? snapshotBuffBreakdown(state, unit.id, label, opts),
+            ...(opts.snapshotEnemyDebuffs ? { enemyDebuffSnapshot: snapshotEnemyDebuffs(state) } : {}) },
     });
     return 0;
   }
+  // 敌人承伤：有快照（snapshotEnemyDebuffs）时按快照，否则取命中时刻
+  const enemyDamageTakenPct = opts.enemyDebuffSnapshot?.damageTakenPct ?? getEnemyDamageTakenPct(state);
   // 「全体敌人」爆裂技能伤害加成（Spread Roots）：在解析显示名之前按原始标签判定
   const allEnemiesBurstPct = isAllEnemiesBurstHit(unit, label) ? (sums.allEnemiesBurstDamagePct ?? 0) : 0;
   label = resolveSkillLabel(unit, label);
@@ -1341,7 +1356,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
                          trueDamageMult: isTrueDamage ? (sums.trueDamagePct ?? 0) : 0,
                          sequentialAttackDamageMult: opts.isSequentialAttack ? (sums.sequentialAttackDamagePct ?? 0) : 0,
                          damageToPartsMult: sums.damageToPartsPct ?? 0 },
-    damageTakenMult:   getEnemyDamageTakenPct(state) + distributedDamagePct,
+    damageTakenMult:   enemyDamageTakenPct + distributedDamagePct,
   });
   unit.totalDamage += damage;
   applyLifeSteal(state, unit, damage, sums);
@@ -1379,7 +1394,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
       projectileExplosionDamagePct,
       affectedByFullBurst: opts.affectedByFullBurst ?? false,
       isFullBurst,
-      damageTakenPct: getEnemyDamageTakenPct(state) + distributedDamagePct,
+      damageTakenPct: enemyDamageTakenPct + distributedDamagePct,
       enemyDef: isTrueDamage ? 0 : getEffectiveEnemyDef(state),
       enemyBaseDef: state.enemyDef,   // 降防前的基础 DEF（公式导出反推降防比例）
       isDistributed, distributedDamagePct,
@@ -1401,7 +1416,7 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
           extraAtkDmg: extraAtkDmgPct > 0, projectileExplosion: projectileExplosionDamagePct > 0,
           allEnemies: allEnemiesBurstPct !== 0,
         })),
-        ...getEnemyDebuffBreakdown(state),
+        ...(opts.enemyDebuffSnapshot?.breakdown ?? getEnemyDebuffBreakdown(state)),
       ],
     });
   }

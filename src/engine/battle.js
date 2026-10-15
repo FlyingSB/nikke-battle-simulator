@@ -20,7 +20,7 @@ import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAU
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, rollPelletGroups, rlCoreHitRate, isEnemyHittable, logMissedSkillHit, sgPelletHitRate, isBuffActiveFor, sumBuffField } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, snapshotEnemyDebuffs, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, rollPelletGroups, rlCoreHitRate, isEnemyHittable, logMissedSkillHit, sgPelletHitRate, isBuffActiveFor, sumBuffField } from './battle-utils.js';
 import { executeSkillTriggers, dispatchHpChanged, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -423,6 +423,8 @@ function resumeAfterFullCritHold(state, unit) {
  *   - 已在换弹中：仅标记收尾，换弹完成后按全蓄力排定；
  *   - 弹匣未满：打断当前攻击 / 后摇期间换弹，开始手动换弹（manualReload，装填分支照常处理）；
  *   - 弹匣已满或换弹瞬间完成：直接排定前摇 + 全蓄力。
+ *   - 弹匣已满但已排定的下一发打出后再换弹会赶不上全爆裂结束（nextShotSpoilsFinisher）：
+ *     提前开始收尾，不打该发，全蓄力按住至全爆裂结束 tick 打出。
  * 蓄速 buff 在收尾蓄力中途到期时由 rescheduleEngineCharge 按新时长顺延（与实机一致）。
  * @param {object} state
  * @param {object} unit
@@ -441,7 +443,9 @@ function maybeStartQuickChargeFinisher(state, unit, events) {
   // UP 型换弹相位结束 = max(换弹完成, 末发 + 后摇)，之后前摇 + 全蓄力（§4.3.6）
   const phaseEnd = Math.max(reloading ? unit.reloadTick : state.tick + reloadDur,
     unit.lastChargeShotTick + unit.backswingTicks);
-  if (phaseEnd + unit.foreswingTicks + effectiveChargeTicks(state, unit, sums) < fbEnd) return;
+  const effCharge = effectiveChargeTicks(state, unit, sums);
+  const holdForFinisher = !reloading && !needReload && nextShotSpoilsFinisher(state, unit, sums, fbEnd, effCharge);
+  if (!holdForFinisher && phaseEnd + unit.foreswingTicks + effCharge < fbEnd) return;
   unit.qcFinisherFbTick  = fbEnd;
   unit.qcFinisherPending = true;
   if (reloading) return;
@@ -456,8 +460,31 @@ function maybeStartQuickChargeFinisher(state, unit, events) {
     refillMagazine(state, unit, events);
     onReloadEnd(state, unit);
   }
-  scheduleEngineCharge(state, unit, Math.max(state.tick, unit.lastChargeShotTick + unit.backswingTicks),
+  // 弹匣满时提前进入收尾：全蓄力后按住，至全爆裂结束 tick 打出（排定起点顺延到 fbEnd − 前摇 − 蓄力）
+  scheduleEngineCharge(state, unit,
+    Math.max(state.tick, unit.lastChargeShotTick + unit.backswingTicks, fbEnd - unit.foreswingTicks - effCharge),
     unit.foreswingTicks, getBuffSums(state, unit.id));
+}
+
+/**
+ * 速充收尾判定（弹匣满、未换弹时）：已排定的下一发若照常打出，之后「换弹相位 + 前摇 + 全蓄力」
+ * 将越过全爆裂结束 tick，则不应打出该发，而应改为收尾全蓄力并按住至全爆裂结束。
+ * 典型场景：全爆裂开始后换弹完成（弹匣满），换弹较慢（如未装 Resilience 魔方）时，
+ * 打出换弹后首发再手动换弹已赶不上全爆裂结束，收尾发会晚于全爆裂结束打出。
+ * @param {object} state
+ * @param {object} unit
+ * @param {object} sums getBuffSums 汇总
+ * @param {number} fbEnd 全爆裂结束 tick
+ * @param {number} effCharge 当前有效蓄力 ticks
+ * @returns {boolean}
+ */
+function nextShotSpoilsFinisher(state, unit, sums, fbEnd, effCharge) {
+  const next = unit.chargeTick;
+  if (!(next > state.tick) || next >= fbEnd) return false;
+  if ((unit.skillState.unlimitedAmmoEndTick ?? 0) > next) return false;
+  // 打出后弹匣未满：换弹与后摇同时计时（换弹 ≤ 后摇时即后摇期间换弹）
+  const phaseEnd = next + Math.max(reloadDurationTicks(state, unit, sums), unit.backswingTicks);
+  return phaseEnd + unit.foreswingTicks + effCharge > fbEnd;
 }
 
 /**
@@ -819,7 +846,8 @@ function enterFullBurst(state, events) {
     if (!sumsCache.has(h.caster.id)) sumsCache.set(h.caster.id, getBuffSums(state, h.caster.id));
     h.sums = sumsCache.get(h.caster.id);
     h.opts = { ...(h.opts ?? {}),
-      preBuffBreakdown: snapshotBuffBreakdown(state, h.caster.id, h.label, h.opts ?? {}) };
+      preBuffBreakdown: snapshotBuffBreakdown(state, h.caster.id, h.label, h.opts ?? {}),
+      ...(h.opts?.snapshotEnemyDebuffs ? { enemyDebuffSnapshot: snapshotEnemyDebuffs(state) } : {}) };
   };
   for (const h of state.pendingSkillHits) if (h.opts?.affectedByFullBurst) applySnapshot(h);
   for (const h of state.pendingFireInBurstHits) applySnapshot(h);
@@ -1627,6 +1655,8 @@ export function tick(state) {
     const due = state.pendingSkillHits.filter(h => h.fireTick <= state.tick);
     state.pendingSkillHits = state.pendingSkillHits.filter(h => h.fireTick > state.tick);
     for (const h of due) {
+      // 可选到期回调：与本命中同时生效、须先于伤害结算的效果（如 Isabel 爆裂 P1 延迟生效的承伤 ▲）
+      h.onDue?.(state);
       // 带延迟的技能伤害在敌人隐藏期间到达 → 落空：伤害 0，日志标为「未命中」
       if (!isEnemyHittable(state)) {
         logMissedSkillHit(state, h.caster, h.mult, h.label);

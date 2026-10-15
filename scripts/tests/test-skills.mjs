@@ -934,7 +934,8 @@ section('T16: B3 直接伤害默认/非默认结算配置审计');
     const src = SKILL_TRAITS[511]?.burst?.triggers?.find(
       t => t.on === 'BURST_SKILL_USE')?.handler?.toString() ?? '';
     eq('Cinderella Part1 源码不含 burstSkillDamage（默认结算）', src.includes('burstSkillDamage'), false);
-    eq('Cinderella Part2 源码含 sums: null（进入全爆裂瞬间快照）', src.includes('sums: null'), true);
+    eq('Cinderella Part2 源码含 affectedByFullBurst: true（进入全爆裂瞬间快照）',
+      src.includes('affectedByFullBurst: true'), true);
   }
 
   // ── Soda (314): 无 burstSkillDamage（源码检查）──────────────────────────────

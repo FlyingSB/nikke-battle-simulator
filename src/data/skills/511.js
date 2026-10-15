@@ -3,6 +3,10 @@
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Cinderella  (resource_id: 511)
+
+// 爆裂第一段伤害于进入全爆裂后 0.95s 跳出（2026-10-15 实测：全爆裂倒计时 9.05s）
+const BURST_FIRST_HIT_DELAY_TICKS = Math.round(0.95 * TICK_RATE);
+
 export default {
 
   // ── Flawless Glass
@@ -128,10 +132,13 @@ export default {
     triggers: [
       // Burst（Glass Slippers. Full Contact.）：
       //   S3 Part1：10 × 1365.92% ATK 伤害
-      //     【全爆裂加成】不受影响（描述 as damage）：引擎自动延迟到进入全爆裂时命中，预捕获施放时 sums
+      //     【全爆裂加成】不受影响（描述 as damage）：经 B3 延迟命中队列结算，sums 取施放瞬间快照
       //   S3 Part2：每次 Part1 命中后触发 Beautiful层数 × 28.9% 附加伤害
-      //     【全爆裂加成】受影响（描述 as additional damage；已实测）：pendingFireInBurstHits + sums:null，
-      //     进入全爆裂（ENTER_FULL_BURST 之后）结算，sums 取进入全爆裂瞬间快照
+      //     【全爆裂加成】受影响（描述 as additional damage；已实测）：affectedByFullBurst，
+      //     sums 取进入全爆裂瞬间（ENTER_FULL_BURST 之后）快照
+      //   【敌人 debuff 快照】（2026-10-15 实测，dev/game-data.md）：敌人承伤 ▲ 与 sums 同一时刻快照
+      //     （Part1 施放瞬间，Part2 进入全爆裂瞬间），之后 debuff 消失不影响伤害
+      //   【延迟】实测第一段伤害于进入全爆裂后 0.95s 跳出；依次攻击的段间间隔未实测，10 段同时结算
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
@@ -139,15 +146,17 @@ export default {
           const burstHitMult   = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const beautyBonusPct = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const sums           = getBuffSums(state, caster.id);
+          const pendLen        = state.pendingSkillHits?.length ?? 0;
           for (let i = 0; i < 10 && state.enemyHp > 0; i++) {
-            fireSkillHit(state, caster, burstHitMult, sums, 'Burst P1', { isSequentialAttack: true });
+            fireSkillHit(state, caster, burstHitMult, sums, 'Burst P1',
+              { isSequentialAttack: true, snapshotEnemyDebuffs: true });
             if (stacks > 0) {
-              state.pendingFireInBurstHits.push({
-                caster, mult: stacks * beautyBonusPct, sums: null,
-                isCharged: false, label: 'Burst P2', opts: {},
-              });
+              fireSkillHit(state, caster, stacks * beautyBonusPct, sums, 'Burst P2',
+                { affectedByFullBurst: true, snapshotEnemyDebuffs: true });
             }
           }
+          // B3 施放时伤害已排入延迟命中队列（引擎后移 0.05s 到进入全爆裂），此处再后移首段延迟
+          state.pendingSkillHits?.slice(pendLen).forEach(h => { h.fireTick += BURST_FIRST_HIT_DELAY_TICKS; });
         },
       },
     ],

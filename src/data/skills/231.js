@@ -13,6 +13,15 @@ const S2_COOLDOWN_TICKS = ACTIVE_SKILL_COOLDOWN_SEC[231].skill2 * TICK_RATE;
 // Marked Target 阶段：按 S1 触发（使用爆裂技能）次数，3 次及以上保持第 3 阶段
 const MT_KEY = 'isabelMarkedTarget';
 function markedTargetPhase(caster) { return Math.min(3, caster.skillState[MT_KEY] ?? 0); }
+// 爆裂技能读取的阶段（实测）：本次爆裂的 S1 计数在爆裂释放后才生效，按「本次之前」的计数判定 ——
+// 第 1 次爆裂无追加效果，第 2 次触发 Marked Target 1，依此类推。S1 先于爆裂 handler 执行且已 +1，此处减回。
+function burstMarkedTargetPhase(caster) {
+  return Math.min(3, Math.max(0, (caster.skillState[MT_KEY] ?? 0) - 1));
+}
+
+// 爆裂 P1（伤害与 Marked Target 追加效果）实测于进入全爆裂后 2.3s 生效
+// （B3 施放 → 进入全爆裂的 0.05s 由引擎统一后移，此处只加技能自身延迟）
+const BURST_P1_DELAY_TICKS = Math.round(2.3 * TICK_RATE);
 
 const MT_TIERS = [
   { name: 'Marked Target 1', field: 'critRatePct',   v: 0, d: 1 },
@@ -37,7 +46,7 @@ export default {
   skill1: {
     triggers: [
       // 使用爆裂技能 → 计数 +1，按阶段施加 Marked Target 1..n（「Previous effects trigger repeatedly」）。
-      // S1 先于爆裂技能 handler 执行（skill1 → burst 顺序），爆裂技能据此读取当前阶段。
+      // S1 先于爆裂技能 handler 执行（skill1 → burst 顺序）；爆裂技能读取的是本次之前的阶段（burstMarkedTargetPhase）。
       {
         on: 'BURST_SKILL_USE',
         handler(state, caster) {
@@ -90,9 +99,14 @@ export default {
   // p03: [187.31,199.8,212.28,224.77,237.26,249.75,262.23,274.72,287.21,299.7]
   // p04: [218.53,233.1,247.66,262.23,276.8,291.37,305.94,320.51,335.08,349.65]
   //
+  // 【阶段】按本次爆裂之前的 S1 计数判定（burstMarkedTargetPhase）：第 1 次爆裂不触发任何追加效果。
+  // 【延迟】P1 整段（主伤害 + Marked Target 追加效果）于进入全爆裂后 2.3s 生效：
+  //   伤害命中照常经 B3 延迟命中队列（引擎后移 0.05s），本技能再后移 BURST_P1_DELAY_TICKS；
+  //   Marked Target 1 承伤 ▲ 挂在首个命中的 onDue 回调上，于同一时刻先于伤害施加（持续时间从生效时起算），
+  //   故本技能的主伤害与追加伤害均享受该 debuff。
   // 【全爆裂加成】P1 主伤害（as Burst Skill damage）不受影响（默认）；
   //   Marked Target 2 / 3 追加伤害受影响（描述 as additional damage，规则判定，未实测）。
-  // Marked Target 1 承伤 ▲ 在施放时施加：B3 伤害于进入全爆裂后结算，故本技能的主伤害与追加伤害均享受该 debuff。
+  // P2（全爆裂时间 ▼）不受上述延迟影响，施放时即登记。
   burst: {
     triggers: [
       {
@@ -100,18 +114,13 @@ export default {
         handler(state, caster) {
           const lv    = caster.skillLevels[2];
           const raw   = caster.rawBurst;
-          const phase = markedTargetPhase(caster);
-          if (phase >= 1) {
-            pushBuff(state, { name: 'Sonic Chaser (Damage Taken)', unitId: ENEMY_UNIT_ID, isDebuff: true,
-              enemyDamageTakenPct: getSkillValue(raw, 1, lv) / 100,
-              endTick: state.tick + TICK_RATE * getSkillValue(raw, 2, lv) },
-              { ...state._logCtx, partIdx: 0, lineIdx: 3 });
-          }
+          const phase = burstMarkedTargetPhase(caster);
           // P2：本轮全爆裂时间 ▼ 5s（常量写在描述文本内；CDN burst_duration = 500 与之一致），
           //     由引擎在进入全爆裂时消费（battle.js fullBurstTimeReductionTicks）
           state.fullBurstTimeReductionTicks = (state.fullBurstTimeReductionTicks ?? 0) + 5 * TICK_RATE;
 
           if (state.enemyHp <= 0) return;
+          const pendLen = state.pendingSkillHits.length;
           const sums = getBuffSums(state, caster.id);
           fireSkillHit(state, caster, getSkillValue(raw, 0, lv) / 100, sums, 'Burst P1');
           if (phase >= 2)
@@ -120,6 +129,15 @@ export default {
           if (phase >= 3)
             fireSkillHit(state, caster, getSkillValue(raw, 4, lv) / 100, sums, 'Burst P1 Marked Target 3',
               { affectedByFullBurst: true });
+
+          const hits = state.pendingSkillHits.slice(pendLen);
+          hits.forEach(h => { h.fireTick += BURST_P1_DELAY_TICKS; });
+          if (phase >= 1 && hits.length > 0) {
+            const logCtx = { ...state._logCtx, partIdx: 0, lineIdx: 3 };
+            hits[0].onDue = s => pushBuff(s, { name: 'Marked Target 1', unitId: ENEMY_UNIT_ID,
+              isDebuff: true, enemyDamageTakenPct: getSkillValue(raw, 1, lv) / 100,
+              endTick: s.tick + TICK_RATE * getSkillValue(raw, 2, lv) }, logCtx);
+          }
         },
       },
     ],
