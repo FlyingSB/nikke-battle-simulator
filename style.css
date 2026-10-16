@@ -1253,6 +1253,38 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 }
 .io-hint    { font-size: 0.68rem; color: var(--text-dim); }
 .io-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.io-msg--info { color: var(--accent); background: rgba(79, 163, 224, 0.08); border-color: var(--accent); }
+
+/* 从 blablalink 导入：两步引导 + 后备粘贴区 */
+.acct-import { overflow-y: auto; }
+.acct-steps {
+  list-style: none; counter-reset: acct-step; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.acct-steps > li {
+  counter-increment: acct-step; position: relative;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  padding-left: 32px;
+}
+/* 步骤序号：圆形徽标，与主色呼应 */
+.acct-steps > li::before {
+  content: counter(acct-step);
+  position: absolute; left: 0; top: 0;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 700; font-family: var(--font-mono);
+  color: var(--accent); border: 1px solid var(--accent); background: rgba(79, 163, 224, 0.08);
+}
+.acct-step-text { font-size: 0.8rem; line-height: 1.6; color: var(--text); }
+.acct-install-link { font-size: 0.74rem; color: var(--accent); }
+.acct-install-link:hover { text-decoration: underline; }
+.acct-fallback {
+  display: flex; flex-direction: column; gap: 6px;
+  padding-top: 12px; border-top: 1px dashed var(--border2);
+}
+.acct-fallback .acct-step-text { color: var(--text-dim); font-size: 0.74rem; }
+.acct-text { min-height: 120px; max-height: 30vh; }
+.acct-import + .io-footer .io-actions { margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
 
 /* ── 模拟记录：顶栏按钮 + 弹窗 ─────────────────────────────── */
 .topbar-badge {

@@ -137,10 +137,24 @@ export function getAccountSettings() {
  */
 export async function loadAccountFromJson(file) {
   try {
-    const text = await file.text();
-    const json = JSON.parse(text);
-    _buildRosterIndex(json.data?.character_details ?? []);
-    _parseOutpostSettings(json.data?.outpost_info);
+    return loadAccountFromData(JSON.parse(await file.text()));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 从已解析的账号对象加载（blablalink 导出器 postMessage 回传 / 粘贴的 JSON）。
+ * 格式与账号文件相同；无角色数据时不改动已加载的账号，返回 false。
+ * @param {unknown} json
+ * @returns {boolean}
+ */
+export function loadAccountFromData(json) {
+  const details = json?.data?.character_details;
+  if (!Array.isArray(details) || !details.length) return false;
+  try {
+    _buildRosterIndex(details);
+    _parseOutpostSettings(json.data.outpost_info);
     return _rosterByResourceId.size > 0;
   } catch {
     return false;

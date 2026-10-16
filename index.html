@@ -66,6 +66,12 @@
           <input type="file" accept=".json" class="visually-hidden" x-ref="accountFile"
             @change="e => $store.sim.importAccount(e.target.files[0]).then(() => e.target.value = '')">
         </label>
+        <!-- 从 blablalink 导入：打开 blablalink，由书签 / 油猴导出器 postMessage 回传（见 src/ui/blablalink-import.js） -->
+        <button type="button" class="btn btn-ghost btn-sm"
+          :title="$t('top.blablaImportTitle')" aria-haspopup="dialog"
+          @click="moreOpen = false; $store.sim.openAccountImport()">
+          <span x-text="$t('top.blablaImport')"></span>
+        </button>
         <!-- 模拟记录：弹窗查看最近的模拟结果 -->
         <button type="button" class="btn btn-ghost btn-sm topbar-history-btn"
           :title="$t('top.historyTitle', { n: $store.sim.SIM_HISTORY_MAX })"
@@ -104,6 +110,7 @@
               <div class="tools-menu-desc" x-text="$t('tools.export.desc')"></div>
               <div class="tools-menu-links">
                 <!-- 不加 download 属性：让 Tampermonkey 拦截 .user.js 并弹出安装页 -->
+                <a href="tools/blablalink-export.html" target="_blank" rel="noopener" x-text="$t('tools.bookmarklet')"></a>
                 <a href="tools/blablalink-export.user.js" target="_blank" rel="noopener" x-text="$t('tools.install')"></a>
               </div>
             </div>
@@ -1341,6 +1348,64 @@
         </template>
         <input type="file" accept=".json,application/json" class="visually-hidden" x-ref="ioFile" tabindex="-1"
           @change="$store.sim.loadEnemyIoFile($event.target.files[0]); $event.target.value = ''">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 从 blablalink 导入账号：打开 blablalink → 导出器回传；后备为剪贴板 / 粘贴 / 文件 ── -->
+  <div class="modal-overlay"
+       x-data
+       x-show="$store.sim.acctImport.open"
+       x-transition.opacity
+       @click.self="$store.sim.closeAccountImport()"
+       @keydown.escape.window="$store.sim.acctImport.open && $store.sim.closeAccountImport()"
+       style="display:none">
+    <div class="modal-box modal-box--io" role="dialog" aria-modal="true" aria-labelledby="acct-import-title" @click.stop>
+      <div class="modal-header">
+        <h2 class="modal-title" id="acct-import-title" x-text="$t('acctImport.title')"></h2>
+        <button type="button" class="btn btn-ghost btn-sm" :title="$t('enemyIo.btn.close')"
+          @click="$store.sim.closeAccountImport()">✕</button>
+      </div>
+
+      <div class="io-body acct-import">
+        <ol class="acct-steps">
+          <li>
+            <div class="acct-step-text" x-text="$t('acctImport.step1')"></div>
+            <button type="button" class="btn btn-primary" @click="$store.sim.startBlablalinkExport()"
+              x-text="$t('acctImport.step1.btn')"></button>
+          </li>
+          <li>
+            <div class="acct-step-text" x-text="$t('acctImport.step2')"></div>
+            <a class="acct-install-link" href="tools/blablalink-export.html" target="_blank" rel="noopener"
+              x-text="$t('acctImport.install')"></a>
+          </li>
+        </ol>
+
+        <p class="io-msg" role="status"
+          x-show="$store.sim.acctImport.message"
+          :class="'io-msg--' + ($store.sim.acctImport.message?.kind ?? 'warn')"
+          x-text="$store.sim.acctImport.message?.text"></p>
+
+        <div class="acct-fallback">
+          <div class="acct-step-text" x-text="$t('acctImport.fallback')"></div>
+          <textarea class="io-text acct-text" spellcheck="false"
+            :placeholder="$t('acctImport.placeholder')" :aria-label="$t('acctImport.placeholder')"
+            x-model="$store.sim.acctImport.text"
+            @keydown.ctrl.enter="$store.sim.submitAccountText()"></textarea>
+        </div>
+      </div>
+
+      <div class="io-footer">
+        <div class="io-actions">
+          <button type="button" class="btn btn-ghost" @click="$refs.acctFile.click()"
+            x-text="$t('acctImport.btn.chooseFile')"></button>
+          <button type="button" class="btn btn-ghost" @click="$store.sim.pasteAccountFromClipboard()"
+            x-text="$t('acctImport.btn.clipboard')"></button>
+          <button type="button" class="btn btn-primary" :disabled="!$store.sim.acctImport.text.trim()"
+            @click="$store.sim.submitAccountText()" x-text="$t('acctImport.btn.import')"></button>
+        </div>
+        <input type="file" accept=".json,application/json" class="visually-hidden" x-ref="acctFile" tabindex="-1"
+          @change="$store.sim.loadAccountImportFile($event.target.files[0]); $event.target.value = ''">
       </div>
     </div>
   </div>

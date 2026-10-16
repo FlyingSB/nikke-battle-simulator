@@ -7,6 +7,7 @@ import { loadAllData, loadNikke, loadCube, loadFavoriteItem } from '../data/load
 import {
   loadAccountFromDev,
   loadAccountFromJson,
+  loadAccountFromData,
   getAccountSettings,
   getAccountSize,
   getRosterEntry,
@@ -24,6 +25,7 @@ import { buildDmgTooltipHTML, pelletGroupTitleKey } from './dmg-tooltip.js';
 import { placeTip, bindTouchTipDismiss } from './tooltip-place.js';
 import { buildDmgFormulaExport, pickPelletGroup } from './dmg-formula-export.js';
 import { buildEnemyConfigExport, parseEnemyConfig, pickActionFields, buildEnemyPhases } from './enemy-config-io.js';
+import { openBlablalinkExport, stopBlablalinkExport, parseAccountText } from './blablalink-import.js';
 import { BUILTIN_ENEMY_PRESETS, DEFAULT_ENEMY_PRESET } from '../data/enemy-presets.js';
 import { getActiveSkillCooldownSec } from '../data/active-skill-cooldowns.js';
 import { SIM_HISTORY_MAX, buildHistoryRecord, addHistoryRecord, mergeHistory, loadHistory, saveHistory } from './sim-history.js';
@@ -863,6 +865,8 @@ export function createStore() {
     // 敌人配置导入 / 导出弹窗：mode = null（关闭）/ 'export' / 'import'
     // message = { kind: 'warn' | 'error', text } 弹窗顶部提示；dragging = 正在拖入文件
     enemyIo: { mode: null, text: '', message: null, dragging: false },
+    // 「从 blablalink 导入」弹窗：waiting = 已打开 blablalink、等待导出器回传
+    acctImport: { open: false, waiting: false, text: '', message: null },
     // 轻提示：{ id, text }，数秒后自动消失
     toast: null,
 
@@ -1342,15 +1346,89 @@ export function createStore() {
         this.accountStatus = { key: 'status.importFailed' };
         return;
       }
-      const settings = getAccountSettings();
-      this._applySettings(settings);
-      this.accountStatus = { key: 'status.updated', params: { n: getAccountSize() } };
+      this._onAccountLoaded();
+    },
 
+    /** 账号数据载入后：应用全局设置，并用新数据刷新队伍中已选角色 */
+    _onAccountLoaded() {
+      this._applySettings(getAccountSettings());
+      this.accountStatus = { key: 'status.updated', params: { n: getAccountSize() } };
       for (let i = 0; i < 5; i++) {
         const slot = this.team[i];
         if (!slot.resourceId) continue;
         const entry = getRosterEntry(slot.resourceId);
         if (entry) this._applyRosterEntry(i, entry);
+      }
+    },
+
+    // ── 从 blablalink 导入 ─────────────────────────────────────────────────────
+
+    openAccountImport() {
+      this.acctImport = { open: true, waiting: false, text: '', message: null };
+    },
+
+    closeAccountImport() {
+      stopBlablalinkExport();
+      this.acctImport = { open: false, waiting: false, text: '', message: null };
+    },
+
+    /** 打开 blablalink 新标签并等待导出器回传（须由点击直接触发，避免被拦截弹窗） */
+    startBlablalinkExport() {
+      const opened = openBlablalinkExport(payload => this._receiveAccountData(payload));
+      this.acctImport.waiting = opened;
+      this.acctImport.message = opened
+        ? { kind: 'info', text: this.t('acctImport.msg.waiting') }
+        : { kind: 'error', text: this.t('acctImport.msg.popupBlocked') };
+    },
+
+    /** 导出器回传的数据：返回值作为 ack 发回导出器 */
+    _receiveAccountData(payload) {
+      if (!loadAccountFromData(payload)) {
+        this.acctImport.message = { kind: 'error', text: this.t('acctImport.err.format') };
+        return { ok: false, error: 'invalid account data' };
+      }
+      this._onAccountLoaded();
+      const count = getAccountSize();
+      this.closeAccountImport();
+      this.showToast(this.t('acctImport.toast.imported', { n: count }));
+      return { ok: true, count };
+    },
+
+    /** 文本框 / 剪贴板 / 文件中的 JSON：校验通过即导入并关闭弹窗 */
+    _importAccountText(text) {
+      const parsed = parseAccountText(text);
+      if (!parsed.ok || !loadAccountFromData(parsed.json)) {
+        this.acctImport.message = { kind: 'error', text: this.t(parsed.ok ? 'acctImport.err.format' : parsed.errorKey) };
+        return false;
+      }
+      this._onAccountLoaded();
+      const count = getAccountSize();
+      this.closeAccountImport();
+      this.showToast(this.t('acctImport.toast.imported', { n: count }));
+      return true;
+    },
+
+    async pasteAccountFromClipboard() {
+      let text;
+      try {
+        text = await navigator.clipboard.readText();
+      } catch {
+        this.acctImport.message = { kind: 'warn', text: this.t('acctImport.msg.clipboardUnreadable') };
+        return;
+      }
+      this._importAccountText(text);
+    },
+
+    submitAccountText() {
+      this._importAccountText(this.acctImport.text);
+    },
+
+    async loadAccountImportFile(file) {
+      if (!file) return;
+      try {
+        this._importAccountText(await file.text());
+      } catch (err) {
+        this.acctImport.message = { kind: 'error', text: this.t('enemyIo.error.fileRead', { msg: err.message }) };
       }
     },
 

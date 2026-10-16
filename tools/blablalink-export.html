@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nikke 角色数据导出 · 书签版</title>
+<!-- 书签小工具安装说明。书签只是一个加载器：在 blablalink 页面插入同目录的 blablalink-export.js 并自动运行，
+     导出器更新后无需重新安装书签。保持单文件静态页，不引用 src/。 -->
+<style>
+:root {
+  --bg: #12141b; --surface: #1c1f2a; --surface2: #232736; --border: #2e3344;
+  --text: #e8eaf2; --dim: #a3a8ba; --muted: #6f7489;
+  --accent: #4fa3e0; --accent-strong: #5b6cff; --warn: #f0a500; --ok: #4ade80;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+main { max-width: 720px; margin: 0 auto; padding: 28px 16px 64px; }
+h1 { font-size: 1.45rem; margin: 0 0 4px; letter-spacing: .01em; }
+.lede { color: var(--dim); margin: 0 0 24px; }
+h2 {
+  font-size: .78rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--accent); margin: 32px 0 10px;
+}
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; margin-bottom: 12px;
+}
+.card h3 { margin: 0 0 8px; font-size: 1rem; }
+ol { margin: 0; padding-left: 1.3em; }
+li { margin: 4px 0; }
+li::marker { color: var(--accent); font-family: var(--mono); }
+kbd, code {
+  font-family: var(--mono); font-size: .86em; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 4px; padding: 0 5px;
+}
+textarea {
+  width: 100%; min-height: 96px; resize: vertical; padding: 10px 12px;
+  font: 12px/1.55 var(--mono); color: var(--text); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px; word-break: break-all;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; align-items: center; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 16px; border-radius: 8px; border: 0; cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 600; line-height: 1; text-decoration: none;
+  background: var(--accent-strong); color: #fff; transition: transform .12s, background .12s;
+}
+.btn:hover { background: #4a5ce8; }
+.btn:active { transform: translateY(1px); }
+/* 可拖拽的书签按钮：虚线描边提示「拖到书签栏」 */
+.bm { background: transparent; color: var(--accent); border: 1.5px dashed var(--accent); cursor: grab; }
+.bm:hover { background: rgba(79, 163, 224, .1); }
+.copied { color: var(--ok); font-size: .85rem; }
+.note { color: var(--dim); font-size: .88rem; }
+.warn {
+  border-left: 3px solid var(--warn); background: rgba(240, 165, 0, .07);
+  padding: 10px 12px; border-radius: 6px; color: var(--dim); font-size: .88rem; margin: 10px 0 0;
+}
+.flow { display: grid; gap: 8px; counter-reset: f; padding: 0; list-style: none; }
+.flow li {
+  counter-increment: f; display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; margin: 0;
+}
+.flow li::before {
+  content: counter(f); width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 12px/1 var(--mono); color: var(--accent); border: 1px solid var(--accent);
+}
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Nikke 角色数据导出 · 书签版</h1>
+  <p class="lede">不用安装任何扩展，手机和电脑浏览器都能用。在 blablalink 页面点一下书签，就能导出账号角色数据并直接回传到模拟器。</p>
+
+  <h2>书签代码</h2>
+  <div class="card">
+    <textarea id="code" readonly spellcheck="false" aria-label="书签代码"></textarea>
+    <div class="actions">
+      <button class="btn" id="copy" type="button">复制书签代码</button>
+      <a class="btn bm" id="bm" href="#" title="拖到书签栏">⇣ Nikke 导出</a>
+      <span class="copied" id="copied" hidden>✓ 已复制</span>
+    </div>
+    <p class="note" id="srcNote"></p>
+  </div>
+
+  <h2>安装</h2>
+  <div class="card">
+    <h3>iPhone / iPad（Safari）</h3>
+    <ol>
+      <li>点上方「复制书签代码」。</li>
+      <li>点分享按钮 → 「添加书签」，名称改为 <code>Nikke 导出</code>，保存。</li>
+      <li>打开书签列表 → 「编辑」→ 点刚才的书签，把地址整段替换为复制的代码，完成。</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>Android（Chrome / Edge）</h3>
+    <ol>
+      <li>点上方「复制书签代码」。</li>
+      <li>点菜单里的 ☆ 收藏本页，再点「修改」：名称改为 <code>Nikke 导出</code>，网址整段替换为复制的代码。</li>
+      <li><b>使用时</b>：在 blablalink 页面的地址栏输入 <code>Nikke 导出</code>，点下拉建议中带书签图标的那一项。</li>
+    </ol>
+    <p class="warn">Android Chrome 从书签列表直接点开不会在当前页面运行，必须通过地址栏输入书签名执行。</p>
+  </div>
+  <div class="card">
+    <h3>电脑浏览器</h3>
+    <ol>
+      <li>显示书签栏（Chrome / Edge：<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>）。</li>
+      <li>把上方虚线按钮「⇣ Nikke 导出」拖到书签栏。</li>
+    </ol>
+    <p class="note">电脑上也可以安装 <a href="blablalink-export.user.js" target="_blank" rel="noopener">油猴脚本</a>（需 Tampermonkey），在 blablalink 顶栏添加导出图标，并在从模拟器打开时自动导出。</p>
+  </div>
+
+  <h2>使用</h2>
+  <div class="card">
+    <ol class="flow">
+      <li><div>在模拟器顶栏点 <b>🔗 从 blablalink 导入</b> → <b>打开 blablalink</b>（首次需登录）。</div></li>
+      <li><div>在打开的 blablalink 页面点书签 <b>Nikke 导出</b>，右上角出现导出面板并自动开始。</div></li>
+      <li><div>完成后数据自动回传，blablalink 标签自动关闭，模拟器显示「账号已导入」。</div></li>
+    </ol>
+    <p class="note" style="margin-top:12px">直接打开 blablalink（不经过模拟器）时无法自动回传：在导出面板点「复制 JSON」，回到模拟器的导入窗口点「从剪贴板读取」；也可以「下载 JSON」后用「📂 导入账号」选择文件。</p>
+  </div>
+
+  <h2>说明</h2>
+  <div class="card note">
+    <ul style="margin:0;padding-left:1.2em">
+      <li>书签只负责从本站加载导出脚本 <a href="blablalink-export.js" target="_blank" rel="noopener">blablalink-export.js</a>，脚本更新后无需重新安装。</li>
+      <li>导出脚本只在你的浏览器内调用 blablalink 的接口；数据只会发送到模拟器页面，或保存在你的设备上，不会上传到其他地方。</li>
+      <li>服务器自动识别（国际服 / 北美 / 日 / 韩 / 东南亚 / 港澳台），也可以在面板里手动选择。</li>
+    </ul>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  // 书签加载的脚本地址：线上（https）用本页同目录的 blablalink-export.js；
+  // 本地开发（http）时 blablalink 的 https 页面无法可靠加载本机脚本，改用正式站地址
+  var PROD_SRC = 'https://flyingsb.github.io/nikke-battle-simulator/tools/blablalink-export.js';
+  var src = location.protocol === 'https:' ? new URL('blablalink-export.js', location.href).href : PROD_SRC;
+
+  // 加时间戳绕过缓存，保证总是加载最新版本；data-autorun 让脚本加载后自动打开面板并开始导出
+  var code = "javascript:(function(){var d=document,s=d.createElement('script');"
+    + "s.src='" + src + "?t='+Date.now();s.setAttribute('data-autorun','');"
+    + "s.onerror=function(){alert('Nikke 导出：脚本加载失败，请检查网络后重试');};"
+    + "d.body.appendChild(s);})();";
+
+  var ta = document.getElementById('code');
+  var bm = document.getElementById('bm');
+  ta.value = code;
+  bm.href = code;
+  bm.addEventListener('click', function (e) {
+    e.preventDefault();
+    alert('请把这个按钮拖到书签栏，或长按 / 右键添加书签。\n书签需要在 blablalink 页面上点击才会生效。');
+  });
+  document.getElementById('srcNote').textContent = '脚本地址：' + src;
+
+  var copied = document.getElementById('copied');
+  document.getElementById('copy').addEventListener('click', function () {
+    function ok() { copied.hidden = false; setTimeout(function () { copied.hidden = true; }, 2000); }
+    function legacy() { ta.focus(); ta.select(); try { if (document.execCommand('copy')) ok(); } catch (e) { /* 留给用户手动复制 */ } }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(ok, legacy);
+    else legacy();
+  });
+})();
+</script>
+</body>
+</html>
