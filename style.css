@@ -1397,3 +1397,173 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .hit-cal-row           { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .hit-cal-row label     { display: inline-flex; align-items: center; gap: 3px; font-size: 0.72rem; color: var(--muted); }
 .hit-cal-row .input-sm { width: 56px; }
+
+/* ══ 响应式：平板 / 手机 ══════════════════════════════════════
+   >1100px：桌面三栏，以下规则均不生效（仅 .tip--sheet 在触屏大屏上生效）。
+   ≤1100px：一次只显示一栏，底部标签栏切换（store.mobileTab）；整页滚动代替各栏内部滚动；
+            顶栏右侧操作区收进「⋯」下拉。
+   ≤760px ：槽位卡片等分缩放、日志隐藏次要列、弹窗全屏。 */
+:root { --topbar-h: 48px; --mtabs-h: 0px; }
+.topbar-more, .mobile-tabs { display: none; }
+
+/* 贴底抽屉式 tooltip（窄屏或触屏，由 tooltip-place.js 加类）：撑满宽度、内部可滚动 */
+.tip--sheet {
+  left: 8px !important; right: 8px; top: auto !important;
+  bottom: calc(var(--mtabs-h) + 8px + env(safe-area-inset-bottom));
+  max-width: none; min-width: 0; max-height: 50dvh;
+  overflow: auto; overscroll-behavior: contain;
+  pointer-events: auto;
+}
+.dmg-tooltip.tip--sheet .dmg-tip-col { min-width: 180px; }
+
+@media (max-width: 1100px) {
+  :root { --mtabs-h: 52px; }
+  body { padding-bottom: calc(var(--mtabs-h) + env(safe-area-inset-bottom)); }
+
+  /* 顶栏：标题 | 开始模拟 | ⋯ */
+  .topbar { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; padding: 0 10px; }
+  .topbar-brand { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-more {
+    display: inline-flex; justify-self: end; position: relative;
+    width: 36px; height: 36px; padding: 0;
+    font-size: 1.15rem; line-height: 1; border-radius: 50%;
+  }
+  .topbar-more[aria-expanded="true"] { background: var(--surface3); color: var(--text); border-color: var(--accent); }
+  .topbar-more-dot {
+    position: absolute; top: 2px; right: 2px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 0 2px var(--surface);
+  }
+
+  /* 右侧操作区 → 下拉面板（纵向排列，按钮整宽、加大触控高度） */
+  .topbar-right {
+    display: none;
+    position: absolute; top: calc(100% + 6px); right: 8px; z-index: 200;
+    flex-direction: column; align-items: stretch; gap: 6px;
+    width: min(300px, calc(100vw - 16px));
+    max-height: calc(100dvh - var(--topbar-h) - var(--mtabs-h) - 24px); overflow-y: auto;
+    padding: 10px;
+    background: var(--surface3); border: 1px solid var(--border2); border-radius: var(--r);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+  }
+  .topbar-right--open { display: flex; }
+  .topbar-status { padding: 0 2px 6px; border-bottom: 1px solid var(--border2); }
+  .topbar-right > .btn,
+  .tools-menu > .btn { width: 100%; justify-content: flex-start; padding: 9px 12px; font-size: 0.8rem; }
+  .topbar-history-btn .topbar-badge { margin-left: auto; }
+  /* 导入账号按钮内的隐藏文件框：以按钮自身为定位基准，避免撑出下拉面板横向滚动条 */
+  .topbar-right > label.btn { position: relative; }
+  .topbar-right > label.btn .visually-hidden { left: 0; top: 0; }
+  /* 工具菜单在下拉面板内就地展开，不再二次浮出 */
+  .tools-menu-panel { position: static; width: auto; margin-top: 6px; background: var(--surface2); box-shadow: none; }
+  .lang-switch { align-self: flex-start; }
+  .lang-switch-btn { padding: 6px 14px; font-size: 0.75rem; }
+  .topbar-github { width: 34px; height: 34px; }
+
+  /* 布局：单栏 + 整页滚动 */
+  .layout { display: block; height: auto; overflow: visible; }
+  .layout > .panel { display: none; }
+  .layout--tab-config  > .panel-left,
+  .layout--tab-team    > .panel-center,
+  .layout--tab-results > .panel-right { display: flex; }
+  .panel {
+    overflow: visible;
+    min-height: calc(100dvh - var(--topbar-h) - var(--mtabs-h) - env(safe-area-inset-bottom));
+  }
+  .panel-left, .panel-right { border: 0; }
+  .panel-scroll { flex: none; overflow: visible; scrollbar-gutter: auto; }
+  /* 配置栏单列内容在宽屏平板上限宽居中，避免表单被拉得过长 */
+  .panel-left > .panel-scroll { width: 100%; max-width: 720px; margin: 0 auto; }
+
+  /* 队伍栏：槽位条吸附在顶栏下方，滚动详情时仍可切换角色 */
+  .slot-bar { position: sticky; top: var(--topbar-h); z-index: 50; justify-content: center; }
+  .slot-detail { flex: none; }
+
+  /* 结果栏：结果卡片随页面滚动，日志表自身限高滚动（保留吸顶表头） */
+  .result-panel-fixed { overflow: visible; }
+  .result-panel-log { flex: none; min-height: 0; }
+  .card--log .log-table-wrap { flex: none; max-height: 70dvh; overflow: auto; }
+
+  /* 底部标签栏 */
+  .mobile-tabs {
+    display: flex;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 150;
+    height: calc(var(--mtabs-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+  }
+  .mobile-tab {
+    flex: 1; position: relative;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    border: 0; background: none; cursor: pointer;
+    color: var(--text-dim); font: 600 0.8rem/1 var(--font-ui); letter-spacing: 0.03em;
+    transition: color 0.15s ease;
+  }
+  /* 当前标签：顶部强调色短条从中心展开 */
+  .mobile-tab::before {
+    content: ''; position: absolute; top: -1px; left: 30%; right: 30%;
+    height: 2px; border-radius: 0 0 2px 2px; background: var(--accent);
+    transform: scaleX(0); transition: transform 0.2s ease;
+  }
+  .mobile-tab--active { color: var(--accent); }
+  .mobile-tab--active::before { transform: scaleX(1); }
+  .mobile-tab:active { background: var(--surface2); }
+  .mobile-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+  .mobile-tab-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent3);
+    animation: mtab-pulse 1s ease-in-out infinite alternate;
+  }
+
+  .toast { bottom: calc(var(--mtabs-h) + 16px + env(safe-area-inset-bottom)); }
+}
+@keyframes mtab-pulse { from { opacity: 0.35; } to { opacity: 1; } }
+
+@media (max-width: 760px) {
+  .topbar-run { min-width: 0; padding: 7px 18px; }
+
+  /* 槽位卡片：五张等分整行宽度，头像按比例缩小 */
+  .slot-bar { gap: 4px; padding: 6px; }
+  .slot-tab { flex: 1 1 0; min-width: 0; padding: 4px 3px 5px; }
+  .slot-tab-avatar { width: 100%; max-width: 64px; height: auto; aspect-ratio: 1; }
+  .slot-tab-name { width: 100%; font-size: 0.62rem; }
+  .slot-focus-badge { top: 5px; right: 4px; }
+
+  /* 最终属性 HP / ATK / DEF：三格允许收缩，压缩内边距以免数值溢出 */
+  .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stat-item { min-width: 0; gap: 3px; padding: 5px 5px; font-size: 0.92em; }
+
+  /* 日志：隐藏次要列（# 行号、Buff 轨道、目标、Buff / 命中标签、弹药、充能），保留 FB 轨道；
+     施展者 / 技能允许换行，保证伤害列留在可视宽度内 */
+  .log-table .log-line-hd, .log-table .log-line,
+  .log-table .log-target-hd, .log-table .log-target,
+  .log-table .log-track-hd:not(:first-child), .log-table .log-track:not(:first-child),
+  .log-table .log-buff-hd, .log-table .log-buff,
+  .log-table .log-ammo-hd, .log-table .log-ammo,
+  .log-table .log-gauge-hd, .log-table .log-gauge { display: none !important; }
+  .log-table { font-size: 0.7rem; }
+  .log-table td { padding: 5px 6px; }
+  /* 原本由 Buff 列吸收剩余宽度，Buff 列隐藏后改由技能列吸收；时间范围可在「~」后折行 */
+  .log-table td.log-caster { white-space: normal; width: auto; min-width: 6.5em; }
+  .log-table td.log-label  { white-space: normal; width: 100%; }
+  .log-table td.log-time   { white-space: normal; font-size: 0.62rem; }
+  .log-dropdown--tracks { display: none; }
+  /* 保持「标题 | 筛选菜单 | 聚合/详细」原顺序；空间不足时模式按钮换行后仍靠右 */
+  .log-header { flex-wrap: wrap; row-gap: 6px; }
+  .log-mode-btns { margin-left: auto; }
+
+  /* 弹窗全屏 */
+  .modal-overlay { align-items: stretch; }
+  .modal-box { width: 100vw; max-height: none; height: 100dvh; border-radius: 0; border: 0; }
+  .modal-box--picker { height: 100dvh; }
+  .picker-filter-group { padding-left: 0; border-left: 0; }
+  .char-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); padding: 8px 10px; }
+}
+
+/* 触屏：小号按钮加大触控区域 */
+@media (max-width: 1100px) and (pointer: coarse) {
+  .btn-sm { padding: 6px 10px; font-size: 0.72rem; }
+  .log-dropdown-btn { padding: 5px 10px; }
+  .log-dropdown-item { padding: 7px 12px; }
+}

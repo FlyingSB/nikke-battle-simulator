@@ -33,7 +33,9 @@
        })">
 
     <!-- ── 顶栏 ─────────────────────────────────────────────── -->
-    <header class="topbar">
+    <!-- moreOpen：窄屏下右侧操作区收进「⋯」下拉；桌面端该状态不起作用 -->
+    <header class="topbar" x-data="{ moreOpen: false }"
+      @click.outside="moreOpen = false" @keydown.escape="moreOpen = false">
       <div class="topbar-brand" x-text="'⚡ ' + $t('app.title')"></div>
       <!-- 开始模拟：标题栏居中 -->
       <button type="button" class="btn btn-primary topbar-run"
@@ -41,7 +43,16 @@
         @click="$store.sim.runSimulate()">
         <span x-text="$store.sim.simRunning ? $t('sim.running') : $t('sim.start')"></span>
       </button>
-      <div class="topbar-right">
+      <!-- 窄屏专用：展开 / 收起右侧操作区 -->
+      <button type="button" class="btn btn-ghost topbar-more"
+        :aria-label="$t('top.more')" :title="$t('top.more')"
+        aria-haspopup="true" :aria-expanded="moreOpen"
+        @click="moreOpen = !moreOpen">
+        <span aria-hidden="true">⋯</span>
+        <!-- 有模拟记录时显示小圆点（数量在展开后的「模拟记录」按钮上） -->
+        <span class="topbar-more-dot" x-show="$store.sim.simHistory.length && !moreOpen"></span>
+      </button>
+      <div class="topbar-right" :class="{ 'topbar-right--open': moreOpen }">
         <span class="topbar-status" x-text="$store.sim.accountStatusText"></span>
         <!-- 开发模式先尝试从 dev/config.json 重新加载；读不到或出错时回退为选择文件对话框 -->
         <label class="btn btn-ghost btn-sm"
@@ -119,7 +130,8 @@
     </header>
 
     <!-- ── 三栏布局 ──────────────────────────────────────────── -->
-    <div class="layout">
+    <!-- layout--tab-*：窄屏下只显示当前标签对应的一栏（见 style.css 响应式区块） -->
+    <div class="layout" :class="'layout--tab-' + $store.sim.mobileTab">
 
       <!-- ╔══ 左栏：全局配置 ══╗ -->
       <aside class="panel panel-left">
@@ -1012,8 +1024,8 @@
                         </div>
                       </div>
 
-                      <!-- 下拉菜单3：Buff 轨道 -->
-                      <div class="log-dropdown" x-data="{ open: false, menuMaxH: '60vh' }" @click.outside="open = false">
+                      <!-- 下拉菜单3：Buff 轨道（手机宽度下轨道列隐藏，菜单一并隐藏） -->
+                      <div class="log-dropdown log-dropdown--tracks" x-data="{ open: false, menuMaxH: '60vh' }" @click.outside="open = false">
                         <button class="log-dropdown-btn"
                           :class="$store.sim.logActiveBuffTracks.length ? 'log-dropdown-btn--active' : ''"
                           @click="open = !open; if(open){ const r=$el.getBoundingClientRect(); menuMaxH=Math.max(120, window.innerHeight-r.bottom-12)+'px'; }">
@@ -1063,11 +1075,11 @@
                           <th x-text="$t('log.col.time')"></th>
                           <th x-text="$t('log.col.caster')"></th>
                           <th x-text="$t('log.col.skill')"></th>
-                          <th x-text="$t('log.col.target')"></th>
+                          <th class="log-target-hd" x-text="$t('log.col.target')"></th>
                           <th class="log-buff-hd" x-text="$t('log.col.buff')"></th>
                           <th style="text-align:right" x-text="$t('log.col.damage')"></th>
-                          <th x-show="$store.sim.logMode === 'detail'" style="text-align:right" x-text="$t('log.col.ammo')"></th>
-                          <th x-show="$store.sim.logMode === 'detail'" style="text-align:right" x-text="$t('log.col.gauge')"></th>
+                          <th class="log-ammo-hd" x-show="$store.sim.logMode === 'detail'" style="text-align:right" x-text="$t('log.col.ammo')"></th>
+                          <th class="log-gauge-hd" x-show="$store.sim.logMode === 'detail'" style="text-align:right" x-text="$t('log.col.gauge')"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1082,7 +1094,7 @@
                             </template>
                             <td class="log-line" x-text="$store.sim.logPageOffset() + ri + 1"></td>
                             <td class="log-time mono" x-text="$store.sim.formatLogTime(row)"></td>
-                            <td x-text="$store.sim.dispText(row.name)"></td>
+                            <td class="log-caster" x-text="$store.sim.dispText(row.name)"></td>
                             <td class="log-label log-label--tip"
                               @mouseenter="$store.sim.showSkillTooltip($event, row)"
                               @mouseleave="$store.sim.hideSkillTooltip()">
@@ -1181,6 +1193,20 @@
       </aside>
 
     </div><!-- /layout -->
+
+    <!-- 窄屏底部标签栏：切换三栏；桌面端隐藏 -->
+    <nav class="mobile-tabs" :aria-label="$t('mtab.label')">
+      <template x-for="tab in ['config', 'team', 'results']" :key="tab">
+        <button type="button" class="mobile-tab"
+          :class="{ 'mobile-tab--active': $store.sim.mobileTab === tab }"
+          :aria-pressed="$store.sim.mobileTab === tab"
+          @click="$store.sim.mobileTab = tab; window.scrollTo(0, 0)">
+          <span x-text="$t('mtab.' + tab)"></span>
+          <!-- 结果标签：模拟进行中显示脉冲点 -->
+          <span class="mobile-tab-dot" x-show="tab === 'results' && $store.sim.simRunning"></span>
+        </button>
+      </template>
+    </nav>
 
   </div><!-- /app -->
 

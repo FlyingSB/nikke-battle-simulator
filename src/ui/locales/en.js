@@ -18,6 +18,11 @@ export default {
   'top.importTitle':      'Import account JSON',
   'top.history':          '📜 History',
   'top.github':           'GitHub repository',
+  'top.more':             'More',
+  'mtab.label':           'Switch view',
+  'mtab.config':          'Setup',
+  'mtab.team':            'Team',
+  'mtab.results':         'Results',
   'top.historyTitle':     'View recent simulation results (up to {n} saved)',
 
   // ── 辅助工具菜单 ──

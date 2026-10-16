@@ -21,6 +21,7 @@ import { loadZhNames, loadZhPatch, localizeData } from '../data/locale-loader.js
 import { LANGS, loadSavedLang, setCurrentLang, t, translate } from './i18n.js';
 import { createNameMap, displayGameText } from './game-text.js';
 import { buildDmgTooltipHTML, pelletGroupTitleKey } from './dmg-tooltip.js';
+import { placeTip, bindTouchTipDismiss } from './tooltip-place.js';
 import { buildDmgFormulaExport, pickPelletGroup } from './dmg-formula-export.js';
 import { buildEnemyConfigExport, parseEnemyConfig, pickActionFields, buildEnemyPhases } from './enemy-config-io.js';
 import { BUILTIN_ENEMY_PRESETS, DEFAULT_ENEMY_PRESET } from '../data/enemy-presets.js';
@@ -934,6 +935,9 @@ export function createStore() {
     simHistoryOpen: false,
     SIM_HISTORY_MAX,
 
+    // 窄屏（≤1100px）一次只显示一栏：'config' 全局配置 / 'team' 队伍构建 / 'results' 结果；桌面端忽略
+    mobileTab: 'config',
+
     // 常量（模板使用）
     EQUIP_SLOTS,
     EQUIP_OPTION_TYPES,
@@ -1064,12 +1068,14 @@ export function createStore() {
 
     formatLogTime(row) {
       const s = formatTick(row.tickStart);
+      // 「~」后加零宽空格：桌面端 nowrap 不受影响，窄屏日志允许时间范围在此处折行
+      const sep = '~​';
       // buff 事件行：用 _endTick 作为范围终点（显示 buff 实际过期时刻）
       if (row.buffName && row._endTick != null) {
         if (row._endTick === Infinity) return s + '~∞';
-        if (row._endTick > row.tickStart) return s + '~' + formatTick(row._endTick);
+        if (row._endTick > row.tickStart) return s + sep + formatTick(row._endTick);
       }
-      if (row.tickEnd > row.tickStart) return s + '~' + formatTick(row.tickEnd);
+      if (row.tickEnd > row.tickStart) return s + sep + formatTick(row.tickEnd);
       return s;
     },
 
@@ -1256,6 +1262,7 @@ export function createStore() {
     // ── 初始化 ────────────────────────────────────────────────────────────────
 
     async init() {
+      bindTouchTipDismiss();
       try {
         // 简体名称表与战斗数据并行加载；缺失（未运行下载脚本）时为空表，界面回退英文名
         const [, zhNames] = await Promise.all([
@@ -2101,6 +2108,7 @@ export function createStore() {
       }
 
       this.simRunning   = true;
+      this.mobileTab    = 'results';
       this.simProgress  = { done: 0, total: 0 };
       this.result       = null;
       this.hitLogRows   = [];
@@ -2568,16 +2576,7 @@ export function createStore() {
       tip.innerHTML = buildDmgTooltipHTML(hitData, name => this.dispText(name), {
         cubeElemName: this._cubeSkillName(hitData.unitId, 'Elemental Advantage'),
       });
-      tip.style.left = '-9999px';
-      tip.style.top  = '0px';
-      tip.style.display = 'block';
-      const rect = tip.getBoundingClientRect();
-      const vw = window.innerWidth, vh = window.innerHeight;
-      let x = event.clientX + 16, y = event.clientY + 8;
-      if (x + rect.width  > vw) x = event.clientX - rect.width  - 8;
-      if (y + rect.height > vh) y = event.clientY - rect.height - 8;
-      tip.style.left = x + 'px';
-      tip.style.top  = y + 'px';
+      placeTip(tip, event);
     },
 
     /** 命中单位所装备魔方中、描述含关键字的技能原名（英文，显示时经 dispText 翻译）；无则 null */
@@ -2615,16 +2614,7 @@ export function createStore() {
       const tip = document.getElementById('gauge-tooltip');
       if (!tip) return;
       tip.textContent = `${fmtNum(row.gaugeBefore)}->${fmtNum(row.gaugeAfter)}`;
-      tip.style.left = '-9999px';
-      tip.style.top  = '0px';
-      tip.style.display = 'block';
-      const rect = tip.getBoundingClientRect();
-      const vw = window.innerWidth, vh = window.innerHeight;
-      let x = event.clientX + 16, y = event.clientY + 8;
-      if (x + rect.width  > vw) x = event.clientX - rect.width  - 8;
-      if (y + rect.height > vh) y = event.clientY - rect.height - 8;
-      tip.style.left = x + 'px';
-      tip.style.top  = y + 'px';
+      placeTip(tip, event);
     },
 
     hideGaugeTooltip() {
@@ -2640,16 +2630,7 @@ export function createStore() {
       const html = this._buildSkillTipHTML(row);
       if (!html) { tip.style.display = 'none'; return; }
       tip.innerHTML = html;
-      tip.style.left = '-9999px';
-      tip.style.top  = '0px';
-      tip.style.display = 'block';
-      const rect = tip.getBoundingClientRect();
-      const vw = window.innerWidth, vh = window.innerHeight;
-      let x = event.clientX + 16, y = event.clientY + 8;
-      if (x + rect.width  > vw) x = event.clientX - rect.width  - 8;
-      if (y + rect.height > vh) y = event.clientY - rect.height - 8;
-      tip.style.left = x + 'px';
-      tip.style.top  = y + 'px';
+      placeTip(tip, event);
     },
 
     hideSkillTooltip() {
@@ -2665,16 +2646,7 @@ export function createStore() {
       const html = this._buildBuffTipHTML(buff);
       if (!html) { tip.style.display = 'none'; return; }
       tip.innerHTML = html;
-      tip.style.left = '-9999px';
-      tip.style.top  = '0px';
-      tip.style.display = 'block';
-      const rect = tip.getBoundingClientRect();
-      const vw = window.innerWidth, vh = window.innerHeight;
-      let x = event.clientX + 16, y = event.clientY + 8;
-      if (x + rect.width  > vw) x = event.clientX - rect.width  - 8;
-      if (y + rect.height > vh) y = event.clientY - rect.height - 8;
-      tip.style.left = x + 'px';
-      tip.style.top  = y + 'px';
+      placeTip(tip, event);
     },
 
     hideBuffTooltip() {

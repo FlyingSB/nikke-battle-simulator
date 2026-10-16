@@ -18,6 +18,11 @@ export default {
   'top.importTitle':      '导入账号 JSON',
   'top.history':          '📜 模拟记录',
   'top.github':           'GitHub 仓库',
+  'top.more':             '更多',
+  'mtab.label':           '页面切换',
+  'mtab.config':          '配置',
+  'mtab.team':            '队伍',
+  'mtab.results':         '结果',
   'top.historyTitle':     '查看最近的模拟结果（最多保存 {n} 条）',
 
   // ── 辅助工具菜单 ──
