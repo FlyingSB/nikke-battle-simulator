@@ -1286,6 +1286,15 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .acct-text { min-height: 120px; max-height: 30vh; }
 .acct-import + .io-footer .io-actions { margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
 
+/* 未载入账号时「从 blablalink 导入」按钮右上角的红点提示 */
+.topbar-blabla-btn { position: relative; }
+.notice-dot {
+  position: absolute; top: -3px; right: -3px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent2); box-shadow: 0 0 0 2px var(--surface);
+  pointer-events: none;
+}
+
 /* ── 模拟记录：顶栏按钮 + 弹窗 ─────────────────────────────── */
 .topbar-badge {
   min-width: 18px; padding: 0 5px; border-radius: 9px;
@@ -1466,6 +1475,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
     width: 8px; height: 8px; border-radius: 50%;
     background: var(--accent); box-shadow: 0 0 0 2px var(--surface);
   }
+  .topbar-more-dot.notice-dot { background: var(--accent2); }
 
   /* 右侧操作区 → 下拉面板（纵向排列，按钮整宽、加大触控高度） */
   .topbar-right {
@@ -1483,6 +1493,8 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   .topbar-right > .btn,
   .tools-menu > .btn { width: 100%; justify-content: flex-start; padding: 9px 12px; font-size: 0.8rem; }
   .topbar-history-btn .topbar-badge { margin-left: auto; }
+  /* 下拉面板内按钮整宽：红点改为行尾内联，与记录数量徽标对齐 */
+  .topbar-blabla-btn .notice-dot { position: static; margin-left: auto; box-shadow: none; }
   /* 导入账号按钮内的隐藏文件框：以按钮自身为定位基准，避免撑出下拉面板横向滚动条 */
   .topbar-right > label.btn { position: relative; }
   .topbar-right > label.btn .visually-hidden { left: 0; top: 0; }
@@ -1553,7 +1565,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 @keyframes mtab-pulse { from { opacity: 0.35; } to { opacity: 1; } }
 
 @media (max-width: 760px) {
-  .topbar-run { min-width: 0; padding: 7px 18px; }
+  .topbar-run { min-width: 0; padding: 7px 18px; white-space: nowrap; }
 
   /* 槽位卡片：五张等分整行宽度，头像按比例缩小 */
   .slot-bar { gap: 4px; padding: 6px; }
@@ -1591,6 +1603,14 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   .modal-box--picker { height: 100dvh; }
   .picker-filter-group { padding-left: 0; border-left: 0; }
   .char-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); padding: 8px 10px; }
+}
+
+/* 手机宽度：放弃按钮居中（左右等宽列会把标题挤到不足三分之一宽），
+   改为「标题占满剩余空间 | 开始模拟 | ⋯」，按钮靠右紧挨「⋯」 */
+@media (max-width: 560px) {
+  .topbar { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .topbar-brand { font-size: 0.85rem; }
+  .topbar-run { padding: 7px 14px; }
 }
 
 /* 触屏：小号按钮加大触控区域 */

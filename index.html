@@ -51,6 +51,8 @@
         <span aria-hidden="true">⋯</span>
         <!-- 有模拟记录时显示小圆点（数量在展开后的「模拟记录」按钮上） -->
         <span class="topbar-more-dot" x-show="$store.sim.simHistory.length && !moreOpen"></span>
+        <!-- 未载入账号时显示红点（叠在上面的记录圆点之上，提示去「从 blablalink 导入」） -->
+        <span class="topbar-more-dot notice-dot" x-show="!$store.sim.loading && !$store.sim.hasAccount && !moreOpen"></span>
       </button>
       <div class="topbar-right" :class="{ 'topbar-right--open': moreOpen }">
         <span class="topbar-status" x-text="$store.sim.accountStatusText"></span>
@@ -67,10 +69,12 @@
             @change="e => $store.sim.importAccount(e.target.files[0]).then(() => e.target.value = '')">
         </label>
         <!-- 从 blablalink 导入：打开 blablalink，由书签 / 油猴导出器 postMessage 回传（见 src/ui/blablalink-import.js） -->
-        <button type="button" class="btn btn-ghost btn-sm"
+        <button type="button" class="btn btn-ghost btn-sm topbar-blabla-btn"
           :title="$t('top.blablaImportTitle')" aria-haspopup="dialog"
           @click="moreOpen = false; $store.sim.openAccountImport()">
           <span x-text="$t('top.blablaImport')"></span>
+          <!-- 未载入账号时显示红点 -->
+          <span class="notice-dot" x-show="!$store.sim.loading && !$store.sim.hasAccount"></span>
         </button>
         <!-- 模拟记录：弹窗查看最近的模拟结果 -->
         <button type="button" class="btn btn-ghost btn-sm topbar-history-btn"

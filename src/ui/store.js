@@ -844,6 +844,8 @@ export function createStore() {
     loadProgress:  t('app.initializing'),
     // 顶栏账号状态：{ key, params }，显示时按当前语言翻译
     accountStatus: null,
+    // 是否已载入账号数据（account-loader 的模块状态非响应式，这里镜像一份供红点提示使用）
+    hasAccount:    false,
     devMode:       false,
 
     // 全局设置
@@ -1284,6 +1286,7 @@ export function createStore() {
       this.cubeOptions = Object.keys(CUBE_URLS).map(Number).sort((a, b) => a - b).map(id => ({ id }));
 
       const accountLoaded = await loadAccountFromDev();
+      this.hasAccount = accountLoaded;
       if (accountLoaded) {
         this.devMode       = true;
         this.accountStatus = { key: 'status.accountLoaded', params: { n: getAccountSize() } };
@@ -1323,6 +1326,7 @@ export function createStore() {
         if (!(await loadAccountFromDev())) throw new Error('dev 账号文件不可用');
         const settings = getAccountSettings();
         this._applySettings(settings);
+        this.hasAccount    = true;
         this.accountStatus = { key: 'status.updated', params: { n: getAccountSize() } };
         for (let i = 0; i < 5; i++) {
           const slot = this.team[i];
@@ -1352,6 +1356,7 @@ export function createStore() {
     /** 账号数据载入后：应用全局设置，并用新数据刷新队伍中已选角色 */
     _onAccountLoaded() {
       this._applySettings(getAccountSettings());
+      this.hasAccount    = getAccountSize() > 0;
       this.accountStatus = { key: 'status.updated', params: { n: getAccountSize() } };
       for (let i = 0; i < 5; i++) {
         const slot = this.team[i];
