@@ -2267,11 +2267,14 @@ export function tick(state) {
       // SG：整发充能 = target_burst_energy_pershot × 基础 shot_count，为【全部弹丸命中】时的充能，
       //   与弹丸数 ▲ / 「固定为 N」无关（同伤害系数口径）；每颗弹丸充能 = 整发充能 / 发射弹丸数，动态计算。
       //   命中弹丸数按 sgHitRate 逐弹丸判定（默认 1 = 全部命中）。其余武器 pellets = firedPellets = 1。
+      // 双枪（非 SG）：每次攻击充能 ×dualGunMult（CDN target_burst_energy_pershot 为单枪值，
+      //   如双枪 SMG 与普通 SMG 同为 2000）；SG 双枪充能仍只按弹丸数计，不乘双枪倍率。
       // burstGaugeFlat：来自 buff 的 flat 加成（如 Neon: Vision Eye S2 Part4），按【每次射击】计（非每弹丸），
       //   与弹丸充能合并后整体（Focus 时）乘以全蓄力系数（flat 加法，不得改为百分比乘法）。
       // ⚠ 必须在 hitLog 记录之前累积，使本发命中行记录的 gaugeAfter 已包含本发充能，
       //   战斗日志「充能列」据此按行计算增量；否则会把本发充能误记到下一行。
-      const fullShotEnergy = unit.targetBurstEnergyPerShot * (effectiveWeaponType === 'SG' ? (unit.shotCount ?? 1) : 1);
+      const fullShotEnergy = unit.targetBurstEnergyPerShot
+        * (effectiveWeaponType === 'SG' ? (unit.shotCount ?? 1) : dualGunMult);
       const baseEnergy  = Math.round(fullShotEnergy * pellets / firedPellets) + (sums.burstGaugeFlat ?? 0);
       // 未蓄满（速充 chargeRatio < 1）：全蓄力充能系数按蓄力比例线性插值 1 → fullChargeBurstEnergy/10000
       const focusCharged = unit.isFocus && isCharged && unit.fullChargeBurstEnergy > 10000;

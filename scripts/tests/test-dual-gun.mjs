@@ -10,6 +10,7 @@
  *   D2 — 单枪（muzzle_count 1）：无 dualGunMult
  *   D3 — SG：弹丸数不变，每弹丸系数 ×2
  *   D4 — 切换武器：默认 ×2；weaponSwitchDualGun = false 时 ×1
+ *   D5 — 充能：非 SG 双枪每次攻击充能 ×2；SG 双枪仅按弹丸数；weaponSwitchDualGun = false 时 ×1
  *
  * Run: node scripts/tests/test-dual-gun.mjs
  */
@@ -87,6 +88,23 @@ section('D4 — 切换武器：默认 ×2，weaponSwitchDualGun = false 排除')
   eq('切换武器 dualGunMult = 2', dflt?.dualGunMult, 2);
   near('weaponSwitchDualGun=false → 0.5', off?.hitMult, 0.5, 1e-9);
   eq('排除后无 dualGunMult', off?.dualGunMult, undefined);
+}
+
+section('D5 — 充能：非 SG 双枪每次攻击 ×2，SG 双枪不乘');
+{
+  // 首发命中行 gaugeAfter = 本发充能（开局槽为 0）
+  const single = firstShot(unit(1));
+  const dual   = firstShot(unit(2));
+  eq('单枪 SMG 充能 100', single?.gaugeAfter, 100);
+  eq('双枪 SMG 充能 200', dual?.gaugeAfter, 200);
+
+  const sg = { weaponType: 'SG', shotDamageMult: 1.0, shotCount: 10, rateOfFire: 90, baseAmmo: 9 };
+  eq('SG 双枪充能 = 单发 × 弹丸数（不乘双枪）', firstShot(unit(2, sg))?.gaugeAfter, 1000);
+
+  const switchOff = (state, u) => Object.assign(u.skillState, {
+    weaponSwitchHitMult: 0.5, weaponSwitchType: 'SMG', weaponSwitchEndTick: Infinity, weaponSwitchDualGun: false,
+  });
+  eq('weaponSwitchDualGun=false → 充能 ×1', firstShot(unit(2), switchOff)?.gaugeAfter, 100);
 }
 
 summary('DualGun');
