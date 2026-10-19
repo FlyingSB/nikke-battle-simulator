@@ -468,20 +468,14 @@
                 </select>
               </div>
             </template>
-            <!-- 百暴：Miranda 与 Mihara: Bonding Chain / Ein 同队时显示，下拉选择使用百暴的角色（仅列在队角色） -->
-            <template x-if="$store.sim.fullCritCandidates.length">
+            <!-- 百暴：Miranda 与 Mihara: Bonding Chain / Ein / Ada 同队时显示，每个在队候选角色一个复选框（可多选） -->
+            <template x-for="slot in $store.sim.fullCritCandidates" :key="'fc' + slot.resourceId">
               <div class="field-group mt-1">
-                <label class="field-label" :title="$t('sim.fullCritTip', { name: $store.sim.charName(32, 'Miranda') })"
-                  x-text="$t('sim.fullCrit')"></label>
-                <select class="input input-sm" x-model.number="$store.sim.fullCritChar"
-                  :title="$t('sim.fullCritTip', { name: $store.sim.charName(32, 'Miranda') })">
-                  <option :value="0" x-text="$t('sim.fullCrit.off')"
-                    :selected="$store.sim.effectiveFullCritChar === 0"></option>
-                  <template x-for="slot in $store.sim.fullCritCandidates" :key="slot.resourceId">
-                    <option :value="slot.resourceId" x-text="$store.sim.slotName(slot)"
-                      :selected="slot.resourceId === $store.sim.effectiveFullCritChar"></option>
-                  </template>
-                </select>
+                <label class="checkbox-label" :title="$t('sim.fullCritTip', { name: $store.sim.charName(32, 'Miranda') })">
+                  <input type="checkbox" :checked="$store.sim.fullCritChars.includes(slot.resourceId)"
+                    @change="$store.sim.toggleFullCrit(slot.resourceId, $event.target.checked)">
+                  <span x-text="$t('sim.fullCrit', { name: $store.sim.slotName(slot) })"></span>
+                </label>
               </div>
             </template>
             <template x-if="$store.sim.hasMastRomanticMaid">

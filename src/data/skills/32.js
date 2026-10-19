@@ -64,7 +64,9 @@ export default {
     triggers: [
       {
         on: 'ENTER_FULL_BURST',
-        priority: 100,  // 最后结算：P3 依赖其他角色的 ATK buff 已推完才能准确选出最高 ATK 友军
+        // 约定最后结算（优先级最低，有明确说明的其他情况除外）：P3 在同一时机其他角色的 ATK buff
+        // （如 Ada S1 Covert Support）推完后才选最高 ATK 友军。游戏中同时机结算顺序缺少实测，见 README「一些取舍」。
+        priority: 100,
         handler(state, caster) {
           // [TODO 基础技能] 进入全爆裂 → 全员CritDmg▲p01% 10s（base group_id 20322）
           const favS2 = caster.ssrFavSkills?.skill2;

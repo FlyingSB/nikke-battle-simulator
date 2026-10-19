@@ -67,10 +67,11 @@ const formatPresetTime = ms => {
 const EQUIP_SLOTS = ['head', 'torso', 'arms', 'legs'];
 
 // 百暴：可与 Miranda（32）S2 P3 配合、在自己轮次全爆裂期间停止普攻依靠技能输出的角色
-// Mihara: Bonding Chain（162）/ Ein（391）。
+// Mihara: Bonding Chain（162）/ Ein（391）/ Ada（840，全爆裂最后 1 秒打出爆裂长蓄力一发）。
+// 可多选（如 Ein + Ada 各自轮次百暴）；实际是否停火取决于 Miranda 本轮把 S2 P3 给了谁。
 // Nayuta（223）爆裂换枪为无限弹，射击本就不消耗回合制 buff，无需停火，不列入。
 const MIRANDA_ID         = 32;
-const FULL_CRIT_CHAR_IDS = [162, 391];
+const FULL_CRIT_CHAR_IDS = [162, 391, 840];
 
 // 爆裂施放者锁定的阶段键（引擎 config.burstLocks 同名键，见 battle.js lockedBurstUnit）
 const EMPTY_BURST_LOCKS = Object.freeze({ s1: null, s2: null, s3odd: null, s3even: null });
@@ -930,8 +931,8 @@ export function createStore() {
     ccwSnipeModeAtStart: false,
     // 速充（Focus 的 UP 型 SR/RL 手动打法）：off / always（始终速充）/ untilFull（充能满后恢复全蓄力）
     quickChargeMode: 'off',
-    // 百暴（Miranda 与 FULL_CRIT_CHAR_IDS 角色同队时显示）：使用百暴的角色 resource_id，0 = 关闭
-    fullCritChar: 0,
+    // 百暴（Miranda 与 FULL_CRIT_CHAR_IDS 角色同队时显示）：勾选使用百暴的角色 resource_id 列表，空 = 关闭
+    fullCritChars: [],
 
     // 队伍
     activeSlot:   0,
@@ -1227,9 +1228,15 @@ export function createStore() {
       return active.filter(s => FULL_CRIT_CHAR_IDS.includes(s.resourceId));
     },
 
-    // 实际生效的百暴角色：所选角色已不在候选中（离队 / Miranda 离队）时视为关闭
-    get effectiveFullCritChar() {
-      return this.fullCritCandidates.some(s => s.resourceId === this.fullCritChar) ? this.fullCritChar : 0;
+    // 实际生效的百暴角色：仅保留仍在候选中的勾选角色（离队 / Miranda 离队的视为未勾选）
+    get effectiveFullCritChars() {
+      return this.fullCritCandidates.map(s => s.resourceId).filter(id => this.fullCritChars.includes(id));
+    },
+
+    // 切换某角色的百暴复选框（不可变更新，保证 Alpine 响应与自动存档）
+    toggleFullCrit(resourceId, on) {
+      const rest = this.fullCritChars.filter(id => id !== resourceId);
+      this.fullCritChars = on ? [...rest, resourceId] : rest;
     },
 
     // Anis: Star（resource_id: 17）在队时显示流星核心命中率修正系数
@@ -1540,7 +1547,7 @@ export function createStore() {
         rhBurstMode:      this.rhBurstMode,
         ccwSnipeModeAtStart: this.ccwSnipeModeAtStart,
         quickChargeMode:    this.quickChargeMode,
-        fullCritChar:       this.fullCritChar,
+        fullCritChars:      this.fullCritChars,
         focusSlot:          this.focusSlot,
         burstLocks:         this.burstLocks,
         team: this.team.map(slot => this._slotSnapshot(slot)),
@@ -1619,7 +1626,12 @@ export function createStore() {
       if (RH_BURST_MODES.includes(state.rhBurstMode)) this.rhBurstMode = state.rhBurstMode;
       if (state.ccwSnipeModeAtStart != null) this.ccwSnipeModeAtStart = state.ccwSnipeModeAtStart;
       if (['off', 'always', 'untilFull'].includes(state.quickChargeMode)) this.quickChargeMode = state.quickChargeMode;
-      if (FULL_CRIT_CHAR_IDS.includes(state.fullCritChar)) this.fullCritChar = state.fullCritChar;
+      // 百暴：新存档为数组 fullCritChars；旧存档为单选 fullCritChar（0 = 关闭）
+      if (Array.isArray(state.fullCritChars)) {
+        this.fullCritChars = state.fullCritChars.filter(id => FULL_CRIT_CHAR_IDS.includes(id));
+      } else if (FULL_CRIT_CHAR_IDS.includes(state.fullCritChar)) {
+        this.fullCritChars = [state.fullCritChar];
+      }
       if (state.focusSlot !== undefined)   this.focusSlot         = state.focusSlot;
       if (state.burstLocks && typeof state.burstLocks === 'object') {
         const validIdx = v => (Number.isInteger(v) && v >= 0 && v < 5 ? v : null);
@@ -2482,7 +2494,7 @@ export function createStore() {
           ccwSnipeModeAtStart: this.hasCinderellaCrystalWave && this.ccwSnipeModeAtStart,
           quickChargeMode:  this.quickChargeSlot ? this.quickChargeMode : 'off',
           // 百暴：仅传队伍中实际出现的所选角色（Miranda 不在队时候选为空 → 关闭）
-          fullCritCharIds:  this.effectiveFullCritChar ? [this.effectiveFullCritChar] : [],
+          fullCritCharIds:  this.effectiveFullCritChars,
         };
 
         const iters = Math.max(1, Math.min(100, Number(this.iterations) || 30));

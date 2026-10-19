@@ -400,6 +400,35 @@ function holdFireForFullCrit(state, unit) {
 }
 
 /**
+ * 百暴收尾发（unit.fullCritFinisherShot，Ada 840）：停火期间在全爆裂最后 1 秒内打出爆裂
+ * Special Modification 的长蓄力一发（蓄力速度 ▼300%、蓄力伤害 ▲），消耗 Miranda S2 P3 后恢复正常攻击。
+ * 击发目标 = 全爆裂结束前 1 秒（9.00s）：该 tick 的 INTERVAL_IN_BURST 先于攻击结算，
+ * 第 10 次 S2 命中仍享受暴击率；同时尽量落在爆裂 10s buff（Secret Agent）内。
+ * 按当前有效蓄力倒推开始蓄力的 tick；来不及时立即开始，尽早击发。
+ * 全爆裂时间被延长（fullBurstTick 变化）时按新的结束 tick 重新排定。
+ * 百暴优先于速充：收尾发强制全蓄力（清除 qcShotTick），不参与 rescheduleEngineCharge 重算。
+ * @param {object} state
+ * @param {object} unit
+ * @returns {boolean} true = 收尾蓄力中（本 tick 不停火，走常规射击分支）
+ */
+function fullCritFinisherCharging(state, unit) {
+  if (!unit.fullCritFinisherShot || unit.chargeTimeTicks <= 0) return false;
+  const fbEnd = state.fullBurstTick;
+  if (unit.fcFinisherFbTick === fbEnd) return true;
+  if (unit.reloadTick > 0 || unit.backswingReloadTick > 0 || unit.manualReload || unit.ammoLeft <= 0) return false;
+  const effCharge = effectiveChargeTicks(state, unit, getBuffSums(state, unit.id));
+  const fixed     = unit.isDownCharge ? 0 : unit.foreswingTicks;
+  const target    = fbEnd - TICK_RATE;
+  if (state.tick + fixed + effCharge < target) return false;
+  unit.fcFinisherFbTick = fbEnd;
+  unit.fullCritHolding  = false;  // 收尾发打出后按常规发间续射，不走停火恢复
+  unit.qcShotTick       = null;
+  unit.chargeTick       = Math.max(target, state.tick + fixed + effCharge);
+  unit.engineChargeTick = null;
+  return true;
+}
+
+/**
  * 百暴停火结束（全爆裂结束 / buff 消失）：重新开始攻击。
  * 蓄力武器从本 tick 起重新蓄力（UP 型含前摇），非蓄力武器进入对准期（spot_first_delay）。
  * @param {object} state
@@ -1306,6 +1335,9 @@ export function initBattle(config) {
     // 百暴（config.fullCritCharIds：选中角色的 resource_id 列表，见 fullCritHoldActive）
     unit.fullCritHold    = Array.isArray(config.fullCritCharIds) && config.fullCritCharIds.includes(cfg.characterId);
     unit.fullCritHolding = false;  // 本轮全爆裂停火中（停火结束时据此重新排定攻击）
+    // Ada（840）百暴：全爆裂最后 1 秒打出爆裂 Special Modification 长蓄力一发（见 fullCritFinisherCharging）
+    unit.fullCritFinisherShot = unit.fullCritHold && cfg.characterId === 840;
+    unit.fcFinisherFbTick     = null;  // 已开始收尾蓄力的全爆裂结束 tick
     return unit;
   });
 
@@ -1988,11 +2020,13 @@ export function tick(state) {
 
     // 百暴：自己轮次全爆裂期间停止普通攻击（保留 Miranda S2 P3 暴击率），按规则装弹后空闲至全爆裂结束。
     // 放在武器切换结束补满之后：切换刚结束（如 Nayuta）时弹匣已补满，不再多余换弹。
+    // Ada：停火中到点开始收尾蓄力，之后走常规射击分支在全爆裂最后 1 秒击发。
     if (fullCritHoldActive(state, unit)) {
-      holdFireForFullCrit(state, unit);
-      continue;
-    }
-    if (unit.fullCritHolding) {
+      if (!fullCritFinisherCharging(state, unit)) {
+        holdFireForFullCrit(state, unit);
+        continue;
+      }
+    } else if (unit.fullCritHolding) {
       resumeAfterFullCritHold(state, unit);
       continue;  // 本 tick 起重新蓄力 / 对准
     }

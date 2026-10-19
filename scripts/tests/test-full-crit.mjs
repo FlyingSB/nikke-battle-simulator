@@ -11,6 +11,7 @@
  *   F3 — 开启但 Miranda 把 buff 给了别人：百暴失效，照常射击
  *   F4 — 开启 + buff 在自身但非自己轮次（本轮未施放爆裂）：照常射击
  *   F5 — 无限弹（unlimitedAmmoEndTick）期间不消耗回合，照常射击
+ *   F6 — 收尾发（Ada 打法，fullCritFinisherShot）：停火至全爆裂结束前 1 秒打出长蓄力一发，之后常规续射
  *
  * Run: node scripts/tests/test-full-crit.mjs
  */
@@ -132,6 +133,32 @@ section('F5 — 无限弹期间照常射击（不消耗回合）');
   });
   eq('全爆裂期间照常射击', shotsOf(id).some(s => s.tick > fbFrom && s.tick < fbEnd), true);
   eq('无限弹射击不消耗 buff', buffAtFbEnd, true);
+}
+
+section('F6 — 收尾发（Ada 打法）：全爆裂最后 1 秒打出长蓄力一发，之后恢复正常攻击');
+{
+  const b3 = sr();
+  const id = b3.characterId;
+  let pushed = false;
+  const { state, fbFrom, fbEnd, shotsOf } = run([filler('Step1'), filler('Step2'), b3], {
+    fullCritCharIds: [id], targetOf: () => id,
+    beforeTick: s => {
+      const u = s.squad.find(x => x.id === id);
+      u.fullCritFinisherShot = true;   // 合成单位无 resource_id 840，手动开启
+      // 模拟 Ada 爆裂 Special Modification：1 发蓄力速度 ▼300%（蓄力 60 → 240t）
+      if (s.fullBurstActive && !pushed) {
+        pushed = true;
+        s.buffs.push({ name: 'Special Modification', unitId: id, chargeSpeedPct: -3.0,
+          chargeDamagePct: 10, roundsLeft: 1, endTick: Infinity, stacks: 1 });
+      }
+    },
+  });
+  const inFb = shotsOf(id).filter(s => s.tick > fbFrom && s.tick < fbEnd);
+  eq('全爆裂期间仅 1 发', inFb.length, 1);
+  eq('该发在全爆裂结束前 1 秒（9.00s）打出', inFb[0]?.tick, fbEnd - 60);
+  eq('收尾发后 buff 被消耗', hasBuff(state, id), false);
+  const next = shotsOf(id).find(s => s.tick > fbEnd - 60);
+  eq('之后按常规发间续射（后摇 12 + 前摇 12 + 蓄力 60）', next?.tick, fbEnd - 60 + 84);
 }
 
 summary('百暴回归（Miranda S2 P3 停火打法）');
