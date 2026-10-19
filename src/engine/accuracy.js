@@ -1,12 +1,12 @@
 /**
  * 命中率（HitRate）机制 —— 核心命中率的几何概率模型。
  *
- * 详见 docs/battle-logic 与 dev/game-data.md（2026-07-07 训练场实测拟合）。
+ * 详见 docs/battle-logic.md §3.8.1 与 dev/game-data.md（2026-10-19 射击场 BIGARMS 重标定）。
  *
  * 模型（每发 / SG 每弹丸）：
- *   r_core(d) = CORE0 · max(0, 1 − d/D0)        核心屏幕半径随距离线性缩小
- *   R_eff     = currentScale / (1 + c · HitRate) HitRate 收缩散布圆（实测 c≈4.5）
- *   P_core    = clamp( (r_core / R_eff)², 0, 1 ) 散布圆内均匀落点命中核心圆的面积比
+ *   r_core(d) = K / (d + off)                    核心屏幕半径按透视缩小（K≈1044.7，off≈−4.26）
+ *   R_eff     = currentScale / (1 + c · HitRate) HitRate 收缩散布（c≈1.257，装备 / 魔方 / 技能同效）
+ *   P_core    = 1 − exp(−(r_core / R_eff)²)      落点集中于散布中心（二维高斯），近核心时平滑饱和
  *
  * 躯体恒命中（实战 BOSS 体型庞大），命中率仅影响核心命中率。
  * SR/RL/Charged 为精准武器，恒核心命中（alwaysCore）；散布数据缺失的角色亦保守视为恒核心。
@@ -100,17 +100,18 @@ export function recoverAccuracy(unit, ticks) {
  * @param {number} p.currentScale  当前散布 scale（含 MG ramp）
  * @param {number} p.hitRatePct    命中率属性（0..1）
  * @param {number} p.distance      敌人连续距离（0..100，与 bonusrange 同刻度）
- * @param {number} p.CORE0         d=0 时核心屏幕半径（校准，默认 55）
- * @param {number} p.D0            核心缩为 0 的距离（校准，默认 77）
- * @param {number} p.coef          HitRate 收圆系数（校准，默认 4.5）
+ * @param {number} p.K             透视常数：核心屏幕半径 × 距离（校准，默认 1044.7）
+ * @param {number} p.off           距离偏移（校准，默认 −4.26）
+ * @param {number} p.coef          HitRate 收圆系数（校准，默认 1.257）
  * @returns {number} P_core ∈ [0,1]
  */
-export function coreHitChance({ alwaysCore, currentScale, hitRatePct, distance, CORE0, D0, coef }) {
+export function coreHitChance({ alwaysCore, currentScale, hitRatePct, distance, K, off, coef }) {
   if (alwaysCore) return 1;
   if (!(currentScale > 0)) return 1;           // 无散布数据 → 视为必中核心
-  const rCore = CORE0 * Math.max(0, 1 - distance / D0);
-  if (rCore <= 0) return 0;                     // 距离 ≥ D0：核心不可命中
-  const rEff  = currentScale / (1 + coef * (hitRatePct ?? 0));
+  const dEff = (distance ?? 0) + off;
+  if (!(dEff > 0)) return 1;                    // 贴脸（距离 ≤ −off）：透视半径发散 → 必中核心
+  const rCore = K / dEff;
+  const rEff  = currentScale / (1 + coef * Math.max(0, hitRatePct ?? 0));
   const ratio = rCore / rEff;
-  return Math.min(1, ratio * ratio);
+  return 1 - Math.exp(-ratio * ratio);
 }

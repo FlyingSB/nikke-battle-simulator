@@ -206,24 +206,32 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 > 注：普通零件本身不参与伤害计算（§11.3.1），其「爆炸对零件 + 本体两次结算」亦未建模，故零件核心的爆炸命中无需额外处理，行为天然为一次。
 
 命中率判定（适用于"有核心"及穿透命中保护核心两种情况）：
-- **普通攻击**：核心命中率由几何模型 `accuracy.js:coreHitChance` 计算（见 §3.8.1）。躯体恒命中（实战 BOSS 体型庞大），命中率**仅影响核心命中率**。
+- **普通攻击**：核心命中率由模型 `accuracy.js:coreHitChance` 计算（透视 + 高斯，见 §3.8.1）。躯体恒命中（实战 BOSS 体型庞大），命中率**仅影响核心命中率**。
 - **技能命中**：由 `opts.isCore` 显式指定（通常为 false，除非技能说明"命中核心"）。
 - **武器切换**（Zwei/Red Hood 等）：缺乏切换武器散布数据，沿用切换武器类型硬编码核心率（SMG 3.3% / SG 20% / 其余 100%）。
   技能可设 `skillState.weaponSwitchAccuracyScale`（固定散布圈 scale）改走几何模型（如 K 爆裂 SG，目测 250）；
   `weaponSwitchCoreRate` 优先级最高。
 
-#### 3.8.1 核心命中率几何模型（HitRate 机制）
+#### 3.8.1 核心命中率模型（HitRate 机制）
 
-数据实证公式（`dev/game-data.md`，2026-07-07 训练场实测拟合；常量默认值可在敌人配置 UI 调整）：
+数据实证公式（`dev/game-data.md`「射击场 BIGARMS 核心命中率重标定」，2026-10-19 SMG / AR / SG、
+距离 20 / 30 / 50 共 13 组实测联合拟合；常量默认值可在模拟选项「命中参数」调整）：
 
 ```
-r_core(d) = CORE0 · max(0, 1 − d / D0)            // 核心屏幕半径随距离线性缩小；CORE0=55, D0=77
-R_eff     = currentScale / (1 + c · hitRatePct)    // HitRate 收缩散布圆；c=4.5
-P_core    = clamp( (r_core / R_eff)², 0, 1 )        // 散布圆内均匀落点命中核心圆的面积比
+r_core(d) = K / (d + off)                          // 核心屏幕半径按透视缩小；K=1044.7, off=−4.26
+R_eff     = currentScale / (1 + c · hitRatePct)    // HitRate 收缩散布；c=1.257
+P_core    = 1 − exp(−(r_core / R_eff)²)             // 落点集中于散布中心（二维高斯），近核心时平滑饱和
 ```
+
+- 距离 ≤ −off（贴脸）时透视半径发散，按必中核心处理。
+- HitRate 来源（装备词条 / 魔方 / 技能 ▲）效果相同（实测：SMG 装备+魔方 16.9% → 19.4%，Chisato 技能 19.32% → 18.4%）。
+- 旧模型（2026-07 训练场：`r_core = 55·(1−d/77)`、`c = 4.5`、均匀落点面积比）已弃用：
+  其 c=4.5 拟合自混入弹丸 +5 的 SG 数据，对 SMG / AR 的命中率收益高估约一倍（Chisato 整局 +9%）；
+  线性半径在近距离偏低、均匀落点在核心率较高时不饱和。拟合对比（13 点 3 参数）：
+  线性+均匀 偏差 34.5 / 线性+高斯 29.6 / 透视+均匀 25.4 / **透视+高斯 8.0**。
 
 - `currentScale`：武器 auto 散布 scale（SG 250 / SMG 110 / AR 75 / MG 250→10 暖机收束 / SR·RL 无散布）。
-- `hitRatePct` = `stats.hitRatePct + sums.hitRatePct`（装备词条 + 技能 buff）。
+- `hitRatePct` = `stats.hitRatePct + sums.hitRatePct`（装备词条 / 魔方 + 技能 buff，同等效果）。
 - **SR/RL/Charged**：精准武器 `alwaysCore=1`（恒核心命中）。散布数据缺失的角色亦保守视为恒核心。
 - **RL 核心命中（敌人横向移动 × 飞行时间）**：RL 不走几何模型，按 `battle-utils.js:rlCoreHitRate` 判定。
   命中本身即时结算，飞行时间只用于核心判定：
@@ -503,7 +511,7 @@ spot_last 20 → 12t）。实测 Raven（BIGARMS）落地 → 首发 84–87t（
 - 弹丸数**不影响整发爆裂充能**：整发充能 = `target_burst_energy_pershot × 基础 shot_count`（全部弹丸命中时），每颗弹丸充能 = 整发充能 / 发射弹丸数，按命中比例折算，详见 §6.1。
 - **躯体命中（实战命中校正，模拟选项「SG弹丸命中率」`sgHitRate`）**：每颗弹丸独立判定是否命中躯体，伤害按命中弹丸比例缩放（`hitMult × 命中数 / 发射数`），充能与技能弹丸计数（`ctx.pellets`）按命中数。命中概率（`battle-utils.js:sgPelletHitRate`）：
   - `sgHitRate` 为敌人距离 50、散布 250、HitRate 0 时的标定值；先按距离线性缩放（`distanceScaledHitRate`，d=0 恒为 1）。
-  - 打空率再乘 `min(1, R_eff / 250)`，`R_eff = currentScale / (1 + 4.5 · HitRate)`（与 §3.8.1 同一收圆式）：散布收束（如 Privaty: Unkind Maid 250→75）或命中率 ▲（如 Dorothy: Serendipity Flash +98%）时弹丸更集中、打空更少。武器切换取 `weaponSwitchAccuracyScale`，缺失按标定散布。
+  - 打空率再乘 `min(1, R_eff / 250)`，`R_eff = currentScale / (1 + 4.5 · HitRate)`（收圆系数 `SG_MISS_HITRATE_COEF` 沿用旧值 4.5，与 §3.8.1 核心命中率的 c=1.257 解耦——命中率对打空率的影响尚无实测）：散布收束（如 Privaty: Unkind Maid 250→75）或命中率 ▲（如 Dorothy: Serendipity Flash +98%）时弹丸更集中、打空更少。武器切换取 `weaponSwitchAccuracyScale`，缺失按标定散布。
   - 引擎默认 `sgHitRate = 1`（恒命中，回归测试依赖），界面默认 0.7。
   - 修正前「弹丸数固定为 1」的 Flash 射击按 0.7 整发打空（18% 的 Flash 伤害为 0），Dorothy: Serendipity 低于实测约 10%。
 - **【TODO 可选】SG 逐弹丸核心拆分**：当前 SG 每次射击按单次 `P_core` 判定整发核心与否（期望 DPS 与逐弹丸 k/N 拆分**数学等价**，蒙特卡洛均值一致）；逐弹丸拆分仅降低方差、细化日志 isCore 标记，为低优先级细化项。

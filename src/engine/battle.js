@@ -15,8 +15,8 @@
 import { calcDamage, rollCrit } from './damage.js';
 import { rng, setRng } from './rng.js';
 import { computeFinalStats } from './stats.js';
-import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE0_DEFAULT, D0_DEFAULT, HITRATE_CORE_COEF_DEFAULT,
-         SG_PELLET_HIT_RATE_DEFAULT, DUAL_GUN_MULT } from './constants.js';
+import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE_K_DEFAULT, CORE_OFF_DEFAULT, HITRATE_CORE_COEF_DEFAULT,
+         SG_PELLET_HIT_RATE_DEFAULT, SG_MISS_HITRATE_COEF, DUAL_GUN_MULT } from './constants.js';
 import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
@@ -1330,9 +1330,9 @@ export function initBattle(config) {
     // Phase schedule and current zone tracker（HIDDEN 停火判定用 currentPhaseZone）。
     enemyPhases,
     currentPhaseZone:   initialZone,
-    // 命中率核心命中模型校准常量（敌人配置 UI 可覆盖）。
-    accCore0:           config.enemy.core0   ?? CORE0_DEFAULT,
-    accD0:              config.enemy.d0      ?? D0_DEFAULT,
+    // 命中率核心命中模型校准常量（模拟选项「命中参数」可覆盖）。
+    accCoreK:           config.enemy.coreK   ?? CORE_K_DEFAULT,
+    accCoreOff:         config.enemy.coreOff ?? CORE_OFF_DEFAULT,
     accHitCoef:         config.enemy.hitCoef ?? HITRATE_CORE_COEF_DEFAULT,
     // 实战命中校正：SG 弹丸命中率（默认 1 = 理想命中）。
     accSgHitRate:       config.enemy.sgHitRate  ?? SG_PELLET_HIT_RATE_DEFAULT,
@@ -2033,7 +2033,7 @@ export function tick(state) {
       const pellets      = rollHitPellets(firedPellets, isSgShot
         ? sgPelletHitRate(state.accSgHitRate, state.enemyDistance,
             weaponSwitchActive ? (unit.skillState.weaponSwitchAccuracyScale ?? 0) : unit.accCurrentScale,
-            hitRateNow, state.accHitCoef)
+            hitRateNow, SG_MISS_HITRATE_COEF)
         : 1);
       const shotHitMult  = hitMult * pellets / firedPellets;
       // normalAttackCritRatePct 适用于所有普通攻击（含蓄力），不区分蓄力与否
@@ -2068,7 +2068,7 @@ export function tick(state) {
                 currentScale: switchScale,
                 hitRatePct:   hitRateNow,
                 distance:     state.enemyDistance,
-                CORE0: state.accCore0, D0: state.accD0, coef: state.accHitCoef,
+                K: state.accCoreK, off: state.accCoreOff, coef: state.accHitCoef,
               })
             : effectiveWeaponType === 'SMG' ? 0.033
             : effectiveWeaponType === 'SG'  ? 0.20 : 1.0))
@@ -2077,7 +2077,7 @@ export function tick(state) {
             currentScale: unit.accCurrentScale,
             hitRatePct:   hitRateNow,
             distance:     state.enemyDistance,
-            CORE0: state.accCore0, D0: state.accD0, coef: state.accHitCoef,
+            K: state.accCoreK, off: state.accCoreOff, coef: state.accHitCoef,
           });
       const rollCoreHit = () => {
         const coreRoll = pCore >= 1 || rng() < pCore;

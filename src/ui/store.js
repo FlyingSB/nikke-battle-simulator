@@ -489,19 +489,37 @@ function enemyFromPreset(preset) {
  * 见 dev/game-data.md）。引擎层默认仍为 1（理想命中，回归测试不传此参数），界面每次模拟都显式传入。
  * RL 核心命中按敌人「横向移动」行动与弹道飞行时间建模，不再有校正系数。
  */
-const HIT_CAL_DEFAULTS = { core0: 55, d0: 77, hitCoef: 4.5, sgHitRate: 0.7 };
+const HIT_CAL_DEFAULTS = { coreK: 1044.7, coreOff: -4.26, hitCoef: 1.257, sgHitRate: 0.7 };
+/** 2026-10-19 重标定前的旧模型默认值（线性透视 + 均匀落点）：用于识别旧存档中用户自定义过的参数。 */
+const LEGACY_HIT_CAL_DEFAULTS = { core0: 55, d0: 77, hitCoef: 4.5 };
+/** 核心命中模型参数（不含 sgHitRate）。 */
+const CORE_HIT_CAL_KEYS = ['coreK', 'coreOff', 'hitCoef'];
 /** Anis: Star 的 Shooting Stars 核心命中率修正系数默认值（乘以敌人移动时的基准核心命中率 0.7）。 */
 const STAR_CORE_COEF_DEFAULT = 1;
 
 /**
- * 从存档恢复命中参数：新存档读顶层 hitCal；旧存档（命中参数曾存于 enemy 内）自动迁移。
+ * 从存档恢复命中参数：新存档读顶层 hitCal；更旧的存档（命中参数曾存于 enemy 内）自动迁移。
+ * 2026-10-19 核心命中模型改为透视 + 高斯，旧参数（core0 / d0 / hitCoef）含义不同、无法换算：
+ * 旧结构存档的核心参数一律重置为新默认值，仅保留 sgHitRate；旧值非默认（用户自定义过）时返回 legacyCustomReset。
  * @param {object} state  存档快照
- * @returns {object} 完整的 hitCal
+ * @returns {{ hitCal: object, legacyCustomReset: boolean }}
  */
 function restoreHitCal(state) {
   const src = state.hitCal ?? state.enemy ?? {};
-  return Object.fromEntries(Object.entries(HIT_CAL_DEFAULTS)
-    .map(([k, v]) => [k, Number.isFinite(src[k]) ? src[k] : v]));
+  const isNewSchema = Number.isFinite(src.coreK);
+  const hitCal = Object.fromEntries(Object.entries(HIT_CAL_DEFAULTS).map(([k, v]) => {
+    const keep = Number.isFinite(src[k]) && (isNewSchema || !CORE_HIT_CAL_KEYS.includes(k));
+    return [k, keep ? src[k] : v];
+  }));
+  const legacyCustomReset = !isNewSchema && Object.entries(LEGACY_HIT_CAL_DEFAULTS)
+    .some(([k, v]) => Number.isFinite(src[k]) && src[k] !== v);
+  return { hitCal, legacyCustomReset };
+}
+
+/** 数值参数：有限数（含 0 与负数）原样返回；空输入 / 非数值回退为默认值。 */
+function finiteOr(v, fallback) {
+  const n = Number(v);
+  return Number.isFinite(n) && v !== '' && v !== null ? n : fallback;
 }
 
 /** 流星核心命中率修正系数：非负数；非数值（空输入等）回退为 1。核心命中率最终在引擎中夹到 ≤ 1。 */
@@ -884,7 +902,7 @@ export function createStore() {
     // 模拟选项
     iterations:         5,
     // 命中参数（模拟选项）：
-    //   core0 / d0 / hitCoef：核心命中率几何模型校准常量（实证默认；见 dev/game-data.md）
+    //   coreK / coreOff / hitCoef：核心命中率模型校准常量（透视 + 高斯，实证默认；见 dev/game-data.md）
     //   sgHitRate：实战弹丸命中校正（0..1，1 = 理想命中，默认 0.7），为敌人距离 50 处的命中率，越近越高
     hitCal: { ...HIT_CAL_DEFAULTS },
     // Anis: Star 在队时显示：Shooting Stars 在敌人横向移动时的核心命中率修正系数（× 基准 0.7）
@@ -1547,7 +1565,9 @@ export function createStore() {
         }
       }
       if (state.iterations          != null) this.iterations          = state.iterations;
-      this.hitCal = restoreHitCal(state);
+      const { hitCal, legacyCustomReset } = restoreHitCal(state);
+      this.hitCal = hitCal;
+      if (legacyCustomReset) this.showToast(this.t('sim.hitCalReset'));
       if (Number.isFinite(state.starCoreCoef)) this.starCoreCoef = state.starCoreCoef;
       // 旧版本保存的 0.6s 等超出上限的值统一压到 0.4s（自动战斗实测上限）
       if (state.burstStepSecs       != null) this.burstStepSecs       = Math.min(0.4, state.burstStepSecs);
@@ -2386,9 +2406,10 @@ export function createStore() {
             type:           this.enemy.type,
             phases:         positionPhases,
             // 命中参数（模拟选项 hitCal）：核心命中率模型校准常量
-            core0:          Number(this.hitCal.core0)  || 55,
-            d0:             Number(this.hitCal.d0)     || 77,
-            hitCoef:        Number(this.hitCal.hitCoef) || 4.5,
+            // （0 与负数合法：偏移可为负，收圆系数 0 表示命中率不影响核心率）
+            coreK:          finiteOr(this.hitCal.coreK,   HIT_CAL_DEFAULTS.coreK),
+            coreOff:        finiteOr(this.hitCal.coreOff, HIT_CAL_DEFAULTS.coreOff),
+            hitCoef:        Math.max(0, finiteOr(this.hitCal.hitCoef, HIT_CAL_DEFAULTS.hitCoef)),
             // 实战命中校正（0 合法：表示弹丸全部打空）
             sgHitRate:      clampRate(this.hitCal.sgHitRate,  HIT_CAL_DEFAULTS.sgHitRate),
             ...(defActions.length   ? { defActions   } : {}),

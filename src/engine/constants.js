@@ -125,15 +125,17 @@ export const WEAPON_HIT_MULT = {
 
 // ── 命中率（HitRate）核心命中模型 ────────────────────────────────────────
 /**
- * 数据实证默认值（dev/game-data.md，2026-07-07 训练场实测拟合）。均可被敌人配置 UI 覆盖。
- *   核心屏幕半径 r_core(d) = CORE0 · max(0, 1 − d/D0)
+ * 数据实证默认值（dev/game-data.md「射击场 BIGARMS 核心命中率重标定」，2026-10-19 SMG / AR / SG
+ * 距离 20 / 30 / 50 共 13 组实测联合拟合）。均可被模拟选项「命中参数」覆盖。
+ *   核心屏幕半径 r_core(d) = CORE_K / (d + CORE_OFF)              透视缩小
  *   有效散布     R_eff     = currentScale / (1 + HITRATE_CORE_COEF · HitRate)
- *   核心命中率   P_core    = clamp((r_core / R_eff)², 0, 1)
+ *   核心命中率   P_core    = 1 − exp(−(r_core / R_eff)²)          落点集中于中心（二维高斯）
  * 武器散布 currentScale 取各角色 auto 散布 scale（SG 250 / SMG 110 / AR 75 / MG 250→10），不设常量。
+ * HitRate 来源（装备 / 魔方 / 技能）效果相同。
  */
-export const CORE0_DEFAULT             = 55;   // d=0 时核心屏幕半径（SMG/SG 交叉验证）
-export const D0_DEFAULT                = 77;   // 核心缩为 0 的距离（线性透视外推）
-export const HITRATE_CORE_COEF_DEFAULT = 4.5;  // HitRate 收圆系数（Drake 三档拟合）
+export const CORE_K_DEFAULT            = 1044.7; // 透视常数（核心屏幕半径 × 距离）
+export const CORE_OFF_DEFAULT          = -4.26;  // 距离偏移
+export const HITRATE_CORE_COEF_DEFAULT = 1.257;  // HitRate 收圆系数
 
 /**
  * 实战命中校正系数（模拟选项可调）。引擎层默认 1 = 理想命中（与旧行为一致，回归测试依赖）；
@@ -149,10 +151,15 @@ export const SG_PELLET_HIT_RATE_DEFAULT = 1;
 export const HIT_RATE_REF_DISTANCE = 50;
 /**
  * SG 弹丸命中率的标定散布：sgHitRate 视为散布 scale = 250、HitRate = 0 时的命中率。
- * 实际打空率按有效散布 R_eff = currentScale / (1 + HITRATE_CORE_COEF · HitRate) 与标定散布之比缩放
- * （散布收束 / 命中率 ▲ → 弹丸更集中 → 打空更少），与核心命中模型共用同一收圆式。
+ * 实际打空率按有效散布 R_eff = currentScale / (1 + SG_MISS_HITRATE_COEF · HitRate) 与标定散布之比缩放
+ * （散布收束 / 命中率 ▲ → 弹丸更集中 → 打空更少）。
  */
 export const SG_PELLET_REF_SCALE = 250;
+/**
+ * SG 打空率的 HitRate 收圆系数。沿用核心命中模型重标定（2026-10-19）前的旧值 4.5：
+ * 核心命中率的系数已按实测改为 1.257，但命中率对 SG 打空率的影响尚无实测，暂不随之调整。
+ */
+export const SG_MISS_HITRATE_COEF = 4.5;
 
 /**
  * RL 核心命中模型（实测：2026-10-13，Anis: Star 单人 vs 射击场 BIGARMS，逐发记录核心命中与敌人横向移动）。

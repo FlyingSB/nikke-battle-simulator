@@ -16,8 +16,13 @@ const S2_COOLDOWN_TICKS = ACTIVE_SKILL_COOLDOWN_SEC[861].skill2 * TICK_RATE;
 // 切换武器 shot_id 1086102 无本地数据（无蓄力说明、无弹匣说明），按非蓄力单发武器、期间不耗弹建模。
 // 原武器为 SR（蓄力路径），借用 weaponSwitchChargeTimeTicks = 射速发间（3600 / RPM）驱动射击节奏，
 // weaponSwitchType 取非蓄力类型 'AR' 使 isCharged = false（不吃全蓄力倍率、不触发 FULL_CHARGE）。
-// 核心命中率：引擎对非 SMG / SG 的切换武器恒按 100% 核心命中。实测切换武器并非每发命中核心，
-// 但 Takina 不是主要输出角色，暂不细究（2026-10-12 用户确认），已知此处高估。
+// 核心命中率：切换武器无散布数据，借用 AR 散布圈 scale 75（全部 AR 角色 auto_start_accuracy_circle_scale
+// 均为 75）走核心命中模型（受命中率影响）。nikke.gg 评测称其散布「接近 AR」；两组整局实测
+// （Focus Laplace 1.040B / Focus Takina 1.121B，2026-10-19）对照：核心命中模型重标定（透视 + 高斯）后
+// +0.4% / +0.3%（重标定前 AR 75 为 −1.1% / −3.5%，SMG 110 为 −3.8% / −7.0%）。恒 100% 核心时高估约 30%。
+// 切换武器核心伤害实测 200%（即核心 +100%，与普通攻击相同）。
+const SWITCH_ACCURACY_SCALE = 75;
+
 function switchRateOfFire(caster) {
   return caster.rawBurst?.skill_value_data?.[1]?.skill_value ?? 150;
 }
@@ -127,6 +132,7 @@ export default {
             weaponSwitchChargeTimeTicks: shotTicks,
             weaponSwitchUnlimitedAmmo:   true,
             weaponSwitchPierce:          false,
+            weaponSwitchAccuracyScale:   SWITCH_ACCURACY_SCALE,
             takinaRechargeAfterSwitch:   true,
           });
           caster.reloadTick = 0;

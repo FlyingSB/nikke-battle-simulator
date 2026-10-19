@@ -18,13 +18,13 @@ import {
   recoverAccuracy,
   coreHitChance,
 } from '../../src/engine/accuracy.js';
-import { CORE0_DEFAULT, D0_DEFAULT, HITRATE_CORE_COEF_DEFAULT } from '../../src/engine/constants.js';
+import { CORE_K_DEFAULT, CORE_OFF_DEFAULT, HITRATE_CORE_COEF_DEFAULT, SG_MISS_HITRATE_COEF } from '../../src/engine/constants.js';
 import { rollHitPellets, rollProjectileCore, distanceScaledHitRate, sgPelletHitRate, isEnemyHittable,
          enemyLateralSpeedAt, rlFlightTicks, rlCoreHitRate, logMissedSkillHit } from '../../src/engine/battle-utils.js';
 import { setRng } from '../../src/engine/rng.js';
 import { eq, near, section, summary } from '../lib/test-harness.mjs';
 
-const CAL = { CORE0: CORE0_DEFAULT, D0: D0_DEFAULT, coef: HITRATE_CORE_COEF_DEFAULT };
+const CAL = { K: CORE_K_DEFAULT, off: CORE_OFF_DEFAULT, coef: HITRATE_CORE_COEF_DEFAULT };
 
 // ── T1: parseAccuracyProfile ──────────────────────────────────────────────
 section('T1: parseAccuracyProfile');
@@ -79,7 +79,11 @@ section('T3: coreHitChance 边界');
 {
   eq('alwaysCore → 1', coreHitChance({ alwaysCore: true, currentScale: 250, hitRatePct: 0, distance: 50, ...CAL }), 1);
   eq('currentScale=0（无数据）→ 1', coreHitChance({ alwaysCore: false, currentScale: 0, hitRatePct: 0, distance: 10, ...CAL }), 1);
-  eq('distance ≥ D0 → 0', coreHitChance({ alwaysCore: false, currentScale: 250, hitRatePct: 0, distance: 77, ...CAL }), 0);
+  eq('贴脸（距离 ≤ −off）→ 1', coreHitChance({ alwaysCore: false, currentScale: 250, hitRatePct: 0, distance: 3, ...CAL }), 1);
+  const far100 = coreHitChance({ alwaysCore: false, currentScale: 250, hitRatePct: 0, distance: 100, ...CAL });
+  eq('远距离 → (0, 1%) 内', far100 > 0 && far100 < 0.01, true);
+  const sat = coreHitChance({ alwaysCore: false, currentScale: 10, hitRatePct: 0, distance: 30, ...CAL });
+  eq('散布极小（MG 收束 10）→ 接近但不超过 1', sat > 0.99 && sat <= 1, true);
 
   const near20 = coreHitChance({ alwaysCore: false, currentScale: 250, hitRatePct: 0, distance: 20, ...CAL });
   const far50  = coreHitChance({ alwaysCore: false, currentScale: 250, hitRatePct: 0, distance: 50, ...CAL });
@@ -90,28 +94,27 @@ section('T3: coreHitChance 边界');
   eq('HitRate 越高核心率越高', hr50 > hr0, true);
 }
 
-// ── T4: 实测数据回归（dev/game-data.md 2026-07-07）────────────────────────
-// r_core(d)=55·(1−d/77)；R_eff=R/(1+4.5·HR)；P=(r_core/R_eff)²。断言落在实测 ±泊松误差内。
-section('T4: 实测回归 SMG(R=110, HR=0)');
+// ── T4: 实测数据回归（dev/game-data.md 2026-10-19 射击场 BIGARMS 重标定）──────
+// r_core = K/(d + off)；R_eff = scale/(1 + c·HR)；P = 1 − exp(−(r_core/R_eff)²)。
+// 实测为单人逐档伤害反推的核心命中数 / 命中数；断言落在实测约 ±2.5σ 内。
+const P = (scale, hitRatePct, distance) => coreHitChance({ alwaysCore: false, currentScale: scale, hitRatePct, distance, ...CAL });
+section('T4: 实测回归 无命中率（SMG 110 / AR 75，距离 20 / 30 / 50）');
 {
-  // SMG d=20 实测 105/761=13.8%，d=30 66/719=9.2%，d=50 25/808=3.1%
-  const p20 = coreHitChance({ alwaysCore: false, currentScale: 110, hitRatePct: 0, distance: 20, ...CAL });
-  const p30 = coreHitChance({ alwaysCore: false, currentScale: 110, hitRatePct: 0, distance: 30, ...CAL });
-  const p50 = coreHitChance({ alwaysCore: false, currentScale: 110, hitRatePct: 0, distance: 50, ...CAL });
-  near('SMG d=20 ≈ 13.8%', p20, 0.138, 0.015);
-  near('SMG d=30 ≈ 9.2%',  p30, 0.092, 0.015);
-  near('SMG d=50 ≈ 3.1%',  p50, 0.031, 0.012);
+  near('SMG d=20 ≈ 31.7%（223/704）', P(110, 0, 20), 0.317, 0.045);
+  near('SMG d=30 ≈ 12.9%（78/604）',  P(110, 0, 30), 0.129, 0.03);
+  near('SMG d=50 ≈ 3.9%（25/637）',   P(110, 0, 50), 0.039, 0.02);
+  near('AR d=20 ≈ 50.6%（163/322）',  P(75, 0, 20), 0.506, 0.06);
+  near('AR d=30 ≈ 27.7%（165/595）',  P(75, 0, 30), 0.277, 0.04);
+  near('AR d=50 ≈ 6.5%（22/339）',    P(75, 0, 50), 0.065, 0.035);
 }
-section('T4b: 实测回归 Drake SG(R=250) 三档 HitRate');
+section('T4b: 实测回归 带命中率（距离 30，装备 / 魔方 / 技能命中率同效）');
 {
-  // 近距离(d=20)拟合最好：base 11.27%, drake 48.47%, noir 74.01%
-  const p20_base = coreHitChance({ alwaysCore: false, currentScale: 250, hitRatePct: 0.1127, distance: 20, ...CAL });
-  const p20_drk  = coreHitChance({ alwaysCore: false, currentScale: 250, hitRatePct: 0.4847, distance: 20, ...CAL });
-  const p20_noir = coreHitChance({ alwaysCore: false, currentScale: 250, hitRatePct: 0.7401, distance: 20, ...CAL });
-  // 实测 P2 d=20：9/150=6.0%、165/510=32.4%、158/270=58.5%；P5：12%、26.9%、49.7%
-  near('SG d=20 HR11% ≈ 6%',   p20_base, 0.06, 0.05);
-  near('SG d=20 HR48% ≈ 27–32%', p20_drk, 0.29, 0.06);
-  near('SG d=20 HR74% ≈ 50–58%', p20_noir, 0.54, 0.08);
+  near('SMG HR 16.9%（装备+魔方）≈ 19.4%（115/594）', P(110, 0.169, 30), 0.194, 0.035);
+  near('SMG HR 19.32%（Chisato 技能）≈ 18.4%（112/609）', P(110, 0.1932, 30), 0.184, 0.035);
+  near('AR HR 11.81% ≈ 32.3%（100/310）', P(75, 0.1181, 30), 0.323, 0.05);
+  near('AR HR 28.56% ≈ 40.9%（114/279）', P(75, 0.2856, 30), 0.409, 0.06);
+  near('SG HR 0 ≈ 2.0%（似然估计 0.2–8.2%）', P(250, 0, 30), 0.02, 0.02);
+  near('SG HR 28.71% ≈ 4.85%（19/392）', P(250, 0.2871, 30), 0.0485, 0.025);
 }
 
 // ── T5: 实战命中校正（SG 弹丸命中率 / RL 核心命中率）────────────────────────
@@ -173,7 +176,8 @@ section('T6a: RL 核心命中（敌人横向移动 × 飞行时间）');
 
 section('T6b: sgPelletHitRate（散布收束 / 命中率 ▲ 减少弹丸打空）');
 {
-  const c = HITRATE_CORE_COEF_DEFAULT;
+  // SG 打空率沿用旧收圆系数 4.5（与核心命中率系数解耦，见 constants.js SG_MISS_HITRATE_COEF）
+  const c = SG_MISS_HITRATE_COEF;
   eq('系数 1 → 恒为 1', sgPelletHitRate(1, 50, 250, 0, c), 1);
   near('标定条件（250、HR 0）→ 等于距离缩放命中率', sgPelletHitRate(0.7, 50, 250, 0, c), 0.7);
   near('无散布数据（scale 0）→ 按标定散布', sgPelletHitRate(0.7, 50, 0, 0, c), 0.7);
