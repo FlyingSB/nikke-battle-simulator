@@ -83,7 +83,6 @@
 | 麦斯威尔：平凡技师 | Maxwell: Ordinary Mechanic |
 | 吉尔提：神力兔女郎 | Guilty: Mighty Bunny |
 | 森：疾速兔女郎 | Sin: Swift Bunny |
-| 千束 | Chisato |
 | QUEEN（真） | Queen (Makoto) |
 | 雪子 | Yukiko |
 
@@ -110,7 +109,7 @@
 
 **待实现**
 
-- 部件系统：Boss 可破坏部件的独立血量，以及「对部件伤害 ▲」类技能效果
+- 零件系统：Boss 可破坏零件的独立血量，以及「零件伤害 ▲」类技能效果
 - 手动打法开关：部分角色的形态 / 武器切换需要手动操作，自动战斗不会触发，计划提供开关以模拟手动打法
   - 吉尔提：神力兔女郎、森：疾速兔女郎（Bunny Mode 切换）
   - 灰姑娘：琉璃波光（Cinderella: Crystal Wave，Snipe Mode）
