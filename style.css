@@ -78,7 +78,14 @@ body {
   position: sticky; top: 0; z-index: 100;
 }
 .topbar-brand  { font-size: 0.9rem; font-weight: 600; color: var(--accent); justify-self: start; }
-.topbar-right  { display: flex; align-items: center; gap: 10px; justify-self: end; }
+/* 右侧操作区各项始终单行：英文文案较长时不折行、不被压缩（宽度由内容决定） */
+.topbar-right  { display: flex; align-items: center; gap: 10px; justify-self: end; white-space: nowrap; }
+.topbar-right > * { flex-shrink: 0; }
+/* 导入账号按钮内的隐藏文件框：以按钮自身为定位基准，避免不折行时被排到视口外撑出横向滚动条 */
+.topbar-right > label.btn { position: relative; }
+.topbar-right > label.btn .visually-hidden { left: 0; top: 0; }
+/* 工具菜单下拉面板内的说明文字仍需正常折行 */
+.tools-menu-panel { white-space: normal; }
 .topbar-run {
   display: inline-flex; align-items: center; gap: 8px;
   min-width: 150px; justify-content: center;
@@ -1497,9 +1504,6 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   .topbar-history-btn .topbar-badge { margin-left: auto; }
   /* 下拉面板内按钮整宽：红点改为行尾内联，与记录数量徽标对齐 */
   .topbar-blabla-btn .notice-dot { position: static; margin-left: auto; box-shadow: none; }
-  /* 导入账号按钮内的隐藏文件框：以按钮自身为定位基准，避免撑出下拉面板横向滚动条 */
-  .topbar-right > label.btn { position: relative; }
-  .topbar-right > label.btn .visually-hidden { left: 0; top: 0; }
   /* 工具菜单在下拉面板内就地展开，不再二次浮出 */
   .tools-menu-panel { position: static; width: auto; margin-top: 6px; background: var(--surface2); box-shadow: none; }
   .lang-switch { align-self: flex-start; }
