@@ -27,6 +27,7 @@ SSR 专属珍藏品（resource_id `200XXX` / `201XXX` / `202XXX`）会替换角�
 |------|:-----------:|--------------|:-----------------:|
 | Miranda | 32 | Sheet of Paper | 200601 |
 | Centi | 80 | Metal Pendant | 201601 |
+| Laplace | 100 | Hero Trilogy BD | 200401 |
 | Drake | 101 | Villain Figurine | 200801 |
 | Sugar | 140 | Commemorative Keychain | 202101 |
 | Frima | 142 | Beloved Pillow | 200301 |

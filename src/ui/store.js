@@ -109,6 +109,7 @@ const NORMAL_ATTACK_LABEL = '普通攻击';
 const SSR_FAV_BY_CHAR = {
    32: 200601, // Miranda   → Sheet of Paper
    80: 201601, // Centi     → Metal Pendant
+  100: 200401, // Laplace   → Hero Trilogy BD
   101: 200801, // Drake     → Villain Figurine
   140: 202101, // Sugar     → Commemorative Keychain
   142: 200301, // Frima     → Beloved Pillow

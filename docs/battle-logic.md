@@ -530,6 +530,7 @@ spot_last 20 → 12t）。实测 Raven（BIGARMS）落地 → 首发 84–87t（
 - 切换武器后，当前武器弹匣默认为满弹；若有技能在切换时显式设定弹药数，则以技能值为准。
 - 可选覆盖：`weaponSwitchCoreRate`（切换武器核心率，缺省按切换武器类型硬编码，见 §3.8）；`weaponSwitchLabel`（命中统计/日志标签，缺省为 `Burst <爆裂技能名>`，切换来源为 S1/S2 时应显式指定，如 Drake: Great Villain S1）；`weaponSwitchRateOfFire`（切换武器射速 RPM，仅对非蓄力累加器模型生效，缺省沿用原武器 `rate_of_fire`；如 Moran 爆裂 1440 RPM，数据来自 nikke.gg，未实测验证）；`weaponSwitchAmmoCountPerShot`（「Expends ammo. Amount: N round(s)」：每发按 N 发计入全队累计消耗弹药 `totalAmmoFired`（S1 P5 一类「累计消耗弹药」计数），弹匣实际仍只扣 1 发；如 Cinderella: Crystal Wave Snipe Mode 全蓄力 = 40 发）。
 - **非蓄力武器切换为蓄力型武器**（`weaponSwitchChargeTimeTicks > 0` 且原武器 `chargeTimeTicks = 0`，如 Cinderella: Crystal Wave MG → Snipe Mode）：换弹完成后仍经原武器的对准期 `reloadAimTicks`，之后由技能 `RELOAD_END` 触发器排定 `chargeTick = 换弹完成 + 对准期 + 切换武器蓄力`；HIDDEN 退出时重置为 `now + 切换武器蓄力`。
+- **无法隐蔽的切换武器**（`weaponSwitchNoCover: true`，如 Laplace 爆裂激光「Unable to take cover」）：切换期间无法停止攻击，敌人 HIDDEN / JUMP 时仍向空中开火（不造成伤害、不触发命中类效果）。引擎在 HIDDEN 退出时不重排该单位蓄力；停火期间到期的击发由技能顺延到下一节拍，恢复可瞄准后按原节拍继续。
 - **切换武器自带基础弹匣**（如 Snipe Mode 15 发）：技能改写 `unit.baseAmmo` 后调用 `recalcMaxAmmo`，装备词条（百分比 buff）按新基础自动生效，珍藏品装弹数 flat（引擎按原武器基础预折）由技能按同一百分比重算；`weaponSwitchMaxAmmo = null` 使日志弹匣上限跟随 `unit.maxAmmo`。
 
 #### 4.7.1 Cinderella: Crystal Wave 形态切换（Preparation for Change / Snipe Mode）

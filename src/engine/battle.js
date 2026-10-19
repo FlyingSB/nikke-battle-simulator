@@ -1544,6 +1544,9 @@ export function tick(state) {
             u.chargeTick = state.tick + switchCharge;
             continue;
           }
+          // 「无法隐蔽」的切换武器（weaponSwitchNoCover，如 Laplace 爆裂激光）：停火期间仍在向空中开火，
+          // 出 HIDDEN 后不重新蓄力，击发节奏由技能自行维持
+          if (switchCharge > 0 && u.skillState.weaponSwitchNoCover) continue;
           if (u.chargeTimeTicks <= 0) continue;
           scheduleEngineCharge(state, u, state.tick,
             u.isDownCharge ? 0 : u.hiddenResetBackswingTicks + u.foreswingTicks, getBuffSums(state, u.id));

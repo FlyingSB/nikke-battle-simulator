@@ -39,6 +39,7 @@ import s470 from './skills/470.js';
 import s220 from './skills/220.js';
 import s511 from './skills/511.js';
 import s101 from './skills/101.js';
+import s100 from './skills/100.js';
 import s513 from './skills/513.js';
 import s835 from './skills/835.js';
 import s471 from './skills/471.js';
@@ -125,6 +126,7 @@ export const SKILL_TRAITS = {
   511: s511,
   513: s513,
   101: s101,
+  100: s100,
   835: s835,
   471: s471,
   270: s270,

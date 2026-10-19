@@ -15,6 +15,9 @@ export default {
   'Super Firepower Explosion': '火力全开爆发',
   // ── 43 D: Killer Wife（D：杀手妻子）
   'Wipe Out': '目标歼灭',
+  // ── 100 Laplace（拉普拉斯）
+  'First Damage': '初始伤害',
+  'Normal Damage': '普通伤害',
   // ── 170 Privaty（普丽瓦蒂）
   'EX Magazine': 'EX弹匣',
   'LD Assault': 'LD强袭',
