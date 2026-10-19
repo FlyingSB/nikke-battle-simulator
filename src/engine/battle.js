@@ -2179,7 +2179,8 @@ export function tick(state) {
       // 若写 hitLog 时再读 state.buffs，本发消耗的最后一回合 buff 会从伤害明细中漏掉（伤害已计入）。
       // 解决：在扣减前快照 buffBreakdown（双重命中另在第二次命中前再快照），只保留 roundsLeft>0 的活跃 buff。
       // 口径同 getBuffSums（isBuffActiveFor：目标 / 回合 / 到期 / weaponFilter）
-      const _snapActiveBufs = () => state.buffs
+      // trueDmg：本次命中是否为无视防御力伤害（双重命中第二次按其自身 sums 判定）
+      const _snapActiveBufs = (trueDmg = isTrueDamage) => state.buffs
         .filter(b => isBuffActiveFor(state, b, unit))
         .map(b => {
           // 叠层 buff：记录「层数 × 单层值」的实际贡献，与 getBuffSums 聚合口径一致
@@ -2195,11 +2196,13 @@ export function tick(state) {
                    elementAdvantagePct: bd.elemMult > 1 ? (b.elementAdvantagePct ?? 0) * k : 0,
                    // 零件伤害仅零件核心敌人的核心命中生效（与 calcShotDamage 的 damageToPartsMult 口径一致）
                    damageToPartsPct: isParts ? (b.damageToPartsPct ?? 0) * k : 0,
+                   // 无视防御力伤害加成仅对无视防御力命中生效（与 calcDamage 的 trueDamageMult 口径一致）
+                   trueDamagePct: trueDmg ? (b.trueDamagePct ?? 0) * k : 0,
                    stacks: k, multiplier: b.multiplier ?? null,
                    sourceCaster: b._sourceCaster ?? null, sourceSkillLabel: b._sourceSkillLabel ?? null,
                    sourcePartIdx: b._sourcePartIdx ?? null };
         })
-        .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.normalAttackDamageMultPct || b.critDamagePct || b.elementAdvantagePct || b.damageToPartsPct);
+        .filter(b => b.atkFlat || b.atkPct || b.attackDamagePct || b.pierceDamagePct || b.coreDamagePct || b.chargeDamagePct || b.chargeDamageMultPct || b.normalAttackDamageMultPct || b.critDamagePct || b.elementAdvantagePct || b.damageToPartsPct || b.trueDamagePct);
       let _hit1BreakdownBufs = null, _hit2BreakdownBufs = null;
       if (state.hitLog) _hit1BreakdownBufs = _snapActiveBufs();
 
@@ -2213,8 +2216,8 @@ export function tick(state) {
         decrementRoundBuffs(state, unit.id);
         fireShotCountTriggers(state, unit, { sums, isCharged, isFullCharge, hitPart, pellets, isCrit, critPellets, corePellets,
           weaponType: effectiveWeaponType, ammoAfterShot: unit.ammoLeft - 1 });
-        if (state.hitLog) _hit2BreakdownBufs = _snapActiveBufs();
         const sums2 = getBuffSums(state, unit.id);
+        if (state.hitLog) _hit2BreakdownBufs = _snapActiveBufs(sums2.normalAttackTrueDamage);
         const eCritRate2 = Math.min(1,
           (unit.stats.critRate ?? 0.15) + sums2.critRatePct + (sums2.normalAttackCritRatePct ?? 0));
         isCrit2 = rollCrit(eCritRate2);
