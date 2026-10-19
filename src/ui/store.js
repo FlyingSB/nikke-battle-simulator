@@ -72,6 +72,11 @@ const EQUIP_SLOTS = ['head', 'torso', 'arms', 'legs'];
 const MIRANDA_ID         = 32;
 const FULL_CRIT_CHAR_IDS = [162, 391];
 
+// 爆裂施放者锁定的阶段键（引擎 config.burstLocks 同名键，见 battle.js lockedBurstUnit）
+const EMPTY_BURST_LOCKS = Object.freeze({ s1: null, s2: null, s3odd: null, s3even: null });
+// 槽位爆裂阶段 → 可锁定的阶段键（AllStep 由 Red Hood 爆裂用法选项决定，不提供锁定）
+const BURST_LOCK_KEYS = { Step1: ['s1'], Step2: ['s2'], Step3: ['s3odd', 's3even'], StepFull: ['s3odd', 's3even'] };
+
 // Red Hood（470，AllStep）爆裂用法选项（引擎 config.rhBurstMode，见 battle.js 轮次策略）
 const RED_HOOD_ID    = 470;
 const RH_BURST_MODES = ['b3', 'b1odd', 'b1even', 'b1r1b3', 'b1r2b3even'];
@@ -934,7 +939,10 @@ export function createStore() {
     // 实机同时仅 1 个受控角色、可随时切换；模拟器简化为用户指定 1 个固定 Focus。
     // 仅影响蓄力武器（SR/RL）的充能：Focus 蓄力角色每发充能 × (full_charge_burst_energy/10000)。
     focusSlot:    null,
-    team:         Array.from({ length: 5 }, (_, i) => defaultSlot(i === 0)),
+    // 爆裂施放者锁定：各阶段（s1 / s2 / s3odd 奇数轮 / s3even 偶数轮）锁定的队伍槽位下标，null = 自动选择。
+    // 每个阶段至多一名；槽位左上角爆裂阶段按钮切换（见 toggleBurstLock）。
+    burstLocks:   { ...EMPTY_BURST_LOCKS },
+    team:        Array.from({ length: 5 }, (_, i) => defaultSlot(i === 0)),
     // 槽位拖拽换位：拖动中的源槽位下标 / 当前悬停的目标槽位下标（-1 = 无）
     dragFrom:     -1,
     dropTarget:   -1,
@@ -1041,6 +1049,38 @@ export function createStore() {
       return getCharacterByResourceId(slot.resourceId)?.burstStep === 'AllStep' ? 'AllStep' : slot.burstStep;
     },
     slotBurstIcon(slot) { return burstIcon(this.slotBurstStep(slot)); },
+
+    // ── 爆裂施放者锁定（槽位左上角按钮） ──
+    /** 槽位可锁定的阶段键：B1 → [s1]，B2 → [s2]，B3 → [s3odd, s3even]；AllStep / 空槽 → [] */
+    slotBurstLockKeys(slot) {
+      if (!slot?.resourceId) return [];
+      return BURST_LOCK_KEYS[this.slotBurstStep(slot)] ?? [];
+    },
+    /**
+     * 切换槽位 i 的锁定（keys 为一个或多个阶段键）：
+     * 全部已由 i 锁定 → 全部取消；否则全部改为 i（同阶段原锁定者自动取消，保证每阶段至多一名）。
+     */
+    toggleBurstLock(i, keys) {
+      const allOn = keys.every(k => this.burstLocks[k] === i);
+      const next  = { ...this.burstLocks };
+      for (const k of keys) next[k] = allOn ? null : i;
+      this.burstLocks = next;
+    },
+    /** 引擎用锁定表：槽位下标 → characterId；槽位已空 / 爆裂阶段不符的锁定忽略 */
+    get effectiveBurstLocks() {
+      const out = {};
+      for (const [k, i] of Object.entries(this.burstLocks)) {
+        const slot = i != null ? this.team[i] : null;
+        if (slot?.active && this.slotBurstLockKeys(slot).includes(k)) out[k] = slot.resourceId;
+      }
+      return out;
+    },
+    /** 清除指向槽位 i 的全部锁定（清空槽位 / 更换角色时） */
+    _clearBurstLocksOf(i) {
+      if (!Object.values(this.burstLocks).includes(i)) return;
+      this.burstLocks = Object.fromEntries(
+        Object.entries(this.burstLocks).map(([k, v]) => [k, v === i ? null : v]));
+    },
     /**
      * 武器图标悬停提示行（CDN shot_detail 基础值，不含装备 / 技能加成）。
      * 时间字段单位厘秒；damage / full_charge_damage / core_damage_rate 以 1/100 % 计。
@@ -1502,6 +1542,7 @@ export function createStore() {
         quickChargeMode:    this.quickChargeMode,
         fullCritChar:       this.fullCritChar,
         focusSlot:          this.focusSlot,
+        burstLocks:         this.burstLocks,
         team: this.team.map(slot => this._slotSnapshot(slot)),
       };
     },
@@ -1580,6 +1621,11 @@ export function createStore() {
       if (['off', 'always', 'untilFull'].includes(state.quickChargeMode)) this.quickChargeMode = state.quickChargeMode;
       if (FULL_CRIT_CHAR_IDS.includes(state.fullCritChar)) this.fullCritChar = state.fullCritChar;
       if (state.focusSlot !== undefined)   this.focusSlot         = state.focusSlot;
+      if (state.burstLocks && typeof state.burstLocks === 'object') {
+        const validIdx = v => (Number.isInteger(v) && v >= 0 && v < 5 ? v : null);
+        this.burstLocks = Object.fromEntries(
+          Object.keys(EMPTY_BURST_LOCKS).map(k => [k, validIdx(state.burstLocks[k])]));
+      }
       if (!Array.isArray(state.team)) return;
       state.team.forEach((saved, i) => {
         if (i >= this.team.length || !saved) return;
@@ -1648,6 +1694,8 @@ export function createStore() {
       const i = this.charPickerSlot;
       if (i < 0) return;
       this.closeCharPicker();
+      // 更换角色：原角色的爆裂锁定不再适用
+      if (this.team[i].resourceId !== resourceId) this._clearBurstLocksOf(i);
       this._assignChar(i, resourceId);
     },
 
@@ -1704,6 +1752,8 @@ export function createStore() {
       this.team = this.team.map((slot, idx) => this.team[remap(idx)]);
       this.activeSlot = remap(this.activeSlot);
       if (this.focusSlot != null) this.focusSlot = remap(this.focusSlot);
+      this.burstLocks = Object.fromEntries(
+        Object.entries(this.burstLocks).map(([k, v]) => [k, v != null ? remap(v) : null]));
     },
 
     onSlotDragStart(i, event) {
@@ -1734,6 +1784,7 @@ export function createStore() {
       this.team[i] = defaultSlot(false);
       // 清空的若是 Focus 槽位，取消 Focus（避免指向空槽）
       if (this.focusSlot === i) this.focusSlot = null;
+      this._clearBurstLocksOf(i);
     },
 
     // ── 极限突破与好感度 ──────────────────────────────────────────────────────
@@ -2426,6 +2477,8 @@ export function createStore() {
           mirLastBurstOnly: this.hasMaidenIceRose   && this.mirLastBurstOnly,
           mastBurstMode:    this.effectiveMastBurstMode,
           rhBurstMode:      this.effectiveRhBurstMode,
+          // 爆裂施放者锁定（{ s1, s2, s3odd, s3even } → characterId），特殊选项优先由引擎处理
+          burstLocks:       this.effectiveBurstLocks,
           ccwSnipeModeAtStart: this.hasCinderellaCrystalWave && this.ccwSnipeModeAtStart,
           quickChargeMode:  this.quickChargeSlot ? this.quickChargeMode : 'off',
           // 百暴：仅传队伍中实际出现的所选角色（Miranda 不在队时候选为空 → 关闭）
@@ -2492,6 +2545,8 @@ export function createStore() {
 
       // 先整体换成新槽位对象，再逐个填充（异步加载按调用时的槽位对象写回）
       this.team = Array.from({ length: 5 }, () => defaultSlot(false));
+      // 模拟记录不含爆裂锁定：换队后清空，避免锁定指向记录中的其他角色
+      this.burstLocks = { ...EMPTY_BURST_LOCKS };
       if (team) {
         team.slice(0, 5).forEach((saved, i) => { if (saved) this._restoreSlot(i, saved); });
         this.focusSlot = rec.focusSlot ?? null;

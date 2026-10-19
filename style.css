@@ -366,6 +366,37 @@ select.input:not([multiple], [size]) {
   background: var(--accent3); color: #1a1a1a; border-color: var(--accent3);
   box-shadow: 0 0 5px rgba(240,165,0,0.7);
 }
+/* 爆裂施放者锁定 — 左上角（与 Focus 徽标对称、同尺寸），B3 下方附奇数轮 1 / 偶数轮 2 小按钮 */
+.slot-burst-lock {
+  position: absolute; top: 7px; left: 6px; z-index: 3;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.slot-burst-badge {
+  width: 15px; height: 15px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.55); border: 1px solid var(--text-muted);
+  cursor: pointer; transition: all 0.12s;
+}
+.slot-burst-badge img { width: 9px; height: 9px; object-fit: contain; opacity: 0.6; transition: opacity 0.12s; }
+.slot-burst-badge:hover { border-color: var(--accent2); }
+.slot-burst-badge:hover img { opacity: 1; }
+.slot-burst-badge--on {
+  background: var(--accent2); border-color: var(--accent2);
+  box-shadow: 0 0 5px rgba(224,92,79,0.75);
+}
+.slot-burst-badge--on img { opacity: 1; }
+.slot-burst-rounds { display: flex; flex-direction: column; gap: 2px; }
+.slot-burst-round {
+  width: 12px; height: 12px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.5rem; font-weight: 700; line-height: 1;
+  background: rgba(0,0,0,0.65); color: rgba(255,255,255,0.75);
+  border: 1px solid rgba(255,255,255,0.35);
+  cursor: pointer; transition: all 0.12s;
+}
+.slot-burst-round:hover { border-color: var(--accent2); color: #fff; }
+.slot-burst-round--on,
+.slot-burst-round--on:hover { background: var(--accent2); border-color: var(--accent2); color: #fff; }
 /* ── Slot detail ─────────────────────────────────────────── */
 .slot-detail { flex: 1; min-height: 0; overflow-x: hidden; }
 
@@ -1579,6 +1610,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   .slot-tab-avatar { width: 100%; max-width: 64px; height: auto; aspect-ratio: 1; }
   .slot-tab-name { width: 100%; font-size: 0.62rem; }
   .slot-focus-badge { top: 5px; right: 4px; }
+  .slot-burst-lock  { top: 5px; left: 4px; }
 
   /* 最终属性 HP / ATK / DEF：三格允许收缩，压缩内边距以免数值溢出 */
   .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

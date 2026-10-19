@@ -223,6 +223,9 @@ export default {
   // ── 队伍槽位 ──
   'slot.dragHint':      ' (drag to reorder)',
   'slot.focusTip':      'Set as Focus (controlled) NIKKE — only charge weapons get the gauge bonus; click again to unset',
+  'slot.burstLockTip':     'Lock burst caster — when on, only this NIKKE casts this burst stage (waits for her cooldown until ready or the burst times out); when off, the leftmost ready NIKKE is picked. Special burst options take priority',
+  'slot.burstLockOddTip':  'Lock Burst III on odd rounds (1st, 3rd, 5th…)',
+  'slot.burstLockEvenTip': 'Lock Burst III on even rounds (2nd, 4th, 6th…)',
   'slot.empty':         'Empty',
   'slot.slotN':         'Slot {n}',
   'slot.pick':          '+ Select NIKKE',

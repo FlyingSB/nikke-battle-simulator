@@ -38,6 +38,7 @@ const SUITES = [
   { name: 'Data',       file: 'test-data.mjs',       note: 'requires scripts/cache/'                 },
   { name: 'Stats',      file: 'test-stats.mjs',      note: 'may fetch from CDN'                      },
   { name: 'RedHoodBurst', file: 'test-red-hood-burst.mjs', note: 'Red Hood weapon switch shot count' },
+  { name: 'BurstLock',  file: 'test-burst-lock.mjs',  note: 'burst caster lock per stage, no I/O' },
   { name: 'BurstTiming', file: 'test-burst-timing.mjs',   note: 'B3 burst direct damage delay & bonus behavior' },
   { name: 'SimHistory', file: 'test-sim-history.mjs', note: 'simulation history records, no I/O'   },
   { name: 'DmgExport',  file: 'test-dmg-export.mjs',  note: 'damage formula calculator export, no I/O' },

@@ -223,6 +223,9 @@ export default {
   // ── 队伍槽位 ──
   'slot.dragHint':      '（可拖拽调整站位）',
   'slot.focusTip':      '设为 Focus（受控）角色 — 仅蓄力武器获得充能加成；再次点击取消',
+  'slot.burstLockTip':     '锁定爆裂施放者 — 开启后本阶段只由该角色施放爆裂（冷却中则等待，直到冷却完毕或爆裂超时）；关闭时按站位从左到右自动选择。特殊爆裂选项优先',
+  'slot.burstLockOddTip':  '锁定奇数轮（第 1、3、5… 轮）爆裂 3',
+  'slot.burstLockEvenTip': '锁定偶数轮（第 2、4、6… 轮）爆裂 3',
   'slot.empty':         '空',
   'slot.slotN':         '槽位 {n}',
   'slot.pick':          '+ 选择 NIKKE',

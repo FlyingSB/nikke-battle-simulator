@@ -544,6 +544,31 @@
                 :class="{ 'slot-focus-badge--on': $store.sim.focusSlot === i }"
                 @click.stop="$store.sim.focusSlot = ($store.sim.focusSlot === i ? null : i)"
                 :title="$t('slot.focusTip')">F</span>
+              <!-- 爆裂施放者锁定：左上角（与 Focus 对称）；开启后强制由该角色施放所属阶段爆裂（冷却中则等待）。
+                   B3 附奇数轮「1」/ 偶数轮「2」小按钮，点爆裂图标同时切换两者 -->
+              <template x-if="$store.sim.slotBurstLockKeys(slot).length">
+                <span class="slot-burst-lock" x-data="{ get keys() { return $store.sim.slotBurstLockKeys(slot); } }">
+                  <span class="slot-burst-badge" role="button"
+                    :class="{ 'slot-burst-badge--on': keys.some(k => $store.sim.burstLocks[k] === i) }"
+                    :aria-pressed="keys.some(k => $store.sim.burstLocks[k] === i)"
+                    :title="$t('slot.burstLockTip')"
+                    @click.stop="$store.sim.toggleBurstLock(i, keys)">
+                    <img :src="$store.sim.slotBurstIcon(slot)" alt="">
+                  </span>
+                  <template x-if="keys.length === 2">
+                    <span class="slot-burst-rounds">
+                      <template x-for="(k, ki) in keys" :key="k">
+                        <span class="slot-burst-round" role="button"
+                          :class="{ 'slot-burst-round--on': $store.sim.burstLocks[k] === i }"
+                          :aria-pressed="$store.sim.burstLocks[k] === i"
+                          :title="$t(ki === 0 ? 'slot.burstLockOddTip' : 'slot.burstLockEvenTip')"
+                          @click.stop="$store.sim.toggleBurstLock(i, [k])"
+                          x-text="ki + 1"></span>
+                      </template>
+                    </span>
+                  </template>
+                </span>
+              </template>
               <span class="slot-tab-name" x-text="slot.resourceId ? $store.sim.slotName(slot) : $t('slot.empty')"></span>
             </button>
           </template>

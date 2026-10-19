@@ -522,9 +522,34 @@ function selectBurst1Unit(state) {
   const ready = state.squad.filter(u =>
     (u.burstStep === 'Step1' || u.burstRoundPolicy?.mode === 'b1Once') &&
     u.canBurst !== false && u.burstCdRemaining <= 0 && !isStunned(state, u));
-  return ready.find(u => u.burstRoundPolicy && isPolicyBurstRound(state, u))
-    ?? ready.find(u => !u.burstRoundPolicy)
-    ?? null;
+  const policyUnit = ready.find(u => u.burstRoundPolicy && isPolicyBurstRound(state, u));
+  if (policyUnit) return policyUnit;
+  const locked = lockedBurstUnit(state, 's1', u => u.burstStep === 'Step1');
+  if (locked) return ready.includes(locked) ? locked : null;
+  return ready.find(u => !u.burstRoundPolicy) ?? null;
+}
+
+/**
+ * 爆裂施放者锁定（config.burstLocks：{ s1, s2, s3odd, s3even } → characterId，UI 槽位左上角按钮）：
+ * 返回本阶段被锁定、且本轮有资格施放的单位；无锁定或锁定失效时返回 null（回退为自动选择）。
+ * 调用方在锁定有效时只等待该单位冷却（不由同阶段其他单位接替），直到冷却完毕或阶段超时。
+ * 锁定失效（回退自动选择）的情形：
+ *   - 单位带爆裂轮次策略（Red Hood / Mast: Romantic Maid 等特殊选项）— 特殊选项优先，由策略决定；
+ *   - 不属于本阶段（isEligible 不通过，如 lastBurstOnly 单位的非最后一轮）、不可施放（canBurst=false）；
+ *   - 眩晕中（无法施放爆裂，由同阶段其他单位接替）；
+ *   - 本轮已施放过爆裂（如 Anis: Star 重入阶段 1 时，由其他 B1 继续施放）。
+ * @param {object} state
+ * @param {'s1'|'s2'|'s3odd'|'s3even'} key
+ * @param {(u: object) => boolean} isEligible 本阶段资格判定
+ * @returns {object|null}
+ */
+function lockedBurstUnit(state, key, isEligible) {
+  const id = state.burstLocks?.[key];
+  if (id == null) return null;
+  const u = state.squad.find(s => s.id === id);
+  if (!u || u.burstRoundPolicy || u.canBurst === false || !isEligible(u)) return null;
+  if (isStunned(state, u) || state.burstCastersThisRotation?.has(u.id)) return null;
+  return u;
 }
 
 const RED_HOOD_ID = 470;
@@ -576,8 +601,14 @@ function selectBurst3Unit(state, cdLookahead = 0) {
   const lastCycle = state.squad.some(u => u.lastBurstOnly) && isLastBurstCycle(state);
   const ready = state.squad.filter(u => isBurst3Candidate(state, u, lastCycle) &&
     u.burstCdRemaining <= cdLookahead && !isStunned(state, u));
-  return ready.find(u => u.burstRoundPolicy?.b3Parity != null)
-    ?? (lastCycle ? ready.find(u => u.lastBurstOnly) : null) ?? ready[0] ?? null;
+  const special = ready.find(u => u.burstRoundPolicy?.b3Parity != null)
+    ?? (lastCycle ? ready.find(u => u.lastBurstOnly) : null);
+  if (special) return special;
+  // 爆裂 3 锁定按轮次奇偶分开（第 1 轮起：奇数轮 s3odd / 偶数轮 s3even）
+  const key    = state.burstCycleCount % 2 === 1 ? 's3odd' : 's3even';
+  const locked = lockedBurstUnit(state, key, u => isBurst3Candidate(state, u, lastCycle));
+  if (locked) return ready.includes(locked) ? locked : null;
+  return ready[0] ?? null;
 }
 
 /**
@@ -608,9 +639,11 @@ function isPolicyBurstRound(state, u) {
 function selectBurst2Unit(state) {
   const ready = state.squad.filter(u =>
     u.burstStep === 'Step2' && u.canBurst !== false && u.burstCdRemaining <= 0 && !isStunned(state, u));
-  return ready.find(u => u.burstRoundPolicy && isPolicyBurstRound(state, u))
-    ?? ready.find(u => !u.burstRoundPolicy)
-    ?? null;
+  const policyUnit = ready.find(u => u.burstRoundPolicy && isPolicyBurstRound(state, u));
+  if (policyUnit) return policyUnit;
+  const locked = lockedBurstUnit(state, 's2', u => u.burstStep === 'Step2');
+  if (locked) return ready.includes(locked) ? locked : null;
+  return ready.find(u => !u.burstRoundPolicy) ?? null;
 }
 
 /**
@@ -1395,6 +1428,8 @@ export function initBattle(config) {
     pendingSkillHits: [],
     // B3 施放期间 { casterId, delayTicks }，其余时刻 null（见 applyFullBurstSkills）
     b3Cast:           null,
+    // 爆裂施放者锁定（UI 槽位按钮）：{ s1, s2, s3odd, s3even } → characterId，见 lockedBurstUnit
+    burstLocks:       config.burstLocks ?? {},
     // executeSkillTriggers 内部标记：当前正在执行 B3 施放者爆裂技能 handler 时为其 id
     _deferB3HitsFor:  null,
     // Queue of units that received heals this tick. Populated by applyHeal (battle-utils).
