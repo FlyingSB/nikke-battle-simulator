@@ -66,7 +66,6 @@ export default {
   'history.confirmClear': 'Clear all simulation records? This cannot be undone.',
   'history.delete':       'Delete this record',
   'history.close':        'Close',
-  'history.enemy':        'Enemy',
   'history.level':        'Lv.{n}',
   'history.focus':        'Focus',
   'history.toast.saveFailed': 'Could not save simulation history (browser storage unavailable); this record lasts until the page is reloaded',

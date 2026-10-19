@@ -7,6 +7,11 @@
  */
 
 import { getCharacterByNameCode, getCharacterByName, maxGeneralResearchLevel, getCubeResourceIdByTid } from './models.js';
+import { createIdbKv } from './idb-kv.js';
+
+// 用户导入的账号（文件 / blablalink 回传 / 粘贴）持久化到 IndexedDB，刷新后恢复
+const _accountIdb   = createIdbKv('nikke-account');
+const _IMPORTED_KEY = 'imported';
 
 /** 已解析的角色账号数据，按 resourceId 索引。 */
 const _rosterByResourceId = new Map();
@@ -150,6 +155,27 @@ export async function loadAccountFromJson(file) {
  * @returns {boolean}
  */
 export function loadAccountFromData(json) {
+  if (!_applyAccountJson(json)) return false;
+  _persistImportedAccount(json);
+  return true;
+}
+
+/**
+ * 启动时恢复上次导入的账号（IndexedDB）；无记录或数据无效时返回 false。
+ * 必须在 loadAllData() 之后调用。
+ * @returns {Promise<boolean>}
+ */
+export async function loadImportedAccount() {
+  try {
+    return _applyAccountJson(await _accountIdb.get(_IMPORTED_KEY));
+  } catch (err) {
+    console.error('恢复已导入的账号失败：', err);
+    return false;
+  }
+}
+
+/** 解析账号 JSON 并替换当前账号数据；无角色数据时不改动已加载的账号 */
+function _applyAccountJson(json) {
   const details = json?.data?.character_details;
   if (!Array.isArray(details) || !details.length) return false;
   try {
@@ -159,6 +185,13 @@ export function loadAccountFromData(json) {
   } catch {
     return false;
   }
+}
+
+/** 只保存解析所需字段；写入失败仅记录日志（本次会话内账号仍可用） */
+function _persistImportedAccount(json) {
+  const data = { data: { character_details: json.data.character_details, outpost_info: json.data.outpost_info ?? null } };
+  _accountIdb.set(_IMPORTED_KEY, JSON.parse(JSON.stringify(data)))
+    .catch(err => console.error('保存已导入的账号失败（刷新后需重新导入）：', err));
 }
 
 /**

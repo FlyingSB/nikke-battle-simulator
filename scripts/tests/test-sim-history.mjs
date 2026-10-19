@@ -61,6 +61,13 @@ section('T1: buildHistoryRecord');
   const withTeam = buildHistoryRecord({ squadConfig, result, enemy: {}, level: 1, team, focusSlot: 1, now: 1 });
   eq('team snapshot stored', withTeam.team[0].resourceId, 10);
   eq('focusSlot stored', withTeam.focusSlot, 1);
+
+  // 敌人配置名称：仅在传入时记录
+  eq('no preset name by default', 'presetName' in rec.enemy, false);
+  const named = buildHistoryRecord({ squadConfig, result, enemy: { element: 'Fire', presetName: '我的Boss' }, level: 1, now: 2 });
+  eq('presetName stored', named.enemy.presetName, '我的Boss');
+  const builtin = buildHistoryRecord({ squadConfig, result, enemy: { element: 'Fire', presetNameKey: 'enemy.preset.x' }, level: 1, now: 3 });
+  eq('presetNameKey stored', builtin.enemy.presetNameKey, 'enemy.preset.x');
 }
 
 // ── T2: addHistoryRecord ──────────────────────────────────────────────────

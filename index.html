@@ -1457,8 +1457,13 @@
                 <time class="hist-time mono" :datetime="new Date(rec.createdAt).toISOString()"
                   x-text="$store.sim.fmtHistoryTime(rec.createdAt).slice(5)"></time>
                 <span class="hist-sub"
-                  x-text="[rec.enemy?.element && $t('history.enemy') + ' ' + $store.sim.elementLabel(rec.enemy.element),
+                  x-text="[rec.enemy?.element && $store.sim.elementLabel(rec.enemy.element),
                            rec.level && $t('history.level', { n: rec.level })].filter(Boolean).join(' · ')"></span>
+                <!-- 第三行：敌人配置名称（仅非时间戳命名的配置有记录） -->
+                <template x-if="rec.enemy?.presetName || rec.enemy?.presetNameKey">
+                  <span class="hist-sub hist-preset"
+                    x-text="rec.enemy.presetName || $t(rec.enemy.presetNameKey)"></span>
+                </template>
               </div>
               <span class="hist-total mono" :title="$t('results.totalDamage')"
                 x-text="$store.sim.fmtNum(rec.totalDamage)"></span>

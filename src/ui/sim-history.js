@@ -19,7 +19,8 @@ export const SIM_HISTORY_MAX = 100;
  * team / focusSlot：模拟启动时 5 个槽位的完整配置快照（store._slotSnapshot 格式），
  * 用于在记录弹窗中点击整行恢复队伍；缺省时记录只能按角色与站位重建。
  *
- * @param {{ squadConfig: object[], result: object, enemy: { element: string, type: string },
+ * @param {{ squadConfig: object[], result: object,
+ *           enemy: { element: string, type: string, presetName?: string, presetNameKey?: string },
  *           level: number, team?: object[], focusSlot?: number|null, now?: number }} input
  * @returns {object} 记录
  */
@@ -45,7 +46,13 @@ export function buildHistoryRecord({ squadConfig, result, enemy, level, team, fo
     totalDamage: Number(result?.totalDamage) || 0,
     burstCount:  Number(result?.burstCount) || 0,
     level,
-    enemy:       { element: enemy?.element ?? null, type: enemy?.type ?? null },
+    enemy:       {
+      element: enemy?.element ?? null,
+      type:    enemy?.type ?? null,
+      // 敌人配置名称（仅非时间戳命名时记录）：用户预设存名称，内置预设存词典键
+      ...(enemy?.presetName    ? { presetName:    enemy.presetName }    : {}),
+      ...(enemy?.presetNameKey ? { presetNameKey: enemy.presetNameKey } : {}),
+    },
     units,
     ...(Array.isArray(team) ? { team, focusSlot } : {}),
   };

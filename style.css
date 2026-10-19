@@ -1337,6 +1337,8 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   font-size: 0.6rem; color: var(--text-dim);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* 第三行：敌人配置名称，比第二行略亮以便区分 */
+.hist-preset { color: var(--text); }
 .hist-total { font-size: 0.86rem; font-weight: 700; color: var(--accent); text-align: right; }
 .hist-del-btn {
   width: 22px; height: 22px; padding: 0; border-radius: 50%;

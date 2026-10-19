@@ -8,6 +8,7 @@ import {
   loadAccountFromDev,
   loadAccountFromJson,
   loadAccountFromData,
+  loadImportedAccount,
   getAccountSettings,
   getAccountSize,
   getRosterEntry,
@@ -55,6 +56,13 @@ const LOG_PAGE_SIZE = 200;
 
 const STORAGE_KEY        = 'nikke-sim-v1';
 const ENEMY_PRESETS_KEY  = 'nikke-enemy-presets-v1';
+// 自动保存的敌人预设以使用时间命名；匹配此格式视为未手动改名，再次使用时随使用时间更新名称
+const AUTO_PRESET_NAME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
+const formatPresetTime = ms => {
+  const d = new Date(ms);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 const EQUIP_SLOTS = ['head', 'torso', 'arms', 'legs'];
 
@@ -1171,10 +1179,12 @@ export function createStore() {
       return this.team.some(s => s.active && s.resourceId === 17);
     },
 
-    // 预设下拉列表：内置预设（名称按当前语言）在前，用户预设在后
+    // 预设下拉列表：内置预设（名称按当前语言）在前，用户预设按最近使用时间倒序在后
     get allEnemyPresets() {
       const builtins = BUILTIN_ENEMY_PRESETS.map(p => ({ ...p, name: this.t(p.nameKey) }));
-      return [...builtins, ...this.enemyPresets];
+      const lastUsed = p => p.lastUsedAt ?? p.createdAt ?? 0;
+      const users = [...this.enemyPresets].sort((a, b) => lastUsed(b) - lastUsed(a));
+      return [...builtins, ...users];
     },
 
     get selectedPresetIsBuiltin() {
@@ -1286,15 +1296,16 @@ export function createStore() {
       this.allChars    = getAllCharacters().map(c => ({ ...c, modeled: MODELED_IDS.has(c.resourceId) }));
       this.cubeOptions = Object.keys(CUBE_URLS).map(Number).sort((a, b) => a - b).map(id => ({ id }));
 
-      const accountLoaded = await loadAccountFromDev();
+      // 账号来源优先级：dev/config.json 指定的开发账号 > 上次导入并持久化的账号
+      const devLoaded     = await loadAccountFromDev();
+      const accountLoaded = devLoaded || await loadImportedAccount();
       this.hasAccount = accountLoaded;
+      this.devMode    = devLoaded;
       if (accountLoaded) {
-        this.devMode       = true;
         this.accountStatus = { key: 'status.accountLoaded', params: { n: getAccountSize() } };
         const settings = getAccountSettings();
         this._applySettings(settings);
       } else {
-        this.devMode       = false;
         this.accountStatus = { key: 'status.noAccount' };
       }
 
@@ -1780,19 +1791,40 @@ export function createStore() {
       return enemyConfigSignature(this.enemy);
     },
 
+    /** 标记用户预设被使用：刷新最近使用时间；自动命名（未手动改名）的预设同时把名称更新为本次使用时间。 */
+    _touchEnemyPreset(preset, now = Date.now()) {
+      preset.lastUsedAt = now;
+      if (AUTO_PRESET_NAME_RE.test(preset.name)) preset.name = formatPresetTime(now);
+      this._saveEnemyPresetsToStorage();
+    },
+
+    /**
+     * 模拟启动时调用：已有相同配置则视为使用该预设，否则以使用时间命名自动保存。
+     * 返回供模拟记录显示的配置名称：手动命名的用户预设 → { presetName }，
+     * 内置预设 → { presetNameKey }（显示时按当前语言翻译），时间戳命名 → null。
+     * 同时把「已保存」下拉框切换到匹配（或新建）的预设。
+     */
     saveEnemyPresetIfNew() {
       const sig = this._getEnemyConfigSignature();
-      if (this.enemyPresets.some(p => p._sig === sig)) return;
-      if (BUILTIN_ENEMY_PRESETS.some(p => enemyConfigSignature(p.config) === sig)) return;
+      const existing = this.enemyPresets.find(p => p._sig === sig);
+      if (existing) {
+        this._touchEnemyPreset(existing);
+        this.selectedPresetId = existing.id;
+        return AUTO_PRESET_NAME_RE.test(existing.name) ? null : { presetName: existing.name };
+      }
+      const builtin = BUILTIN_ENEMY_PRESETS.find(p => enemyConfigSignature(p.config) === sig);
+      if (builtin) {
+        this.selectedPresetId = builtin.id;
+        return { presetNameKey: builtin.nameKey };
+      }
       const now = Date.now();
-      const d   = new Date(now);
-      const pad = n => String(n).padStart(2, '0');
-      const name = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      this.selectedPresetId = `preset_${now}`;
       this.enemyPresets.push({
-        id:        `preset_${now}`,
-        name,
-        createdAt: now,
-        _sig:      sig,
+        id:         `preset_${now}`,
+        name:       formatPresetTime(now),
+        createdAt:  now,
+        lastUsedAt: now,
+        _sig:       sig,
         config: {
           element: this.enemy.element,
           type:    this.enemy.type,
@@ -1800,10 +1832,15 @@ export function createStore() {
         },
       });
       this._saveEnemyPresetsToStorage();
+      return null;
     },
 
     loadEnemyPreset(id) {
-      if (!id) return;
+      // 选中占位项「已保存…」：同步清空选中状态，否则再次模拟切回同一预设时值未变，下拉框不会刷新
+      if (!id) {
+        this.selectedPresetId = null;
+        return;
+      }
       const preset = this.allEnemyPresets.find(p => p.id === id);
       if (!preset) return;
       this.enemy.element = preset.config.element;
@@ -1811,6 +1848,9 @@ export function createStore() {
       this.enemy.actions = migrateEnemyActions(preset.config.actions).map((a, i) => ({ ...a, id: i + 1 }));
       this.enemy._nextId = this.enemy.actions.length + 1;
       this.selectedPresetId = id;
+      // 内置预设不在 enemyPresets 中，不记录使用时间
+      const userPreset = this.enemyPresets.find(p => p.id === id);
+      if (userPreset) this._touchEnemyPreset(userPreset);
     },
 
     deleteEnemyPreset(id) {
@@ -2202,6 +2242,9 @@ export function createStore() {
       // 模拟记录用的队伍配置快照：在启动时取，避免模拟运行期间用户修改队伍导致记录与结果不符
       const teamSnapshot = this.team.map(s => this._slotSnapshot(s));
       const focusAtStart = this.focusSlot;
+      // 敌人配置同理在启动时匹配 / 自动保存，并立即把「已保存」下拉框切换到对应预设
+      const enemyPresetLabel = this.saveEnemyPresetIfNew();
+      const enemyAtStart     = { element: this.enemy.element, type: this.enemy.type, ...enemyPresetLabel };
 
       try {
         const research    = this._research();
@@ -2381,8 +2424,7 @@ export function createStore() {
         this.battleLogRaw  = Object.freeze(log ?? []);
         this.logPage       = 0;
         this._rebuildLog();
-        this.saveEnemyPresetIfNew();
-        this._recordSimHistory(squadConfig, nikkeLevel, teamSnapshot, focusAtStart);
+        this._recordSimHistory(squadConfig, nikkeLevel, teamSnapshot, focusAtStart, enemyAtStart);
         _postTrace(baseConfig, hitLog, log ?? [], { ...mcResult, iterations: iters });
       } catch (err) {
         if (!(err instanceof SimCancelledError)) {
@@ -2400,11 +2442,12 @@ export function createStore() {
 
     // ── 模拟结果记录 ──────────────────────────────────────────────────────────
 
-    _recordSimHistory(squadConfig, level, team, focusSlot) {
+    /** enemy：模拟启动时的敌人代码 / 类型及配置名称（见 saveEnemyPresetIfNew） */
+    _recordSimHistory(squadConfig, level, team, focusSlot, enemy) {
       const record = buildHistoryRecord({
         squadConfig,
         result: this.result,
-        enemy:  { element: this.enemy.element, type: this.enemy.type },
+        enemy,
         level,
         team,
         focusSlot,

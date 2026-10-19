@@ -66,7 +66,6 @@ export default {
   'history.confirmClear': '确定清空全部模拟记录？此操作无法撤销。',
   'history.delete':       '删除这条记录',
   'history.close':        '关闭',
-  'history.enemy':        '敌人',
   'history.level':        'Lv.{n}',
   'history.focus':        '受控',
   'history.toast.saveFailed': '模拟记录保存失败（浏览器存储不可用），本次记录仅保留到页面刷新前',
