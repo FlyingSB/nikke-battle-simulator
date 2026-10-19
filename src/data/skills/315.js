@@ -18,7 +18,7 @@ function calcMinEffRangePct(state, caster) {
 }
 
 // Ade 的有效射程下界（连续距离刻度，与 bonusrange 同刻度）。
-// 机制（2026-10-07 训练场 BIGARMS 实测反推，见 dev/game-data.md「Ade: Agent Bunny」）：
+// 机制（2026-10-07 训练场 BIGARMS 实测反推，见 docs/game-data.md「Ade: Agent Bunny」）：
 //   下界 = bonusrange_min × (1 − ΣMinimum Effective Range%)
 // 各百分比正是按 SR 的 bonusrange_min=45 设计的：4.44% = 2/45（每层缩 2 格）、
 // 55.56% = 25/45（爆裂缩 25 格）、10 层 + 爆裂 ≈ 100%（下界归零，全距离优势）。
@@ -73,7 +73,7 @@ export default {
 
       // Part2：任意全蓄力（不需在有效射程内）→ 自身 Spy Lens 叠层（最多 10 层，5s 内未刷新则清零）
       // 达到满层（10 层）时激活 S2 Part2 的 pierce + ATK% 持续效果。
-      // 时机：射后（FULL_CHARGE）。实测（dev/game-data.md）第 10 枪首次获得距离优势，同枪触发的
+      // 时机：射后（FULL_CHARGE）。实测（docs/game-data.md）第 10 枪首次获得距离优势，同枪触发的
       // S1P1 / S2P1 / S2P2 均未作用于第 10 枪本身 → 叠层与满层激活都发生在本发伤害之后；
       // 第 10 枪的距离判定用的是前 9 层（下界 27.04），第 9 枪用 8 层（下界 29.02）。
       {

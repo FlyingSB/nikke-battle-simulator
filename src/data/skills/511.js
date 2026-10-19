@@ -136,7 +136,7 @@ export default {
       //   S3 Part2：每次 Part1 命中后触发 Beautiful层数 × 28.9% 附加伤害
       //     【全爆裂加成】受影响（描述 as additional damage；已实测）：affectedByFullBurst，
       //     sums 取进入全爆裂瞬间（ENTER_FULL_BURST 之后）快照
-      //   【敌人 debuff 快照】（2026-10-15 实测，dev/game-data.md）：敌人承伤 ▲ 与 sums 同一时刻快照
+      //   【敌人 debuff 快照】（2026-10-15 实测，docs/game-data.md）：敌人承伤 ▲ 与 sums 同一时刻快照
       //     （Part1 施放瞬间，Part2 进入全爆裂瞬间），之后 debuff 消失不影响伤害
       //   【延迟】实测第一段伤害于进入全爆裂后 0.95s 跳出；依次攻击的段间间隔未实测，10 段同时结算
       {

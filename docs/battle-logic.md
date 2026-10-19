@@ -214,7 +214,7 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 
 #### 3.8.1 核心命中率模型（HitRate 机制）
 
-数据实证公式（`dev/game-data.md`「射击场 BIGARMS 核心命中率重标定」，2026-10-19 SMG / AR / SG、
+数据实证公式（`docs/game-data.md`「射击场 BIGARMS 核心命中率重标定」，2026-10-19 SMG / AR / SG、
 距离 20 / 30 / 50 共 13 组实测联合拟合；常量默认值可在模拟选项「命中参数」调整）：
 
 ```
@@ -475,11 +475,11 @@ spot_last 20 → 12t）。实测 Raven（BIGARMS）落地 → 首发 84–87t（
 
 **帧率封顶（每 tick 最多 1 发）**：游戏客户端按帧结算射击，每帧最多一次普通攻击，60fps 上限下每秒最多 60 发（= 3600 RPM）。`shotsPerTick` 结果封顶 `MAX_SHOTS_PER_TICK = 1`，因此 MG 顶速 4200 RPM（70 发/s）实际只打出 60 发/s；SMG 1440 RPM（24 发/s）等不受影响。2025-04 客户端加入「修正最小发射次数」后，低帧率设备按 60fps 基准补发，故封顶值与设备实际帧率无关。
 
-> **实测校准（2026-10-09）**：Rapi: Red Hood（弹匣 913，Resilience 魔方）3 分钟普攻 9101 次（按弹药计数器逐弹匣统计）。换弹几乎瞬时（Crown 爆裂换弹速度）的连续弹匣仍需 ≈16s 打空（≈57–60 发/s），隐藏后首个弹匣 ≈17–18s（含 1s 首发等待 + 起速）；封顶前引擎按 70 发/s 分别跑出 13.0s / 14.6s，全场 10807 次，偏多 18.7%；封顶后 15.2s / 16.7s，全场 9394 次，偏多 3.2%（剩余偏差与实测弹匣耗时一致地约 5%，推测为设备实际帧率略低于 60，未建模）。逐弹匣实测明细见 dev/game-data.md「Rapi: Red Hood（MG，帧率封顶）」。
+> **实测校准（2026-10-09）**：Rapi: Red Hood（弹匣 913，Resilience 魔方）3 分钟普攻 9101 次（按弹药计数器逐弹匣统计）。换弹几乎瞬时（Crown 爆裂换弹速度）的连续弹匣仍需 ≈16s 打空（≈57–60 发/s），隐藏后首个弹匣 ≈17–18s（含 1s 首发等待 + 起速）；封顶前引擎按 70 发/s 分别跑出 13.0s / 14.6s，全场 10807 次，偏多 18.7%；封顶后 15.2s / 16.7s，全场 9394 次，偏多 3.2%（剩余偏差与实测弹匣耗时一致地约 5%，推测为设备实际帧率略低于 60，未建模）。逐弹匣实测明细见 docs/game-data.md「Rapi: Red Hood（MG，帧率封顶）」。
 
 **开局对准后立即击发**：`shotAccumulator` 初值为 **1**（而非 0），首发不必空等一个完整射击间隔；但非蓄力武器开局须先经 `spot_first_delay` 对准期（`aimReadyTick` 初值 = `reloadAimTicks`，与换弹后对准期同一值，同蓄力武器首发含前摇），首发 @`reloadAimTicks`。无 CDN 数据时 `reloadAimTicks = 0`，仍在 tick 1 立即击发。
 
-> **实测（2026-10-12，Tove AR 720 RPM，`spot_first_delay` 33 cs = 20 t）**：计时器启动起第 2/3 发 @22/28 帧；模型第 2/3 发 @24/29（开局立即击发模型为 @5/10）。第一次开始装填实测 8.1s，模型末发 7.73s + 后摇 0.2s = 7.93s。详见 dev/game-data.md「非蓄力武器开局对准期」。
+> **实测（2026-10-12，Tove AR 720 RPM，`spot_first_delay` 33 cs = 20 t）**：计时器启动起第 2/3 发 @22/28 帧；模型第 2/3 发 @24/29（开局立即击发模型为 @5/10）。第一次开始装填实测 8.1s，模型末发 7.73s + 后摇 0.2s = 7.93s。详见 docs/game-data.md「非蓄力武器开局对准期」。
 > **实测（2026-10-12，Privaty: Unkind Maid / Brid: Silent Track，SG 90 RPM，对准 12 t，弹匣 9，两人动作完全一致）**：首发约第 10 帧（模型 @12），打完第 9 发约 5.5s = 330 帧（模型 @331）。下方 Brid 旧标定「第 9 发 @322t」系开局立即击发模型下的拟合，已被本实测取代。
 > 各例实测首发均比模型早约 2 帧（Tove 2–3、Privaty 2、Anis: Star 2），疑为计时器启动略晚于战斗逻辑，未建模。
 
@@ -655,7 +655,7 @@ HIDDEN 期间全队停止攻击，按弹匣状态分流（机制详述见 §11.2
   - **Focus：** `targetBurstEnergyPerShot × (fullChargeBurstEnergy / 10000)`（`full_charge_burst_energy` 作百分比系数）。
   - 加成**仅限蓄力武器**；非蓄力武器无论是否 Focus 均为 `targetBurstEnergyPerShot`。
   - 实测验证（G=1,000,000，Privaty 每发 4000）：非Focus Yulha(target 55000)单刷 19 发=⌈1M/55000⌉、Centi(69000)15 发、Trina(72000)14 发、Alice/D:KW(56000)18 发，均 = target；Focus Alice = 56000×3.5 = 196000。
-  - **⚠ 影响很大：** Focus 角色蓄力充能可达非Focus 的 2.5–3.5 倍，直接改变整局爆裂循环数。同一队伍实测：Focus Alice 11 次循环、Focus Diesel: Winter Sweets 10 次循环（数据见 dev/game-data.md）。因此 `focusSlot` 的选择必须与实机打法一致，否则循环数与伤害都会偏差。
+  - **⚠ 影响很大：** Focus 角色蓄力充能可达非Focus 的 2.5–3.5 倍，直接改变整局爆裂循环数。同一队伍实测：Focus Alice 11 次循环、Focus Diesel: Winter Sweets 10 次循环（数据见 docs/game-data.md）。因此 `focusSlot` 的选择必须与实机打法一致，否则循环数与伤害都会偏差。
   - **速充（手动打法，`config.quickChargeMode`）：** 仅 Focus 的 UP 型 SR/RL 可用（DOWN_Charge 按住自动全蓄力击发，无法提前松手）。速充攻击按 Alice 爆裂快速攻击节奏（蓄力 13 帧 + 空闲 2 帧、规避前后摇）连发短蓄力攻击，仍算蓄力攻击：蓄力比例 r = min(1, 13 / 当前有效蓄力帧数)，蓄力伤害倍率 = 1 + (满蓄倍率 − 1) × r，Focus 充能系数 = 1 + (fullChargeBurstEnergy/10000 − 1) × r；r < 1 时不触发 `FULL_CHARGE` / `DURING_FULL_CHARGE`（`IS_CHARGED` 条件仍成立）。以发数换取更快的充能。打空后走常规换弹，换弹完成 + 15t 续发。
     - **全爆裂收尾：** 全爆裂结束前预留「换弹 + 前摇 + 全蓄力」时间开始手动换弹（弹匣未空也换），换弹完成后前摇 + 全蓄力，使该发恰好在全爆裂结束 tick 打出（槽已清零，全蓄力充能计入下一轮），之后继续速充。每轮全爆裂收尾一次；收尾中途蓄速 buff 到期则按新蓄力时长顺延。
     - **模式：** `always` 始终速充（收尾除外）；`untilFull` 仅充能阶段（burstPhase 0）速充，槽满后（爆裂阶段 / 全爆裂期间）恢复全蓄力攻击。
@@ -1004,7 +1004,7 @@ burstPhase = 0（充能中）
 - 配置为 `{ startTick, zone }` 数组，按 startTick 升序。
 - 支持区间（Zone）：`NEAR`（近）/ `MID`（中）/ `FAR`（远）/ `HIDDEN`（隐藏，不可瞄准）。
 - `NEAR/MID/FAR` 决定 `distanceZone`，影响距离优势加成（见 §4.2）；`HIDDEN` 不更新 `distanceZone`。
-- 实测阶段表（BIGARMS 模式1/模式2 等）见 `dev/game-data.md`。
+- 实测阶段表（BIGARMS 模式1/模式2 等）见 `docs/game-data.md`。
 
 #### HIDDEN（隐藏）阶段
 
@@ -1026,7 +1026,7 @@ burstPhase = 0（充能中）
 | 1–1.7s 空中、1.7–1.85s 落地 | `HIDDEN` | 停止攻击（JUMP → HIDDEN 不重复执行进入逻辑） | 否（延迟命中落空；DoT 照常） |
 | 1.85s | 目标距离 | 恢复攻击（同 HIDDEN 退出：恢复被打断的装填、蓄力重置） | 是 |
 
-原「隐藏」行动保留，用于瞬间隐藏的实战 BOSS（隐藏时段内完全不可攻击）。实测记录见 `dev/game-data.md`。
+原「隐藏」行动保留，用于瞬间隐藏的实战 BOSS（隐藏时段内完全不可攻击）。实测记录见 `docs/game-data.md`。
 
 #### 停火区段内的爆裂施放
 

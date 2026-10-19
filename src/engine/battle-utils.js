@@ -297,7 +297,7 @@ export function rollPelletGroups(hitPellets, critRate, rollCore) {
 }
 
 /**
- * 敌人当前是否可被命中：HIDDEN（隐藏，或「跳起」的空中 / 落地段）内完全不可攻击（dev/game-data.md 文首备注）；
+ * 敌人当前是否可被命中：HIDDEN（隐藏，或「跳起」的空中 / 落地段）内完全不可攻击（docs/game-data.md 文首备注）；
  * 「跳起」的起跳段 JUMP 全队停火，但敌人仍可被已打出的技能命中。
  * 供不受操作控制的自动攻击技能判定是否有目标（如 Anis: Star 的 Shooting Stars），
  * 以及延迟技能命中到期时判定是否落空（tick() 延迟命中队列）。

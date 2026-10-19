@@ -252,13 +252,13 @@ export default {
       // Part1 INTERVAL：Shooting Star —— 每 0.25 sec 以当前 buff 状态造成一次伤害
       // 性质：RL 未蓄力的普通攻击（isCharged=false，chargeMult=1）
       //   · 自动攻击随机目标：与其他技能一样，敌人隐藏期间无目标，跳过该轮
-      //     （isEnemyHittable，dev/game-data.md 2026-10-13 整局观察）
+      //     （isEnemyHittable，docs/game-data.md 2026-10-13 整局观察）
       //   · 可命中核心：敌人有核心且未被保护时，静止必中、横向移动时按 0.7 × 修正系数判定
       //     （shootingStarCoreRate；RL 无穿透）
       //   · 享受普攻加成（normalAttackDamagePct / normalAttackCritRatePct）
       //   · 享受 Projectile Explosion Damage 加成（如 S2 P3）
       //   · 享受 Explosion Radius 加成：单目标模型下不影响伤害，无需额外计算
-      //   · 可以充能（dev/game-data.md 实测）；是否计入攻击次数未知，暂不触发 SHOT_COUNT
+      //   · 可以充能（docs/game-data.md 实测）；是否计入攻击次数未知，暂不触发 SHOT_COUNT
       // 标签 'Burst P1 Shooting Stars'：日志显示为 Shooting Star，tooltip 定位到爆裂技能 P1
       // partOverride=0：与上方 BURST_SKILL_USE 同属 ■ 第 1 段，强制对齐到 P1
       // 注意：此触发器必须保持在数组序号 1（上方 handler 依赖 intervalBattleLast_burst_1）

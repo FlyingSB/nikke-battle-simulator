@@ -486,7 +486,7 @@ function enemyFromPreset(preset) {
 /**
  * 命中参数默认值（模拟选项 hitCal）。
  * sgHitRate = 0.7：敌人距离 50 处的实战弹丸命中率（SG 与 Brid 弹丸实测 NEAR 92% / MID 77% / FAR 67%，
- * 见 dev/game-data.md）。引擎层默认仍为 1（理想命中，回归测试不传此参数），界面每次模拟都显式传入。
+ * 见 docs/game-data.md）。引擎层默认仍为 1（理想命中，回归测试不传此参数），界面每次模拟都显式传入。
  * RL 核心命中按敌人「横向移动」行动与弹道飞行时间建模，不再有校正系数。
  */
 const HIT_CAL_DEFAULTS = { coreK: 1044.7, coreOff: -4.26, hitCoef: 1.257, sgHitRate: 0.7 };
@@ -902,7 +902,7 @@ export function createStore() {
     // 模拟选项
     iterations:         5,
     // 命中参数（模拟选项）：
-    //   coreK / coreOff / hitCoef：核心命中率模型校准常量（透视 + 高斯，实证默认；见 dev/game-data.md）
+    //   coreK / coreOff / hitCoef：核心命中率模型校准常量（透视 + 高斯，实证默认；见 docs/game-data.md）
     //   sgHitRate：实战弹丸命中校正（0..1，1 = 理想命中，默认 0.7），为敌人距离 50 处的命中率，越近越高
     hitCal: { ...HIT_CAL_DEFAULTS },
     // Anis: Star 在队时显示：Shooting Stars 在敌人横向移动时的核心命中率修正系数（× 基准 0.7）

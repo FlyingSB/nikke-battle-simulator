@@ -4,7 +4,7 @@
  * 覆盖：
  *   parseAccuracyProfile  — auto/手动回退、SR/RL→alwaysCore、数据缺失→alwaysCore
  *   ramp                  — MG 暖机收束 / 停火恢复；AR/SMG/SG 恒定
- *   coreHitChance         — 边界、单调性、实测数据回归（dev/game-data.md）
+ *   coreHitChance         — 边界、单调性、实测数据回归（docs/game-data.md）
  *   rollHitPellets / rollProjectileCore — 实战命中校正（SG 弹丸命中率 / 弹道核心判定）
  *   rlFlightTicks / enemyLateralSpeedAt / rlCoreHitRate — RL 核心命中（敌人横向移动 × 飞行时间）
  *
@@ -94,7 +94,7 @@ section('T3: coreHitChance 边界');
   eq('HitRate 越高核心率越高', hr50 > hr0, true);
 }
 
-// ── T4: 实测数据回归（dev/game-data.md 2026-10-19 射击场 BIGARMS 重标定）──────
+// ── T4: 实测数据回归（docs/game-data.md 2026-10-19 射击场 BIGARMS 重标定）──────
 // r_core = K/(d + off)；R_eff = scale/(1 + c·HR)；P = 1 − exp(−(r_core/R_eff)²)。
 // 实测为单人逐档伤害反推的核心命中数 / 命中数；断言落在实测约 ±2.5σ 内。
 const P = (scale, hitRatePct, distance) => coreHitChance({ alwaysCore: false, currentScale: scale, hitRatePct, distance, ...CAL });

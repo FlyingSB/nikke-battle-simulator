@@ -31,7 +31,7 @@ const CORE_VALUES     = ['EXPOSED', 'PROTECTED', 'PARTS_CORE', 'NONE'];
 export const LATERAL_SPEEDS = ['SLOW'];
 
 /**
- * 「跳起」行动固定时长（射击场 BIGARMS 实测，dev/game-data.md）：
+ * 「跳起」行动固定时长（射击场 BIGARMS 实测，docs/game-data.md）：
  *   [0, 1s)     起跳：全队停止攻击，敌人仍可被已打出的技能命中（引擎区段 JUMP）
  *   [1s, 1.85s) 空中 1–1.7s + 落地 1.7–1.85s：完全不可攻击，DoT 仍造成伤害（引擎区段 HIDDEN）
  *   1.85s       行动结束，敌人落在目标距离（value）

@@ -48,7 +48,7 @@
 
 ### 2.1 B3 爆裂直接伤害：全爆裂加成判定与延迟
 
-**加成判定**（无实测时先按描述措辞判定，见 [dev/game-data.md](../dev/game-data.md)「关于Burst 3伤害类型的猜测」）：
+**加成判定**（无实测时先按描述措辞判定，见 [docs/game-data.md](game-data.md)「关于Burst 3伤害类型的猜测」）：
 
 | 描述措辞 | 全爆裂 +50% 与 ENTER_FULL_BURST buff | 建模 |
 |---|---|---|
@@ -57,7 +57,7 @@
 | `... as additional damage.` | **受影响** | 命中加 `opts: { affectedByFullBurst: true }`、不传 `sums`；或 `pendingFireInBurstHits` 且 `sums: null`。引擎统一在进入全爆裂瞬间（ENTER_FULL_BURST 后）快照 sums，再按延迟出伤 |
 
 判定结果须在技能块注释中写明依据，格式：`【全爆裂加成】受影响（描述 as additional damage）`；
-有实测时追加「已实测」，实测数据记入 dev/game-data.md。**实测结果优先于措辞规则。**
+有实测时追加「已实测」，实测数据记入 docs/game-data.md。**实测结果优先于措辞规则。**
 
 | 角色 | 描述 | 判定 | 依据 |
 |---|---|---|---|

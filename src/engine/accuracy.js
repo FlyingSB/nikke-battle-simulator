@@ -1,7 +1,7 @@
 /**
  * 命中率（HitRate）机制 —— 核心命中率的几何概率模型。
  *
- * 详见 docs/battle-logic.md §3.8.1 与 dev/game-data.md（2026-10-19 射击场 BIGARMS 重标定）。
+ * 详见 docs/battle-logic.md §3.8.1 与 docs/game-data.md（2026-10-19 射击场 BIGARMS 重标定）。
  *
  * 模型（每发 / SG 每弹丸）：
  *   r_core(d) = K / (d + off)                    核心屏幕半径按透视缩小（K≈1044.7，off≈−4.26）

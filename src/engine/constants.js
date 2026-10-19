@@ -125,7 +125,7 @@ export const WEAPON_HIT_MULT = {
 
 // ── 命中率（HitRate）核心命中模型 ────────────────────────────────────────
 /**
- * 数据实证默认值（dev/game-data.md「射击场 BIGARMS 核心命中率重标定」，2026-10-19 SMG / AR / SG
+ * 数据实证默认值（docs/game-data.md「射击场 BIGARMS 核心命中率重标定」，2026-10-19 SMG / AR / SG
  * 距离 20 / 30 / 50 共 13 组实测联合拟合）。均可被模拟选项「命中参数」覆盖。
  *   核心屏幕半径 r_core(d) = CORE_K / (d + CORE_OFF)              透视缩小
  *   有效散布     R_eff     = currentScale / (1 + HITRATE_CORE_COEF · HitRate)
