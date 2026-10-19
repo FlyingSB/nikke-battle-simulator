@@ -164,7 +164,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Diesel: Winter Sweets | [`75.json`](../src/data/static/nikke/75.json) | [`75.js`](../src/data/skills/75.js) |
 | ✔️ | Centi（SSR：Metal Pendant） | [`80.json`](../src/data/static/nikke/80.json) | [`80.js`](../src/data/skills/80.js) |
 | ✔️ | Liter | [`82.json`](../src/data/static/nikke/82.json) | [`82.js`](../src/data/skills/82.js) |
-| ❌ | Laplace（SSR：Hero Trilogy BD） | [`100.json`](../src/data/static/nikke/100.json) | [`100.js`](../src/data/skills/100.js) |
+| ✔️ | Laplace（SSR：Hero Trilogy BD） | [`100.json`](../src/data/static/nikke/100.json) | [`100.js`](../src/data/skills/100.js) |
 | ✔️ | Drake | [`101.json`](../src/data/static/nikke/101.json) | [`101.js`](../src/data/skills/101.js) |
 | ✔️ | Maxwell | [`102.json`](../src/data/static/nikke/102.json) | [`102.js`](../src/data/skills/102.js) |
 | ❌ | Laplace: Ultimate Hero | [`103.json`](../src/data/static/nikke/103.json) | [`103.js`](../src/data/skills/103.js) |
@@ -232,7 +232,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Jill | [`841.json`](../src/data/static/nikke/841.json) | [`841.js`](../src/data/skills/841.js) |
 | ✔️ | EVE | [`850.json`](../src/data/static/nikke/850.json) | [`850.js`](../src/data/skills/850.js) |
 | ✔️ | Raven | [`851.json`](../src/data/static/nikke/851.json) | [`851.js`](../src/data/skills/851.js) |
-| ❌ | Chisato | [`860.json`](../src/data/static/nikke/860.json) | [`860.js`](../src/data/skills/860.js) |
+| ✔️ | Chisato | [`860.json`](../src/data/static/nikke/860.json) | [`860.js`](../src/data/skills/860.js) |
 | ✔️ | Takina | [`861.json`](../src/data/static/nikke/861.json) | [`861.js`](../src/data/skills/861.js) |
 | ❌ | Queen (Makoto) | [`870.json`](../src/data/static/nikke/870.json) | [`870.js`](../src/data/skills/870.js) |
 | ❌ | Yukiko | [`871.json`](../src/data/static/nikke/871.json) | [`871.js`](../src/data/skills/871.js) |
