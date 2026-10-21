@@ -455,19 +455,24 @@
                 </label>
               </div>
             </template>
-            <!-- 速充：Focus 角色为 UP 型 SR/RL 时显示 -->
-            <template x-if="$store.sim.quickChargeSlot">
-              <div class="field-group mt-1">
-                <label class="field-label" :title="$t('sim.quickChargeTip')"
-                  x-text="$t('sim.quickCharge', { name: $store.sim.slotName($store.sim.quickChargeSlot) })"></label>
+            <!-- 速充：始终显示；Focus 角色为 UP 型 SR/RL 时可选，否则显示提示 -->
+            <div class="field-group mt-1">
+              <label class="field-label" :title="$t('sim.quickChargeTip')"
+                x-text="$store.sim.quickChargeSlot
+                  ? $t('sim.quickCharge', { name: $store.sim.slotName($store.sim.quickChargeSlot) })
+                  : $t('sim.quickChargeLabel')"></label>
+              <template x-if="$store.sim.quickChargeSlot">
                 <select class="input input-sm" x-model="$store.sim.quickChargeMode" :title="$t('sim.quickChargeTip')">
                   <template x-for="mode in ['off', 'always', 'untilFull']" :key="mode">
                     <option :value="mode" x-text="$t('sim.quickCharge.' + mode)"
                       :selected="mode === $store.sim.quickChargeMode"></option>
                   </template>
                 </select>
-              </div>
-            </template>
+              </template>
+              <template x-if="!$store.sim.quickChargeSlot">
+                <p class="hint" x-text="$t($store.sim.focusSlot == null ? 'sim.quickChargeNoFocus' : 'sim.quickChargeUnsupported')"></p>
+              </template>
+            </div>
             <!-- 百暴：Miranda 与 Mihara: Bonding Chain / Ein / Ada 同队时显示，每个在队候选角色一个复选框（可多选） -->
             <template x-for="slot in $store.sim.fullCritCandidates" :key="'fc' + slot.resourceId">
               <div class="field-group mt-1">
