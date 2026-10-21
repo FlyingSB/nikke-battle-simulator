@@ -17,7 +17,8 @@ import { rng, setRng } from './rng.js';
 import { computeFinalStats } from './stats.js';
 import { WEAPON_AMMO, WEAPON_HIT_MULT, ZONE_TO_DISTANCE, CORE_K_DEFAULT, CORE_OFF_DEFAULT, HITRATE_CORE_COEF_DEFAULT,
          SG_PELLET_HIT_RATE_DEFAULT, SG_MISS_HITRATE_COEF, DUAL_GUN_MULT } from './constants.js';
-import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, recoverAccuracy, coreHitChance } from './accuracy.js';
+import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, shrinkAccuracyWhileFiring,
+         recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
 import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, snapshotEnemyDebuffs, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, rollPelletGroups, rlCoreHitRate, isEnemyHittable, logMissedSkillHit, sgPelletHitRate, isBuffActiveFor, sumBuffField } from './battle-utils.js';
@@ -1005,9 +1006,6 @@ export function initBattle(config) {
       accuracyChangePerShot: _sd.auto_accuracy_change_pershot     ?? _sd.accuracy_change_pershot     ?? 0,
       accuracyChangeSpeed:   _sd.auto_accuracy_change_speed       ?? _sd.accuracy_change_speed       ?? 0,
     } : null, wt);
-    // MG 起速武器（rate_of_fire_change_pershot > 0）：开火/换弹后从起始 RPM 逐发加速。
-    // 起速武器不种子 shotAccumulator（见下），第一发需等满起始 RPM 的发间，否则会跳过最慢的预热段。
-    const hasMgRamp = (cfg._nikkeData?.shot_detail?.rate_of_fire_change_pershot ?? 0) > 0;
     const foreswingTicks = isChargWeapon ? (cfg.foreswingTicks ?? 10) : 0;
     const backswingTicks = isChargWeapon ? (cfg.backswingTicks ?? 10) : 0;
     // 出停火区段（HIDDEN / 跳起）后重新举枪的后摇：取 spot_last_delay，不用 maintain_fire_stance
@@ -1250,9 +1248,9 @@ export function initBattle(config) {
       // 消除逐 tick 取整损失（如 SMG 1440 RPM = 0.4 发/tick）；每 tick 发数封顶 1（见 MAX_SHOTS_PER_TICK）。
       // 种子 1：非蓄力武器开局/换弹后第一发立即击发（真机枪已对准），而非空等一个完整射击间隔。
       // 蓄力武器不读累加器，保持 0。
-      // 种子 1 → 非蓄力武器第一发立即击发；蓄力武器与 MG 起速武器种子 0 →
-      // 第一发需等满（蓄力时长 / 起始 RPM 发间），MG 起速武器据此保留最慢的预热首发。
-      shotAccumulator:  (isChargWeapon || hasMgRamp) ? 0 : 1,
+      // MG 起速武器同样种子 1：实测（2026-10-21，Yukiko）开局首发 = 对准 12t，
+      // 第 1→10 发 80t 与逐发起速曲线一致，不存在「等满起始 RPM 发间」的首发等待。
+      shotAccumulator:  isChargWeapon ? 0 : 1,
       skillState: {},
       // 命中率散布 ramp 运行态（accuracy.js）。核心命中率几何模型使用。
       accAlwaysCore:     accProfile.alwaysCore,
@@ -1939,9 +1937,12 @@ export function tick(state) {
       // 装填后射击周期衔接：非蓄力 RPM 武器保留换弹期间累积的累加器（封顶 1）——
       // 装填时长 ≥ RPM 发间时累加器已到 1，换弹完成第一发立即击发（与旧行为一致）；
       // 装填被换弹速度 buff 压缩到发间以内时，下一发仍落在「上一发 + RPM 发间」。
-      // MG 起速武器种子 0：换弹期间 ROF 已衰减，需重新预热，第一发按当前 RPM 发间等待（与开局一致）。
-      unit.shotAccumulator = (unit.chargeTimeTicks > 0 || unit.mgCurrentRof != null)
-        ? 0 : Math.min(1, unit.rateOfFire > 0 ? unit.shotAccumulator : 1);
+      // MG 起速武器种子 1：换弹期间 ROF 已衰减、需重新起速，但对准结束后第一发立即击发（与开局一致）。
+      //   实测（2026-10-21，Yukiko，Resilience 29.69%）：弹匣打空 → 次弹匣首发 130t
+      //   = 后摇 12 + 换弹 105 + 对准 12，无额外首发等待。
+      unit.shotAccumulator = unit.chargeTimeTicks > 0 ? 0
+        : unit.mgCurrentRof != null ? 1
+        : Math.min(1, unit.rateOfFire > 0 ? unit.shotAccumulator : 1);
       // 蓄力武器：换弹完成后需重新经过完整蓄力才打出第一发，绝不立即补射。
       // UP 型：前摇 + 有效蓄力；DOWN_Charge 型：仅有效蓄力，无前摇（持续按住，换弹期间不松手、无需重新瞄准）。
       // 蓄速加成作用于每一次蓄力，换弹后首发亦不例外（与射后发间同口径，见 effectiveChargeTicks）。
@@ -1981,8 +1982,8 @@ export function tick(state) {
     }
 
     // 非蓄力武器换弹后对准期（spot_first_delay，§5.2）：不射击；射击累加器按当前 RPM 继续累积（封顶 1），
-    // MG 射速继续衰减。衰减不深时对准结束立即击发（Rapi: Red Hood 实测 23t = 后摇 12 + 前摇 12），
-    // 衰减到起始 RPM 时仍需等满一个发间。
+    // MG 射速继续衰减。对准结束立即击发（Rapi: Red Hood 实测 23t = 后摇 12 + 前摇 12；
+    // Yukiko 实测衰减到起始 RPM 时同样立即击发，见装填路径）。
     if (unit.chargeTimeTicks === 0 && state.tick < unit.aimReadyTick) {
       if (unit.rateOfFire > 0)
         unit.shotAccumulator = Math.min(1, unit.shotAccumulator + shotsPerTick(state, unit));
@@ -2050,6 +2051,8 @@ export function tick(state) {
     } else {
       shotsThisTick = rng() < (ATTACK_SPEED[unit.weaponType] ?? 0.20) ? 1 : 0;
     }
+    // MG 暖机：持续射击期间散布另按时间收束（射击判定前推进，本 tick 的射击使用收束后的散布）
+    if (effectiveChargeTimeTicks === 0) shrinkAccuracyWhileFiring(unit, 1);
     if (shotsThisTick === 0) continue;
 
     for (let _s = 0; _s < shotsThisTick; _s++) {
@@ -2144,6 +2147,7 @@ export function tick(state) {
         : coreHitChance({
             alwaysCore:   unit.accAlwaysCore,
             currentScale: unit.accCurrentScale,
+            startScale:   unit.accStartScale,
             hitRatePct:   hitRateNow,
             distance:     state.enemyDistance,
             K: state.accCoreK, off: state.accCoreOff, coef: state.accHitCoef,

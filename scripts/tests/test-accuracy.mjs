@@ -15,6 +15,8 @@ import {
   parseAccuracyProfile,
   initAccuracyState,
   rampAccuracyOnShot,
+  shrinkAccuracyWhileFiring,
+  effectiveSpreadScale,
   recoverAccuracy,
   coreHitChance,
 } from '../../src/engine/accuracy.js';
@@ -64,12 +66,33 @@ section('T2: MG ramp 收束与恢复');
   recoverAccuracy(unit, 1000);
   eq('长时间停火恢复到 start=250（clamp）', unit.accCurrentScale, 250);
 }
+section('T2a: MG 射击期间按时间收束（Yukiko 实测：暖机第 10 发起 100% 核心）');
+{
+  const unit = {};
+  initAccuracyState(unit, parseAccuracyProfile(
+    { startAccuracyScale: 250, endAccuracyScale: 10, accuracyChangePerShot: 7, accuracyChangeSpeed: 150 }, 'MG'), 60);
+  shrinkAccuracyWhileFiring(unit, 1);
+  near('射击 1 tick 收束 −2.5 → 247.5', unit.accCurrentScale, 247.5);
+  shrinkAccuracyWhileFiring(unit, 1000);
+  eq('持续射击收束到 end=10（clamp）', unit.accCurrentScale, 10);
+
+  // 实测起速节奏：第 1→10 发 80t（逐发 9 × 7 + 时间 80 × 2.5 = 263 ≥ 240）→ 第 10 发前已收到极限，距离 30 必中核心
+  const u2 = {};
+  initAccuracyState(u2, parseAccuracyProfile(
+    { startAccuracyScale: 250, endAccuracyScale: 10, accuracyChangePerShot: 7, accuracyChangeSpeed: 150 }, 'MG'), 60);
+  for (let i = 0; i < 9; i++) rampAccuracyOnShot(u2);
+  shrinkAccuracyWhileFiring(u2, 80);
+  eq('第 10 发散布 = 10', u2.accCurrentScale, 10);
+  eq('第 10 发距离 30 核心率 > 99%', coreHitChance({ alwaysCore: false, currentScale: u2.accCurrentScale,
+    hitRatePct: 0, distance: 30, ...CAL }) > 0.99, true);
+}
 section('T2b: AR/SMG/SG 恒定（changePerShot=0）');
 {
   const unit = {};
   initAccuracyState(unit, parseAccuracyProfile(
     { startAccuracyScale: 110, endAccuracyScale: 110, accuracyChangePerShot: 0, accuracyChangeSpeed: 0 }, 'SMG'), 60);
   rampAccuracyOnShot(unit);
+  shrinkAccuracyWhileFiring(unit, 100);
   recoverAccuracy(unit, 100);
   eq('SMG scale 恒定=110', unit.accCurrentScale, 110);
 }
@@ -92,6 +115,27 @@ section('T3: coreHitChance 边界');
   const hr0  = coreHitChance({ alwaysCore: false, currentScale: 250, hitRatePct: 0,   distance: 20, ...CAL });
   const hr50 = coreHitChance({ alwaysCore: false, currentScale: 250, hitRatePct: 0.5, distance: 20, ...CAL });
   eq('HitRate 越高核心率越高', hr50 > hr0, true);
+
+  // 命中率 ▼（Mast: Romantic Maid Drunken −20%/层）：R_eff = 当前散布 + 1.54 × 起始散布 × |HR|
+  near('HR −60%，散布恒定 250 → 250 × (1 + 1.54×0.6)', effectiveSpreadScale(250, 250, -0.6, CAL.coef), 250 * (1 + 1.54 * 0.6));
+  near('HR ≥ 0 → 沿用倒数公式', effectiveSpreadScale(110, 110, 0.169, CAL.coef), 110 / (1 + CAL.coef * 0.169));
+  eq('HR −100%（Noise Pollution）→ 散布仍为正', effectiveSpreadScale(75, 75, -1, CAL.coef) > 0, true);
+  const hrM60 = coreHitChance({ alwaysCore: false, currentScale: 250, hitRatePct: -0.6, distance: 20, ...CAL });
+  eq('HitRate ▼ 核心率降低', hrM60 < hr0, true);
+}
+// 实测（2026-10-21，Mast: Romantic Maid）：准星截图确认「按起始散布放大」，系数按伤害反推的核心命中率校准
+section('T3b: 命中率 ▼ 按起始散布放大（MG 暖机后仍变大）');
+{
+  // 准星：暖机后命中率 ▼ 仍使散布明显大于收束极限 10（截图 2 层 36px / 3 层 72px，0 / 1 层极小）
+  eq('2 层（净 −6.25%）完全暖机散布 > 10', effectiveSpreadScale(10, 250, -0.0625, CAL.coef) > 10, true);
+  eq('3 层散布 > 2 层散布', effectiveSpreadScale(10, 250, -0.2625, CAL.coef) > effectiveSpreadScale(10, 250, -0.0625, CAL.coef), true);
+  // 伤害反推：2 层（净 −16.38%）距离 20，Bastion 打空 2 弹匣核心命中率 ≈ 55%（暖机后稳态主导）
+  const pD20 = coreHitChance({ alwaysCore: false, currentScale: 10, startScale: 250, hitRatePct: -0.1638, distance: 20, ...CAL });
+  near('2 层（净 −16.38%）完全暖机距离 20 → 核心 ≈ 55%', pD20, 0.55, 0.05);
+  const pWarm1 = coreHitChance({ alwaysCore: false, currentScale: 10, startScale: 250, hitRatePct: 0.0362, distance: 30, ...CAL });
+  eq('1 层（净 +3.62%）完全暖机距离 30 → 核心 > 99%', pWarm1 > 0.99, true);
+  const pWarm3 = coreHitChance({ alwaysCore: false, currentScale: 10, startScale: 250, hitRatePct: -0.2625, distance: 30, ...CAL });
+  eq('3 层 完全暖机距离 30 → 核心 < 50%', pWarm3 < 0.5, true);
 }
 
 // ── T4: 实测数据回归（docs/game-data.md 2026-10-19 射击场 BIGARMS 重标定）──────

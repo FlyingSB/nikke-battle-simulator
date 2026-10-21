@@ -237,7 +237,10 @@ section('C8 — 帧率封顶：4200 RPM 每 tick 最多 1 发（Rapi: Red Hood �
                                   rate_of_fire_change_pershot: 100, rate_of_fire_reset_time: 100 } },
   });
   const { shots: rampShots } = runSolo(ramp, 1200);
-  eq('起速 MG 首发 @60t（60 RPM 首发间隔）', rampShots[0], 60);
+  // 实测（2026-10-21，Yukiko）：首发在对准结束后立即击发（本合成单位无对准期 → tick 1），
+  // 不等满起始 RPM 发间；第 1→10 发 80t（实测 78 帧 × 600/588 帧率校正 ≈ 80t）
+  eq('起速 MG 首发立即击发 @1t', rampShots[0], 1);
+  eq('起速 MG 第 1→10 发 80t', rampShots[9] - rampShots[0], 80);
   const steady = rampShots.filter(t => t > 600);
   eq('起速完成后 600t 内恰好 600 发', steady.length, 600);
   eq('起速完成后相邻两发间隔恒为 1t', steady.every((t, i) => i === 0 || t - steady[i - 1] === 1), true);

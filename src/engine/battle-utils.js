@@ -5,6 +5,7 @@
 
 import { calcDamage, rollCrit, hasDistanceAdvantage } from './damage.js';
 import { rng } from './rng.js';
+import { effectiveSpreadScale } from './accuracy.js';
 import { HIT_RATE_REF_DISTANCE, SG_PELLET_REF_SCALE,
          RL_REF_PROJECTILE_SPEED, RL_FLIGHT_TICKS_PER_DISTANCE, RL_FLIGHT_TICKS_OFFSET,
          LATERAL_MISS_SLOPE, LATERAL_MISS_FLIGHT_THRESHOLD } from './constants.js';
@@ -259,7 +260,8 @@ export function sgPelletHitRate(rate, distance, currentScale, hitRatePct, coef) 
   const base = distanceScaledHitRate(rate, distance);
   if (base >= 1) return 1;
   const scale  = currentScale > 0 ? currentScale : SG_PELLET_REF_SCALE;
-  const spread = Math.min(1, scale / (1 + coef * Math.max(0, hitRatePct ?? 0)) / SG_PELLET_REF_SCALE);
+  // SG 散布恒定（无暖机）→ 起始散布 = 当前散布
+  const spread = Math.min(1, effectiveSpreadScale(scale, scale, hitRatePct, coef) / SG_PELLET_REF_SCALE);
   return 1 - (1 - base) * spread;
 }
 

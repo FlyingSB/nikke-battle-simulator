@@ -136,6 +136,17 @@ export const WEAPON_HIT_MULT = {
 export const CORE_K_DEFAULT            = 1044.7; // 透视常数（核心屏幕半径 × 距离）
 export const CORE_OFF_DEFAULT          = -4.26;  // 距离偏移
 export const HITRATE_CORE_COEF_DEFAULT = 1.257;  // HitRate 收圆系数
+/**
+ * 命中率 ▼（HitRate < 0）的散布放大：R_eff = currentScale + 系数 × startScale × |HitRate|。
+ * 放大量按起始散布（未暖机）计，与当前暖机进度无关 → MG 暖机收束后散布仍明显变大。
+ * 实测（2026-10-21，Mast: Romantic Maid）：
+ *   · 准星截图（2320×1304）：净命中率 −6.25% / −26.25% 时未暖机 182 / 215px、完全暖机 36 / 72px，
+ *     定性确认「按起始散布放大」（暖机后准星仍明显变大）；按像素线性拟合系数 ≈ 1.12。
+ *   · 伤害反推（采用）：2 层 Drunken（净 −16.38%）、距离 20、Bastion 打空 2 弹匣（模拟 937 发）、
+ *     总伤害 48,950,683 → 核心命中率 ≈ 55%（模型 1.12 时 75%）→ 系数 1.54（攻击次数 920–950 时 1.47–1.61）。
+ *     准星圈与实际落点分布并非严格一致，以决定伤害的核心命中计数为准。
+ */
+export const NEG_HITRATE_START_SCALE_COEF = 1.54;
 
 /**
  * 实战命中校正系数（模拟选项可调）。引擎层默认 1 = 理想命中（与旧行为一致，回归测试依赖）；

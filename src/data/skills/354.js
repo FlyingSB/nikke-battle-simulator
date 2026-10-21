@@ -29,12 +29,16 @@ export default {
           if (current === 0) {
             const critRatePct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
             const atkFlatPct    = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
+            const hitRateDownPerStack = getSkillValue(caster.rawSkill1, 0, caster.skillLevels[0]) / 100;
             // S1 唯一未具名效果段（P1 为 Drunken）→ 日志标签省略 P 后缀
             pushBuff(state, { name: 'A Pirate\'s Heart', derivedFrom: 'Drunken',
               unitId: null, critRatePct, atkFlat: Math.round(caster.stats.atk * atkFlatPct), endTick: Infinity },
               { ...state._logCtx, partIdx: null });
+            // Drunken：自身命中率 ▼ p01% × 层数。层数记在 stackCount（Anchor: Innocent Maid 355 直接减层、
+            // 引擎 drunken3 爆裂策略均读此字段），命中率用 getter 按当前层数取值，减层时自动同步。
             state.buffs.push({ name: 'Drunken', unitId: caster.id, isDebuff: true,
-              stackCount: 1, stackLimit: 3, endTick: Infinity });
+              stackCount: 1, stackLimit: 3, endTick: Infinity,
+              get hitRatePct() { return -hitRateDownPerStack * this.stackCount; } });
           } else {
             drunken.stackCount++;
           }
@@ -111,7 +115,8 @@ export default {
           const critDamagePct   = getSkillValue(caster.rawBurst, 0, caster.skillLevels[2]) / 100;
           const attackDmgPct   = getSkillValue(caster.rawBurst, 2, caster.skillLevels[2]) / 100;
           const atkFlatPerStack = getSkillValue(caster.rawBurst, 4, caster.skillLevels[2]) / 100;
-          pushBuff(state, { name: 'A Pirate\'s Romance (Attack Damage)', unitId: null, critDamagePct, attackDamagePct: attackDmgPct, endTick: end10 });
+          // P1 合并 Crit Damage + Attack Damage（不同乘区、同对象同时长）→ 含两种类型，按 §4.1 命名为「技能名 Pn」不带类型后缀
+          pushBuff(state, { name: 'A Pirate\'s Romance P1', unitId: null, critDamagePct, attackDamagePct: attackDmgPct, endTick: end10 });
           const stacks = state.buffs.find(b => b.name === 'Drunken')?.stackCount ?? 0;
           if (stacks > 0)
             pushBuff(state, { name: 'A Pirate\'s Romance (ATK)', unitId: null,
