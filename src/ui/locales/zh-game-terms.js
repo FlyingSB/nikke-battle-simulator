@@ -83,6 +83,8 @@ export default {
   'Dodging Bullets': '射击看破',
   // ── 870 Queen (Makoto)（QUEEN（真））
   'Persona - Johanna': '人格面具-琼安',
+  'Nuke Amp': '高级核热强化',
+  'Rakukaja': '拉库卡加',
   '1 More': '1MORE',
   // ── 其他（技能文件中已不再出现，或手工添加）
   'Fulfillment of Righteousness': '实现正义',

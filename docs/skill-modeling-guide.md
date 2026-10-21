@@ -66,6 +66,7 @@
 | Cinderella (511) Burst Part2 | as additional damage | 受影响 | 已实测，与规则一致（Part1 as damage 默认） |
 | Elegg: Boom and Shock (502) | as damage | **受影响** | 已实测，**规则例外**；S2 Part1 ATK ▲ 与 S1 属性优势 buff 均先计入快照（后者在 `FULL_BURST_SNAPSHOT` 时移除） |
 | Ein (391) Burst P2 | as true damage | **受影响** | 已实测，**规则例外** |
+| Queen (Makoto) (870) S1 P3 / P4、Yukiko (871) S1 P3 | 非 B3 爆裂段（1 More / Follow Up 派生分摊伤害） | **受影响** | 已实测（进入全爆裂后 0.55s / 1.44s / 0.5s） |
 | Laplace: Ultimate Hero (103) Burst P3 | as additional damage | 受影响 | 规则判定，未实测 |
 | Sin: Swift Bunny (405) Burst P3 | as additional damage | 受影响 | 规则判定，未实测 |
 

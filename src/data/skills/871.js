@@ -9,6 +9,9 @@ import { hasWindCodeEnemy, personaAlliesOfStep, dispatchPersonaEvent,
 // 武器：Machine Gun（弹匣 300，RPM 60→4200 起速，装填 2.5s）。爆裂阶段 Step3，CD 40s。
 // Persona 联动机制（Persona 状态 / 1 More / Follow Up）见 persona-shared.js。
 
+// 实测命中延迟（秒，自进入全爆裂起计）
+const S1P3_DELAY_SEC = 0.5;   // S1 P3（1 More）
+
 export default {
 
   // ── Persona: Konohana Sakuya
@@ -60,14 +63,19 @@ export default {
       },
 
       // S1 P3：1 More 生效 → 全体敌人 p03% 分摊伤害。
+      // 【全爆裂加成】受影响（已实测）：进入全爆裂瞬间快照 sums，进入全爆裂后 0.5s 命中。
+      // 1 More 在爆裂技能 handler 内派发，延迟命中由引擎统一后移到「进入全爆裂后」计时。
       {
         on: 'ONE_MORE',
         partOverride: 2,
         handler(state, caster) {
           if (state.enemyHp <= 0) return;
           const lv = caster.skillLevels[0];
-          fireSkillHit(state, caster, getSkillValue(caster.rawSkill1, 2, lv) / 100,
-            getBuffSums(state, caster.id), 'S1', { isDistributed: true });
+          state.pendingSkillHits.push({
+            fireTick: state.tick + Math.round(S1P3_DELAY_SEC * TICK_RATE),
+            caster, mult: getSkillValue(caster.rawSkill1, 2, lv) / 100, label: 'S1',
+            opts: { isDistributed: true, affectedByFullBurst: true },
+          });
         },
       },
     ],
@@ -114,12 +122,15 @@ export default {
         },
       },
 
-      // S2 P2：使用爆裂技能 → Scarlet Flower（Fire Amp 分摊伤害 ▲ + Mediarama 计时开始）。
+      // S2 P2：使用爆裂技能 → Scarlet Flower（Effect 2 Fire Amp 分摊伤害 ▲ + Effect 1 Mediarama 计时开始）。
+      // 各效果已具名 → buff 用效果名 Fire Amp；Effect 3 Scarlet Protection（减伤）不建模。
+      // 实测在爆裂技能（S3）结算完之后生效：Burst P1 伤害不享受本段增益 → priority 1 排在爆裂 handler 之后。
       {
         on: 'BURST_SKILL_USE',
+        priority: 1,
         handler(state, caster) {
           const lv = caster.skillLevels[1];
-          pushBuff(state, { name: 'Scarlet Flower', unitId: caster.id,
+          pushBuff(state, { name: 'Fire Amp', unitId: caster.id,
             distributedDamagePct: getSkillValue(caster.rawSkill2, 2, lv) / 100,
             endTick: Infinity });
           caster.skillState.yk_nextMediaramaTick =
@@ -146,7 +157,7 @@ export default {
         partOverride: 1,
         handler(state, caster) {
           state.buffs = state.buffs.filter(b =>
-            !(b.name === 'Scarlet Flower' && b.unitId === caster.id));
+            !(b.name === 'Fire Amp' && b.unitId === caster.id));
           caster.skillState.yk_nextMediaramaTick = null;
         },
       },

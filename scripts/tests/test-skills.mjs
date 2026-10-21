@@ -1129,11 +1129,20 @@ section('T20: Persona — 1 More 条件、Baton Pass / Follow Up 目标与 FOLLO
   // 风压代码敌人：Makoto 爆裂 → 1 More → S1 P3 伤害 + Baton Pass（仅 Persona B3 队友）
   {
     const { makoto, yukiko, other } = personaSquad();
-    const state = mockState([makoto, yukiko, other]);
+    const state = mockState([makoto, yukiko, other], { pendingSkillHits: [] });
     executeSkillTriggers(state, 'BATTLE_START');
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: makoto });
     eq('Makoto 获得 1 More', state.buffs.some(b => b.name === '1 More' && b.unitId === 870), true);
-    eq('1 More → S1 P3 分摊伤害 1 次', makoto.skillDamageCount['S1 P3'], 1);
+    // Burst P1：进入全爆裂后 0.07s（4t），sums 取施放时 → 不含 S2 P2 Nuke Amp（仅 Persona - Johanna 13.59%）
+    const mkBurst = state.pendingSkillHits.find(h => h.caster === makoto && h.label === 'Burst');
+    eq('Makoto Burst 延迟 4t', mkBurst?.fireTick, 4);
+    eq('Makoto Burst sums 不含 Nuke Amp', mkBurst?.sums?.elementAdvantagePct, 0.1359);
+    // S1 P3：受全爆裂影响，进入全爆裂后 0.55s（33t），sums 留待进入全爆裂瞬间快照
+    const mkS1P3 = state.pendingSkillHits.find(h => h.caster === makoto && h.label === 'S1 P3');
+    eq('1 More → S1 P3 延迟 33t', mkS1P3?.fireTick, 33);
+    eq('S1 P3 affectedByFullBurst', mkS1P3?.opts?.affectedByFullBurst, true);
+    eq('S1 P3 sums 未预捕获', mkS1P3?.sums, undefined);
+    state.pendingSkillHits = [];
     const baton = state.buffs.find(b => b.name === 'Baton Pass' && b.unitId === 871);
     eq('Baton Pass → Yukiko atkFlat = 施法者 ATK × 35.2%', baton?.atkFlat, 35200);
     eq('Baton Pass 层数上限 3', baton?.stackLimit, 3);
@@ -1142,35 +1151,53 @@ section('T20: Persona — 1 More 条件、Baton Pass / Follow Up 目标与 FOLLO
     eq('Baton Pass 不给自身',
       state.buffs.some(b => b.name === 'Baton Pass' && b.unitId === 870), false);
 
-    // Yukiko 爆裂 → 1 More → Follow Up 给 Makoto → Makoto S1 P4（FOLLOW_UP）
+    // Yukiko 作为 B3 施放（b3Cast：延迟命中统一后移 3t）→ 1 More → Follow Up 给 Makoto → Makoto S1 P4（FOLLOW_UP）
+    state.b3Cast = { casterId: 871, delayTicks: 3 };
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: yukiko });
+    state.b3Cast = null;
     const follow = state.buffs.find(b => b.name === 'Follow Up' && b.unitId === 870);
     eq('Follow Up → Makoto atkFlat = 施法者 ATK × 80.25%', follow?.atkFlat, 80250);
     eq('Follow Up 持续 25s', follow?.endTick, 25 * TICK_RATE);
-    eq('FOLLOW_UP → Makoto S1 P4 分摊伤害 1 次', makoto.skillDamageCount['S1 P4'], 1);
+    const mkS1P4 = state.pendingSkillHits.find(h => h.caster === makoto && h.label === 'S1 P4');
+    eq('FOLLOW_UP → Makoto S1 P4 进入全爆裂后 1.44s（86t + 3t）', mkS1P4?.fireTick, 89);
+    eq('S1 P4 affectedByFullBurst', mkS1P4?.opts?.affectedByFullBurst, true);
     // Yukiko S1 仅 P3 一处伤害 → 标签为 'S1'（显示技能名）
-    eq('Yukiko 1 More → S1 P3 伤害 1 次', yukiko.skillDamageCount['S1'], 1);
-    eq('Scarlet Flower 分摊伤害 +90.01%',
-      state.buffs.find(b => b.name === 'Scarlet Flower' && b.unitId === 871)?.distributedDamagePct,
+    const ykS1 = state.pendingSkillHits.find(h => h.caster === yukiko && h.label === 'S1');
+    eq('Yukiko 1 More → S1 P3 进入全爆裂后 0.5s（30t + 3t）', ykS1?.fireTick, 33);
+    eq('Yukiko S1 P3 affectedByFullBurst', ykS1?.opts?.affectedByFullBurst, true);
+    // Burst P1 施放时 sums 不含 S2 P2 Fire Amp（S2 P2 于爆裂结算后生效）
+    const ykBurst = state.pendingSkillHits.find(h => h.caster === yukiko && h.label === 'Burst');
+    eq('Yukiko Burst 延迟 3t', ykBurst?.fireTick, 3);
+    eq('Yukiko Burst sums 不含 Fire Amp', ykBurst?.sums?.distributedDamagePct, 0);
+    eq('Fire Amp 分摊伤害 +90.01%',
+      state.buffs.find(b => b.name === 'Fire Amp' && b.unitId === 871)?.distributedDamagePct,
       0.9001);
+    eq('Nuke Amp 优越代码伤害 +25.56%',
+      state.buffs.find(b => b.name === 'Nuke Amp' && b.unitId === 870)?.elementAdvantagePct,
+      0.2556);
+    eq('Rakukaja DEF +17.95%',
+      state.buffs.find(b => b.name === 'Rakukaja' && b.unitId === 870)?.defPct,
+      0.1795);
 
-    // 全爆裂结束：解除 Fist of Justice! / Scarlet Flower
+    // 全爆裂结束：解除 Fist of Justice!（Nuke Amp / Rakukaja）/ Scarlet Flower（Fire Amp）
     executeSkillTriggers(state, 'FULL_BURST_END');
-    eq('Fist of Justice! 于全爆裂结束解除',
-      state.buffs.some(b => b.name === 'Fist of Justice!'), false);
-    eq('Scarlet Flower 于全爆裂结束解除',
-      state.buffs.some(b => b.name === 'Scarlet Flower'), false);
+    eq('Nuke Amp / Rakukaja 于全爆裂结束解除',
+      state.buffs.some(b => b.name === 'Nuke Amp' || b.name === 'Rakukaja'), false);
+    eq('Fire Amp 于全爆裂结束解除',
+      state.buffs.some(b => b.name === 'Fire Amp'), false);
   }
 
   // 非风压敌人：无 1 More，不触发 S1 P3 / Baton Pass
   {
     const { makoto, yukiko, other } = personaSquad();
-    const state = mockState([makoto, yukiko, other], { enemyElement: 'Iron' });
+    const state = mockState([makoto, yukiko, other], { enemyElement: 'Iron', pendingSkillHits: [] });
     executeSkillTriggers(state, 'BATTLE_START');
     executeSkillTriggers(state, 'BURST_SKILL_USE', { unit: makoto });
     eq('非风压敌人：无 1 More', state.buffs.some(b => b.name === '1 More'), false);
     eq('非风压敌人：无 Baton Pass', state.buffs.some(b => b.name === 'Baton Pass'), false);
-    eq('非风压敌人：爆裂伤害照常', makoto.skillDamageCount['Burst'], 1);
+    eq('非风压敌人：爆裂伤害照常',
+      state.pendingSkillHits.filter(h => h.label === 'Burst').length, 1);
+    eq('非风压敌人：无 S1 P3', state.pendingSkillHits.some(h => h.label === 'S1 P3'), false);
   }
 }
 

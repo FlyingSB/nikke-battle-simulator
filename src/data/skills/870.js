@@ -1,4 +1,4 @@
-import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 import { hasWindCodeEnemy, personaAlliesOfStep, dispatchPersonaEvent } from './persona-shared.js';
 
@@ -6,6 +6,14 @@ import { hasWindCodeEnemy, personaAlliesOfStep, dispatchPersonaEvent } from './p
 //
 // 武器：Shotgun（10 弹丸，弹匣 9，RPM 90，装填 1.5s）。爆裂阶段 Step3，CD 40s。
 // Persona 联动机制（Persona 状态 / 1 More / Follow Up）见 persona-shared.js。
+
+// S2 P2 Fist of Justice! 的具名效果 buff（全爆裂结束时解除）
+const FIST_OF_JUSTICE_BUFFS = ['Nuke Amp', 'Rakukaja'];
+
+// 实测命中延迟（秒，均自进入全爆裂起计）
+const BURST_DELAY_SEC = 0.07;   // Burst P1
+const S1P3_DELAY_SEC  = 0.55;   // S1 P3（1 More）
+const S1P4_DELAY_SEC  = 1.44;   // S1 P4（Follow Up）
 
 export default {
 
@@ -53,26 +61,35 @@ export default {
       },
 
       // S1 P3：1 More 生效 → 全体敌人 p03% 分摊伤害。
+      // 【全爆裂加成】受影响（已实测）：进入全爆裂瞬间快照 sums，进入全爆裂后 0.55s 命中。
+      // 1 More 在爆裂技能 handler 内派发，延迟命中由引擎统一后移到「进入全爆裂后」计时。
       {
         on: 'ONE_MORE',
         partOverride: 2,
         handler(state, caster) {
           if (state.enemyHp <= 0) return;
           const lv = caster.skillLevels[0];
-          fireSkillHit(state, caster, getSkillValue(caster.rawSkill1, 2, lv) / 100,
-            getBuffSums(state, caster.id), 'S1 P3', { isDistributed: true });
+          state.pendingSkillHits.push({
+            fireTick: state.tick + Math.round(S1P3_DELAY_SEC * TICK_RATE),
+            caster, mult: getSkillValue(caster.rawSkill1, 2, lv) / 100, label: 'S1 P3',
+            opts: { isDistributed: true, affectedByFullBurst: true },
+          });
         },
       },
 
       // S1 P4：Follow Up 生效（Yukiko S2 施加）→ 全体敌人 p04% 分摊伤害。
+      // 【全爆裂加成】受影响（已实测）：进入全爆裂瞬间快照 sums，进入全爆裂后 1.44s 命中。
       {
         on: 'FOLLOW_UP',
         partOverride: 3,
         handler(state, caster) {
           if (state.enemyHp <= 0) return;
           const lv = caster.skillLevels[0];
-          fireSkillHit(state, caster, getSkillValue(caster.rawSkill1, 3, lv) / 100,
-            getBuffSums(state, caster.id), 'S1 P4', { isDistributed: true });
+          state.pendingSkillHits.push({
+            fireTick: state.tick + Math.round(S1P4_DELAY_SEC * TICK_RATE),
+            caster, mult: getSkillValue(caster.rawSkill1, 3, lv) / 100, label: 'S1 P4',
+            opts: { isDistributed: true, affectedByFullBurst: true },
+          });
         },
       },
     ],
@@ -114,14 +131,19 @@ export default {
         },
       },
 
-      // S2 P2：使用爆裂技能 → Fist of Justice!（优越代码伤害 / DEF ▲），全爆裂结束时解除。
+      // S2 P2：使用爆裂技能 → Fist of Justice!（Effect 1 Nuke Amp 优越代码伤害 ▲ / Effect 2 Rakukaja DEF ▲），
+      // 各效果已具名 → 分别以效果名建 buff，全爆裂结束时一并解除。
+      // 实测在爆裂技能（S3）结算完之后生效：Burst P1 伤害不享受本段增益 → priority 1 排在爆裂 handler 之后。
       {
         on: 'BURST_SKILL_USE',
+        priority: 1,
         handler(state, caster) {
           const lv = caster.skillLevels[1];
-          pushBuff(state, { name: 'Fist of Justice!', unitId: caster.id,
+          pushBuff(state, { name: 'Nuke Amp', unitId: caster.id,
             elementAdvantagePct: getSkillValue(caster.rawSkill2, 0, lv) / 100,
-            defPct:              getSkillValue(caster.rawSkill2, 1, lv) / 100,
+            endTick: Infinity });
+          pushBuff(state, { name: 'Rakukaja', unitId: caster.id,
+            defPct: getSkillValue(caster.rawSkill2, 1, lv) / 100,
             endTick: Infinity });
         },
       },
@@ -130,7 +152,7 @@ export default {
         partOverride: 1,
         handler(state, caster) {
           state.buffs = state.buffs.filter(b =>
-            !(b.name === 'Fist of Justice!' && b.unitId === caster.id));
+            !(FIST_OF_JUSTICE_BUFFS.includes(b.name) && b.unitId === caster.id));
         },
       },
 
@@ -171,6 +193,9 @@ export default {
   // p01: [840.08 … 1421.69]（分摊伤害 %ATK）
   // p02: [17.88 … 30.27]   （1 More ATK ▲%）
   // p03: [10,...]
+  //
+  // 【全爆裂加成】不受影响（描述 as distributed damage，默认）：预捕获施放时 sums（S2 P2 尚未生效）。
+  // 实测进入全爆裂后 0.07s 命中，仅延迟，不影响结算顺序（sums 仍取施放时）。
   burst: {
     groupId: 18703,
     triggers: [
@@ -179,8 +204,11 @@ export default {
         handler(state, caster) {
           const lv = caster.skillLevels[2];
           if (state.enemyHp > 0) {
-            fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 0, lv) / 100,
-              getBuffSums(state, caster.id), 'Burst', { isDistributed: true });
+            state.pendingSkillHits.push({
+              fireTick: state.tick + Math.round(BURST_DELAY_SEC * TICK_RATE),
+              caster, mult: getSkillValue(caster.rawBurst, 0, lv) / 100, label: 'Burst',
+              sums: getBuffSums(state, caster.id), opts: { isDistributed: true },
+            });
           }
 
           if (!hasWindCodeEnemy(state)) return;
