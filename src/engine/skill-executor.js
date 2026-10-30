@@ -17,7 +17,8 @@
  *   LAST_BULLET         末弹射击后（ammoLeft 降至 0；ctx.unit = 射击单位）
  *   FULL_CHARGE         全蓄力攻击时（SR/RL；ctx.unit = 射击单位）
  *   AMMO_MILESTONE      全队消耗弹药累计达到 X 发（溢出保留，由 battle.js 检测后调用）
- *   INTERVAL            全程每 X 秒触发，不限于爆裂期间（通过 onInterval 驱动；首次于 t+Xs 触发）
+ *   INTERVAL            全程每 X 秒触发，不限于爆裂期间（通过 onInterval 驱动；首次于 t+Xs 触发；
+ *                       opts.seconds 可为函数 (state, caster) => 秒，实现随状态变化的间隔）
  *   INTERVAL_IN_BURST   全爆裂期间每 X 秒生效 1 次（通过 onIntervalInBurst 驱动）
  *   HEAL_RECEIVED       任意友军受到治疗时（ctx.unit = 受治疗单位）
  *   HP_CHANGED          任意友军当前 HP 或最终 MaxHP 发生变化后（团队触发；ctx.unit = 变化单位，
@@ -44,6 +45,8 @@
  *                       派发，Guilty: Mighty Bunny / Sin: Swift Bunny S2 据此刷新形态效果）
  *   SNIPE_MODE_CHANGED  ctx.unit 的 Snipe Mode 生效 / 移除后（非团队；ctx.active = 是否处于 Snipe Mode；
  *                       由 src/data/skills/515.js 派发，Cinderella: Crystal Wave S2 据此切换 Destroy / Pinpoint）
+ *   FULL_CHARGE_HELD    满蓄后按住到点（unit.chargeHoldTicks 耗尽）、本发全蓄力击发之前（非团队；ctx.unit = 射击单位；
+ *                       由 battle.js 派发，早于 DURING_FULL_CHARGE。Guilty / Sin 据此切换 Bunny Mode）
  *   DURING_FULL_CHARGE  全蓄力击发之前（ctx.unit = 射击单位；推入的 buff 作用于本次射击，见 fireDuringFullChargeTriggers）
  *   SING_ALONG          「合唱」（Sing Along）生效时（团队触发；ctx.unit = 合唱施放者；由 Mint 600 爆裂技能在推入
  *                       Sing Along 后立即派发，早于 ENTER_BURST_III。Prika 601 S2 P2 Encore 据此结算）
@@ -654,13 +657,17 @@ export function onInterval(state) {
       for (const [tdefIdx, tdef] of skill.triggers.entries()) {
         if (tdef.on !== 'INTERVAL') continue;
 
-        const intervalTicks = Math.round((tdef.opts?.seconds ?? 1) * TICK_RATE);
+        // opts.seconds 可为函数 (state, caster) => 秒：间隔随技能状态变化（如 Marian: Queen S2 缩短 S1 间隔）。
+        // 动态间隔每次触发后从当前 tick 重新计时（间隔缩短时已累计时长超出新间隔则立即触发一次）。
+        const dynamic       = typeof tdef.opts?.seconds === 'function';
+        const seconds       = dynamic ? tdef.opts.seconds(state, caster) : (tdef.opts?.seconds ?? 1);
+        const intervalTicks = Math.round(seconds * TICK_RATE);
         // 按触发器下标独立计时：同一技能可有多个 INTERVAL 触发器（如 Mari S2 P1/P2）
         const lastKey       = `intervalBattleLast_${skillKey}_${tdefIdx}`;
         // 首次：记录当前 tick，令第一次触发在 t+Ns
         if (caster.skillState[lastKey] == null) caster.skillState[lastKey] = state.tick;
         if (state.tick - caster.skillState[lastKey] < intervalTicks) continue;
-        caster.skillState[lastKey] += intervalTicks;
+        caster.skillState[lastKey] = dynamic ? state.tick : caster.skillState[lastKey] + intervalTicks;
 
         const ctx = { unit: caster, sums: getBuffSums(state, caster.id) };
         if (!checkConditions(state, caster, tdef, ctx)) continue;

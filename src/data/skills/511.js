@@ -57,7 +57,7 @@ export default {
             !(b.name === 'Flawless Glass (Charge Speed)' && b.unitId === caster.id));
         },
       },
-      // S1 Part3：全蓄力命中 → [S1 param3]% ATK 附加技能伤害，同时附加对应充能
+      // S1 Part3：全蓄力命中 → [S1 param3]% ATK 附加技能伤害（按默认规则充能）
       // partOverride=2：技能描述仅 3 个 ■ 段，RELOAD_END 触发器占了数组序号 2，
       // 默认 tdefIdx=3 会让日志显示 P4；此处强制对齐到第 3 段（P3）
       {
@@ -67,8 +67,7 @@ export default {
           if (state.enemyHp <= 0) return;
           const sums    = ctx.sums ?? getBuffSums(state, caster.id);
           const hitMult = getSkillValue(caster.rawSkill1, 3, caster.skillLevels[0]) / 100;
-          fireSkillHit(state, caster, hitMult, sums, 'S1', {
-            burstEnergy: caster.targetBurstEnergyPerShot ?? 0, burstEnergySource: 'S1_fc_bonus' });
+          fireSkillHit(state, caster, hitMult, sums, 'S1', { burstEnergySource: 'S1_fc_bonus' });
         },
       },
     ],

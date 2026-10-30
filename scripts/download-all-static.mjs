@@ -5,7 +5,8 @@
  *
  * 说明：
  *   - 每次请求间隔 5 秒，避免被屏蔽
- *   - 已存在的文件自动跳过（传 --force 可强制重新下载）
+ *   - 已存在的文件自动跳过（传 --force 可强制重新下载）；花名册 characters.json 例外，每次都刷新，
+ *     新角色的详情随后在步骤 4 自动补齐，结束时列出新增角色与后续步骤
  *   - 下载完成后，loader.js 和 nikke-cache.mjs 优先读取本地文件，不再访问 CDN
  *
  * 目录结构：
@@ -46,12 +47,22 @@ async function downloadJson(url, label) {
 
 // ─── 1. 静态数据文件（DATA_URLS）────────────────────────────────────────────
 
+// 花名册每次都重新下载（只有一个请求），新角色才能进入 characters.json → 角色选择器
+const ALWAYS_REFRESH_KEYS = new Set(['characters']);
+
+/** 读取当前花名册的 resource_id 集合（文件不存在时为空集） */
+function readRosterIds() {
+  const p = join(STATIC_DIR, 'characters.json');
+  if (!existsSync(p)) return new Set();
+  return new Set(JSON.parse(readFileSync(p, 'utf8')).map(c => c.resource_id));
+}
+
 async function downloadStaticFiles() {
   console.log('\n[1/4] 静态数据文件（DATA_URLS）');
   let first = true;
   for (const [key, url] of Object.entries(DATA_URLS)) {
     const filePath = join(STATIC_DIR, `${key}.json`);
-    if (!FORCE && existsSync(filePath)) {
+    if (!FORCE && !ALWAYS_REFRESH_KEYS.has(key) && existsSync(filePath)) {
       console.log(`  ✓ ${key} 已存在，跳过`);
       continue;
     }
@@ -151,12 +162,35 @@ async function main() {
   console.log(`目标目录：${STATIC_DIR}`);
   if (FORCE) console.log('（--force 模式：强制重新下载所有文件）');
 
+  const oldIds = readRosterIds();
   await downloadStaticFiles();
   await downloadCubes();
   await downloadFavorites();
   await downloadNikkes();
 
+  reportNewCharacters(oldIds);
   console.log('\n全部完成。');
+}
+
+/** 列出本次新增的角色，并提示让其出现在角色选择器所需的后续步骤 */
+function reportNewCharacters(oldIds) {
+  const roster = JSON.parse(readFileSync(join(STATIC_DIR, 'characters.json'), 'utf8'));
+  const added  = roster.filter(c => !oldIds.has(c.resource_id) && c.is_visible !== false);
+  if (added.length === 0) {
+    console.log('\n花名册无新增角色。');
+    return;
+  }
+  console.log(`\n花名册新增 ${added.length} 个角色：`);
+  for (const c of added) console.log(`  + ${c.resource_id}  ${c.name_localkey?.name ?? ''}`);
+  console.log([
+    '',
+    '后续步骤（角色选择器只允许选择已建模角色）：',
+    '  1. node scripts/download-character-images.mjs   # 头像',
+    '  2. node scripts/download-zh-static.mjs           # 简体中文名 / 技能文本',
+    '  3. 新建 src/data/skills/<id>.js 并在 src/data/skill-traits.js 注册（SKILL_TRAITS）',
+    '  4. docs/data-catalog.md 增加角色行；运行 node scripts/list-untranslated-terms.mjs',
+    '  5. 浏览器刷新页面即可（静态快照不走 IndexedDB 缓存，无需改 MANIFEST_VERSION）',
+  ].join('\n'));
 }
 
 main().catch(e => {

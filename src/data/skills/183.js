@@ -121,8 +121,7 @@ export default {
         handler(state, caster, ctx) {
           const skillDmg = getSkillValue(caster.rawSkill2, 9, caster.skillLevels[1]) / 100;
           const sums     = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, skillDmg, sums, 'S2', {
-            burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'icr_s2_fc_dmg' });
+          fireSkillHit(state, caster, skillDmg, sums, 'S2', { burstEnergySource: 'icr_s2_fc_dmg' });
         },
       },
     ],

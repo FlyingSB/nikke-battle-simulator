@@ -700,7 +700,9 @@ function buildEventRows(eventLog, squadLookup = null, logMode = 'detail') {
       buffName:   e.buffName ?? null,
       buffDesc:   e.buffName ?? '',
       buffArr:    e.buffName && e.unitName
-        ? [{ name: e.buffName, sourceCaster: e.unitName, sourceSkillLabel: e.skillLabel ?? null, sourcePartIdx: e.partIdx ?? null, sourceLineIdx: e.lineIdx ?? null }]
+        ? [{ name: e.buffName, sourceCaster: e.unitName, sourceSkillLabel: e.skillLabel ?? null, sourcePartIdx: e.partIdx ?? null, sourceLineIdx: e.lineIdx ?? null,
+             // 叠层 buff 推入后的层数（>1 时日志显示 ×n）
+             stacks: e.stacks ?? null }]
         : [],
       damage:     null,
       count:      1,
@@ -729,6 +731,7 @@ function buildEventRows(eventLog, squadLookup = null, logMode = 'detail') {
       // 在持续时间内刷新：合并到现有组
       grp.tickEnd  = row.tickStart;
       grp._endTick = row._endTick ?? grp._endTick;
+      grp.buffArr  = row.buffArr;   // 显示合并组内最新层数
       grp.count++;
     } else {
       // buff 已过期或首次出现：关闭旧组，开新组
@@ -929,6 +932,8 @@ export function createStore() {
     rhBurstMode:      'b3',
     // Cinderella: Crystal Wave 手动打法：进入战斗时切换到 Snipe Mode（射击 1 发 → 主动装填 → 射击 1 发 → 主动装填）
     ccwSnipeModeAtStart: false,
+    // Guilty: Mighty Bunny / Sin: Swift Bunny 开局 Bunny Mode：stance（保持架势）/ engage（第一次攻击满蓄按住 1s 切换到出击）
+    bunnyModeAtStart: 'stance',
     // 速充（Focus 的 UP 型 SR/RL 手动打法）：off / always（始终速充）/ untilFull（充能满后恢复全蓄力）
     quickChargeMode: 'off',
     // 百暴（Miranda 与 FULL_CRIT_CHAR_IDS 角色同队时显示）：勾选使用百暴的角色 resource_id 列表，空 = 关闭
@@ -1211,6 +1216,12 @@ export function createStore() {
     // Cinderella: Crystal Wave（resource_id: 515）在队时显示 Snipe Mode 开关
     get hasCinderellaCrystalWave() {
       return this.team.some(s => s.active && s.resourceId === 515);
+    },
+
+    // Bunny Mode 开局切换的执行者：Sin: Swift Bunny（405）优先，其次 Guilty: Mighty Bunny（404）；均不在队为 null（选项隐藏）
+    get bunnySwitchSlot() {
+      const active = this.team.filter(s => s.active);
+      return active.find(s => s.resourceId === 405) ?? active.find(s => s.resourceId === 404) ?? null;
     },
 
     // 速充选项显示条件：Focus 角色为 SR/RL 且非 DOWN_Charge 型（DOWN_Charge 按住自动全蓄力击发，无法速充）
@@ -1546,6 +1557,7 @@ export function createStore() {
         mastBurstMode:    this.mastBurstMode,
         rhBurstMode:      this.rhBurstMode,
         ccwSnipeModeAtStart: this.ccwSnipeModeAtStart,
+        bunnyModeAtStart:   this.bunnyModeAtStart,
         quickChargeMode:    this.quickChargeMode,
         fullCritChars:      this.fullCritChars,
         focusSlot:          this.focusSlot,
@@ -1625,6 +1637,7 @@ export function createStore() {
       if (state.mastBurstMode     != null) this.mastBurstMode     = state.mastBurstMode;
       if (RH_BURST_MODES.includes(state.rhBurstMode)) this.rhBurstMode = state.rhBurstMode;
       if (state.ccwSnipeModeAtStart != null) this.ccwSnipeModeAtStart = state.ccwSnipeModeAtStart;
+      if (['stance', 'engage'].includes(state.bunnyModeAtStart)) this.bunnyModeAtStart = state.bunnyModeAtStart;
       if (['off', 'always', 'untilFull'].includes(state.quickChargeMode)) this.quickChargeMode = state.quickChargeMode;
       // 百暴：新存档为数组 fullCritChars；旧存档为单选 fullCritChar（0 = 关闭）
       if (Array.isArray(state.fullCritChars)) {
@@ -2492,6 +2505,7 @@ export function createStore() {
           // 爆裂施放者锁定（{ s1, s2, s3odd, s3even } → characterId），特殊选项优先由引擎处理
           burstLocks:       this.effectiveBurstLocks,
           ccwSnipeModeAtStart: this.hasCinderellaCrystalWave && this.ccwSnipeModeAtStart,
+          bunnyEngageAtStart: this.bunnySwitchSlot != null && this.bunnyModeAtStart === 'engage',
           quickChargeMode:  this.quickChargeSlot ? this.quickChargeMode : 'off',
           // 百暴：仅传队伍中实际出现的所选角色（Miranda 不在队时候选为空 → 关闭）
           fullCritCharIds:  this.effectiveFullCritChars,

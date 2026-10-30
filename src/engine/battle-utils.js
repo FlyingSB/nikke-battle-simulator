@@ -125,6 +125,39 @@ export function reloadMagazinePct(state, unit, pct, source) {
   return delta;
 }
 
+// ─── Focus 临时转移（手动切换形态的打法）──────────────────────────────────────
+// 实机同时只能操控 1 名角色（Focus）。需要手动操作的形态切换（Cinderella: Crystal Wave 切枪、
+// Guilty / Sin 按住满蓄切换 Bunny Mode）期间，Focus 必须在执行切换的角色身上：
+// 由该角色占用 state.focusLockUnitId，期间原 Focus 角色失去 Focus（无 Focus 全蓄力充能倍率、无法速充），
+// 切换完成后释放，Focus 回到 UI 指定的角色。同一时间只允许一个切换占用。
+
+/**
+ * 单位当前是否处于 Focus（受控）状态。
+ * @param {object} state
+ * @param {object} unit
+ * @returns {boolean}
+ */
+export function hasFocus(state, unit) {
+  const lock = state.focusLockUnitId ?? null;
+  return lock != null ? lock === unit.id : !!unit.isFocus;
+}
+
+/**
+ * 占用 Focus（执行手动切换）。Focus 空闲或已由本单位占用时成功。
+ * @returns {boolean} 是否成功占用
+ */
+export function acquireFocusLock(state, unit) {
+  const lock = state.focusLockUnitId ?? null;
+  if (lock != null && lock !== unit.id) return false;
+  state.focusLockUnitId = unit.id;
+  return true;
+}
+
+/** 释放本单位占用的 Focus（切换完成），Focus 回到 UI 指定角色。 */
+export function releaseFocusLock(state, unit) {
+  if (state.focusLockUnitId === unit.id) state.focusLockUnitId = null;
+}
+
 /**
  * 当前是否处于「固定弹匣」的武器切换期间（skillState.weaponSwitchFixedAmmo = true）。
  * 此期间 ammoLeft 属于切换武器（上限 = weaponSwitchMaxAmmo），
@@ -529,6 +562,8 @@ function _emitBuffEvent(state, buffObj, logCtx) {
     target:   targetName,
     buffName: buffObj.name,
     endTick:  buffObj.endTick,
+    // 叠层 buff 当前层数（>1 时日志在 buff 名后显示 ×n）
+    ...((buffObj.stacks ?? 1) > 1 ? { stacks: buffObj.stacks } : {}),
     gaugeAfter: state.burstGauge,
   });
 }
@@ -561,15 +596,18 @@ function _pushBuffCore(state, buffObj, logCtx = null) {
       existing.roundsLeft = Math.max(existing.roundsLeft ?? 0, buffObj.endRounds);
     // 可叠加效果（stackLimit > 1）：层数未达上限时新增一层
     const limit = buffObj.stackLimit ?? 1;
-    if (limit > 1 && (existing.stacks ?? 1) < limit) {
+    const stacksChanged = limit > 1 && (existing.stacks ?? 1) < limit;
+    if (stacksChanged) {
       if (_hasMaxHpEffect(existing)) markMaxHpChange(state, _buffTargets(state, existing));
       existing.stacks = (existing.stacks ?? 1) + 1;
     }
-    // 仅纯永久 buff（无回合制）刷新时视为无实质变化，不记录日志
+    // 纯永久 buff（无回合制）刷新且层数未变化时视为无实质变化，不记录日志；
+    // 层数增加时每次都记录（叠满后层数不再变化才省略）
     const isInfiniteRefresh = existing.endTick === Infinity && buffObj.endTick === Infinity
-      && buffObj.endRounds === undefined;
+      && buffObj.endRounds === undefined && !stacksChanged;
     // 传入 post-refresh endTick（Math.max 之后），确保事件记录的是最终到期时刻
-    if (logCtx && !isInfiniteRefresh) _emitBuffEvent(state, { ...buffObj, endTick: existing.endTick }, logCtx);
+    if (logCtx && !isInfiniteRefresh)
+      _emitBuffEvent(state, { ...buffObj, endTick: existing.endTick, stacks: existing.stacks ?? 1 }, logCtx);
     return !isInfiniteRefresh;
   }
   // 初次推入：设置 roundsLeft（回合制）和 stacks（初始层数为 1）
@@ -1108,7 +1146,9 @@ export function pushHoT(state, target, amount, durationSecs, logCtxOverride = nu
  *   isSequentialAttack       {boolean}  依次攻击命中（受 sequentialAttackDamagePct buff 加成）
  *   isNormalAttack           {boolean}  技能产生的普通攻击命中（如 Anis: Star 的 Shooting Star）：
  *                                       额外享受 normalAttackDamagePct / normalAttackCritRatePct 加成
- *   burstEnergy              {number}   本次命中附带的爆裂槽充能（如全蓄力附加伤害的每发充能）。
+ *   burstEnergy              {number}   本次命中的基础爆裂槽充能。缺省 = 施法者 targetBurstEnergyPerShot
+ *                                       （所有技能伤害命中均充能，§6.1）；引擎再统一叠加 sums.burstGaugeFlat，
+ *                                       技能文件不要自行加。传 0 关闭充能（flat 也不加），一般无需传。
  *                                       在写入 hitLog 前累加，使充能与伤害合并为同一日志行（同普通射击）；
  *                                       不再单独产生「爆裂槽」行。爆裂期间（burstPhase!==0）不充能
  *   burstEnergySource        {string}   burstEnergyLog 中的来源标识（缺省为解析后的 label）
@@ -1160,6 +1200,31 @@ export function getFinalAtk(state, unit) {
  * @param {object} unit
  * @returns {number}
  */
+/**
+ * 「Into the Fray」状态（Marian: Queen 引入；Rapunzel: Sanctuary 等以「处于 Into the Fray 状态的友军」为目标）。
+ * 一个单位可同时持有多个具名 Into the Fray 状态（如 Sharpened Resolve / Penetrant Wish），
+ * 存于 unit.skillState.intoTheFray = { 状态名: endTick }，任一未到期即视为处于 Into the Fray 状态。
+ * @param {object} unit
+ * @param {string} name     状态名（描述中冒号后的部分）
+ * @param {number} endTick  到期 tick（持续状态传 Infinity）
+ */
+export function enterIntoTheFray(unit, name, endTick) {
+  unit.skillState.intoTheFray = { ...(unit.skillState.intoTheFray ?? {}), [name]: endTick };
+}
+
+/**
+ * @param {object} state
+ * @param {object} unit
+ * @param {string} [name] 指定状态名时只判定该状态
+ * @returns {boolean}
+ */
+export function isInIntoTheFray(state, unit, name) {
+  const states = unit.skillState?.intoTheFray;
+  if (!states) return false;
+  if (name != null) return (states[name] ?? -1) > state.tick;
+  return Object.values(states).some(end => end > state.tick);
+}
+
 export function getFinalMaxHp(state, unit) {
   const sums = getBuffSums(state, unit.id);
   return unit.stats.hp * (1 + sums.maxHpPct) + (sums.maxHpFlat ?? 0);
@@ -1368,9 +1433,14 @@ export function fireSkillHit(state, unit, hitMult, sums, label, opts = {}) {
     unit.skillDamage[label]  = (unit.skillDamage[label]  ?? 0) + damage;
     unit.skillDamageCount[label] = (unit.skillDamageCount[label] ?? 0) + 1;
   }
+  // 所有技能伤害命中均充能（battle-logic.md §6.1）：每次 = targetBurstEnergyPerShot + burstGaugeFlat。
+  // burstGaugeFlat（「Burst Gauge filling speed ▲」换算的 flat 值）与普通射击同口径，作用于所有命中来源；
+  // 爆裂期间（burstPhase!==0）与槽满截断由 accumulateBurstGauge 统一过滤；显式传 burstEnergy: 0 可关闭。
   // ⚠ 必须在 hitLog 记录之前累积：本行 gaugeAfter 已含本次充能，日志「充能列」据此按行计算增量
-  if (opts.burstEnergy > 0) {
-    accumulateBurstGauge(state, unit.name, opts.burstEnergySource ?? label ?? 'skill', opts.burstEnergy);
+  const baseEnergy  = opts.burstEnergy ?? unit.targetBurstEnergyPerShot ?? 0;
+  const burstEnergy = baseEnergy > 0 ? baseEnergy + (sums.burstGaugeFlat ?? 0) : 0;
+  if (burstEnergy > 0) {
+    accumulateBurstGauge(state, unit.name, opts.burstEnergySource ?? label ?? 'skill', burstEnergy);
   }
   if (state.hitLog) {
     state.hitLog.push({
@@ -1449,6 +1519,9 @@ export function fireDotPool(state) {
       continue;
     }
     const sums = getBuffSums(state, caster.id);
+    // DoT 每跳按普通技能伤害命中充能（fireSkillHit 缺省 burstEnergy = targetBurstEnergyPerShot）。
+    // 实测确认：Raven 的 DoT 有充能；推定所有 DoT 同理（battle-logic.md §6.1），故此处不传 burstEnergy。
+    // 多层 DoT 每跳只充能一次（按命中次数计，不乘层数）。
     fireSkillHit(state, caster, dot.multPerStack * dot.stacks, sums, dot.label,
       { sustainedDamage: dot.sustainedDamage !== false });
   }

@@ -130,8 +130,9 @@
 **内容：** 部分角色的形态 / 武器切换依赖手动操作（满蓄后继续按住、主动装填等），自动战斗永远不会触发。为这类角色在 UI 增加模拟开关（参照 `ebsLastBurstOnly` / `mirLastBurstOnly` 的 store → config 传递方式），让用户选择按「手动打法」模拟。
 
 涉及角色：
-- **Guilty: Mighty Bunny (404)**：S1「满蓄后按住 ≥1s」切换 Bunny Mode（Stance ↔ Engage）。当前开局进入 Stance 后恒不变；Engage 分支（普攻 / Mighty Stomp 真实伤害、全蓄力追加真实伤害）已在 `404.js` 实现并有测试（T19），缺触发入口。
-- **Sin: Swift Bunny (405)**：同上（S1 P3），Engage 分支（Noise Bullets 真实伤害、爆裂 P4 真实伤害）已在 `405.js` 实现。两人通过 `bunny-shared.js` `enterBunnyMode` 互相带动切换，开关应能表达「何时切换」（如开局即切 Engage / 按固定节奏切换）。
+- ~~**Guilty: Mighty Bunny (404) / Sin: Swift Bunny (405)**~~：✅ 2026-10-30 已加 UI 选项「保持兔兔模式：架势 / 切换兔兔模式：出击」
+  （开局第一次攻击满蓄按住 1s 切到 Engage，执行者 Sin > Guilty，切换期间占用 Focus，见 `test-bunny-switch.mjs`）。
+  尚未支持战斗中途来回切换（如按固定节奏切回 Stance）。
 - **Cinderella: Crystal Wave (515)**：S1「Preparation for Change 状态下装填满弹」切换 Snipe Mode（MG → 蓄力狙击，Pierce，全蓄力消耗 40 发）。当前整段未建模（见 `515.js` `[未建模]` 注释），角色恒为 MG 形态，S2 全爆裂恒走「非 Snipe Mode」分支。需先实现 Snipe Mode 武器切换与装填状态机，再接开关。
 - **Milk: Blooming Bunny (143)**：未建模。S1「非 Embarrassment 状态下满蓄持续 ≥X 秒」进入 Embarrassment（分摊伤害 + 强制减速装填 + ATK ▲），S2 / 爆裂技能围绕 Embarrassment / Overconfident 状态展开。建模时需同时支持自动（不触发）与手动两种打法。
 

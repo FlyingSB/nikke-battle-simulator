@@ -1,0 +1,28 @@
+{
+  "name_localkey": "红莲：弑神",
+  "skill1_detail": {
+    "name_localkey": "花无十一日红·开花",
+    "description_localkey": "■战斗开始时，自身\n<color=#00AEFF>【<word_group=10111>临战</word_group>：明镜止水】\n功能：普通攻击将发射大范围的穿透攻击，并对敌人造成额外伤害。\n效果1：自身【穿透特化】【持续】\n【无法解除】\n效果2：自身【普通攻击暴击率{description_value_01}%▲】【持续】【无法解除】\n效果3：普通攻击时，对距离瞄准线最近的1名敌人造成【居合：<word_group=10025>最终</word_group>攻击力{description_value_02}%的额外伤害】</color>\n■全爆裂时间开始时，自身\n<color=#00AEFF>【暴击伤害{description_value_03}%▲】【持续{description_value_04}秒】</color>",
+    "info_description_localkey": "技能1"
+  },
+  "skill2_detail": {
+    "name_localkey": "花无十一日红·乱舞",
+    "description_localkey": "■普通攻击暴击命中{description_value_01}次时，若自身未处于花无十一日红·满开状态，则自身\n<color=#00AEFF>【子弹补充{description_value_02}发】</color>\n■使用爆裂技能时，自身\n<color=#00AEFF>【<word_group=10111>临战</word_group>：身剑合一】\n功能：强化普通攻击的攻击能力及居合效果。\n效果1：【普通攻击暴击率{description_value_03}%▲】【持续{description_value_04}秒】【无法解除】\n效果2：【攻击伤害{description_value_05}%▲】【持续{description_value_06}秒】【无法解除】\n效果3：【居合额外伤害倍率变更为100%<word_group=10084>增加状态</word_group>】【持续{description_value_07}秒】【无法解除】</color>",
+    "info_description_localkey": "技能2"
+  },
+  "ulti_skill_detail": {
+    "name_localkey": "花无十一日红·弑神",
+    "description_localkey": "■自身\n<color=#00AEFF>【花无十一日红·满开：变更使用武器】\n功能：强化自身，\n并进行更大范围的普通攻击。\n伤害：<word_group=10025>最终</word_group>攻击力{description_value_01}%的伤害\n持续时间：{description_value_02}秒\n额外效果\n效果1：【普通攻击范围100%▲】【持续{description_value_03}秒】【无法解除】\n效果2：【攻击力{description_value_04}%▲】【持续{description_value_05}秒】【无法解除】</color>\n■对距离瞄准线最近的{description_value_06}名敌人造成\n<color=#00AEFF>【<word_group=10025>最终</word_group>攻击力{description_value_07}%的额外伤害】</color>",
+    "info_description_localkey": "爆裂技能"
+  },
+  "element_details": {
+    "0": {
+      "element_name_localekey": "燃烧",
+      "element_code_name_localekey": "CODE：H.S.T.A.",
+      "element_desc_localekey": "对内置风压代码的敌人植入CODE：H.S.T.A.以造成10%的额外伤害。"
+    }
+  },
+  "_terms": {
+    "Into the Fray": "临战"
+  }
+}

@@ -49,13 +49,14 @@ function statsWithCube(rid) {
 }
 
 // ── CB1 ───────────────────────────────────────────────────────────────────────
-section('CB1: 五种主技能 → cubeBuffPcts');
+section('CB1: 六种主技能 → cubeBuffPcts');
 const MODELED = [
   [13001, 'Vigor',       'maxHpPct'],
   [10007, 'Destruction', 'damageToPartsPct'],
   [10008, 'Piercing',    'pierceDamagePct'],
   [10010, 'Rupture',     'trueDamagePct'],
   [10013, 'Diffusion',   'distributedDamagePct'],
+  [10006, 'Wingman',     'maxAmmoPct'],
 ];
 for (const [rid, name, field] of MODELED) {
   const { raw, stats } = statsWithCube(rid);
@@ -66,7 +67,7 @@ for (const [rid, name, field] of MODELED) {
 // ── CB2 ───────────────────────────────────────────────────────────────────────
 section('CB2: 不建模的魔方 cubeBuffPcts 为空');
 for (const [rid, name] of [[10009, 'Assist'], [10012, 'Stealth'], [10002, 'Onslaught'],
-                           [10006, 'Wingman'], [12002, 'Tempering'], [10003, 'Resilience']]) {
+                           [12002, 'Tempering'], [10003, 'Resilience']]) {
   eq(`${name} 无永久 buff`, Object.keys(statsWithCube(rid).stats.cubeBuffPcts).length, 0);
 }
 

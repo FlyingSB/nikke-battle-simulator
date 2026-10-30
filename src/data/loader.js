@@ -1,6 +1,7 @@
 /**
- * 数据加载器 — 优先读取项目内的静态快照（src/data/static/），
- * 文件缺失时回退到 CDN，并缓存到 IndexedDB（库 nikke-sim-cache）。
+ * 数据加载器 — 始终优先读取项目内的静态快照（src/data/static/），
+ * 文件缺失时回退到 CDN，CDN 结果缓存到 IndexedDB（库 nikke-sim-cache）。
+ * 静态快照不进缓存：更新快照（如新增角色）后刷新页面即生效。
  *
  * 缓存曾存于 localStorage，约 5MB 配额会被数十个角色 JSON 占满，导致界面状态 / 语言设置等
  * 写入失败；现改存 IndexedDB，启动时删除 localStorage 中的旧缓存键（缓存可随时由静态文件重建）。
@@ -101,7 +102,24 @@ export async function refreshOne(key) {
 // ─── 内部实现 ───────────────────────────────────────────────────────────────
 
 /**
- * 通用加载器：优先 IndexedDB 缓存 → 本地静态文件 → CDN。
+ * 读取本地静态快照；文件不存在或读取失败时返回 null。
+ * 静态快照永远优先于 IndexedDB 缓存：更新 src/data/static/ 后刷新页面即生效
+ * （例如新增角色后花名册立即出现在角色选择器中），不依赖修改 MANIFEST_VERSION。
+ * cache: 'no-cache' 让浏览器每次向服务器重新验证（未变更时只返回 304），避免 HTTP 缓存拿到旧快照。
+ * @param {string} localPath
+ * @returns {Promise<any|null>}
+ */
+async function fetchLocalStatic(localPath) {
+  try {
+    const res = await fetch(localPath, { cache: 'no-cache' });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null; // 静态文件不存在或网络错误：由调用方回退到缓存 / CDN
+  }
+}
+
+/**
+ * 通用加载器：本地静态文件 → IndexedDB 缓存（仅存 CDN 回退结果）→ CDN。
  * @param {string}        prefix      缓存键前缀（'nikke' | 'cube' | 'fav'）
  * @param {number}        resourceId  资源 ID（Number 类型）
  * @param {string}        url         CDN fallback URL
@@ -110,21 +128,15 @@ export async function refreshOne(key) {
 async function _loadByUrl(prefix, resourceId, url, localPath) {
   const cacheKey = CACHE_PREFIX + `${prefix}_${resourceId}`;
 
-  // 1. IndexedDB 缓存
+  // 1. 本地静态快照（由 download-all-static.mjs 生成）
+  if (localPath) {
+    const local = await fetchLocalStatic(localPath);
+    if (local !== null) return local;
+  }
+
+  // 2. IndexedDB 缓存（此前从 CDN 拉取的结果）
   const entry = await readCache(cacheKey);
   if (entry && !isStale(entry)) return entry.data;
-
-  // 2. 本地静态快照（由 download-all-static.mjs 生成）
-  if (localPath) {
-    try {
-      const res = await fetch(localPath);
-      if (res.ok) {
-        const data = await res.json();
-        writeCache(cacheKey, data);
-        return data;
-      }
-    } catch { /* 静态文件不存在或网络错误：按设计回退到 CDN，CDN 也失败时下方抛错 */ }
-  }
 
   // 3. CDN fallback（url 为 null 时说明仅有本地文件，本地已缺失则报错）
   if (!url) throw new Error(`No local file or CDN URL for ${prefix} ${resourceId}`);
@@ -136,10 +148,14 @@ async function _loadByUrl(prefix, resourceId, url, localPath) {
 }
 
 async function loadOne(key) {
+  // 1. 本地静态快照（已归一化为数组）——始终优先，保证花名册等更新后刷新即生效
+  const local = await fetchLocalStatic(`${LOCAL_BASE}/${key}.json`);
+  if (local !== null) return local;
+
+  // 2. IndexedDB 缓存（此前从 CDN 拉取的结果），过期则后台刷新
   const cacheKey = CACHE_PREFIX + key;
   const entry = await readCache(cacheKey);
   if (entry) {
-    // 若过期则后台刷新
     if (isStale(entry)) {
       fetchFromCDN(key)
         .then(data => writeCache(cacheKey, data))
@@ -147,17 +163,17 @@ async function loadOne(key) {
     }
     return entry.data;
   }
+
+  // 3. CDN
   const data = await fetchFromCDN(key);
   writeCache(cacheKey, data);
   return data;
 }
 
+/** 刷新单个 key：本地静态快照优先，缺失时访问 CDN */
 async function fetchFromCDN(key) {
-  // 优先本地静态快照
-  try {
-    const res = await fetch(`${LOCAL_BASE}/${key}.json`);
-    if (res.ok) return res.json(); // 静态文件已归一化为数组，直接返回
-  } catch { /* 静态文件不存在，继续 CDN */ }
+  const local = await fetchLocalStatic(`${LOCAL_BASE}/${key}.json`);
+  if (local !== null) return local;
 
   const url = DATA_URLS[key];
   if (!url) throw new Error(`Unknown data key: ${key}`);

@@ -34,8 +34,7 @@ export default {
           const lv   = caster.skillLevels[0];
           const mult = getSkillValue(caster.rawSkill1, 1, lv) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, 'S1', {
-            burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'helm353_s1_extraHit' });
+          fireSkillHit(state, caster, mult, sums, 'S1', { burstEnergySource: 'helm353_s1_extraHit' });
         },
       },
       // Part2：进入全爆裂 → 全员 CDR（累积制，Previous effects trigger repeatedly）
@@ -85,8 +84,7 @@ export default {
           const lv   = caster.skillLevels[1];
           const mult = getSkillValue(caster.rawSkill2, 1, lv) / 100;
           const sums = getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, mult, sums, 'S2', {
-            burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'helm353_s2_suppFire' });
+          fireSkillHit(state, caster, mult, sums, 'S2', { burstEnergySource: 'helm353_s2_suppFire' });
           if (state.enemyElement === 'Electric') {
             const dtPct     = getSkillValue(caster.rawSkill2, 2, lv) / 100;
             const maxStacks = getSkillValue(caster.rawSkill2, 3, lv);

@@ -1,7 +1,7 @@
 import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 import { BUNNY_STANCE, BUNNY_ENGAGE, getBunnyMode, toggleBunnyMode,
-         applyBunnyModeBuff } from './bunny-shared.js';
+         applyBunnyModeBuff, setupBunnySwitchAtStart, onBunnyFullChargeHeld } from './bunny-shared.js';
 
 // Character: Guilty: Mighty Bunny  (resource_id: 404)
 //
@@ -26,12 +26,26 @@ export default {
   // ■ Activates when this unit enters the Bunny Mode: Stance state. Affects all allies in the
   //   Bunny Mode: Engage state. Initiates Bunny Mode: Stance.
   // p01: [11.88 … 20.1]    （ATK ▲%）
-  // p02: [1,...]           （按住满蓄秒数 — 手动操作，未建模）
+  // p02: [1,...]           （按住满蓄秒数 — 手动操作，UI 选项「切换兔兔模式：出击」且队中无 Sin 时第一次攻击执行）
   //
   // P3/P4 形态带动由 bunny-shared.js enterBunnyMode 统一处理。
   skill1: {
     groupId: 24041,
     triggers: [
+      // 程序初始化：开局切换选项 → 占用 Focus，第一次攻击满蓄后多按住 p02 秒（见 bunny-shared.js）。
+      {
+        on: 'PROGRAM_INIT',
+        partOverride: 1,
+        handler(state, caster) {
+          setupBunnySwitchAtStart(state, caster, getSkillValue(caster.rawSkill1, 1, caster.skillLevels[0]));
+        },
+      },
+      // S1 P2：满蓄按住 p02 秒 → 切换 Bunny Mode（Stance → Engage），本发照常全蓄力击发。
+      {
+        on: 'FULL_CHARGE_HELD',
+        partOverride: 1,
+        handler(state, caster) { onBunnyFullChargeHeld(state, caster); },
+      },
       // S1 P1：战斗开始 → 自身 ATK ▲ p01% 永久。
       {
         on: 'BATTLE_START',
@@ -68,7 +82,7 @@ export default {
   // p04: [266.44 … 450.89] （Stance 全蓄力追加伤害 %ATK）
   //
   // Mighty Stomp 为武器切换后的普通攻击，Effect 1/2 统一由 normalAttackTrueDamage 覆盖。
-  // 全蓄力追加伤害命中按 targetBurstEnergyPerShot 充能（同 Helm S2 追加伤害）。
+  // 全蓄力追加伤害命中按技能伤害默认规则充能（fireSkillHit 统一计算）。
   skill2: {
     groupId: 24042,
     triggers: [
@@ -94,7 +108,7 @@ export default {
           const lv     = caster.skillLevels[1];
           const mode   = getBunnyMode(caster);
           const sums   = ctx.sums ?? getBuffSums(state, caster.id);
-          const gauge  = { burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'gmb_s2_skill' };
+          const gauge  = { burstEnergySource: 'gmb_s2_skill' };
           if (mode === BUNNY_ENGAGE) {
             fireSkillHit(state, caster, getSkillValue(caster.rawSkill2, 0, lv) / 100,
               sums, 'S2 P1', { isTrueDamage: true, ...gauge });

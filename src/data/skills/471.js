@@ -73,8 +73,7 @@ export default {
 
           // Auto Fire Effect 1：p06% 对全体
           const p06 = getSkillValue(caster.rawSkill1, 5, s1Lv) / 100;
-          fireSkillHit(state, caster, p06, sums, 'S1 P4 Auto Fire (All)', {
-            burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'swha_s1_aoe' });
+          fireSkillHit(state, caster, p06, sums, 'S1 P4 Auto Fire (All)', { burstEnergySource: 'swha_s1_aoe' });
 
           // Auto Fire Effect 2：p07% × ammo 顺序攻击（isCharged=false）
           // 依次攻击：FA 时 S2 P4 推入的 sequentialAttackDamagePct 经 isSequentialAttack 计入伤害加成乘区
@@ -82,8 +81,7 @@ export default {
           const ammo    = faActive ? 15 : 5;
           for (let i = 0; i < ammo; i++) {
             fireSkillHit(state, caster, p07, sums, 'S1 P4 Auto Fire (Sequential)', {
-              isSequentialAttack: true,
-              burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'swha_s1_seq' });
+              isSequentialAttack: true, burstEnergySource: 'swha_s1_seq' });
           }
 
           // FA 使用次数递减；耗尽时恢复 S2 固定蓄力时长 1.2s

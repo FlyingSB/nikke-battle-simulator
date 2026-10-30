@@ -54,6 +54,9 @@ export default {
   'Auto Fire Ready': '自动射击就绪',
   'Seven Dwarves V+VI': '七个小矮人V+VI',
   'Auto Fire': '自动射击',
+  // ── 472 Scarlet: Goddeath（红莲：弑神）
+  'Beyond the Fade: Full Bloom': '花无十一日红·满开',
+  'Iai': '居合',
   // ── 514 Grave（格拉维）
   'Prediction': '预知未来',
   // ── 515 Cinderella: Crystal Wave（灰姑娘：琉璃波光）

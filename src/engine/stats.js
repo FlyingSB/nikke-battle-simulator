@@ -87,6 +87,7 @@ const CUBE_BUFF_PATTERNS = [
   [/Pierce Damage ▲/,      'pierceDamagePct'],       // Piercing
   [/True Damage ▲/,        'trueDamagePct'],         // Rupture
   [/Distributed Damage ▲/, 'distributedDamagePct'],  // Diffusion
+  [/Max Ammunition Capacity ▲/, 'maxAmmoPct'],      // Wingman（经 recalcMaxAmmo 计入弹匣上限）
 ];
 
 export const SLOT_MAP = {
@@ -259,7 +260,7 @@ export function computeFinalStats(slot, nikkeLevel, research) {
         }
       }
       // "Activates when firing … Reload ▲ round(s)" → Bastion 战斗机制，在引擎中处理
-      // 其余（命中率、蓄力伤害、弹匣、爆裂充能、防御、减伤、治疗、掩体 HP、濒危 Max HP）不建模
+      // 其余（命中率、蓄力伤害、爆裂充能、防御、减伤、治疗、掩体 HP、濒危 Max HP）不建模
     }
   }
 

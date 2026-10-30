@@ -52,7 +52,7 @@ export default {
           const skillMult = getSkillValue(caster.rawSkill1, 4, caster.skillLevels[0]) / 100;
           for (let h = 0; h < 5 && state.enemyHp > 0; h++) {
             fireSkillHit(state, caster, skillMult, sums, 'S1', { isCore: false,
-              burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'lib_s1_t3_skill' });
+              burstEnergySource: 'lib_s1_t3_skill' });
           }
         },
       },

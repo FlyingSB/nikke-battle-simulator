@@ -79,6 +79,15 @@ node scripts/tests/test-all.mjs
 查找新 URL 的方法：在浏览器中打开 blablalink.com/shiftyspad，查看 Network 标签页中
 对 sg-tools-cdn.blablalink.com 的请求。
 
+### 新角色 / 花名册更新流程
+角色选择器读取 `src/data/static/characters.json`，且只允许选择已在 `SKILL_TRAITS` 注册的角色。
+1. `node scripts/download-all-static.mjs`：每次都刷新花名册，自动补下新角色详情 `nikke/<id>.json`，结束时列出新增角色
+   （若新角色未出现，先按上节更新 `DATA_URLS.characters` 的哈希）。
+2. `node scripts/download-character-images.mjs`（头像）、`node scripts/download-zh-static.mjs`（简体文本）。
+3. 建模：新建 `src/data/skills/<id>.js` 并在 `src/data/skill-traits.js` 的 `SKILL_TRAITS` 注册；`docs/data-catalog.md` 加角色行。
+4. 浏览器刷新即可。`src/data/loader.js` 对静态快照始终优先读取（`cache: 'no-cache'`），IndexedDB 只缓存 CDN 回退结果，
+   **不要**把静态快照重新放进 IndexedDB 缓存，否则更新后的花名册会被旧缓存挡住（曾导致新角色不显示）。
+
 ## 界面语言（简体中文 / English）
 - 界面文案在 `src/ui/locales/zh.js` / `en.js`（键名必须一一对应），模板用 `$t('key')`，JS 用 `t()`。
 - 游戏文本（角色 / 技能 / 魔方 / 珍藏品）：CDN 只有繁中（`zh-tw`），由

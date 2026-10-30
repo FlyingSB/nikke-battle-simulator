@@ -58,15 +58,14 @@ function summonFeathers(state, caster, { base, temp, firstLaunchTicks }) {
 }
 
 // 出手：命中延迟 0.6s 结算（S2 P1 真实伤害；buff 与全爆裂状态取命中时刻）。
-// 每次命中充能（实测），按未蓄力普攻计 target_burst_energy_pershot（与其他技能伤害充能约定一致）；
+// 每次命中充能（实测），按技能伤害默认规则 = target_burst_energy_pershot + burstGaugeFlat（fireSkillHit 统一计算）；
 // 爆裂期间（burstPhase≠0）引擎不累加。
 function launchAttack(state, caster) {
   const mult = getSkillValue(caster.rawSkill2, 1, caster.skillLevels[1]) / 100;
   state.pendingSkillHits.push({
     fireTick: state.tick + HIT_TRAVEL_TICKS, caster, mult,
     label: 'S2 P1 Near Feather Attack',
-    opts: { isTrueDamage: true,
-      burstEnergy: caster.targetBurstEnergyPerShot ?? 0, burstEnergySource: 'ein_s2_near_feather' },
+    opts: { isTrueDamage: true, burstEnergySource: 'ein_s2_near_feather' },
   });
 }
 

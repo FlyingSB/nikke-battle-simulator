@@ -1,10 +1,35 @@
-import { pushBuff, fireSkillHit, getBuffSums, setMaxHpBuffValue, TICK_RATE } from '../../engine/battle-utils.js';
+import { pushBuff, fireSkillHit, getBuffSums, setMaxHpBuffValue, isBuffActiveFor,
+         TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 
 // Character: Laplace: Ultimate Hero  (resource_id: 103)
 //
 // 武器：Rocket Launcher（DOWN_Charge，charge 1s，弹匣 120，RPM 300，装填 2.5s，FC 250%）。
 // DOWN_Charge 型 RL：每次蓄力完成打出 1 发全蓄力攻击（同 Cinderella 模式）。
+
+// Electric Power, Fully Full Charge 射速：CDN 无切换武器数据，按实测换算 RPM
+// （实测：切换后 8.35s 内攻击约 199 次 → ≈ 1430 RPM，约 2.5 tick / 发）
+const EP_MEASURED_SHOTS = 199;
+const EP_MEASURED_SECS  = 8.35;
+const EP_RATE_OF_FIRE   = Math.round(EP_MEASURED_SHOTS * 60 / EP_MEASURED_SECS);
+const EP_SHOT_LABEL     = 'S1 P3 Electric Power, Fully Full Charge';
+const EP_WEAPON_TYPE    = 'Special';   // 非标准武器类型（不是 RL）
+
+/**
+ * Electric Power 弹匣容量：「max ammunition effects refresh when the weapon in use changes」。
+ * 实测：切换时应用所有最大装弹数增加效果（装备词条 / 珍藏品 / Wingman 魔方 / 技能），
+ * 但不受减少效果影响（如 Privaty S1）→ 只累加当前生效的正值 maxAmmoPct / maxAmmoFlat。
+ */
+function epMaxAmmo(state, caster, baseAmmo) {
+  let pct = 0, flat = 0;
+  for (const b of state.buffs) {
+    if (!isBuffActiveFor(state, b, caster)) continue;
+    const k = b.stacks ?? 1;
+    if ((b.maxAmmoPct  ?? 0) > 0) pct  += b.maxAmmoPct  * k;
+    if ((b.maxAmmoFlat ?? 0) > 0) flat += b.maxAmmoFlat * k;
+  }
+  return baseAmmo + Math.round(baseAmmo * pct) + flat;
+}
 
 // ── S1 P1 / S2 阶段共享：按当前最终 MaxHP 重算「HP→ATK」flat buff。
 // 最终 MaxHP 包含所有来源的 maxHpPct / maxHpFlat（含 S2 Over Energy 阶段与外部 buff）；
@@ -44,8 +69,13 @@ export default {
   // p06: [120,...]         （Electric Power 弹匣容量）
   // p07: [100,...]         （模式结束移除弹药 %）
   //
-  // Electric Power 建模：以回合制武器切换实现 — 120 发、每发 p05% ATK（FC 倍率固定 100%）、
-  //   穿透、发间按基础武器 RPM=300（12 ticks）。弹匣容量与基础武器同为 120，
+  // Electric Power 建模：以回合制武器切换实现 —
+  //   · 弹匣 = p06 + 所有最大装弹数增加效果（不含减少效果，见 epMaxAmmo），切换时满弹；
+  //   · 按实测射速 EP_RATE_OF_FIRE 连发（非蓄力攻击：不吃蓄力伤害、不触发全蓄力类效果），
+  //     每发 p05% ATK、穿透；不是 RL，不受发射体爆炸伤害加成；
+  //   · 固定弹匣（weaponSwitchFixedAmmo）：Bastion 魔方补弹不触发，期间装弹数增减与补弹效果不作用；
+  //   · 无法换弹（weaponSwitchNoReload）：停止攻击（敌人隐藏 / 百暴）本应附带换弹，
+  //     此武器则保持当前子弹数直接空闲。
   //   模式期间实弹同步消耗至 0，结束时弹药恰好为空 → P4「移除 100% 弹药」为涌现行为，
   //   随后进入自然装填（2.5s），无需单独触发器。
   skill1: {
@@ -82,24 +112,38 @@ export default {
           if (!warmUp || (warmUp.stacks ?? 1) < maxStacks) return;
           state.buffs.splice(state.buffs.indexOf(warmUp), 1);
 
-          const epAmmo  = getSkillValue(caster.rawSkill1, 5, lv);           // 120
-          const epTicks = Math.round(TICK_RATE * 60 / caster.rateOfFire);   // 300 RPM → 12t
+          const epAmmo = epMaxAmmo(state, caster, getSkillValue(caster.rawSkill1, 5, lv));  // 120 + 增加效果
 
+          const ammoBefore  = caster.ammoLeft;
           caster.ammoLeft   = epAmmo;
           caster.reloadTick = 0;
+          caster.backswingReloadTick = 0;
+          caster.shotAccumulator     = 0;
+          if (state.ammoLog)
+            state.ammoLog.push({ tick: state.tick, unitId: caster.id, unitName: caster.name,
+              delta: epAmmo - ammoBefore, ammoAfter: epAmmo, maxAmmo: epAmmo,
+              source: 'Electric Power, Fully Full Charge' });
 
-          caster.skillState.weaponSwitchHitMult          = getSkillValue(caster.rawSkill1, 4, lv) / 100;
-          caster.skillState.weaponSwitchMaxAmmo          = epAmmo;
-          caster.skillState.weaponSwitchType             = 'RL';
-          caster.skillState.weaponSwitchEndTick          = Infinity;
-          // 本次触发所在的 RL 射击会在 onShotFired 末尾消耗 1 回合，+1 抵消，保证实际打满 120 发
-          caster.skillState.weaponSwitchRoundsLeft       = epAmmo + 1;
-          caster.skillState.weaponSwitchChargeTimeTicks  = epTicks;
-          caster.skillState.weaponSwitchFullChargeDamage = 10000;  // 每发伤害即 p05%，无 FC 倍率
-          caster.skillState.weaponSwitchUnlimitedAmmo    = false;
-          caster.skillState.weaponSwitchPierce           = true;
-
-          caster.chargeTick = state.tick + epTicks;
+          Object.assign(caster.skillState, {
+            weaponSwitchHitMult:          getSkillValue(caster.rawSkill1, 4, lv) / 100,
+            weaponSwitchMaxAmmo:          epAmmo,
+            weaponSwitchFixedAmmo:        true,
+            // 非 RL：不是发射体爆炸攻击（不受 Projectile Explosion Damage 加成）、不走 RL 弹道核心判定。
+            // 实际武器类型未知，用非标准类型名：非蓄力、非霰弹，切换武器核心率按引擎缺省（必中核心）
+            weaponSwitchType:             EP_WEAPON_TYPE,
+            weaponSwitchEndTick:          Infinity,
+            // 本次触发所在的 RL 射击会在 onShotFired 末尾消耗 1 回合，+1 抵消，保证实际打满 epAmmo 发
+            weaponSwitchRoundsLeft:       epAmmo + 1,
+            weaponSwitchChargeTimeTicks:  0,
+            weaponSwitchRateOfFire:       EP_RATE_OF_FIRE,
+            weaponSwitchFullChargeDamage: null,
+            weaponSwitchUnlimitedAmmo:    false,
+            weaponSwitchPierce:           true,
+            // 无法换弹（武器自身属性）：停止攻击（敌人隐藏 / 百暴）时保持当前子弹数直接空闲
+            weaponSwitchNoReload:         true,
+            // 命中标签：描述给出武器名（skill-modeling-guide §2 优先级 1）
+            weaponSwitchLabel:            EP_SHOT_LABEL,
+          });
           // 本发 RL 射击不计入 S2 的 Electric Power 攻击计数
           caster.skillState.luh_skipEpCount = true;
         },

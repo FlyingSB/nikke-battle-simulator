@@ -104,7 +104,7 @@ export default {
           if (state.enemyHp <= 0) return false;
           const s2 = caster.ssrFavSkills.skill2;
           fireSkillHit(state, caster, getSkillValue(s2, 0, s2._activeSkillLevel) / 100,
-            getBuffSums(state, caster.id), 'S2 P1', { burstEnergy: caster.targetBurstEnergyPerShot });
+            getBuffSums(state, caster.id), 'S2 P1');
         },
       },
       // P2：命中零件 → 对本体追加 p01% 伤害（模拟器只建模零件核心：命中零件核心即命中零件）。
@@ -116,7 +116,7 @@ export default {
           if (isLaserActive(state, caster) && isHeroVisionFull(state, caster)) return false;
           const s2 = caster.ssrFavSkills.skill2;
           fireSkillHit(state, caster, getSkillValue(s2, 1, s2._activeSkillLevel) / 100,
-            getBuffSums(state, caster.id), 'S2 P2', { burstEnergy: caster.targetBurstEnergyPerShot });
+            getBuffSums(state, caster.id), 'S2 P2');
         },
       },
     ],

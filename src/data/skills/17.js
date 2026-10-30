@@ -100,7 +100,7 @@ export default {
         handler(state, caster) { applyStarEffect(state, caster); },
       },
 
-      // Part3：全蓄力命中 → 对目标造成附加伤害（普通技能伤害，非 sustained），同时附加对应充能
+      // Part3：全蓄力命中 → 对目标造成附加伤害（普通技能伤害，非 sustained），按默认规则充能
       // partOverride=2：FULL_BURST_END 占用了数组序号 2，强制对齐到 P3
       {
         on: 'FULL_CHARGE',
@@ -110,8 +110,7 @@ export default {
           const lv   = caster.skillLevels[0];
           const pct  = getSkillValue(caster.rawSkill1, 3, lv) / 100;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, pct, sums, 'S1', {
-            burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'astar_s1_fc_dmg' });
+          fireSkillHit(state, caster, pct, sums, 'S1', { burstEnergySource: 'astar_s1_fc_dmg' });
         },
       },
     ],
@@ -282,9 +281,8 @@ export default {
             projectileExplosion: true,
             isNormalAttack:      true,
             applyDistanceAdv:    true,
-            // 充能：按未蓄力普攻计 = target_burst_energy_pershot + burstGaugeFlat（无全蓄力倍率）
-            // 仅在 burstPhase===0 时生效；Shooting Star 大多落在爆裂期间，实战几乎不充能
-            burstEnergy:         caster.targetBurstEnergyPerShot + (sums.burstGaugeFlat ?? 0),
+            // 充能按技能伤害默认规则（target + burstGaugeFlat，无全蓄力倍率，由 fireSkillHit 统一计算）；
+            // 仅在 burstPhase===0 时生效，Shooting Star 大多落在爆裂期间，实战几乎不充能
             burstEnergySource:   'astar_shooting_star',
           });
         },

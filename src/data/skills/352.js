@@ -102,8 +102,7 @@ export default {
           const exMult = parseFloat(exVals[s2Lv - 1] ?? '0') / 100;
           if (exMult <= 0) return;
           const sums = ctx.sums ?? getBuffSums(state, caster.id);
-          fireSkillHit(state, caster, exMult, sums, 'S2', {
-            burstEnergy: caster.targetBurstEnergyPerShot, burstEnergySource: 'helm_s2_skill' });
+          fireSkillHit(state, caster, exMult, sums, 'S2', { burstEnergySource: 'helm_s2_skill' });
         },
       },
     ],

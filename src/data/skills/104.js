@@ -8,7 +8,8 @@ import { getSkillValue } from '../../data/models.js';
 // Super Duper Overdrive 固定参数（技能描述文本内常量，不在 description_value_list 中）
 const SDO_CHARGE_TICKS  = Math.round(1.5 * TICK_RATE);  // Charge Time: Fixed at 1.5 sec
 const SDO_FULL_CHARGE   = 30000;                        // Full Charge Damage: 300%（×10000 单位）
-const SDO_CORE_RATE     = 0.20;                         // 15 弹丸霰弹散布 → 沿用 SG 核心率
+const SDO_PELLETS       = 15;                           // Pellet Count: 15
+const SDO_CORE_RATE     = 0.20;                         // 霰弹散布 → 每颗弹丸沿用 SG 核心率
 
 function sdoActive(state, caster) {
   return caster.skillState.dgv_sdoActive === true
@@ -39,10 +40,14 @@ export default {
   // p02: [6,...]           （弹匣容量）
   // p03: [100,...]         （结束时移除弹药 %）
   //
-  // 建模：以 'Charged' 类型武器切换实现（获得蓄力倍率），发间固定 90t 不受蓄速影响、无前后摇；
-  //   核心率按霰弹 20%（weaponSwitchCoreRate）。结束时机 = 全爆裂结束（FULL_BURST_END）。
-  //   弹药打空时自然装填，完成后截断至 p02 发（引擎装填按原武器弹匣上限填充）。
-  //   结束时移除 p03% 弹药并抑制引擎「切换结束补满原武器弹匣」→ 回到原武器立即进入装填。
+  // 建模：蓄力霰弹枪 —— 以 'Charged' 类型武器切换实现（获得 300% 蓄力倍率），发间固定 90t
+  //   不受蓄速影响、无前后摇；同时按 SG 弹丸机制（weaponSwitchPelletCount = 15）逐颗判定
+  //   命中 / 暴击 / 核心，p01 为整发 15 颗弹丸合计倍率，每颗核心率按霰弹 20%（weaponSwitchCoreRate）。
+  //   固定弹匣（weaponSwitchFixedAmmo）：进入时满弹 p02 发，不被原武器上限截断
+  //   （如 Privaty S1 装弹数减少把原武器压到 4 发时仍为 6/6），期间不受装弹数增减与补弹效果影响；
+  //   打空时自然装填，装填补满至 p02 发（引擎按切换武器弹匣上限装填）。
+  //   结束时机 = 全爆裂结束（FULL_BURST_END）：移除 p03% 弹药（原武器子弹归 0），
+  //   并抑制引擎「切换结束补满原武器弹匣」→ 回到原武器立即进入装填。
   skill1: {
     groupId: 21041,
     triggers: [
@@ -52,12 +57,20 @@ export default {
           const lv   = caster.skillLevels[0];
           const ammo = getSkillValue(caster.rawSkill1, 1, lv);
 
+          const ammoBefore  = caster.ammoLeft;
           caster.ammoLeft   = ammo;
           caster.reloadTick = 0;
+          caster.backswingReloadTick = 0;
+          caster.manualReload        = false;
+          if (state.ammoLog && ammo !== ammoBefore)
+            state.ammoLog.push({ tick: state.tick, unitId: caster.id, unitName: caster.name,
+              delta: ammo - ammoBefore, ammoAfter: ammo, maxAmmo: ammo, source: 'Super Duper Overdrive' });
           Object.assign(caster.skillState, {
             dgv_sdoActive:                true,
             weaponSwitchHitMult:          getSkillValue(caster.rawSkill1, 0, lv) / 100,
             weaponSwitchMaxAmmo:          ammo,
+            weaponSwitchFixedAmmo:        true,
+            weaponSwitchPelletCount:      SDO_PELLETS,
             weaponSwitchType:             'Charged',
             weaponSwitchEndTick:          Infinity,
             weaponSwitchRoundsLeft:       0,
@@ -72,13 +85,12 @@ export default {
         },
       },
 
-      // Super Duper Overdrive 期间装填完成：弹匣截断至 p02，并重新蓄力 1.5s。
+      // Super Duper Overdrive 期间装填完成（引擎已按切换武器弹匣补满至 p02）：重新蓄力 1.5s。
       {
         on: 'RELOAD_END',
         partOverride: 0,
         handler(state, caster) {
           if (!sdoActive(state, caster)) return;
-          caster.ammoLeft   = Math.min(caster.ammoLeft, caster.skillState.weaponSwitchMaxAmmo);
           caster.chargeTick = state.tick + SDO_CHARGE_TICKS;
         },
       },
@@ -97,9 +109,10 @@ export default {
           // 标记本次切换结束已处理，阻止引擎在下一次射击判定时补满原武器弹匣
           st._weaponSwitchAmmoFilled = st.weaponSwitchEndTick;
 
+          // 移除 p03% 弹药（按切换武器弹匣计；p03 = 100% → 归 0），之后弹药属于原武器
           const pct = getSkillValue(caster.rawSkill1, 2, caster.skillLevels[0]) / 100;
           const ammoBefore  = caster.ammoLeft;
-          caster.ammoLeft   = Math.max(0, caster.ammoLeft - Math.ceil(caster.maxAmmo * pct));
+          caster.ammoLeft   = Math.max(0, caster.ammoLeft - Math.ceil(st.weaponSwitchMaxAmmo * pct));
           caster.reloadTick = 0;
           if (state.ammoLog && caster.ammoLeft !== ammoBefore)
             state.ammoLog.push({ tick: state.tick, unitId: caster.id, unitName: caster.name,

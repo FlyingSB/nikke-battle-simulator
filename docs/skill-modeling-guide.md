@@ -54,10 +54,13 @@
 |---|---|---|
 | `... as damage.` | 不受影响（默认） | 直接 `fireSkillHit`（引擎自动延迟、预捕获施放时 sums、屏蔽全爆裂补正） |
 | `... as Burst Skill damage.` | 不受影响（默认） | 同上 |
+| `... as distributed damage.` | 不受影响（默认） | 同上，另加 `isDistributed: true` |
 | `... as additional damage.` | **受影响** | 命中加 `opts: { affectedByFullBurst: true }`、不传 `sums`；或 `pendingFireInBurstHits` 且 `sums: null`。引擎统一在进入全爆裂瞬间（ENTER_FULL_BURST 后）快照 sums，再按延迟出伤 |
+| `... as true damage.` | **受影响** | 同上，另加 `isTrueDamage: true` |
 
 判定结果须在技能块注释中写明依据，格式：`【全爆裂加成】受影响（描述 as additional damage）`；
 有实测时追加「已实测」，实测数据记入 docs/game-data.md。**实测结果优先于措辞规则。**
+**依次攻击（Sequential Attack）的爆裂伤害不适用措辞规则**：Cinderella P1、Maiden: Ice Rose 不受影响，Elegg: Boom and Shock 受影响，须逐个实测。
 
 | 角色 | 描述 | 判定 | 依据 |
 |---|---|---|---|
@@ -65,7 +68,10 @@
 | Liberalio (262) | as additional damage | 受影响 | 已实测，与规则一致 |
 | Cinderella (511) Burst Part2 | as additional damage | 受影响 | 已实测，与规则一致（Part1 as damage 默认） |
 | Elegg: Boom and Shock (502) | as damage | **受影响** | 已实测，**规则例外**；S2 Part1 ATK ▲ 与 S1 属性优势 buff 均先计入快照（后者在 `FULL_BURST_SNAPSHOT` 时移除） |
-| Ein (391) Burst P2 | as true damage | **受影响** | 已实测，**规则例外** |
+| Ein (391) Burst P2 | as true damage | 受影响 | 已实测，与规则一致 |
+| Sin: Swift Bunny (405) Burst P4（Bunny Mode: Engage） | as true damage | 受影响 | 已实测，与规则一致 |
+| Queen (Makoto) (870) Burst P1 | as distributed damage | 不受影响 | 已实测，与规则一致 |
+| Quency: Escape Queen (403) Burst P2 | as distributed damage | 不受影响 | 已实测，与规则一致（尚未建模） |
 | Queen (Makoto) (870) S1 P3 / P4、Yukiko (871) S1 P3 | 非 B3 爆裂段（1 More / Follow Up 派生分摊伤害） | **受影响** | 已实测（进入全爆裂后 0.55s / 1.44s / 0.5s） |
 | Laplace: Ultimate Hero (103) Burst P3 | as additional damage | 受影响 | 规则判定，未实测 |
 | Sin: Swift Bunny (405) Burst P3 | as additional damage | 受影响 | 规则判定，未实测 |

@@ -455,6 +455,21 @@
                 </label>
               </div>
             </template>
+            <!-- Bunny Mode 开局切换：Guilty: Mighty Bunny / Sin: Swift Bunny 在队时显示（执行者 Sin 优先） -->
+            <template x-if="$store.sim.bunnySwitchSlot">
+              <div class="field-group mt-1">
+                <label class="field-label"
+                  :title="$t('sim.bunnyModeTip', { name: $store.sim.slotName($store.sim.bunnySwitchSlot) })"
+                  x-text="$t('sim.bunnyMode', { name: $store.sim.slotName($store.sim.bunnySwitchSlot) })"></label>
+                <select class="input input-sm" x-model="$store.sim.bunnyModeAtStart"
+                  :title="$t('sim.bunnyModeTip', { name: $store.sim.slotName($store.sim.bunnySwitchSlot) })">
+                  <template x-for="mode in ['stance', 'engage']" :key="mode">
+                    <option :value="mode" x-text="$t('sim.bunnyMode.' + mode)"
+                      :selected="mode === $store.sim.bunnyModeAtStart"></option>
+                  </template>
+                </select>
+              </div>
+            </template>
             <!-- 速充：始终显示；Focus 角色为 UP 型 SR/RL 时可选，否则显示提示 -->
             <div class="field-group mt-1">
               <label class="field-label" :title="$t('sim.quickChargeTip')"
@@ -1172,7 +1187,7 @@
                                   :style="$store.sim.logActiveBuffTracks.includes(buff.name)
                                     ? 'text-decoration:none;border-bottom:2px solid ' + $store.sim.buffTrackColorFor(buff.name)
                                     : ''"
-                                  x-text="(bi > 0 ? ' / ' : '') + $store.sim.dispText(buff.name)"></span>
+                                  x-text="(bi > 0 ? ' / ' : '') + $store.sim.dispText(buff.name) + (buff.stacks > 1 ? ' ×' + buff.stacks : '')"></span>
                               </template>
                               <span x-show="!(row.buffArr && row.buffArr.length)" x-text="$store.sim.dispText(row.buffDesc)"></span>
                             </td>

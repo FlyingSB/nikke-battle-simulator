@@ -166,6 +166,8 @@ export default {
             weaponSwitchRoundsLeft:    0,
             weaponSwitchMaxAmmo:       SWITCH_MAX_AMMO,
             weaponSwitchFixedAmmo:     true,
+            // 停止攻击（敌人隐藏 / 百暴）时不装弹，保持当前子弹数（已确认）
+            weaponSwitchNoReload:      true,
             weaponSwitchUnlimitedAmmo: false,
             weaponSwitchRateOfFire:    switchRateOfFire(caster),
             weaponSwitchAccuracyScale: SWITCH_ACCURACY_SCALE,

@@ -56,15 +56,33 @@ Zone 值：`NEAR` | `MID` | `FAR` | `HIDDEN`。各 Zone 含义与 `HIDDEN` 进�
 
 ... as damage: 正常伤害
 ... as Burst Skill damage: 正常伤害
+... as distributed damage: 正常伤害
 ... as additional damage: 受到全爆裂系列效果影响
+... as true damage: 受到全爆裂系列效果影响
 
 > 已作为建模规则采用（docs/skill-modeling-guide.md §2.1）：无实测时按以上措辞先行判定。
-> 已实测且与规则一致：Rapi: Red Hood、Liberalio、Cinderella（Burst Part2）。
-> 已实测的例外：Elegg: Boom and Shock（描述 as damage，但受全爆裂系列效果影响；S2 Part1 ATK ▲ 也作用于爆裂伤害）；
-> Ein（Burst P2，描述 as true damage，但受全爆裂系列效果影响，2026-10-12 实测）。
+> 已实测且与规则一致：Rapi: Red Hood、Liberalio、Cinderella（Burst Part2）；
+> as true damage：Ein（Burst P2，2026-10-12 实测）、Sin: Swift Bunny（Bunny Mode: Engage 下 Burst P4 Swift Piercing，2026-10-30 实测）；
+> as distributed damage：Queen (Makoto)（Burst P1，2026-10-20 实测）、Quency: Escape Queen（Burst P2，2026-10-30 实测）。
+> 已实测的例外：Elegg: Boom and Shock（描述 as damage，但受全爆裂系列效果影响；S2 Part1 ATK ▲ 也作用于爆裂伤害）。
+> 依次攻击（Sequential Attack）的爆裂伤害表现不统一，不能按措辞判定：Cinderella Burst P1、Maiden: Ice Rose 不受影响，
+> Elegg: Boom and Shock 受影响，需逐个实测。
 > 受全爆裂影响的 B3 伤害一律取进入全爆裂瞬间（所有效果已生效）的快照，再按延迟依次打出；
 > Elegg 的 S1 属性优势 buff 先计入快照再因幽灵减少而移除。
 > 按规则判定、未实测：Laplace: Ultimate Hero（Burst P3）、Sin: Swift Bunny（Burst P3）。
+
+### as true damage / as distributed damage 全爆裂加成（2026-10-30 实测）
+
+| 角色 | 段 | 字面描述 | 全爆裂系列效果 |
+|---|---|---|---|
+| Sin: Swift Bunny | Burst P4（Bunny Mode: Engage 下的 Swift Piercing） | as true damage | **受影响** |
+| Quency: Escape Queen | Burst P2（全体敌人） | as Distributed Damage | 不受影响 |
+
+结论：与 Ein Burst P2（as true damage，受影响）、Queen (Makoto) Burst P1（as distributed damage，不受影响）一致，
+作为措辞规则采用：`as true damage` 受全爆裂系列效果影响，`as distributed damage` 不受。
+
+> 已集成：`src/data/skills/405.js` Burst P4 改为 `affectedByFullBurst` 命中（进入全爆裂瞬间快照）；
+> Quency: Escape Queen 尚未建模，建模时按默认处理即可。
 
 ### Cinderella 爆裂伤害快照包含敌人 debuff（2026-10-15 实测）
 
@@ -333,6 +351,17 @@ Isabel 爆裂附带的敌人承伤 ▲「Marked Target 1」（持续 5s）在下
 - 实测弹匣周期稳定在 **7.0–7.4s**（9 发 + 换弹）。修正前模拟周期在 6.3s / 7.2s 之间交替（瞬间换弹 + 固定蓄力窗口内外差异）；修正后周期 6.7–7.3s（例：43.8–49.4 → 50.5，含换弹 0.4s + 首发 0.7s）。
 - 修正后仍多 6 发（3.0%）：开局 33.5s 实测 36 发、模拟 38 发（第 2 弹匣末发 15.2s vs 实测 ≈16s，第 4 弹匣末发 30.9s vs ≈31s），之后各段落模拟多 1 发左右。剩余差距已在 1s 计数精度的边缘，需要更多帧级数据才能继续收敛。
 
+### Laplace: Ultimate Hero 切换武器 Electric Power, Fully Full Charge（2026-10-27 实测）
+
+- **射速**：切换后 8.35s 内攻击约 199 次 → 按 ≈1430 RPM（约 2.5 帧 / 发）连发，非蓄力攻击。
+- **不是 RL**：不受发射体爆炸伤害（Projectile Explosion Damage）加成。
+  CDN 无切换武器数据，引擎以 `weaponSwitchRateOfFire` 按实测值建模（103.js `EP_RATE_OF_FIRE`）。
+- **弹匣**：描述「max ammunition effects refresh when the weapon in use changes」——切换时应用所有最大装弹数**增加**效果
+  （装备词条 / 珍藏品 / Wingman 魔方 / 技能），**不受减少效果影响**（如 Privaty S1）。
+- **Bastion 魔方**：切换武器期间不触发恢复弹药；**Wingman 魔方**（直接提高最大装弹数）有效。
+- **无法换弹**（此武器的特别属性）：角色停止攻击（敌人隐藏、百暴等）时通常会附带自动换弹，
+  此武器则保持当前子弹数，直接空闲。
+
 ---
 
 ### UP 型 HIDDEN 重置机制（跨角色结论）
@@ -377,7 +406,8 @@ Isabel 爆裂附带的敌人承伤 ▲「Marked Target 1」（持续 5s）在下
 - **非Focus 蓄力充能 = `target_burst_energy_pershot`（无全蓄力倍率）。**
 - **Focus 蓄力充能 = `target × (full_charge_burst_energy / 10000)`**：实测 Focus Alice = 56000×3.5 = **196,000**。
 - **Focus 加成仅蓄力武器**（非蓄力角色 Focus 无加成，此为基准假设的前提）。
-- **技能附加伤害命中也充能，每次 = target**（Privaty S2P1、Neon S1P2、A2 S2P1、Maiden S2P3、Scarlet S1 多段等）。
+- **技能附加伤害命中也充能，每次 = target**（Privaty S2P1、Neon S1P2、A2 S2P1、Maiden S2P3、Scarlet S1 多段等）。推广为「所有技能伤害命中均充能」，见 battle-logic.md §6.1。
+- **DoT 伤害也充能**：实测确认 Raven 的 DoT 有充能；其余 DoT 按同规则推定，未逐一实测。
 
 > 注：早期用「差值法」（1 蓄力 = N Privaty）推出的值（如 Alice=104k）是错的 —— 蓄力大发的最后一发严重过冲，正确算法是 `⌈1,000,000 / 单刷次数⌉`。
 

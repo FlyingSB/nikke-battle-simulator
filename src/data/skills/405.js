@@ -1,7 +1,7 @@
 import { pushBuff, fireSkillHit, getBuffSums, TICK_RATE } from '../../engine/battle-utils.js';
 import { getSkillValue } from '../../data/models.js';
 import { BUNNY_STANCE, BUNNY_ENGAGE, getBunnyMode, toggleBunnyMode,
-         applyBunnyModeBuff } from './bunny-shared.js';
+         applyBunnyModeBuff, setupBunnySwitchAtStart, onBunnyFullChargeHeld } from './bunny-shared.js';
 
 // Character: Sin: Swift Bunny  (resource_id: 405)
 //
@@ -34,10 +34,24 @@ export default {
   // p03: [1,...]           （回合）
   // p04: [30.8 … 52.12]    （蓄力伤害 ▲%）
   // p05: [1,...]           （回合）
-  // p06: [1,...]           （按住满蓄秒数 — 手动操作，未建模）
+  // p06: [1,...]           （按住满蓄秒数 — 手动操作，UI 选项「切换兔兔模式：出击」时第一次攻击执行）
   skill1: {
     groupId: 24051,
     triggers: [
+      // 程序初始化：开局切换选项 → 占用 Focus，第一次攻击满蓄后多按住 p06 秒（见 bunny-shared.js）。
+      {
+        on: 'PROGRAM_INIT',
+        partOverride: 2,
+        handler(state, caster) {
+          setupBunnySwitchAtStart(state, caster, getSkillValue(caster.rawSkill1, 5, caster.skillLevels[0]));
+        },
+      },
+      // S1 P3：满蓄按住 p06 秒 → 切换 Bunny Mode（Stance → Engage），本发照常全蓄力击发。
+      {
+        on: 'FULL_CHARGE_HELD',
+        partOverride: 2,
+        handler(state, caster) { onBunnyFullChargeHeld(state, caster); },
+      },
       // S1 P1：战斗开始 → 自身 ATK ▲ p01% 永久。
       {
         on: 'BATTLE_START',
@@ -168,12 +182,13 @@ export default {
           const mode = getBunnyMode(caster);
           if (mode === BUNNY_STANCE) {
             // 【全爆裂加成】受影响（描述 as additional damage；未实测，按 skill-modeling-guide §2.1 规则判定）：
-            //   引擎将其推迟到进入全爆裂（ENTER_FULL_BURST 之后）结算，sums 取进入全爆裂瞬间快照。P2 / P4 为默认（不受影响）
+            //   引擎将其推迟到进入全爆裂（ENTER_FULL_BURST 之后）结算，sums 取进入全爆裂瞬间快照。P2 为默认（不受影响）
             fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 3, lv) / 100, sums, 'Burst P3',
               { affectedByFullBurst: true });
           } else if (mode === BUNNY_ENGAGE) {
+            // 【全爆裂加成】受影响（描述 as true damage；已实测）：同 P3，sums 取进入全爆裂瞬间快照
             fireSkillHit(state, caster, getSkillValue(caster.rawBurst, 4, lv) / 100, sums, 'Burst P4',
-              { isTrueDamage: true });
+              { isTrueDamage: true, affectedByFullBurst: true });
           }
         },
       },

@@ -21,7 +21,7 @@ import { parseAccuracyProfile, initAccuracyState, rampAccuracyOnShot, shrinkAccu
          recoverAccuracy, coreHitChance } from './accuracy.js';
 import { getFavItemSkillEffects, getSsrFavSkills, getSkillValue } from '../data/models.js';
 import { getCharacterTraits } from '../data/skill-traits.js';
-import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, snapshotEnemyDebuffs, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, rollPelletGroups, rlCoreHitRate, isEnemyHittable, logMissedSkillHit, sgPelletHitRate, isBuffActiveFor, sumBuffField } from './battle-utils.js';
+import { getBuffSums, pushBuff, addBurstGauge, applyHeal, applyLifeSteal, clampHpToMax, markMaxHpChange, expireOverheal, getFinalMaxHp, applyShield, fireSkillHit, snapshotBuffBreakdown, snapshotEnemyDebuffs, fireDotPool, decrementRoundBuffs, getEnemyDamageTakenPct, getEnemyDebuffBreakdown, getEffectiveEnemyDef, initUnitMaxAmmo, recalcMaxAmmo, isWeaponSwitchAmmoFixed, unitDistanceAdvantage, resolveAttackerElement, isPartsHit, shotPelletCount, rollHitPellets, rollPelletGroups, rlCoreHitRate, isEnemyHittable, logMissedSkillHit, sgPelletHitRate, isBuffActiveFor, sumBuffField, hasFocus } from './battle-utils.js';
 import { executeSkillTriggers, dispatchHpChanged, onShotFired, onIntervalInBurst, onInterval, onReloadEnd, fireShotCountTriggers, fireDuringFullChargeTriggers } from './skill-executor.js';
 
 export const TICK_RATE = 60; // 每秒 tick 数
@@ -163,6 +163,17 @@ function isWeaponSwitchActive(state, unit) {
 }
 
 /**
+ * 当前切换武器是否「无法换弹」（skillState.weaponSwitchNoReload，如 Laplace: Ultimate Hero 的
+ * Electric Power, Fully Full Charge）：停止攻击（敌人隐藏 / 百暴）时不换弹，保持当前子弹数直接空闲。
+ * @param {object} state
+ * @param {object} unit
+ * @returns {boolean}
+ */
+function isReloadBlocked(state, unit) {
+  return isWeaponSwitchActive(state, unit) && !!unit.skillState.weaponSwitchNoReload;
+}
+
+/**
  * 「速充」手动打法（Focus 的 UP 型 SR/RL，见 config.quickChargeMode）：下一发是否打速充攻击。
  * 速充攻击按 Alice 快速攻击节奏（蓄力 13 帧 + 空闲 2 帧、规避前后摇）连发短蓄力攻击。仍算蓄力攻击，
  * 蓄力比例 r = min(1, 13 / 当前有效蓄力帧数)：蓄力伤害倍率与 Focus 全蓄力充能倍率按 r 线性插值，
@@ -176,6 +187,8 @@ function isWeaponSwitchActive(state, unit) {
  */
 function quickChargeWanted(state, unit) {
   if (!unit.quickChargeMode || unit.qcFinisherPending) return false;
+  // 手动切换形态期间（Focus 被切换角色占用）无法速充；切换角色自身按住全蓄力，同样不速充
+  if (state.focusLockUnitId != null) return false;
   if (isWeaponSwitchActive(state, unit)) return false;
   if (unit.quickChargeMode === 'untilFull' && state.burstPhase !== 0) return false;
   return true;
@@ -290,8 +303,32 @@ function scheduleEngineCharge(state, unit, baseTick, fixedTicks, sums) {
   }
   unit.chargeBaseTick   = baseTick;
   unit.chargeFixedTicks = fixedTicks;
-  unit.chargeTick       = baseTick + fixedTicks + Math.max(effCharge, downChargeRofFloorTicks(unit));
+  unit.chargeTick       = baseTick + fixedTicks + Math.max(effCharge, downChargeRofFloorTicks(unit))
+    + (unit.chargeHoldTicks ?? 0);
   unit.engineChargeTick = unit.chargeTick;
+}
+
+/**
+ * 满蓄后继续按住（unit.chargeHoldTicks，如 Guilty / Sin「Full Charge is maintained for 1 sec」切换 Bunny Mode）：
+ * 下一发全蓄力推迟 chargeHoldTicks 击发；击发前派发 FULL_CHARGE_HELD（ctx.unit = 本单位），
+ * 技能据此切换形态，本发照常以全蓄力打出（切换不打断全蓄力）。仅本单位原武器的引擎排定发适用。
+ * @param {object} state
+ * @param {object} unit
+ */
+function fireFullChargeHeld(state, unit) {
+  unit.chargeHoldTicks = 0;
+  executeSkillTriggers(state, 'FULL_CHARGE_HELD', { unit });
+}
+
+/**
+ * 手动切换形态占用 Focus 后，非切换角色已排定的速充发改为全蓄力：从该发开始蓄力的 tick 起继续按住至满蓄。
+ * @param {object} state
+ * @param {object} unit
+ */
+function cancelQuickShotWithoutFocus(state, unit) {
+  if (unit.qcShotTick == null || state.focusLockUnitId == null) return;
+  const qcStart = unit.qcShotTick - QUICK_CHARGE_SHOT_TICKS;
+  scheduleEngineCharge(state, unit, qcStart, 0, getBuffSums(state, unit.id));
 }
 
 /**
@@ -305,7 +342,8 @@ function rescheduleEngineCharge(state, unit) {
   if (unit.engineChargeTick == null || unit.chargeTick !== unit.engineChargeTick) return;
   if ((unit.skillState?.aliceWonderlandEndTick ?? 0) >= state.tick) return;
   const effCharge = effectiveChargeTicks(state, unit, getBuffSums(state, unit.id));
-  const next = unit.chargeBaseTick + unit.chargeFixedTicks + Math.max(effCharge, downChargeRofFloorTicks(unit));
+  const next = unit.chargeBaseTick + unit.chargeFixedTicks + Math.max(effCharge, downChargeRofFloorTicks(unit))
+    + (unit.chargeHoldTicks ?? 0);
   if (next === unit.chargeTick) return;
   unit.chargeTick       = next;
   unit.engineChargeTick = next;
@@ -321,7 +359,12 @@ function rescheduleEngineCharge(state, unit) {
  * @param {object[]} events 本 tick 事件列表
  */
 function refillMagazine(state, unit, events) {
-  unit.ammoLeft = unit.reloadFraction < 1
+  // 固定弹匣的切换武器期间换弹（如 Drake: Great Villain 的 Super Duper Overdrive）：
+  // 装填到切换武器自身弹匣上限，不受原武器上限（含 Privaty 等装弹数减少效果）影响
+  const fixedSwitchMax = isWeaponSwitchAmmoFixed(state, unit)
+    ? (unit.skillState.weaponSwitchMaxAmmo ?? null) : null;
+  if (fixedSwitchMax != null) unit.ammoLeft = fixedSwitchMax;
+  else unit.ammoLeft = unit.reloadFraction < 1
     ? Math.min(unit.maxAmmo, Math.max(0, unit.ammoLeft) + Math.round(unit.maxAmmo * unit.reloadFraction))
     : unit.maxAmmo;
   unit.reloadCount++;
@@ -330,7 +373,7 @@ function refillMagazine(state, unit, events) {
   // 立即补射），缺少 _seq 会让换弹后那一发在详情日志中错误地排在"装填"行之前，
   // 表现为"弹药到 0 后又打一发才装填、且装填未满"。赋予递增 _seq 还原真实执行顺序。
   events.push({ type: 'reload', tick: state.tick, unitId: unit.id, unitName: unit.name,
-    ammoRefilled: unit.ammoLeft, maxAmmo: unit.maxAmmo, _seq: state._logSeq++ });
+    ammoRefilled: unit.ammoLeft, maxAmmo: fixedSwitchMax ?? unit.maxAmmo, _seq: state._logSeq++ });
 }
 
 /**
@@ -393,7 +436,9 @@ function fullCritHoldActive(state, unit) {
  */
 function holdFireForFullCrit(state, unit) {
   unit.fullCritHolding = true;
-  if (unit.ammoLeft < unit.maxAmmo && unit.reloadTick === 0 && unit.backswingReloadTick === 0)
+  // 停止攻击的附带行为：弹匣未满则换弹（无法换弹的切换武器除外，保持当前子弹数直接空闲）
+  if (unit.ammoLeft < unit.maxAmmo && unit.reloadTick === 0 && unit.backswingReloadTick === 0
+      && !isReloadBlocked(state, unit))
     unit.manualReload = true;
   if (unit.mgCurrentRof != null && unit.mgRofDecayPerTick > 0)
     unit.mgCurrentRof = Math.max(unit.mgStartRof, unit.mgCurrentRof - unit.mgRofDecayPerTick);
@@ -462,6 +507,7 @@ function resumeAfterFullCritHold(state, unit) {
  */
 function maybeStartQuickChargeFinisher(state, unit, events) {
   if (!unit.quickChargeMode || !state.fullBurstActive) return;
+  if (state.focusLockUnitId != null) return;    // 手动切换形态占用 Focus 期间不做收尾
   if (fullCritHoldActive(state, unit)) return;  // 百暴停火优先：本轮全爆裂不做收尾
   const fbEnd = state.fullBurstTick;
   if (unit.qcFinisherFbTick === fbEnd || isWeaponSwitchActive(state, unit)) return;
@@ -1316,6 +1362,8 @@ export function initBattle(config) {
     // Cinderella: Crystal Wave（515）手动打法：进入战斗时切换到 Snipe Mode（515.js 据此执行
     // 「射击 1 发 → 主动装填 → 射击 1 发 → 主动装填」的切枪流程）。
     if (config.ccwSnipeModeAtStart && cfg.characterId === 515) unit.ccwSnipeModeAtStart = true;
+    // 满蓄后继续按住的 ticks（见 fireFullChargeHeld；由技能在 PROGRAM_INIT 设置，如 bunny-shared.js）
+    unit.chargeHoldTicks = 0;
     // 速充（config.quickChargeMode：'always' / 'untilFull'，见 quickChargeWanted）：仅 Focus 的 UP 型 SR/RL
     // （DOWN_Charge 型按住自动全蓄力击发，无法提前松手）。开局处于充能阶段，第一发即为速充攻击。
     unit.quickChargeMode   = null;
@@ -1342,6 +1390,13 @@ export function initBattle(config) {
   // Mast: Romantic Maid（354）爆裂轮次策略（config.mastBurstMode，默认 auto = CD 好了就开）：
   //   drunken3 — 仅在 Drunken 3 层的轮次施放 B2
   //   b3a/b3b  — 仅在队伍中第 1 / 第 2 名 B3（含 StepFull）施放 B3 的轮次施放 B2
+  // Bunny Mode 开局切换（config.bunnyEngageAtStart）：第一次攻击满蓄后按住 1s 切换到 Engage。
+  // 执行者优先级 Sin: Swift Bunny（405）> Guilty: Mighty Bunny（404），另一人由形态带动（见 bunny-shared.js）。
+  if (config.bunnyEngageAtStart) {
+    const bunnySwitcher = squad.find(u => u.id === 405) ?? squad.find(u => u.id === 404);
+    if (bunnySwitcher) bunnySwitcher.bunnyEngageAtStart = true;
+  }
+
   const mastUnit = squad.find(u => u.id === 354);
   if (mastUnit && config.mastBurstMode === 'drunken3') {
     mastUnit.burstRoundPolicy = { mode: 'drunken3' };
@@ -1407,6 +1462,8 @@ export function initBattle(config) {
     enemyDefActions:    config.enemy.defActions  ?? [],
     enemyCoreActions:   config.enemy.coreActions ?? [],
     tick:               0,
+    // 手动切换形态时占用 Focus 的单位 id（null = Focus 在 UI 指定角色，见 battle-utils hasFocus）
+    focusLockUnitId:    null,
     burstStepTicks,
     // 模拟选项「在敌人隐藏时继续开爆裂」：默认 false = 停火区段内不施放爆裂（自动战斗实测）
     burstDuringHidden:  config.burstDuringHidden === true,
@@ -1514,13 +1571,22 @@ export function initBattle(config) {
       if (Object.keys(cubeBuffPcts).length > 0)
         state.buffs.push({ name: 'Cube', unitId: unit.id, ...cubeBuffPcts, endTick: Infinity });
     }
-    recalcMaxAmmo(state, unit);   // 确认 unit.maxAmmo 与 initialMaxAmmo 一致
+    // 计入魔方永久 buff（Wingman 最大装弹数 ▲）后重算上限，开局弹匣装满
+    recalcMaxAmmo(state, unit);
+    unit.ammoLeft = unit.maxAmmo;
   }
   // 开战满血：当前 HP 对齐到含方块永久 buff（如 Vigor Max HP ▲）的最终 MaxHP
   for (const unit of state.squad) unit.unitHp = getFinalMaxHp(state, unit);
 
   // PROGRAM_INIT: 程序初始化阶段，仅用于 skillState 计数器/标志位归零，不写入战斗日志。
   executeSkillTriggers(state, 'PROGRAM_INIT');
+  // 开局即占用 Focus 的手动切换（如 Bunny Mode 按住满蓄）：首发改按全蓄力（+ 按住时长）重新排定，
+  // 速充角色的开局速充发同样改为全蓄力（切换期间无法速充）
+  for (const unit of state.squad) {
+    if (unit.chargeTimeTicks <= 0 || unit.isDownCharge) continue;
+    if ((unit.chargeHoldTicks ?? 0) > 0 || (state.focusLockUnitId != null && unit.qcShotTick != null))
+      scheduleEngineCharge(state, unit, 0, unit.foreswingTicks, getBuffSums(state, unit.id));
+  }
   // BATTLE_START: dispatch all declarative battle-start triggers (e.g. LM Bubble debuff).
   executeSkillTriggers(state, 'BATTLE_START');
   flushCsChanged(state);
@@ -1561,6 +1627,9 @@ export function tick(state) {
         //   见 tick() 延迟命中队列）；JUMP 敌人仍可被已打出的技能命中。
         // 跳起 JUMP → 空中 HIDDEN 属同一次停火，不重复执行以下进入逻辑。各单位按弹匣状态分流：
         //   · 弹匣已满，或正处于武器切换（特殊武器）中 → 待命，不装填、保留弹药。
+        //     （「无法换弹」是部分切换武器的自身属性 weaponSwitchNoReload，见 isReloadBlocked，
+        //      如 Laplace: Ultimate Hero 的 Electric Power、K 爆裂；Red Hood 爆裂 Red Wolf 实际会换弹，
+        //      但爆裂切换武器的子弹足以覆盖全程，换弹与否影响很小，一律沿用待命处理）
         //   · 弹匣未满且非空（>0）→ 开始装填：保存当前弹药、将 ammoLeft 置 0，
         //     下一 tick 由装填机制接管。敌人再次出现时若装填未完成，弹药会恢复
         //     （自愿装填被打断，弹匣剩余不变）。
@@ -1892,6 +1961,8 @@ export function tick(state) {
     if ((unit.skillState.weaponSwitchPostBackswingEndTick ?? 0) > 0
         && state.tick < unit.skillState.weaponSwitchPostBackswingEndTick) continue;
 
+    // 手动切换形态占用 Focus：已排定的速充发改为全蓄力
+    cancelQuickShotWithoutFocus(state, unit);
     // 速充：全爆裂结束前开始手动换弹 + 全蓄力收尾
     maybeStartQuickChargeFinisher(state, unit, events);
 
@@ -2036,14 +2107,18 @@ export function tick(state) {
     // 武器切换时允许非蓄力武器（如 SMG）临时以蓄力模式开火。
     const weaponSwitchChargeTimeTicks = weaponSwitchActive
       ? (unit.skillState.weaponSwitchChargeTimeTicks ?? 0) : 0;
+    // 反之，蓄力武器的切换武器若只给出射速（weaponSwitchRateOfFire，无蓄力时长），按 RPM 累加器连发，
+    // 且不算蓄力攻击（如 Laplace: Ultimate Hero 的 Electric Power, Fully Full Charge）
+    const switchRofMode = weaponSwitchActive && weaponSwitchChargeTimeTicks === 0
+      && (unit.skillState.weaponSwitchRateOfFire ?? 0) > 0;
     const effectiveChargeTimeTicks = weaponSwitchChargeTimeTicks > 0
-      ? weaponSwitchChargeTimeTicks : unit.chargeTimeTicks;
+      ? weaponSwitchChargeTimeTicks : switchRofMode ? 0 : unit.chargeTimeTicks;
     if (effectiveChargeTimeTicks > 0) {
       // 蓄力中途蓄力时长变化（蓄速 buff 推入/过期、固定蓄力生效/过期）按新时长结算（§4.3.10）
       if (weaponSwitchChargeTimeTicks === 0) rescheduleEngineCharge(state, unit);
       // 蓄力武器：蓄力完成时打出 1 发，然后重置计时器。
       shotsThisTick = state.tick >= unit.chargeTick ? 1 : 0;
-    } else if (unit.rateOfFire > 0) {
+    } else if (unit.rateOfFire > 0 || switchRofMode) {
       unit.shotAccumulator += shotsPerTick(state, unit);
       shotsThisTick         = Math.min(MAX_SHOTS_PER_TICK, Math.floor(unit.shotAccumulator));
       // 帧率封顶：一帧内无法补发，累加器残量最多保留 1 发（种子 1 + 本 tick 满额累积时）。
@@ -2069,7 +2144,7 @@ export function tick(state) {
       const hitMult = (weaponSwitchActive
         ? (unit.skillState.weaponSwitchHitMult ?? WEAPON_HIT_MULT[effectiveWeaponType] ?? 0.03)
         : unit.shotDamageMult) * dualGunMult;
-      const isCharged = ['SR', 'RL', 'Charged'].includes(effectiveWeaponType);
+      const isCharged = !switchRofMode && ['SR', 'RL', 'Charged'].includes(effectiveWeaponType);
       // 速充攻击（蓄力 13 帧）：仍是蓄力攻击，蓄力比例 r = min(1, 13 / 当前有效蓄力帧数)；
       // 蓄力伤害倍率与 Focus 全蓄力充能倍率按 r 插值，r < 1 时不算全蓄力（不触发全蓄力类效果）
       const isQuickShot = !weaponSwitchActive && unit.qcShotTick != null && unit.chargeTick === unit.qcShotTick;
@@ -2088,6 +2163,8 @@ export function tick(state) {
       const favNormalBase = weaponSwitchActive ? 1 : (unit.favNormalAttackDamageMult ?? 1);
       const normalMultOf  = (s, favBase = favNormalBase) => favBase + (s.normalAttackDamageMultPct ?? 0);
 
+      // 满蓄后按住到点（chargeHoldTicks）：击发前切换形态，本发仍为全蓄力（见 fireFullChargeHeld）
+      if (isFullCharge && !weaponSwitchActive && (unit.chargeHoldTicks ?? 0) > 0) fireFullChargeHeld(state, unit);
       // DURING_FULL_CHARGE：全蓄力击发前触发，推入的 buff 立即被 getBuffSums 读取
       if (isFullCharge) fireDuringFullChargeTriggers(state, unit);
 
@@ -2099,9 +2176,14 @@ export function tick(state) {
       // 伤害倍率按命中弹丸比例缩放（hitMult 为整发全部弹丸的合计倍率），充能与弹丸计数按命中弹丸数。
       // 有效散布：武器切换取技能给出的切换散布（缺失按标定散布），否则取当前散布（含收束 ramp）；
       // 命中率 ▲ 收圆（如 Dorothy: Serendipity 的 Flash 单弹丸）→ 几乎不再打空。
-      const isSgShot     = effectiveWeaponType === 'SG';
+      // 蓄力霰弹类切换武器（weaponSwitchPelletCount，如 Drake: Great Villain 的 Super Duper Overdrive）：
+      // 武器类型保持 'Charged'（享受蓄力伤害倍率），同时按 SG 弹丸机制逐颗判定命中 / 暴击 / 核心
+      const switchPellets = weaponSwitchActive ? (unit.skillState.weaponSwitchPelletCount ?? 0) : 0;
+      const isSgShot     = effectiveWeaponType === 'SG' || switchPellets > 0;
       const hitRateNow   = (unit.stats.hitRatePct ?? 0) + (sums.hitRatePct ?? 0);
-      const firedPellets = shotPelletCount(unit, effectiveWeaponType, sums);
+      const firedPellets = switchPellets > 0
+        ? shotPelletCount({ shotCount: switchPellets }, 'SG', sums)
+        : shotPelletCount(unit, effectiveWeaponType, sums);
       const pellets      = rollHitPellets(firedPellets, isSgShot
         ? sgPelletHitRate(state.accSgHitRate, state.enemyDistance,
             weaponSwitchActive ? (unit.skillState.weaponSwitchAccuracyScale ?? 0) : unit.accCurrentScale,
@@ -2356,7 +2438,8 @@ export function tick(state) {
         * (effectiveWeaponType === 'SG' ? (unit.shotCount ?? 1) : dualGunMult);
       const baseEnergy  = Math.round(fullShotEnergy * pellets / firedPellets) + (sums.burstGaugeFlat ?? 0);
       // 未蓄满（速充 chargeRatio < 1）：全蓄力充能系数按蓄力比例线性插值 1 → fullChargeBurstEnergy/10000
-      const focusCharged = unit.isFocus && isCharged && unit.fullChargeBurstEnergy > 10000;
+      // Focus 以当前受控角色为准（手动切换形态期间 Focus 临时转移，见 battle-utils hasFocus）
+      const focusCharged = hasFocus(state, unit) && isCharged && unit.fullChargeBurstEnergy > 10000;
       const burstEnergy = focusCharged
         ? Math.round(baseEnergy * (1 + (unit.fullChargeBurstEnergy / 10000 - 1) * chargeRatio))
         : baseEnergy;
@@ -2519,6 +2602,11 @@ export function tick(state) {
       if (isDoubleHit)
         events.push({ type: 'hit', tick: state.tick, unitId: unit.id, unitName: unit.name, damage: damage2, isCrit: isCrit2 });
 
+      // 本发是否由固定弹匣的切换武器打出：须在 onShotFired 之前取值 —— 回合制切换武器
+      // （如 Laplace: Ultimate Hero 的 Electric Power）在最后一发的 onShotFired 内结束，
+      // 之后再判断会把这一发误计入原武器，让 Bastion 补弹补到原武器上（模式结束弹药应归 0）
+      const fixedAmmoShot = isWeaponSwitchAmmoFixed(state, unit);
+
       // ── 每发射击后的单位技能触发（声明式执行器） ────────────────
       // 双重命中：SHOT_COUNT 已由 fireShotCountTriggers 处理，跳过。
       onShotFired(state, unit, { sums, isCharged, isFullCharge, hitPart, pellets, isCrit, critPellets, corePellets,
@@ -2550,7 +2638,7 @@ export function tick(state) {
       // Bastion Cube Skill 1 (Reload Up HC): every N shots → add M ammo instantly.
       // Placed after onShotFired so last-bullet effects fire first.
       // 固定弹匣的切换武器（Red Hood: Red Wolf）不受补弹影响，计数也不累积
-      if (unit.bastionTriggerRounds > 0 && !isWeaponSwitchAmmoFixed(state, unit)) {
+      if (unit.bastionTriggerRounds > 0 && !fixedAmmoShot) {
         unit.bastionShotCount++;
         if (unit.bastionShotCount >= unit.bastionTriggerRounds) {
           unit.bastionShotCount = 0;

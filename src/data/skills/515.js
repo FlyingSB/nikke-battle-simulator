@@ -1,5 +1,5 @@
 import { pushBuff, fireSkillHit, addBurstGauge, getBuffSums, recalcMaxAmmo,
-         TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
+         acquireFocusLock, releaseFocusLock, TICK_RATE, BURST_GAUGE_MAX } from '../../engine/battle-utils.js';
 import { executeSkillTriggers } from '../../engine/skill-executor.js';
 import { getSkillValue } from '../../data/models.js';
 
@@ -18,6 +18,8 @@ import { getSkillValue } from '../../data/models.js';
 //   · 自动战斗永不主动装填 → 默认恒为 MG 形态。UI 开关「进入战斗时切换到 Snipe Mode」
 //     （config.ccwSnipeModeAtStart → unit.ccwSnipeModeAtStart）按手动打法模拟：
 //     射击 1 发 → 立即装填（满弹时无法手动装填）→ 射击 1 发 → 立即装填 → 第二次装填完成即进入 Snipe Mode。
+//     切枪流程需手动操作：从第一次主动装填起占用 Focus，进入 Snipe Mode 时释放（battle-utils acquireFocusLock）。
+//     若 Focus 正被其他手动切换占用（如 Bunny Mode 开局按住满蓄），先照常射击，等其释放后再开始。
 //
 // 注：与 bunny-shared.js 相同，存在仅运行时调用的循环导入（skill-executor ↔ skill-traits）。
 
@@ -121,6 +123,8 @@ function enterSnipeMode(state, caster) {
   // 弹匣以 15 发为基础重算（刚装填到满弹 → 截断为 Snipe Mode 满弹匣）
   setWeaponBaseAmmo(state, caster, SNIPE_BASE_AMMO);
   scheduleSnipeShotAfterReload(state, caster);
+  // 手动切枪完成，Focus 回到 UI 指定角色
+  releaseFocusLock(state, caster);
   dispatchSnipeModeChanged(state, caster, true);
 }
 
@@ -213,6 +217,8 @@ export default {
         partOverride: 0,
         handler(state, caster) {
           if (!caster.skillState.ccw_switchToSnipe || snipeModeActive(state, caster)) return;
+          // 切枪期间 Focus 必须在本角色身上；被其他切换占用时本发照常射击，稍后再开始
+          if (!acquireFocusLock(state, caster)) return;
           startManualReload(state, caster);
         },
       },

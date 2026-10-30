@@ -29,6 +29,7 @@ const SUITES = [
   { name: 'CrystalWave', file: 'test-crystal-wave.mjs', note: 'Cinderella: Crystal Wave Snipe Mode, local JSON' },
   { name: 'ReloadCadence', file: 'test-reload-cadence.mjs', note: 'reload/RPM cadence, no I/O'        },
   { name: 'QuickCharge', file: 'test-quick-charge.mjs', note: 'focus SR/RL quick charge, no I/O'     },
+  { name: 'BunnySwitch', file: 'test-bunny-switch.mjs', note: 'Bunny Mode hold switch & focus lock, local JSON' },
   { name: 'FullCrit',   file: 'test-full-crit.mjs',  note: 'Miranda S2P3 hold-fire (100% crit), no I/O' },
   { name: 'SgPellets',  file: 'test-sg-pellets.mjs', note: 'SG pellet charge & hit, no I/O'          },
   { name: 'DualGun',    file: 'test-dual-gun.mjs',   note: 'dual gun (muzzle_count 2) ×2, no I/O'    },

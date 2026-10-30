@@ -104,6 +104,9 @@ import s210 from './skills/210.js';
 import s230 from './skills/230.js';
 import s142 from './skills/142.js';
 import s181 from './skills/181.js';
+import s19  from './skills/19.js';
+import s473 from './skills/473.js';
+import s472 from './skills/472.js';
 
 export const SKILL_TRAITS = {
    15: s15,
@@ -190,6 +193,9 @@ export const SKILL_TRAITS = {
   230: s230,
   142: s142,
   181: s181,
+   19: s19,
+  473: s473,
+  472: s472,
 };
 
 export const MODELED_IDS = new Set(Object.keys(SKILL_TRAITS).map(Number));

@@ -12,6 +12,7 @@
  *   F4 — 开启 + buff 在自身但非自己轮次（本轮未施放爆裂）：照常射击
  *   F5 — 无限弹（unlimitedAmmoEndTick）期间不消耗回合，照常射击
  *   F6 — 收尾发（Ada 打法，fullCritFinisherShot）：停火至全爆裂结束前 1 秒打出长蓄力一发，之后常规续射
+ *   F7 — 无法换弹的切换武器（weaponSwitchNoReload）：停火时不换弹，保持当前子弹数直接空闲
  *
  * Run: node scripts/tests/test-full-crit.mjs
  */
@@ -159,6 +160,30 @@ section('F6 — 收尾发（Ada 打法）：全爆裂最后 1 秒打出长蓄力
   eq('收尾发后 buff 被消耗', hasBuff(state, id), false);
   const next = shotsOf(id).find(s => s.tick > fbEnd - 60);
   eq('之后按常规发间续射（后摇 12 + 前摇 12 + 蓄力 60）', next?.tick, fbEnd - 60 + 84);
+}
+
+section('F7 — 无法换弹的切换武器（weaponSwitchNoReload）：停火时保持当前子弹数直接空闲');
+{
+  const b3 = sr();
+  const id = b3.characterId;
+  let ammoAtFbEnd = null;
+  const { fbFrom, fbEnd, shotsOf, events } = run([filler('Step1'), filler('Step2'), b3], {
+    fullCritCharIds: [id], targetOf: () => id,
+    beforeTick: s => {
+      const u = s.squad.find(x => x.id === id);
+      // 进入全爆裂即处于「无法换弹」的切换武器状态，持续到全爆裂结束（合成，模拟 Electric Power）
+      if (s.fullBurstActive && !u.skillState.weaponSwitchNoReload) {
+        Object.assign(u.skillState, { weaponSwitchEndTick: s.fullBurstTick, weaponSwitchNoReload: true });
+      }
+      if (s.fullBurstActive && s.tick + 1 >= s.fullBurstTick) ammoAtFbEnd = u.ammoLeft;
+    },
+  });
+  const ammoAtFb = shotsOf(id).filter(s => s.tick <= fbFrom).at(-1)?.ammoLeft;
+  eq('进入全爆裂时弹匣未满', ammoAtFb < 6, true);
+  eq('全爆裂期间不射击', shotsOf(id).some(s => s.tick > fbFrom && s.tick < fbEnd), false);
+  eq('全爆裂期间不换弹',
+     events.some(e => e.type === 'reload' && e.tick > fbFrom && e.tick < fbEnd), false);
+  eq('子弹数保持不变', ammoAtFbEnd, ammoAtFb);
 }
 
 summary('百暴回归（Miranda S2 P3 停火打法）');

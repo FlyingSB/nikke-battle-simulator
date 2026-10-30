@@ -82,14 +82,14 @@ const CLASSIC_TEAM = [
  * Two-pass stat computation for equipment option percentages.
  * Mirrors test-team-classic.mjs.
  */
-function computeStatsFromPct(slotBase, equipPct, baseAmmo) {
+function computeStatsFromPct(slotBase, equipPct) {
   const { atkPct = 0, defPct = 0, ammoPct = 0, ...directOpts } = equipPct;
   const pass1     = computeFinalStats({ ...slotBase, equipOptions: directOpts }, SYNCHRO_LEVEL, RESEARCH);
   const defFlat   = Math.round(pass1.def * defPct);
-  const equipMaxAmmoFlat = Math.round(baseAmmo * ammoPct);
+  // equipMaxAmmoPct 是比例（引擎按 baseAmmo + round(baseAmmo × 比例) 计算），不能传换算后的发数
   return computeFinalStats({
     ...slotBase,
-    equipOptions: { ...directOpts, atkPct, defFlat, equipMaxAmmoPct: equipMaxAmmoFlat },
+    equipOptions: { ...directOpts, atkPct, defFlat, equipMaxAmmoPct: ammoPct },
   }, SYNCHRO_LEVEL, RESEARCH);
 }
 
@@ -113,7 +113,6 @@ async function loadTeam(teamDef) {
 
   const squadStats = teamDef.map(char => {
     const nd       = nikkeData[char.resourceId];
-    const baseAmmo = nd.shot_detail?.max_ammo ?? 30;
     const slotBase = {
       resourceId:   char.resourceId,
       classType:    char.classType,
@@ -137,7 +136,7 @@ async function loadTeam(teamDef) {
       _cubeData:    char.cubeId ? cubeData[char.cubeId] : null,
       _favItemData: favItemData[char.favItemId],
     };
-    return computeStatsFromPct(slotBase, char.equipPct ?? {}, baseAmmo);
+    return computeStatsFromPct(slotBase, char.equipPct ?? {});
   });
 
   return { nikkeData, cubeData, favItemData, squadStats };
@@ -199,10 +198,15 @@ function makeTeeLogger(filePath) {
   return () => { console.log = orig; stream.end(); };
 }
 
-function computeMaxAmmo(nd, fdRaw, favLevel, equipMaxAmmoFlat) {
+/**
+ * 开局最大装弹数，口径同引擎 recalcMaxAmmo：
+ * base + round(base × (装备词条比例 + 魔方比例)) + 珍藏品发数（round(base × 珍藏品比例)）。
+ */
+function computeMaxAmmo(nd, fdRaw, favLevel, stats) {
   const base    = nd.shot_detail?.max_ammo ?? 0;
-  const ammoPct = getFavItemSkillEffects(fdRaw, favLevel)?.ammoPct ?? 0;
-  return Math.round(base * (1 + ammoPct)) + (equipMaxAmmoFlat ?? 0);
+  const favPct  = getFavItemSkillEffects(fdRaw, favLevel)?.ammoPct ?? 0;
+  const pct     = (stats.equipMaxAmmoPct ?? 0) + (stats.cubeBuffPcts?.maxAmmoPct ?? 0);
+  return base + Math.round(base * pct) + Math.round(base * favPct);
 }
 
 function printStatHeader(char, stats, nd) {
@@ -275,7 +279,7 @@ async function main() {
     const stats   = squadStats[idx];
     const nd      = nikkeData[char.resourceId];
     const fdRaw   = favItemData[char.favItemId];
-    const maxAmmo = computeMaxAmmo(nd, fdRaw, char.favLevel, stats.equipMaxAmmoPct);
+    const maxAmmo = computeMaxAmmo(nd, fdRaw, char.favLevel, stats);
     const slug    = char.name.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
     const outFile = `./scripts/${slug}-trace.txt`;
 

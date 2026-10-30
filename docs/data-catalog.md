@@ -15,7 +15,7 @@ URL 哈希随游戏补丁变化，版本号记录在 [`src/data/manifest.js`](..
 
 | 文件 | 内容说明 |
 |------|---------|
-| [`characters.json`](../src/data/static/characters.json) | 角色花名册（英文名，203 个角色） |
+| [`characters.json`](../src/data/static/characters.json) | 角色花名册（英文名，206 个角色） |
 | [`levels.json`](../src/data/static/levels.json) | 进阶 / 升级表 |
 | [`attractive.json`](../src/data/static/attractive.json) | 吸引力系统数据 |
 | [`recycleRoom.json`](../src/data/static/recycleRoom.json) | 回收室数据 |
@@ -156,6 +156,7 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Rapi: Red Hood | [`16.json`](../src/data/static/nikke/16.json) | [`16.js`](../src/data/skills/16.js) |
 | ✔️ | Anis: Star | [`17.json`](../src/data/static/nikke/17.json) | [`17.js`](../src/data/skills/17.js) |
 | ✔️ | Neon: Vision Eye | [`18.json`](../src/data/static/nikke/18.json) | [`18.js`](../src/data/skills/18.js) |
+| ❌ | Marian: Queen | [`19.json`](../src/data/static/nikke/19.json) | [`19.js`](../src/data/skills/19.js) |
 | ✔️ | Miranda | [`32.json`](../src/data/static/nikke/32.json) | [`32.js`](../src/data/skills/32.js) |
 | ✔️ | K | [`41.json`](../src/data/static/nikke/41.json) | [`41.js`](../src/data/skills/41.js) |
 | ✔️ | D: Killer Wife | [`43.json`](../src/data/static/nikke/43.json) | [`43.js`](../src/data/skills/43.js) |
@@ -167,9 +168,9 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Laplace（SSR：Hero Trilogy BD） | [`100.json`](../src/data/static/nikke/100.json) | [`100.js`](../src/data/skills/100.js) |
 | ✔️ | Drake | [`101.json`](../src/data/static/nikke/101.json) | [`101.js`](../src/data/skills/101.js) |
 | ✔️ | Maxwell | [`102.json`](../src/data/static/nikke/102.json) | [`102.js`](../src/data/skills/102.js) |
-| ❌ | Laplace: Ultimate Hero | [`103.json`](../src/data/static/nikke/103.json) | [`103.js`](../src/data/skills/103.js) |
-| ❌ | Drake: Great Villain | [`104.json`](../src/data/static/nikke/104.json) | [`104.js`](../src/data/skills/104.js) |
-| ❌ | Maxwell: Ordinary Mechanic | [`105.json`](../src/data/static/nikke/105.json) | [`105.js`](../src/data/skills/105.js) |
+| ✔️ | Laplace: Ultimate Hero | [`103.json`](../src/data/static/nikke/103.json) | [`103.js`](../src/data/skills/103.js) |
+| ✔️ | Drake: Great Villain | [`104.json`](../src/data/static/nikke/104.json) | [`104.js`](../src/data/skills/104.js) |
+| ✔️ | Maxwell: Ordinary Mechanic | [`105.json`](../src/data/static/nikke/105.json) | [`105.js`](../src/data/skills/105.js) |
 | ✔️ | Frima（SSR：Beloved Pillow） | [`142.json`](../src/data/static/nikke/142.json) | [`142.js`](../src/data/skills/142.js) |
 | ✔️ | Sugar（SSR：Commemorative Keychain） | [`140.json`](../src/data/static/nikke/140.json) | [`140.js`](../src/data/skills/140.js) |
 | ✔️ | Mihara: Bonding Chain | [`162.json`](../src/data/static/nikke/162.json) | [`162.js`](../src/data/skills/162.js) |
@@ -206,8 +207,8 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Anchor: Innocent Maid | [`355.json`](../src/data/static/nikke/355.json) | [`355.js`](../src/data/skills/355.js) |
 | ✔️ | Zwei（SSR：Four-Leaf Clover Bookmark） | [`390.json`](../src/data/static/nikke/390.json) | [`390.js`](../src/data/skills/390.js) |
 | ✔️ | Ein | [`391.json`](../src/data/static/nikke/391.json) | [`391.js`](../src/data/skills/391.js) |
-| ❌ | Guilty: Mighty Bunny | [`404.json`](../src/data/static/nikke/404.json) | [`404.js`](../src/data/skills/404.js) |
-| ❌ | Sin: Swift Bunny | [`405.json`](../src/data/static/nikke/405.json) | [`405.js`](../src/data/skills/405.js) |
+| ✔️ | Guilty: Mighty Bunny | [`404.json`](../src/data/static/nikke/404.json) | [`404.js`](../src/data/skills/404.js) |
+| ✔️ | Sin: Swift Bunny | [`405.json`](../src/data/static/nikke/405.json) | [`405.js`](../src/data/skills/405.js) |
 | ✔️ | Flora（SSR：Planter We Made Together） | [`411.json`](../src/data/static/nikke/411.json) | [`411.js`](../src/data/skills/411.js) |
 | ✔️ | Trina | [`412.json`](../src/data/static/nikke/412.json) | [`412.js`](../src/data/skills/412.js) |
 | ✔️ | Volume | [`431.json`](../src/data/static/nikke/431.json) | [`431.js`](../src/data/skills/431.js) |
@@ -215,6 +216,8 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Tia | [`451.json`](../src/data/static/nikke/451.json) | [`451.js`](../src/data/skills/451.js) |
 | ✔️ | Red Hood | [`470.json`](../src/data/static/nikke/470.json) | [`470.js`](../src/data/skills/470.js) |
 | ✔️ | Snow White: Heavy Arms | [`471.json`](../src/data/static/nikke/471.json) | [`471.js`](../src/data/skills/471.js) |
+| ❌ | Scarlet: Goddeath | [`472.json`](../src/data/static/nikke/472.json) | [`472.js`](../src/data/skills/472.js) |
+| ❌ | Rapunzel: Sanctuary | [`473.json`](../src/data/static/nikke/473.json) | [`473.js`](../src/data/skills/473.js) |
 | ✔️ | Elegg: Boom and Shock | [`502.json`](../src/data/static/nikke/502.json) | [`502.js`](../src/data/skills/502.js) |
 | ✔️ | Cinderella | [`511.json`](../src/data/static/nikke/511.json) | [`511.js`](../src/data/skills/511.js) |
 | ✔️ | Little Mermaid | [`513.json`](../src/data/static/nikke/513.json) | [`513.js`](../src/data/skills/513.js) |
@@ -234,5 +237,5 @@ SSR 专属珍藏品（`200XXX` / `201XXX` / `202XXX`）与角色绑定，提升�
 | ✔️ | Raven | [`851.json`](../src/data/static/nikke/851.json) | [`851.js`](../src/data/skills/851.js) |
 | ✔️ | Chisato | [`860.json`](../src/data/static/nikke/860.json) | [`860.js`](../src/data/skills/860.js) |
 | ✔️ | Takina | [`861.json`](../src/data/static/nikke/861.json) | [`861.js`](../src/data/skills/861.js) |
-| ❌ | Queen (Makoto) | [`870.json`](../src/data/static/nikke/870.json) | [`870.js`](../src/data/skills/870.js) |
-| ❌ | Yukiko | [`871.json`](../src/data/static/nikke/871.json) | [`871.js`](../src/data/skills/871.js) |
+| ✔️ | Queen (Makoto) | [`870.json`](../src/data/static/nikke/870.json) | [`870.js`](../src/data/skills/870.js) |
+| ✔️ | Yukiko | [`871.json`](../src/data/static/nikke/871.json) | [`871.js`](../src/data/skills/871.js) |

@@ -95,13 +95,15 @@ export default {
 
           pushBuff(state, { name: 'Overcurrent', unitId: caster.id,
             atkPct: getSkillValue(caster.rawSkill2, 4, lv) / 100,
-            stackLimit: getSkillValue(caster.rawSkill2, 5, lv), endTick: Infinity });
+            stackLimit: getSkillValue(caster.rawSkill2, 5, lv), endTick: Infinity },
+            { ...state._logCtx, partIdx: 1 });
         },
       },
 
       // S2 P3：全蓄力攻击 → 全体填充共享爆裂槽 p07%。
       {
         on: 'FULL_CHARGE',
+        partOverride: 2,
         handler(state, caster) {
           const lv       = caster.skillLevels[1];
           const gaugePct = getSkillValue(caster.rawSkill2, 6, lv) / 100;

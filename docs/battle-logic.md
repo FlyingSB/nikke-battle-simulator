@@ -73,8 +73,9 @@
   | Piercing Cube | Pierce Hit Up HC（Pierce Damage ▲） | `pierceDamagePct` |
   | Rupture Cube | True Damage Up HC（True Damage ▲） | `trueDamagePct` |
   | Diffusion Cube | Diffusion HC（Distributed Damage ▲） | `distributedDamagePct` |
+  | Wingman Cube | Magazine Up HC（Max Ammunition Capacity ▲） | `maxAmmoPct`（经 `recalcMaxAmmo` 计入弹匣上限，开局按新上限装满） |
 
-  其余魔方主技能不建模：命中率（Assault）、蓄力伤害（Onslaught）、弹匣（Wingman）、爆裂充能（Quantum）、防御（Endurance）、减伤（Tempering）、治疗（Healing）、濒危 Max HP（Assist）、掩体 HP（Stealth）。
+  其余魔方主技能不建模：命中率（Assault）、蓄力伤害（Onslaught）、爆裂充能（Quantum）、防御（Endurance）、减伤（Tempering）、治疗（Healing）、濒危 Max HP（Assist）、掩体 HP（Stealth）。
 - **bonusAmmo（装备词条弹药）**：使用 grouped-ROUND 规则 —— 相同 pct 词条分组，每组 `Math.round(baseAmmo × pct × count)`，OL 最多 4 槽。
 
 ---
@@ -211,6 +212,8 @@ DamageTakenMult = 1 + enemyDamageTakenPct + distributedDamagePct
 - **武器切换**（Zwei/Red Hood 等）：缺乏切换武器散布数据，沿用切换武器类型硬编码核心率（SMG 3.3% / SG 20% / 其余 100%）。
   技能可设 `skillState.weaponSwitchAccuracyScale`（固定散布圈 scale）改走几何模型（如 K 爆裂 SG，目测 250）；
   `weaponSwitchCoreRate` 优先级最高。
+  蓄力霰弹类切换武器（如 Drake: Great Villain 的 Super Duper Overdrive）：类型取 `'Charged'`（享受蓄力伤害倍率），
+  并设 `weaponSwitchPelletCount`（弹丸数）按 SG 弹丸机制逐颗判定命中 / 暴击 / 核心（核心率仍按上述规则取）。
 
 #### 3.8.1 核心命中率模型（HitRate 机制）
 
@@ -253,7 +256,15 @@ P_core    = 1 − exp(−(r_core / R_eff)²)             // 落点集中于散�
 - **直接伤害类 B3 爆裂技能**：一律从进入全爆裂开始计时（见 §6.2），由引擎转为延迟命中并打 `suppressFullBurst=true`，**不受** +50% 补正；即时命中预捕获施放时 sums，不受 ENTER_FULL_BURST buff 影响。
 - **普通攻击命中**（全爆裂激活后）：受 +50% 补正。
 - **延迟命中**（`pendingSkillHits`）：引擎自动打 `suppressFullBurst=true` 标记，**不受**全爆裂补正。
-- 例外：显式标记 `opts.affectedByFullBurst=true` 的技能命中**受**全爆裂补正与 ENTER_FULL_BURST buff 影响。建模时按描述措辞判定：B3 描述为 `as additional damage` 时设置（Rapi: Red Hood、Liberalio、Cinderella Part2 已实测；Laplace: Ultimate Hero P3、Sin: Swift Bunny P3 按规则判定），实测例外 Elegg: Boom and Shock（描述 as damage 但受影响），见 [skill-modeling-guide.md §2.1](skill-modeling-guide.md)。若这类命中早于进入全爆裂到期，引擎兜底推迟到 ENTER_FULL_BURST 之后结算。
+- 例外：显式标记 `opts.affectedByFullBurst=true` 的技能命中**受**全爆裂补正与 ENTER_FULL_BURST buff 影响。若这类命中早于进入全爆裂到期，引擎兜底推迟到 ENTER_FULL_BURST 之后结算。
+  建模时先按 B3 描述措辞判定（实测优先，详见 [skill-modeling-guide.md §2.1](skill-modeling-guide.md)）：
+  - `as additional damage`：**受影响**，设置。Rapi: Red Hood、Liberalio、Cinderella Part2 已实测；Laplace: Ultimate Hero P3、Sin: Swift Bunny P3 按规则判定。
+  - `as true damage`：**受影响**，设置。Ein P2、Sin: Swift Bunny P4（Bunny Mode: Engage 下的 Swift Piercing）已实测。
+  - `as damage` / `as Burst Skill damage` / `as distributed damage`：不受影响，不设置。
+    `as distributed damage` 已实测：Queen (Makoto) P1、Quency: Escape Queen P2。
+  - **依次攻击（Sequential Attack）不能按措辞判定**：同为依次攻击的爆裂伤害表现不统一，必须逐个实测。
+    Cinderella P1（as damage）、Maiden: Ice Rose（Deals damage equal to …，无类型词）不受影响；
+    Elegg: Boom and Shock（as damage）**受影响**（已实测，措辞规则的例外）。
 
 ---
 
@@ -536,7 +547,7 @@ spot_last 20 → 12t）。实测 Raven（BIGARMS）落地 → 首发 84–87t（
 - 期间可选无限装弹（`unlimitedAmmo: true`）。
 - 切换结束后可有 `backswingTicks` 的封锁期（`weaponSwitchPostBackswingEndTick`）。
 - 切换武器后，当前武器弹匣默认为满弹；若有技能在切换时显式设定弹药数，则以技能值为准。
-- 可选覆盖：`weaponSwitchCoreRate`（切换武器核心率，缺省按切换武器类型硬编码，见 §3.8）；`weaponSwitchLabel`（命中统计/日志标签，缺省为 `Burst <爆裂技能名>`，切换来源为 S1/S2 时应显式指定，如 Drake: Great Villain S1）；`weaponSwitchRateOfFire`（切换武器射速 RPM，仅对非蓄力累加器模型生效，缺省沿用原武器 `rate_of_fire`；如 Moran 爆裂 1440 RPM，数据来自 nikke.gg，未实测验证）；`weaponSwitchAmmoCountPerShot`（「Expends ammo. Amount: N round(s)」：每发按 N 发计入全队累计消耗弹药 `totalAmmoFired`（S1 P5 一类「累计消耗弹药」计数），弹匣实际仍只扣 1 发；如 Cinderella: Crystal Wave Snipe Mode 全蓄力 = 40 发）。
+- 可选覆盖：`weaponSwitchCoreRate`（切换武器核心率，缺省按切换武器类型硬编码，见 §3.8）；`weaponSwitchLabel`（命中统计/日志标签，缺省为 `Burst <爆裂技能名>`，切换来源为 S1/S2 时应显式指定，如 Drake: Great Villain S1）；`weaponSwitchRateOfFire`（切换武器射速 RPM，按非蓄力累加器模型连发，缺省沿用原武器 `rate_of_fire`；如 Moran 爆裂 1440 RPM，数据来自 nikke.gg，未实测验证。原武器为蓄力武器（SR/RL）且未给 `weaponSwitchChargeTimeTicks` 时，切换期间改按此射速连发、**不算蓄力攻击**（不吃蓄力伤害、不触发全蓄力类效果），如 Laplace: Ultimate Hero 的 Electric Power, Fully Full Charge ≈1430 RPM，已实测）；`weaponSwitchNoReload`（切换武器无法换弹：停止攻击（敌人隐藏 / 百暴）通常附带自动换弹，此类武器保持当前子弹数直接空闲；如 Laplace: Ultimate Hero 的 Electric Power, Fully Full Charge）；`weaponSwitchAmmoCountPerShot`（「Expends ammo. Amount: N round(s)」：每发按 N 发计入全队累计消耗弹药 `totalAmmoFired`（S1 P5 一类「累计消耗弹药」计数），弹匣实际仍只扣 1 发；如 Cinderella: Crystal Wave Snipe Mode 全蓄力 = 40 发）。
 - **非蓄力武器切换为蓄力型武器**（`weaponSwitchChargeTimeTicks > 0` 且原武器 `chargeTimeTicks = 0`，如 Cinderella: Crystal Wave MG → Snipe Mode）：换弹完成后仍经原武器的对准期 `reloadAimTicks`，之后由技能 `RELOAD_END` 触发器排定 `chargeTick = 换弹完成 + 对准期 + 切换武器蓄力`；HIDDEN 退出时重置为 `now + 切换武器蓄力`。
 - **无法隐蔽的切换武器**（`weaponSwitchNoCover: true`，如 Laplace 爆裂激光「Unable to take cover」）：切换期间无法停止攻击，敌人 HIDDEN / JUMP 时仍向空中开火（不造成伤害、不触发命中类效果）。引擎在 HIDDEN 退出时不重排该单位蓄力；停火期间到期的击发由技能顺延到下一节拍，恢复可瞄准后按原节拍继续。
 - **切换武器自带基础弹匣**（如 Snipe Mode 15 发）：技能改写 `unit.baseAmmo` 后调用 `recalcMaxAmmo`，装备词条（百分比 buff）按新基础自动生效，珍藏品装弹数 flat（引擎按原武器基础预折）由技能按同一百分比重算；`weaponSwitchMaxAmmo = null` 使日志弹匣上限跟随 `unit.maxAmmo`。
@@ -660,9 +671,24 @@ HIDDEN 期间全队停止攻击，按弹匣状态分流（机制详述见 §11.2
     - **全爆裂收尾：** 全爆裂结束前预留「换弹 + 前摇 + 全蓄力」时间开始手动换弹（弹匣未空也换），换弹完成后前摇 + 全蓄力，使该发恰好在全爆裂结束 tick 打出（槽已清零，全蓄力充能计入下一轮），之后继续速充。每轮全爆裂收尾一次；收尾中途蓄速 buff 到期则按新蓄力时长顺延。
     - **模式：** `always` 始终速充（收尾除外）；`untilFull` 仅充能阶段（burstPhase 0）速充，槽满后（爆裂阶段 / 全爆裂期间）恢复全蓄力攻击。
     - Alice Wonderland 快速攻击（全蓄力 15t 连发）优先于速充。回归测试：`scripts/tests/test-quick-charge.mjs`。
-- **技能附加伤害命中也充能**，每次 = `targetBurstEnergyPerShot`（如 Privaty S2P1、Neon: Vision Eye S1P2、A2 S2P1、Maiden: Ice Rose S2P3、Scarlet: Black Shadow S1 多段）。属独立于「武器普通攻击」的充能源。【TODO 逐角色建模】
+  - **手动切换形态时 Focus 临时转移（`state.focusLockUnitId`，battle-utils `hasFocus` / `acquireFocusLock` / `releaseFocusLock`）：**
+    实机同时只能操控 1 名角色，需要手动操作的形态切换期间 Focus 必须在执行者身上：执行者占用 Focus，原 Focus 角色暂时失去 Focus
+    （无 Focus 全蓄力充能倍率、无法速充、不做速充收尾；已排定的速充发改为从该发起点继续蓄满），切换完成后 Focus 回到 UI 指定角色。同一时间只允许一个占用。
+    - **Bunny Mode 开局切换（`config.bunnyEngageAtStart`）：** 执行者 Sin: Swift Bunny 优先于 Guilty: Mighty Bunny。PROGRAM_INIT 占用 Focus，
+      第一次攻击满蓄后多按住 1s（`unit.chargeHoldTicks`，计入 `scheduleEngineCharge` / `rescheduleEngineCharge`）；击发前派发 `FULL_CHARGE_HELD`
+      → 切换到 Engage（另一名兔女郎随之切换）并释放 Focus，本发照常以全蓄力打出。全蓄力按住优先于速充。
+    - **Cinderella: Crystal Wave 切枪（`config.ccwSnipeModeAtStart`）：** 第一次主动装填起占用 Focus，进入 Snipe Mode 时释放；
+      Focus 被兔子开局切换占用时先照常 MG 射击，释放后再开始切枪。回归测试：`scripts/tests/test-bunny-switch.mjs`。
+- **所有技能伤害命中均充能**，每次 = 施法者 `targetBurstEnergyPerShot`（每段 / 每次依次攻击各算一次），属独立于「武器普通攻击」的充能源。
+  - 过去以为只有个别技能伤害充能，是因为绝大多数技能伤害在槽已满后（爆裂阶段 / 全爆裂期间）触发，充能被下面的「仅 `burstPhase === 0` 累积」规则吞掉；充能阶段触发的技能伤害（如 Privaty S2P1、Neon: Vision Eye S1P2、A2 S2P1、Maiden: Ice Rose S2P3、Scarlet: Black Shadow S1 多段）则可观察到充能。
+  - **实现：** `fireSkillHit` 统一计算 `targetBurstEnergyPerShot + burstGaugeFlat`，技能文件**不要**传 `burstEnergy`（只在确认某伤害不充能时传 `0` 关闭）；`burstEnergySource` 仅用于充能记录的来源名，可选。爆裂期间与槽满溢出由 `accumulateBurstGauge` 统一过滤（不充能 / 截断到上限）。
+  - 适用于 handler / 声明式 `DAMAGE` / 延迟命中（`pendingSkillHits`）/ 持续伤害（DoT）每跳。延迟命中落空（敌人隐藏）不调用 `fireSkillHit`，不充能。
+  - **DoT 充能：** 实测确认 Raven 的 DoT 有充能；推定所有 DoT 同理（未逐一实测）。每跳充能一次 = `targetBurstEnergyPerShot`，多层 DoT 不乘层数（`fireDotPool` 每跳只调用一次 `fireSkillHit`）。
 - **SG 武器（整发充能固定，按命中弹丸比例折算）：** 整发充能 = `targetBurstEnergyPerShot × 基础 shotCount`，为【全部弹丸命中】时的充能（如 Brid: Silent Track 4000 × 10 = 每次射击 40000）。弹丸数 ▲ / 「弹丸数固定为 N」**不改变**整发充能（同伤害系数口径），每颗弹丸充能 = 整发充能 / 发射弹丸数，动态计算；本次射击充能 = 整发充能 × 命中弹丸数 / 发射弹丸数（四舍五入）。命中弹丸数见 §4.6 SG 弹丸命中判定（引擎默认全部命中）。
-- buff 的 `burstGaugeFlat` 加成：叠加到 `baseEnergy`（按每次射击计、不乘弹丸数），Focus 蓄力时整体再乘以全蓄力系数。
+- buff 的 `burstGaugeFlat` 加成（「Burst Gauge filling speed ▲ n%」换算为施法者 `targetBurstEnergyPerShot × n%` 的 flat 值，无百分比字段）：**作用于所有命中充能来源**——
+  - 普通射击：叠加到 `baseEnergy`（按每次射击计、不乘弹丸数），Focus 蓄力时整体再乘以全蓄力系数。
+  - 技能伤害命中（含 DoT 每跳）：每次命中 + `burstGaugeFlat`（取命中者的 buff 合计），由 `fireSkillHit` 统一叠加。
+  - 不作用于直接增加爆裂槽的效果（`addBurstGauge` / `GRANT_BURST_GAUGE`，如「Burst Gauge ▲ n%」），那类效果不是命中充能。
 - **仅 `burstPhase === 0` 时累积**；B1–Full Burst 期间停止充能。
 - Full Burst 结束后重置为 0。
 
@@ -814,7 +840,7 @@ burstPhase = 0（充能中）
 | `LAST_BULLET` | 本单位打出最后一发 | 非团队 |
 | `FULL_CHARGE` | SR/RL 全蓄力射击 | 非团队 |
 | `AMMO_MILESTONE` | 全队消耗弹药累计达到 400/500 发 | 团队 |
-| `INTERVAL` | 全程每 N 秒（首次在 t+Ns） | 团队/非团队 |
+| `INTERVAL` | 全程每 N 秒（首次在 t+Ns）；`opts.seconds` 可为函数 `(state, caster) => 秒`，间隔随状态变化，每次触发后从当前 tick 重新计时（Marian: Queen S1） | 团队/非团队 |
 | `INTERVAL_IN_BURST` | 全爆裂期间每 N 秒 | 团队 |
 | `HEAL_RECEIVED` | 某单位受到治疗时触发（ctx.unit = 受治疗者）；全队治疗产生 5 个独立事件，每个事件对应各自受治疗的单位 | 团队 |
 | `HP_CHANGED` | 某单位当前 HP 变化后触发（ctx.unit / prevHp / newHp）；来源见 §9.1 | 团队 |
@@ -822,11 +848,16 @@ burstPhase = 0（充能中）
 | `COVER_HEAL_RECEIVED` | 掩体受到治疗 | 团队 |
 | `CORE_HIT` | 命中敌人核心 | 非团队 |
 | `RELOAD_END` | 自然装填完成 | 非团队（不含技能补弹） |
+| `FULL_CHARGE_HELD` | 满蓄后按住到点（`unit.chargeHoldTicks` 耗尽）、本发全蓄力击发之前，早于 `DURING_FULL_CHARGE` | 非团队 |
 | `DURING_FULL_CHARGE` | 全蓄力击发之前（推入的 buff 作用于本次射击） | 非团队 |
 | `ONE_MORE` | Persona 联动「1 More」生效于 ctx.unit（技能文件派发） | 非团队 |
 | `FOLLOW_UP` | Persona 联动「Follow Up」生效于 ctx.unit（技能文件派发） | 非团队 |
 | `BUNNY_MODE_CHANGED` | ctx.unit 的 Bunny Mode 形态变化后（技能文件派发） | 非团队 |
 | `SNIPE_MODE_CHANGED` | ctx.unit 的 Snipe Mode 生效 / 移除后（ctx.active；`515.js` 派发） | 非团队 |
+
+**Into the Fray 状态**：Marian: Queen 引入的具名状态（Sharpened Resolve / Penetrant Wish），由
+`battle-utils.enterIntoTheFray(unit, name, endTick)` 记录在 `unit.skillState.intoTheFray`；
+「Affects ... allies in the Into the Fray state」类效果用 `isInIntoTheFray(state, unit[, name])` 筛选目标（Rapunzel: Sanctuary）。
 
 ### 8.2 作用范围（target 字段）
 
