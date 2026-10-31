@@ -78,13 +78,9 @@
 
 | 角色 | English |
 |------|---------|
-| 拉普拉斯：究极英雄 | Laplace: Ultimate Hero |
-| 德雷克：终极反派 | Drake: Great Villain |
-| 麦斯威尔：平凡技师 | Maxwell: Ordinary Mechanic |
-| 吉尔提：神力兔女郎 | Guilty: Mighty Bunny |
-| 森：疾速兔女郎 | Sin: Swift Bunny |
-| QUEEN（真） | Queen (Makoto) |
-| 雪子 | Yukiko |
+| 玛丽安：女王 | Marian: Queen |
+| 红莲：弑神 | Scarlet: Goddeath |
+| 长发公主：圣域 | Rapunzel: Sanctuary |
 
 如果你发现某个角色的模拟结果与实测差距较大，欢迎提交 Issue，并附上队伍配置、敌人配置与实测数据。
 
@@ -111,9 +107,6 @@
 **待实现**
 
 - 零件系统：Boss 可破坏零件的独立血量，以及「零件伤害 ▲」类技能效果
-- 手动打法开关：部分角色的形态 / 武器切换需要手动操作，自动战斗不会触发，计划提供开关以模拟手动打法
-  - 吉尔提：神力兔女郎、森：疾速兔女郎（Bunny Mode 切换）
-  - 米尔克：花漾兔女郎（Milk: Blooming Bunny，尚未建模）
 
 ---
 
