@@ -402,7 +402,7 @@ export function getBaseStats(nikkeData, level) {
  * 使用 getSkillTraits(skill?.group_id)（src/data/skill-traits.js）查询手写机制属性
  *   （如 canHitCore、tags），这些属性无法从 CDN 数据推导。
  *
- *   TODO: stat_enhance_detail — grade/core 公式常量（所有 NIKKE 相同；已在 applyGradeCore 中处理）。
+ *   stat_enhance_detail — grade/core 公式常量，由 stats.js 的 computeBaseStat 直接读取原始数据中的该字段。
  */
 
 /**

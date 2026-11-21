@@ -28,7 +28,7 @@
 
 import { calcDamage }                          from '../../src/engine/damage.js';
 import { WEAPON_AMMO, WEAPON_HIT_MULT, CHARGE_DAMAGE_BASE } from '../../src/engine/constants.js';
-import { computeFinalStats, applyGradeCore }   from '../../src/engine/stats.js';
+import { computeFinalStats }                   from '../../src/engine/stats.js';
 import { getBaseStats, getBondBonus, normalizeCube, computeResearchBonus, getT10Equipment } from '../../src/data/models.js';
 import { setData }                             from '../../src/data/loader.js';
 import { loadNikkeData, loadFavItemData, loadStaticData, loadCubeData, getSkillValue } from '../lib/nikke-cache.mjs';

@@ -24,18 +24,6 @@
 
 ---
 
-## stat_enhance_detail — 验证 grade / core 公式常量
-
-**内容：** 每位 NIKKE 的 CDN JSON 都有 `stat_enhance_detail` 对象，其中包含 grade / core 加成常量。目前 `stats.js` 的 `applyGradeCore` 使用硬编码值（`GRADE_CORE_C = { Attacker: 959, Defender: 931, Supporter: 921 }`）。核对这些值与 CDN 是否一致，或改为动态读取。
-
-**原因：** 若将来补丁修改了常量，硬编码值会悄无声息地偏离实际。
-
-**背景：** 2026-04-02 从 CDN 字段复核中加入。当前所有 NIKKE 共用同一份 `stat_enhance_detail`；公式已确认正确。除非常量发生变化，否则优先级低。
-
-**依赖 / 阻塞：** 无依赖。优先级低。
-
----
-
 ## 为 maxGeneralResearchLevel 增加直接测试
 
 **内容：** 在 `test-data.mjs` 的 T3 中（或新增 T3b 节）加入 3-4 条抽样断言：syncLevel 40 → 0，syncLevel 60 → 10，syncLevel 592 → 270，syncLevel 39 → 0（clamp 检查）。

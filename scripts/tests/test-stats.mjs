@@ -15,7 +15,7 @@
 
 import { loadNikkeData, loadStaticData, loadCubeData, loadFavItemData } from '../lib/nikke-cache.mjs';
 import { setData }                                                        from '../../src/data/loader.js';
-import { computeFinalStats, applyGradeCore }                             from '../../src/engine/stats.js';
+import { computeFinalStats, computeBaseStat }                            from '../../src/engine/stats.js';
 import { getBaseStats, getBondBonus, normalizeCube, computeResearchBonus,
          maxGeneralResearchLevel }                                          from '../../src/data/models.js';
 
@@ -88,17 +88,16 @@ async function main() {
 
   // ── T3: Grade / Core formula ────────────────────────────────────────────────
   section('T3: Grade / Core formula (grade=3, core=3, Attacker)');
-  const gcATK = applyGradeCore(baseLv592.atk, 3, 3, 'Attacker');
-  const gcHP  = applyGradeCore(baseLv592.hp,  3, 3, 'Attacker');
-  const gcDEF = applyGradeCore(baseLv592.def, 3, 3, 'Attacker');
-  console.log(`  After grade/core: ATK=${Math.round(gcATK).toLocaleString()}  HP=${Math.round(gcHP).toLocaleString()}  DEF=${Math.round(gcDEF).toLocaleString()}`);
-  // Verify grade=0 leaves base unchanged
-  const gc00 = applyGradeCore(baseLv592.atk, 0, 0, 'Attacker');
-  check('applyGradeCore(grade=0,core=0) == base', Math.round(gc00), baseLv592.atk);
-  // Verify grade=3, core=0 formula: base*1.06 + 60
-  const gc30 = applyGradeCore(baseLv592.atk, 3, 0, 'Attacker');
-  const gc30expected = baseLv592.atk * 1.06 + 60;
-  check('grade=3 core=0 ATK formula', Math.round(gc30), Math.round(gc30expected));
+  const enh   = rapiData.stat_enhance_detail;
+  const gcATK = computeBaseStat({ level: baseLv592.atk }, 3, 3, 'atk', enh);
+  const gcHP  = computeBaseStat({ level: baseLv592.hp  }, 3, 3, 'hp',  enh);
+  const gcDEF = computeBaseStat({ level: baseLv592.def }, 3, 3, 'def', enh);
+  console.log(`  After grade/core (无研究/好感度): ATK=${gcATK.toLocaleString()}  HP=${gcHP.toLocaleString()}  DEF=${gcDEF.toLocaleString()}`);
+  // grade=0 core=0 时等于等级表属性
+  check('computeBaseStat(grade=0,core=0) == base', computeBaseStat({ level: baseLv592.atk }, 0, 0, 'atk', enh), baseLv592.atk);
+  // grade=3 core=0：floor(base × 1.06 + 60)（HP 为 +9000）
+  check('grade=3 core=0 ATK formula', computeBaseStat({ level: baseLv592.atk }, 3, 0, 'atk', enh), Math.floor(baseLv592.atk * 1.06 + 60));
+  check('grade=3 core=0 HP formula',  computeBaseStat({ level: baseLv592.hp  }, 3, 0, 'hp',  enh), Math.floor(baseLv592.hp  * 1.06 + 9000));
 
   // ── T4: Bond level (Attractive) ─────────────────────────────────────────────
   section('T4: Bond level 40 (Attacker)');
@@ -189,6 +188,7 @@ async function main() {
 
   console.log(`\n  Result:   HP ${stats.hp.toLocaleString()}  ATK ${stats.atk.toLocaleString()}  DEF ${stats.def.toLocaleString()}`);
   console.log(`  Expected: HP 7,070,844  ATK 301,286  DEF 41,180`);
+  // 2026-11 基础属性与装备取整均改用 shiftyspad 算法（装备整件 round，.5 进位，已游戏内实测），三项逐位一致。
 
   check('T8 ATK', stats.atk, 301286);
   check('T8 HP',  stats.hp,  7070844);
@@ -201,20 +201,18 @@ async function main() {
 
   // Print breakdown for debugging
   const base     = getBaseStats(rapiData, 592);
-  const gcA      = applyGradeCore(base.atk, 3, 3, 'Attacker');
-  const gcH      = applyGradeCore(base.hp,  3, 3, 'Attacker');
-  const gcD      = applyGradeCore(base.def, 3, 3, 'Attacker');
   const bond     = getBondBonus('Attacker', 40);
   const c        = normalizeCube(cubeData);
   const resBonus = computeResearchBonus('Attacker', 'ELYSION', research);
+  const core3    = (k) => computeBaseStat({ level: base[k], research: resBonus[k], bond: bond[k] }, 3, 3, k, enh);
 
   console.log('\n  Breakdown:');
   console.log(`    Base lv592        ATK ${base.atk.toLocaleString().padStart(10)}  HP ${base.hp.toLocaleString().padStart(12)}  DEF ${base.def.toLocaleString().padStart(8)}`);
-  console.log(`    After grade/core  ATK ${Math.round(gcA).toLocaleString().padStart(10)}  HP ${Math.round(gcH).toLocaleString().padStart(12)}  DEF ${Math.round(gcD).toLocaleString().padStart(8)}`);
+  console.log(`    +Research         ATK ${resBonus.atk.toLocaleString().padStart(10)}  HP ${resBonus.hp.toLocaleString().padStart(12)}  DEF ${resBonus.def.toLocaleString().padStart(8)}`);
   console.log(`    +Bond lv40        ATK ${bond.atk.toLocaleString().padStart(10)}  HP ${bond.hp.toLocaleString().padStart(12)}  DEF ${bond.def.toLocaleString().padStart(8)}`);
+  console.log(`    ×Grade3/Core3     ATK ${core3('atk').toLocaleString().padStart(10)}  HP ${core3('hp').toLocaleString().padStart(12)}  DEF ${core3('def').toLocaleString().padStart(8)}`);
   console.log(`    +Cube Resil lv15  ATK ${c.atk[14].toLocaleString().padStart(10)}  HP ${c.hp[14].toLocaleString().padStart(12)}  DEF ${c.def[14].toLocaleString().padStart(8)}`);
   console.log(`    +Fav SR-SR lv15   ATK ${(favData.atk?.[15]??0).toLocaleString().padStart(10)}  HP ${(favData.hp?.[15]??0).toLocaleString().padStart(12)}  DEF ${(favData.def?.[15]??0).toLocaleString().padStart(8)}`);
-  console.log(`    +Research         ATK ${resBonus.atk.toLocaleString().padStart(10)}  HP ${resBonus.hp.toLocaleString().padStart(12)}  DEF ${resBonus.def.toLocaleString().padStart(8)}`);
 
   // ── Summary ─────────────────────────────────────────────────────────────────
   console.log(`\n${'═'.repeat(64)}`);

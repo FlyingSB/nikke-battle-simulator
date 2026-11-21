@@ -121,55 +121,72 @@ export const SLOT_MAP = {
 const BASE_CRIT_RATE = 0.15;
 const BASE_CRIT_DMG  = 0.50;
 
-// 每个职业的 Grade/Core 固定值常量（c_class / 7 = 每核心提供的固定 ATK）
-const GRADE_CORE_C = { Attacker: 959, Defender: 931, Supporter: 921 };
-
 /**
- * 将 Grade/Core（Limit Break）的倍率与固定加成应用到单个基础属性值上。
- * 对 ATK、HP、DEF 都使用同一套公式。
- *
- * Grade 公式（grade <= 3，core == 0）：
- *   result = base × (1 + 0.02 × grade) + 20 × grade
- *
- * Core 公式（grade == 3，core 1-7）：
- *   result = base × (1.06 + core × 0.0212) + 60 + core × c_class / 7
- *
- * @param {number} base       原始等级属性（grade 0，core 0）
- * @param {number} grade      0–3
- * @param {number} core       0–7（仅在 grade 3 时有意义）
- * @param {string} classType  'Attacker' | 'Defender' | 'Supporter'
- * @returns {number}
+ * 角色 CDN 数据 `stat_enhance_detail` 的缺省值（万分比 / 固定值）。
+ * 截至 2026-11 全部 NIKKE 取值相同；角色数据带该字段时以角色数据为准。
  */
-export function applyGradeCore(base, grade, core, classType) {
-  const c = GRADE_CORE_C[classType] ?? GRADE_CORE_C.Attacker;
-  if (grade <= 3 && core === 0) {
-    return base * (1 + 0.02 * grade) + 20 * grade;
-  }
-  if (grade === 3 && core >= 1 && core <= 7) {
-    return base * (1.06 + core * 0.0212) + 60 + (core * c) / 7;
-  }
-  throw new RangeError(`applyGradeCore: illegal grade=${grade} core=${core} (grade 0-3, core 0-7 at grade 3 only)`);
-}
+export const DEFAULT_STAT_ENHANCE = Object.freeze({
+  grade_ratio:   200,   // 每级突破：等级属性 × (1 + grade × 2%)
+  grade_attack:  20,    // 每级突破固定加成
+  grade_hp:      3000,
+  grade_defence: 100,
+  core_attack:   200,   // 每级核心强化：整体 × (1 + core × 2%)
+  core_hp:       200,
+  core_defence:  200,
+});
 
-/** 银行家舍入：.5 取最近偶数（同 C# Math.Round 默认的 MidpointRounding.ToEven） */
-function roundHalfEven(x) {
-  const r = Math.round(x);
-  return (Math.abs(x % 1) === 0.5 && r % 2 !== 0) ? r - 1 : r;
+/** ATK/HP/DEF 简写 → stat_enhance_detail 中的字段后缀 */
+const STAT_FIELD = { atk: 'attack', hp: 'hp', def: 'defence' };
+
+/**
+ * 计算单项「基础属性」：等级表 + 突破 + 研究 + 好感度，再乘核心强化倍率。
+ * 算法与 blablalink shiftyspad 角色页一致（其 combat_formula_debug 会与服务器战力比对）：
+ *
+ *   A    = floor( 等级属性 × (1 + grade × grade_ratio / 10000) + grade × grade_<stat> )
+ *   基础 = round( (A + floor(研究) + round(好感度)) × (1 + core × core_<stat> / 10000) )
+ *
+ * 要点：核心倍率同时放大研究与好感度加成；装备 / 魔方 / 珍藏品在核心倍率之后才加。
+ * 乘法写法与页面保持一致（× 1e-4），保证浮点取整结果逐位相同。
+ *
+ * @param {{ level: number, research?: number, bond?: number }} parts  该属性的三项来源
+ * @param {number} grade    突破 0–3
+ * @param {number} core     核心强化 0–7（仅 grade 3 时允许非 0）
+ * @param {'atk'|'hp'|'def'} stat
+ * @param {object} [enhance]  角色的 stat_enhance_detail（缺省 DEFAULT_STAT_ENHANCE）
+ * @returns {number} 整数
+ */
+export function computeBaseStat(parts, grade, core, stat, enhance = DEFAULT_STAT_ENHANCE) {
+  if (!(grade >= 0 && grade <= 3) || !(core >= 0 && core <= 7) || (core > 0 && grade !== 3)) {
+    throw new RangeError(`computeBaseStat: illegal grade=${grade} core=${core} (grade 0-3, core 0-7 at grade 3 only)`);
+  }
+  const field = STAT_FIELD[stat];
+  if (!field) throw new RangeError(`computeBaseStat: unknown stat "${stat}"`);
+  const e = enhance ?? DEFAULT_STAT_ENHANCE;
+  const gradeRatio = e.grade_ratio ?? DEFAULT_STAT_ENHANCE.grade_ratio;
+  const gradeFixed = e[`grade_${field}`] ?? DEFAULT_STAT_ENHANCE[`grade_${field}`];
+  const coreRatio  = e[`core_${field}`]  ?? DEFAULT_STAT_ENHANCE[`core_${field}`];
+
+  const gradeMult = 1 + grade * gradeRatio * 1e-4;
+  const levelPart = Math.floor((parts.level ?? 0) * gradeMult + grade * gradeFixed);
+  const sum       = levelPart + Math.floor(parts.research ?? 0) + Math.round(parts.bond ?? 0);
+  const coreMult  = 1 + core * coreRatio * 1e-4;
+  return Math.round(sum * coreMult);
 }
 
 /**
- * 单项装备属性：基础 + 企业加成 + 强化加成，后两段分别银行家舍入。
- * 用整数十分比计算（base × k / 10），避免 0.1 浮点误差把 .5 变成 .50000001。
+ * 单项装备属性：整件只取整一次，Math.round（.5 进位）。
+ *   round( 基础 × (1 + 企业加成 + 强化等级 × 0.1) )
+ * 与 blablalink shiftyspad 一致（写法逐字照搬以保证浮点结果相同），并经游戏内实测（2026-11）：
+ *   T10 Lv5：防御型胸 ATK 729→1094、支援型臂 ATK 3189→4784、支援型腿 HP 40985→61478、火力型胸 ATK 1093→1640
+ *   T9 企业 Lv5（火力型）：头 HP 26442→47596 / ATK 3233→5819，胸 HP 85937→154687 / ATK 588→1058
+ * （旧实现分段银行家舍入，在 .5 处会少 1。）
  * @param {number} base       物品基础属性（整数）
  * @param {number} corpBonus  企业加成（0 或 0.3）
  * @param {number} level      强化等级 0–5（每级 +10%）
  * @returns {number}
  */
 export function equipStatValue(base, corpBonus, level) {
-  const corpTenths = Math.round(corpBonus * 10);
-  return base
-    + roundHalfEven(base * corpTenths / 10)
-    + roundHalfEven(base * level / 10);
+  return Math.round(base * (1 + corpBonus + level * 0.1));
 }
 
 /**
@@ -184,26 +201,19 @@ export function computeFinalStats(slot, nikkeLevel, research) {
   const grade = slot.grade ?? 0;
   const core  = slot.core  ?? 0;
 
-  // 1. 从每位 NIKKE 的等级表取基础属性，再应用 grade/core
-  if (slot._nikkeData) {
-    const base = getBaseStats(slot._nikkeData, nikkeLevel);
-    atk = applyGradeCore(base.atk, grade, core, slot.classType);
-    hp  = applyGradeCore(base.hp,  grade, core, slot.classType);
-    def = applyGradeCore(base.def, grade, core, slot.classType);
-  }
-
-  // 2. 好感度等级 — 固定属性加成（不是百分比）
-  const bond = getBondBonus(slot.classType, slot.bondLevel ?? 0);
-  atk += bond.atk;
-  hp  += bond.hp;
-  def += bond.def;
+  // 1-2. 基础属性：等级表 + 突破 + 研究 + 好感度，整体乘核心强化倍率（见 computeBaseStat）
+  const level = slot._nikkeData
+    ? getBaseStats(slot._nikkeData, nikkeLevel)
+    : { atk: 0, hp: 0, def: 0 };
+  const res     = computeResearchBonus(slot.classType, slot.corporation, research);
+  const bond    = getBondBonus(slot.classType, slot.bondLevel ?? 0);
+  const enhance = slot._nikkeData?.stat_enhance_detail;
+  atk = computeBaseStat({ level: level.atk, research: res.atk, bond: bond.atk }, grade, core, 'atk', enhance);
+  hp  = computeBaseStat({ level: level.hp,  research: res.hp,  bond: bond.hp  }, grade, core, 'hp',  enhance);
+  def = computeBaseStat({ level: level.def, research: res.def, bond: bond.def }, grade, core, 'def', enhance);
 
   // 3. 装备加成（T10 / T9企业 / T9，每级 × 强化倍率）：
-  //    ATK、HP、DEF 全部为固定值叠加：基础 + 企业加成(+30%) + 强化加成(+10%/级)，三段分别取整后相加。
-  //    取整为银行家舍入（.5 取偶，同 C# Math.Round 默认），游戏内实测（T9 Attacker）：
-  //      企业 lv5 头 HP 26442 + 7933 + 13221 = 47596，ATK 3233 + 970 + 1616(1616.5) = 5819
-  //      企业 lv5 胸 HP 85937 + 25781 + 42968(42968.5) = 154686，ATK 588 + 176 + 294 = 1058
-  //      普通 lv5 鞋 HP 19832 + 9916 = 29748，DEF 527 + 264(263.5) = 791
+  //    ATK、HP、DEF 全部为固定值叠加：round(基础 × (1 + 企业加成 0.3 + 强化 0.1/级))，见 equipStatValue。
   //    T9企业装备只能由同企业 NIKKE 穿戴（账号数据 corporation_type 恒与穿戴者一致），故恒计企业加成。
   let equipAtkPct = 0;
   for (const [slotKey, modId] of Object.entries(SLOT_MAP)) {
@@ -275,11 +285,7 @@ export function computeFinalStats(slot, nikkeLevel, research) {
     def += fav.def?.[level] ?? 0;
   }
 
-  // 6. 研究加成
-  const res = computeResearchBonus(slot.classType, slot.corporation, research);
-  atk += res.atk;
-  hp  += res.hp;
-  def += res.def;
+  // 6. 研究加成已并入步骤 1-2（受核心强化倍率放大）
 
   // 7. 装备词条效果（用户传入的四个槽位合计）
   const opts = slot.equipOptions ?? {};

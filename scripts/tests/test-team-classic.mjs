@@ -19,7 +19,7 @@
 
 import { loadNikkeData, loadStaticData, loadFavItemData, loadCubeData } from '../lib/nikke-cache.mjs';
 import { setData }                                         from '../../src/data/loader.js';
-import { computeFinalStats, applyGradeCore, SLOT_MAP }      from '../../src/engine/stats.js';
+import { computeFinalStats, computeBaseStat, SLOT_MAP }     from '../../src/engine/stats.js';
 import { getBaseStats, getBondBonus, computeResearchBonus,
          getT10Equipment, normalizeCube,
          maxGeneralResearchLevel }                         from '../../src/data/models.js';
@@ -225,12 +225,13 @@ function fmtT(s) {
  */
 function statBreakdown(char, nd, cubeRaw, favRaw) {
   const rawBase = getBaseStats(nd, SYNCHRO_LEVEL);
-  const afterGC = {
-    atk: applyGradeCore(rawBase.atk, char.grade, char.core, char.classType),
-    hp:  applyGradeCore(rawBase.hp,  char.grade, char.core, char.classType),
-    def: applyGradeCore(rawBase.def, char.grade, char.core, char.classType),
-  };
   const bond = getBondBonus(char.classType, char.bondLevel);
+  const res  = computeResearchBonus(char.classType, char.corporation, RESEARCH);
+  // 核心倍率同时放大研究与好感度：afterGC = 基础属性 − 好感度 − 研究，
+  // 使展示的「等级 + 突破/核心 + 好感度 + 研究」逐行相加等于基础属性
+  const gc = (k) => computeBaseStat({ level: rawBase[k], research: res[k], bond: bond[k] },
+    char.grade, char.core, k, nd.stat_enhance_detail) - bond[k] - res[k];
+  const afterGC = { atk: gc('atk'), hp: gc('hp'), def: gc('def') };
 
   // Equipment flat per slot (T10 Lv5, ×1.5)
   const equip = { atk: {}, hp: {}, def: {} };
@@ -258,8 +259,6 @@ function statBreakdown(char, nd, cubeRaw, favRaw) {
     hp:  favRaw?.hp?.[char.favLevel]  ?? 0,
     def: favRaw?.def?.[char.favLevel] ?? 0,
   };
-  const res = computeResearchBonus(char.classType, char.corporation, RESEARCH);
-
   return { rawBase, afterGC, bond, equip, equipTotal, cube, fav, res };
 }
 

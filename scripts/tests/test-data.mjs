@@ -214,13 +214,20 @@ section('T2b: Equipment — T9 / T9 企业');
   eq('T9企业 lv5 atk', t9c5.atk - baseline.atk, 5_819);
 }
 {
-  // 游戏内实测（T9 Attacker）：各段分别银行家舍入（.5 取偶）
-  // 企业 lv5 胸 α-Alloy Vest（588 ATK / 85937 HP）：HP 85937 + 25781 + 42968(42968.5) = 154686
-  eq('T9企业 lv5 胸 hp',  equipStatValue(85_937, 0.3, 5), 154_686);
+  // 游戏内实测（2026-11）：整件 round(基础 × 倍率)，.5 进位
+  // T9 企业 lv5 胸 α-Alloy Vest（588 ATK / 85937 HP）：85937 × 1.8 = 154686.6 → 154687
+  eq('T9企业 lv5 胸 hp',  equipStatValue(85_937, 0.3, 5), 154_687);
   eq('T9企业 lv5 胸 atk', equipStatValue(588,    0.3, 5), 1_058);
-  // 普通 lv5 鞋 α-Alloy Boots（527 DEF / 19832 HP）：DEF 527 + 264(263.5) = 791
+  eq('T9企业 lv5 头 hp',  equipStatValue(26_442, 0.3, 5), 47_596);
+  eq('T9企业 lv5 头 atk', equipStatValue(3_233,  0.3, 5), 5_819);
+  // T9 lv5 鞋 α-Alloy Boots（527 DEF / 19832 HP）：527 × 1.5 = 790.5 → 791
   eq('T9 lv5 鞋 hp',  equipStatValue(19_832, 0, 5), 29_748);
   eq('T9 lv5 鞋 def', equipStatValue(527,    0, 5), 791);
+  // T10 lv5（×1.5，基础为奇数时出现 .5，均进位）
+  eq('T10 lv5 防御型胸 atk', equipStatValue(729,    0, 5), 1_094);
+  eq('T10 lv5 支援型臂 atk', equipStatValue(3_189,  0, 5), 4_784);
+  eq('T10 lv5 支援型腿 hp',  equipStatValue(40_985, 0, 5), 61_478);
+  eq('T10 lv5 火力型胸 atk', equipStatValue(1_093,  0, 5), 1_640);
 }
 
 // ── T3: Recycle Room (Research) ───────────────────────────────────────────────

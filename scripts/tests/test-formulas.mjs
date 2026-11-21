@@ -3,7 +3,7 @@
  *
  * Covers:
  *   calcDamage          — all multiplier paths (including all sumExtra fields)
- *   applyGradeCore      — grade 0-3, core 1-7, illegal inputs throw
+ *   computeBaseStat     — grade 0-3, core 1-7, rounding, illegal inputs throw
  *   element chart       — all 5 elements × 5 elements (25 pairs)
  *   distance advantage  — all weapon × zone combos
  *   charge speed        — centisecond → tick conversion, speed reduction
@@ -13,7 +13,7 @@
  */
 
 import { calcDamage, calcExpectedDamage, hasDistanceAdvantage, getElementAdvantage } from '../../src/engine/damage.js';
-import { applyGradeCore } from '../../src/engine/stats.js';
+import { computeBaseStat } from '../../src/engine/stats.js';
 import { fireSkillHit, getBuffSums, pushBuff, getEffectiveEnemyDef, ENEMY_UNIT_ID } from '../../src/engine/battle-utils.js';
 import {
   ELEMENT_ADVANTAGE_BASE,
@@ -433,55 +433,49 @@ section('T18: calcExpectedDamage (probabilistic crit)');
   eq('critRate=0.5', e05, 500);
 }
 
-// ── T19: applyGradeCore ───────────────────────────────────────────────────────
+// ── T19: computeBaseStat（突破 / 核心强化，算法同 blablalink shiftyspad） ───────
+//   A    = floor(等级属性 × (1 + grade × 2%) + grade × 固定值)   固定值：ATK 20 / HP 3000 / DEF 100
+//   基础 = round((A + floor(研究) + round(好感度)) × (1 + core × 2%))
 
-section('T19: applyGradeCore — grade formula');
+section('T19: computeBaseStat — 突破（grade）');
 {
-  // grade=0: base × (1 + 0) + 0 = base
-  near('grade 0', applyGradeCore(1_000, 0, 0, 'Attacker'), 1_000);
-  // grade=1: 1000 × 1.02 + 20 = 1040
-  near('grade 1', applyGradeCore(1_000, 1, 0, 'Attacker'), 1_040);
-  // grade=2: 1000 × 1.04 + 40 = 1080
-  near('grade 2', applyGradeCore(1_000, 2, 0, 'Attacker'), 1_080);
-  // grade=3, core=0: 1000 × 1.06 + 60 = 1120
-  near('grade 3 core 0', applyGradeCore(1_000, 3, 0, 'Attacker'), 1_120);
+  eq('grade 0 = 等级属性',  computeBaseStat({ level: 1_000 }, 0, 0, 'atk'), 1_000);
+  // 1000 × 1.02 + 20 = 1040
+  eq('grade 1 ATK',         computeBaseStat({ level: 1_000 }, 1, 0, 'atk'), 1_040);
+  // 100000 × 1.02 + 3000 = 105000（HP 固定值 3000/级，不是 20）
+  eq('grade 1 HP',          computeBaseStat({ level: 100_000 }, 1, 0, 'hp'), 105_000);
+  // 500 × 1.04 + 200 = 720（DEF 固定值 100/级）
+  eq('grade 2 DEF',         computeBaseStat({ level: 500 }, 2, 0, 'def'), 720);
+  // 333 × 1.06 + 60 = 412.98 → floor 412（等级 + 突破部分向下取整）
+  eq('grade 3 向下取整',     computeBaseStat({ level: 333 }, 3, 0, 'atk'), 412);
 }
 
-section('T19b: applyGradeCore — core formula (Attacker c=959)');
+section('T19b: computeBaseStat — 研究 / 好感度取整');
 {
-  // grade=3, core=3, Attacker (c=959):
-  //   base × (1.06 + 3 × 0.0212) + 60 + 3 × 959 / 7
-  //   = 1000 × 1.1236 + 60 + 411
-  //   = 1123.6 + 60 + 411 = 1594.6
-  near('core 3 Attacker', applyGradeCore(1_000, 3, 3, 'Attacker'), 1_594.6, 0.01);
-
-  // grade=3, core=7, Attacker (c=959):
-  //   1000 × (1.06 + 7 × 0.0212) + 60 + 7 × 959 / 7
-  //   = 1000 × 1.2084 + 60 + 959
-  //   = 1208.4 + 60 + 959 = 2227.4
-  near('core 7 Attacker', applyGradeCore(1_000, 3, 7, 'Attacker'), 2_227.4, 0.01);
+  // 研究 floor(10.9)=10，好感度 round(2.5)=3 → 1000 + 10 + 3
+  eq('研究 floor + 好感度 round', computeBaseStat({ level: 1_000, research: 10.9, bond: 2.5 }, 0, 0, 'atk'), 1_013);
 }
 
-section('T19c: applyGradeCore — Defender (c=931), Supporter (c=921)');
+section('T19c: computeBaseStat — 核心倍率同时放大研究与好感度');
 {
-  // grade=3, core=7, Defender (c=931):
-  //   500 × (1.06 + 7 × 0.0212) + 60 + 7 × 931 / 7
-  //   = 500 × 1.2084 + 60 + 931
-  //   = 604.2 + 60 + 931 = 1595.2
-  near('core 7 Defender', applyGradeCore(500, 3, 7, 'Defender'), 1_595.2, 0.01);
-
-  // grade=3, core=7, Supporter (c=921):
-  //   500 × 1.2084 + 60 + 921
-  //   = 604.2 + 60 + 921 = 1585.2
-  near('core 7 Supporter', applyGradeCore(500, 3, 7, 'Supporter'), 1_585.2, 0.01);
+  // A = 1000×1.06+60 = 1120；(1120 + 5150 + 2340) × 1.06 = 9126.6 → 9127
+  eq('core 3 ATK', computeBaseStat({ level: 1_000, research: 5_150, bond: 2_340 }, 3, 3, 'atk'), 9_127);
+  // A = 1e6×1.06+9000 = 1069000；(1069000 + 285000 + 52650) × 1.14 = 1603581
+  eq('core 7 HP',  computeBaseStat({ level: 1_000_000, research: 285_000, bond: 52_650 }, 3, 7, 'hp'), 1_603_581);
+  // 角色数据自带 stat_enhance_detail 时以其为准：1000 × 1.1 + 100 = 1200
+  const custom = { grade_ratio: 500, grade_attack: 50, core_attack: 500 };
+  eq('自定义 stat_enhance_detail', computeBaseStat({ level: 1_000 }, 2, 0, 'atk', custom), 1_200);
+  // (1000 × 1.15 + 150) × 1.15 = 1495
+  eq('自定义 core 倍率',           computeBaseStat({ level: 1_000 }, 3, 3, 'atk', custom), 1_495);
 }
 
-section('T19d: applyGradeCore — illegal inputs throw RangeError');
+section('T19d: computeBaseStat — 非法输入抛 RangeError');
 {
   const throws = (fn) => { try { fn(); return false; } catch { return true; } };
-  eq('grade 4 throws',        throws(() => applyGradeCore(1_000, 4, 0, 'Attacker')), true);
-  eq('core 8 throws',         throws(() => applyGradeCore(1_000, 3, 8, 'Attacker')), true);
-  eq('core 5 grade 2 throws', throws(() => applyGradeCore(1_000, 2, 5, 'Attacker')), true);
+  eq('grade 4 throws',        throws(() => computeBaseStat({ level: 1_000 }, 4, 0, 'atk')), true);
+  eq('core 8 throws',         throws(() => computeBaseStat({ level: 1_000 }, 3, 8, 'atk')), true);
+  eq('core 5 grade 2 throws', throws(() => computeBaseStat({ level: 1_000 }, 2, 5, 'atk')), true);
+  eq('未知属性 throws',        throws(() => computeBaseStat({ level: 1_000 }, 0, 0, 'crit')), true);
 }
 
 // ── T20: Timing unit conversion ───────────────────────────────────────────────

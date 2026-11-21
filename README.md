@@ -67,7 +67,7 @@
 
 | 工具 | 用途 | jsfiddle |
 |------|------|----------|
-| [属性计算器](tools/stat-calculator.html) | 按职业、等级、星级与突破计算基础 HP / ATK / DEF | [链接](https://jsfiddle.net/FlyingSB/8pof5csj/) |
+| [属性计算器](tools/stat-calculator.html) | 按职业、武器类型、等级、星级、突破、循环室与好感度计算 SSR 角色基础 HP / ATK / DEF | [链接](https://jsfiddle.net/FlyingSB/8pof5csj/) |
 | [伤害计算器](tools/damage-calculator.html) | 导入模拟器复制的伤害公式，逐项核算单次伤害 | [链接](https://jsfiddle.net/FlyingSB/e0vg2sa8/) |
 
 ---
