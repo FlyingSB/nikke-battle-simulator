@@ -73,26 +73,18 @@ select:focus, input:focus {
   border-color: #ffca28;
 }
 
-button {
-  width: 100%;
-  padding: 12px;
-  background-color: #ffca28;
-  color: #1e1e24;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  margin-top: 5px;
-  transition: background 0.2s;
+.level-hint {
+  margin: -8px 0 10px;
+  font-size: 0.8rem;
+  color: #ff8a65;
 }
 
-button:hover {
-  background-color: #ffd54f;
+.level-hint:empty {
+  display: none;
 }
 
 .result-card {
-  margin-top: 25px;
+  margin-top: 10px;
   background: #1e1e24;
   padding: 15px;
   border-radius: 8px;
@@ -199,10 +191,9 @@ button:hover {
     </div>
   </div>
 
-  <button onclick="calculate()">计算精确面板</button>
-
   <div class="result-card">
     <h3>计算结果 (Level <span id="displayLevel">400</span>)</h3>
+    <p class="level-hint" id="levelHint"></p>
     <div class="stat-row">
       <span class="stat-label">❤️ HP:</span>
       <span class="stat-value" id="resHP">0</span>
@@ -315,26 +306,15 @@ const BOND_INDEX = { ATK: 0, HP: 1, DEF: 2 };
 const gradeInput = document.getElementById('gradeInput');
 const coreInput = document.getElementById('coreInput');
 
-// 读取整数输入并夹到 [min, max]，同时把规整后的值写回输入框
-function readInt(el, min, max) {
+// 读取整数输入并夹到 [min, max]。writeBack 为 true 时把规整后的值写回输入框：
+// 输入过程中（input 事件）不写回，以免打断键入；提交时（change 事件，失焦 / 回车 / 微调箭头）才写回。
+function readInt(el, min, max, writeBack = false) {
   let v = parseInt(el.value, 10);
   if (isNaN(v)) v = min;
   v = Math.min(max, Math.max(min, v));
-  el.value = v;
+  if (writeBack && String(v) !== el.value) el.value = v;
   return v;
 }
-
-gradeInput.addEventListener('change', () => {
-  if (readInt(gradeInput, 0, 3) < 3) {
-    coreInput.value = 0; // 星级小于3时，突破强制置0
-  }
-});
-
-coreInput.addEventListener('change', () => {
-  if (readInt(coreInput, 0, 7) > 0) {
-    gradeInput.value = 3; // 选择突破时，星级强制置3
-  }
-});
 
 // 单项基础属性（与模拟器 src/engine/stats.js computeBaseStat 及 blablalink shiftyspad 一致）：
 //   A    = floor(等级属性 × (1 + 星级 × 2%) + 星级 × 固定值)
@@ -352,44 +332,61 @@ function calculateFinalStat(stat, p) {
   return Math.round((levelPart + Math.floor(research) + Math.round(bond)) * coreMult);
 }
 
-// 绑定按钮点击事件
-function calculate() {
+const levelInput = document.getElementById('levelInput');
+const levelHint  = document.getElementById('levelHint');
+
+// 读取全部参数并计算。commit 为 true（change 事件）时规整输入框的值并执行星级 / 突破联动；
+// 为 false（input 事件）时只按规整后的值计算，不改动正在编辑的输入框。
+function calculate(commit = false, source = null) {
   const nikkeClass = document.getElementById('classSelect').value;
   const weapon = document.getElementById('weaponSelect').value;
-  const level = parseInt(document.getElementById('levelInput').value, 10);
   const tables = levelTables(nikkeClass, weapon);
   // 各表长度可能不同（个别组合只有 1200 级），取三张表中最短的作为上限
   const maxLevel = Math.min(tables.ATK.length, tables.HP.length, tables.DEF.length);
+  levelInput.max = maxLevel;
 
-  if (isNaN(level) || level < 1 || level > maxLevel) {
-    alert(`该职业 + 武器类型目前只有 1–${maxLevel} 级数据，请输入此范围内的等级！`);
-    return;
-  }
-
-  let grade = readInt(gradeInput, 0, 3);
-  let core  = readInt(coreInput, 0, 7);
-  if (core > 0 && grade < 3) { grade = 3; gradeInput.value = 3; } // 有突破必为 3 星
+  // 星级 / 突破联动：改星级到 3 以下时突破归零；有突破时星级必为 3
+  let grade = readInt(gradeInput, 0, 3, commit);
+  let core  = readInt(coreInput, 0, 7, commit);
+  if (commit && source === gradeInput && grade < 3 && core > 0) { core = 0; coreInput.value = 0; }
+  if (core > 0 && grade < 3) { grade = 3; if (commit) gradeInput.value = 3; }
 
   const p = {
-    nikkeClass, level, grade, core, tables,
-    general: readInt(document.getElementById('generalResearchInput'), 0, 99999),
-    classLv: readInt(document.getElementById('classResearchInput'), 0, 99999),
-    corpLv:  readInt(document.getElementById('corpResearchInput'), 0, 99999),
-    bond:    readInt(document.getElementById('bondInput'), 1, 40),
+    nikkeClass, grade, core, tables,
+    general: readInt(document.getElementById('generalResearchInput'), 0, 99999, commit),
+    classLv: readInt(document.getElementById('classResearchInput'), 0, 99999, commit),
+    corpLv:  readInt(document.getElementById('corpResearchInput'), 0, 99999, commit),
+    bond:    readInt(document.getElementById('bondInput'), 1, 40, commit),
   };
 
-  const finalATK = calculateFinalStat('ATK', p);
-  const finalDEF = calculateFinalStat('DEF', p);
-  const finalHP  = calculateFinalStat('HP',  p);
+  // 等级：提交时夹到有效范围；输入过程中超出范围则提示并暂不显示数值
+  const rawLevel = parseInt(levelInput.value, 10);
+  if (commit) {
+    p.level = readInt(levelInput, 1, maxLevel, true);
+  } else if (isNaN(rawLevel) || rawLevel < 1 || rawLevel > maxLevel) {
+    levelHint.textContent = `该职业 + 武器类型目前只有 1–${maxLevel} 级数据`;
+    document.getElementById('displayLevel').textContent = levelInput.value || '—';
+    for (const id of ['resHP', 'resATK', 'resDEF']) document.getElementById(id).textContent = '—';
+    return;
+  } else {
+    p.level = rawLevel;
+  }
+  levelHint.textContent = '';
 
-  document.getElementById('displayLevel').innerText = level;
-  document.getElementById('resATK').innerText = finalATK.toLocaleString();
-  document.getElementById('resDEF').innerText = finalDEF.toLocaleString();
-  document.getElementById('resHP').innerText  = finalHP.toLocaleString();
+  document.getElementById('displayLevel').textContent = p.level;
+  document.getElementById('resATK').textContent = calculateFinalStat('ATK', p).toLocaleString();
+  document.getElementById('resDEF').textContent = calculateFinalStat('DEF', p).toLocaleString();
+  document.getElementById('resHP').textContent  = calculateFinalStat('HP',  p).toLocaleString();
+}
+
+// 任意参数变化即重算：input 事件（键入时）实时计算，change 事件（提交时）规整并联动后再计算
+for (const el of document.querySelectorAll('.container input, .container select')) {
+  el.addEventListener('input',  () => calculate(false, el));
+  el.addEventListener('change', () => calculate(true, el));
 }
 
 // 页面加载时自动计算一次
-window.onload = calculate;
+calculate(true);
 </script>
 </body>
 </html>

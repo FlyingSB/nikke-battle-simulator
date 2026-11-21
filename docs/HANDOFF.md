@@ -8,7 +8,7 @@
 
 - **进行中**：无
 - **下一步**：见 `TODOS.md` 与 README 待审核角色列表
-- **未提交改动 / 分支**：无（属性公式改写与计算器同步已提交到 `claude/project-thread-jl7xuk`）
+- **未提交改动 / 分支**：无（属性公式改写、计算器同步与自动计算均已提交到 `claude/project-thread-jl7xuk`）
 - **注意事项**：
   - 角色名写全称、data-catalog「已审核」列不许动等硬规则见 `docs/agent-rules.md`
   - 浏览器只开 `http://127.0.0.1:5500`，不许自启服务器
